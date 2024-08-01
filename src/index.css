@@ -1,0 +1,441 @@
+
+/* Stilos Generales */
+
+html {
+    box-sizing: border-box;
+  }
+  *,
+  *:before,
+  *:after {
+    box-sizing: inherit;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+      "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+      monospace;
+  }
+  
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    line-height: 1.5;
+    color: #121212;
+  }
+  
+
+  /*==========================Sidebar==========================================*/
+  
+  #root {
+    display: flex;
+    height: 100%;
+    width: 100%;
+  }
+  
+  #sidebar {
+    width: 200px;
+    background-color: #f7f7f7;
+    border-right: solid 1px #e3e3e3;
+    display: flex;
+    flex-direction: column;
+    color: #121212;
+  }
+  
+  #sidebar > * {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+  
+  #sidebar h1 {
+    font-size: 1rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 1rem 2rem;
+    border-top: 1px solid #e3e3e3;
+    order: 1;
+    line-height: 1;
+  }
+  
+  #sidebar > div {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e3e3e3;
+  }
+  
+  #sidebar > div form {
+    position: relative;
+  }
+  
+  
+  #sidebar nav {
+    flex: 1;
+    overflow: auto;
+    padding-top: 1rem;
+  }
+  
+  #sidebar nav a span {
+    float: right;
+    color: #000000;
+  }
+  #sidebar nav a.active span {
+    color: inherit;
+  }
+  
+  i {
+    color: #818181;
+  }
+  #sidebar nav .active i {
+    color: inherit;
+  }
+  
+  #sidebar ul {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+  
+  #sidebar li {
+    margin: 0.25rem 0;
+  }
+  
+  #sidebar nav a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    overflow: hidden;
+  
+    white-space: pre;
+    padding: 0.5rem;
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+    gap: 1rem;
+  }
+  
+  #sidebar nav a:hover {
+    background: #e3e3e3;
+  }
+  
+  #sidebar nav a.active {
+    background: hsl(224, 98%, 58%);
+    color: white;
+  }
+
+  #sidebar nav a.pending {
+    color: hsl(224, 98%, 58%);
+  }
+  /*=================================Detail==============*/
+  
+ /* #detail {
+    flex: 1;
+    padding: 2rem 4rem;
+    width: 100%;
+  }
+  
+  #detail.loading {
+    opacity: 0.25;
+    transition: opacity 200ms;
+    transition-delay: 200ms;
+  }*/
+     /*=================================Contact=============*/
+
+
+
+  
+  #error-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+
+
+  /* En tu archivo CSS */
+
+ body {
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  background-color: #f4f4f4;
+  margin: 0;
+  padding: 0;
+ }
+
+ .row {
+  display: flex;
+ }
+
+ .col4 {
+  flex: 1;
+  padding: 20px;
+  background-color: #fff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+ }
+
+  .col8 {
+  flex: 2;
+  padding: 20px;
+  background-color: #f9f9f9;
+ }
+
+
+
+ .list-group {
+  list-style: none;
+  padding: 0;
+  margin: 0; 
+ }
+
+ .list-group-item {
+  padding: 15px;
+  margin: 5px 0;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+ }
+
+
+ /* Overall layout and spacing */
+.row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  padding: 20px;
+}
+
+.col4 {
+  width: 350px; /* Adjust as needed */
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  font-weight: 300; /* Use a lighter font weight for a modern feel */
+}
+
+/* Form elements */
+form {
+  padding: 20px;
+}
+
+label {
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+input[type="text"],
+input[type="email"] {
+  border: none;
+  border-bottom: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 10px;
+  width: 100%;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus {
+  border-bottom: 1px solid #007aff; /* Apple's blue accent color */
+  outline: none;
+}
+
+
+/* General container styling */
+.container {
+  width: 100%;
+  margin: 40px auto;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Button styling */
+.Buttons {
+  text-align: right;
+  margin-bottom: 20px;
+}
+
+.Buttons a {
+  text-decoration: none;
+  color: #007bff;
+  font-weight: bold;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-right: 5px;
+}
+
+/* Table styling */
+.table-container {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.table th,
+.table td {
+  padding: 10px 15px;
+  text-align: left;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.table th {
+  font-weight: 600;
+}
+
+.table tr:nth-child(even) {
+  background-color: #f5f5f5;
+}
+
+
+
+/* Botón de eliminación de usuario */
+.delete-user-button {
+  background-color: #e53935; /* Color rojo de Apple */
+  border: none; /* Bordes sin costuras */
+  border-radius: 5px; /* Esquinas redondeadas sutiles */
+  color: #ffffff; /* Texto blanco nítido */
+  font-family: -apple-system, sans-serif; /* Fuente de sistema consistente */
+  font-size: 15px; /* Tamaño de texto legible */
+  padding: 7px 12px; /* Relleno cómodo */
+  cursor: pointer; /* Indicar interactividad */
+
+  /* Sombra de gota sutil para la profundidad */
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+
+  /* Transición para efectos de desplazamiento suaves */
+  transition: all 0.2s ease-in-out;
+}
+
+/* Efecto de desplazamiento para comentarios visuales */
+.delete-user-button:hover {
+  background-color: #c62f2f; /* Rojo ligeramente más oscuro al desplazarse */
+}
+
+
+
+/* Botón de edición de usuario */
+.edit-user-btn {
+  background-color: #f3f3f3; /* Gris claro como fondo base */
+  border: 1px solid #ddd; /* Borde sutil para separación visual */
+  border-radius: 5px; /* Esquinas redondeadas sutiles */
+  color: #333; /* Texto gris oscuro */
+  font-family: -apple-system, sans-serif; /* Fuente de sistema consistente */
+  font-size: 15px; /* Tamaño de texto legible */
+  padding: 8px 8px; /* Relleno cómodo */
+  cursor: pointer; /* Indicar interactividad */
+  display: flex; /* Permite alinear el ícono y el texto */
+  align-items: end; /* Centra verticalmente el contenido */
+
+  /* Transición para efectos de desplazamiento suaves */
+  transition: all 0.2s ease-in-out;
+}
+
+/* Efecto de desplazamiento para comentarios visuales */
+.edit-user-btn:hover {
+  background-color: #eee; /* Gris ligeramente más claro al desplazarse */
+}
+
+/* Ícono de edición */
+.edit-user-btn svg {
+  margin-right: 5px; /* Espacio entre el ícono y el texto */
+}
+
+
+/* General container styling */
+.main-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: #f2f2f2; /* Light gray background */
+}
+
+/* Title styling */
+.main-title {
+  font-family: -apple-system, sans-serif;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+/* Card container styling */
+.main-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+/* Individual card styling */
+.card {
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden; /* Prevent content from overflowing */
+}
+
+/* Card inner content styling */
+.card-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+}
+
+.card-inner h3 {
+  font-family: -apple-system, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.card-inner .card_icon {
+  font-size: 32px;
+  color: #007aff; /* Apple's signature blue */
+}
+
+.card h1 {
+  font-family: -apple-system, sans-serif;
+  font-size: 36px;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+}
+
+
+/*componente createuser*/
+
