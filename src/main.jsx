@@ -3,7 +3,7 @@ import * as ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import "./index.css";
 
-//importar los componentes
+// Importar los componentes
 import Root from "./components/root";
 import ErrorPage from "./error-page";
 import Home from "./components/home";
@@ -13,77 +13,86 @@ import FormProducts from "./components/formProducts";
 import Products from "./components/product";
 import Sales from "./components/ventas";
 import NewSale from "./components/newSale";
-import Sigin from "./components/register";
-import Login from "./components/login";
+import Sigin from "./components/auth/register";
+import Login from "./components/auth/login";
 import Homep from "./components/home2";
 import Empleados from "./components/empleados";
+import Landing from "./components/auth/landing";
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Root />,
-    errorElement: <ErrorPage/>,
-    children:[{
-      index:true,element:<Home/>
-    },
-    {
-      path: "/sigin",
-      element: <Sigin/>,
-    },
-    {
-      path: "/login",
-      element: <Login/>
-    },
-
-    {
-      path: "/dashboard",
-      element: <Home />,
-    },
-    {
-      path:"/home2",
-      element:<Homep/>,
-
-    },
+    element: <Landing />,
+    errorElement: <ErrorPage />,
+    children: [
       {
-        path: "/clientes",
+        index: true,
+        element: <Landing/>,
+      },
+      {
+        path: "sigin",
+        element: <Sigin />,
+      },
+      {
+        path: "sigin",
+        element: <Login />,
+      },
+    ]
+  },
+  {
+    path: "/inicio",
+    element: <Root />,
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        index: true,
+        element: <Home />,
+      },
+      {
+        path: "dashboard",
+        element: <Home />,
+      },
+      {
+        path: "home2",
+        element: <Homep />,
+      },
+      {
+        path: "clientes",
         element: <Clients />,
       },
       {
-        path:"/clientes/nuevo",
-        element: <FormClients/>
-      },
-
-      {
-        path:"/clientes/editar/:_id",
-        element: <FormClients/>
+        path: "clientes/nuevo",
+        element: <FormClients />,
       },
       {
-        path:"/productos",
-        element: <Products/>
+        path: "clientes/editar/:_id",
+        element: <FormClients />,
       },
       {
-        path:"/productos/nuevo",
-        element: <FormProducts/>
-      },
-
-      {
-        path:"/productos/editar/:_id",
-        element: <FormProducts/>
-      },
-
-      {
-        path:"/ventas",
-        element: <Sales/>
+        path: "productos",
+        element: <Products />,
       },
       {
-        path:"/ventas/nuevo",
-        element: <NewSale/>
+        path: "productos/nuevo",
+        element: <FormProducts />,
       },
       {
-        path:"/empleados",
-        element: <Empleados/>
-      }
-    ]
+        path: "productos/editar/:_id",
+        element: <FormProducts />,
+      },
+      {
+        path: "ventas",
+        element: <Sales />,
+      },
+      {
+        path: "ventas/nuevo",
+        element: <NewSale />,
+      },
+      {
+        path: "empleados",
+        element: <Empleados />,
+      },
+    ],
   },
 ]);
 
