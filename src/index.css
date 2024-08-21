@@ -1,5 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Stilos Generales */
 
 html {
     box-sizing: border-box;
@@ -138,6 +140,10 @@ html {
     color: hsl(224, 98%, 58%);
   }
   /*=================================Detail==============*/
+  #detail{
+
+    width: 100%;
+  }
 
      /*=================================Contact=============*/
 
