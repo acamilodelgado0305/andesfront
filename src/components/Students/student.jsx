@@ -21,7 +21,7 @@ const Students = () => {
   }, []);
 
   const fetchStudents = async () => {
-    const res = await axios.get("http://localhost:7000/api/students");
+    const res = await axios.get("https://fevaback.app.la-net.co/api/students");
     setStudents(res.data);
   };
 

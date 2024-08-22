@@ -11,7 +11,7 @@ const Students = () => {
   }, []);
 
   const fetchFacturas = async () => {
-    const res = await axios.get("http://localhost:7000/api/invoices");
+    const res = await axios.get("https://fevaback.app.la-net.co/api/invoices");
     setFacturas(res.data);
   };
 

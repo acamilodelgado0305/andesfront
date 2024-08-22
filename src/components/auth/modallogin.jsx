@@ -21,7 +21,7 @@ const LoginModal = ({ isOpen, onClose }) => {
     event.preventDefault();
 
     try {
-      const response = await axios.post("http://localhost:7000/auth/login", {
+      const response = await axios.post("https://fevaback.app.la-net.co/auth/login", {
         email: user.email,
         password: user.password,
       });
