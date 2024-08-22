@@ -4,7 +4,7 @@
   font-family: Arial, sans-serif;
   color: #333;
   text-align: center;
-  background: url("tu-imagen-de-fondo.jpg") no-repeat center center fixed;
+  background-color: white no-repeat center center fixed;
   background-size: cover;
   height: 100vh;
   margin: 0;
