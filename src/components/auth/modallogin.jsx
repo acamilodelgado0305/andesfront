@@ -1,63 +1,77 @@
-import React, { useState } from "react";
-import axios from "axios";
+import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import "./auth.css"; // Asegúrate de crear y usar el archivo de estilos adecuado
+import { login } from "../../services/studentService";
+import axios from "axios";
 
 const LoginModal = ({ isOpen, onClose }) => {
-  const [user, setUser] = useState({
-    email: "",
-    password: "",
-  });
+  const [user, setUser] = useState({ email: "", password: "" });
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleInputChange = (event) => {
-    setUser({
-      ...user,
-      [event.target.name]: event.target.value,
-    });
-  };
+  const handleInputChange = useCallback((event) => {
+    const { name, value } = event.target;
+    setUser((prevUser) => ({ ...prevUser, [name]: value }));
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    setIsLoading(true);
     try {
-      const response = await axios.post("https://fevaback.app.la-net.co/auth/login", {
-        email: user.email,
-        password: user.password,
-      });
+      const response = await login(user.email, user.password);
 
-      if (
-        response.status === 200 &&
-        response.data.message === "Inicio de sesión exitoso"
-      ) {
+      if (response.message === "Inicio de sesión exitoso") {
         console.log("Navigating to /inicio");
         navigate("/inicio");
       } else {
-        // Mostrar mensaje de error
-        console.error(response.data.error);
+        console.error("Error:", response.error || "Error desconocido");
       }
-
-      setUser({
-        email: "",
-        password: "",
-      });
-
-      onClose();
     } catch (error) {
-      console.error("Error al enviar la solicitud:", error);
+      console.error("Error al iniciar sesión:", error);
+    } finally {
+      setIsLoading(false);
+      setUser({ email: "", password: "" });
+      onClose();
     }
   };
+
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close" onClick={onClose}>
-          X
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+          onClick={onClose}
+        >
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
         </button>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Email
+            </label>
             <input
               type="email"
               id="email"
@@ -65,10 +79,16 @@ const LoginModal = ({ isOpen, onClose }) => {
               value={user.email}
               onChange={handleInputChange}
               required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
             />
           </div>
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Password
+            </label>
             <input
               type="password"
               id="password"
@@ -76,10 +96,15 @@ const LoginModal = ({ isOpen, onClose }) => {
               value={user.password}
               onChange={handleInputChange}
               required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
             />
           </div>
-          <button type="submit" className="btn btn-primary">
-            Login
+          <button
+            type="submit"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            disabled={isLoading}
+          >
+            {isLoading ? "Iniciando sesión..." : "Login"}
           </button>
         </form>
       </div>
@@ -87,4 +112,4 @@ const LoginModal = ({ isOpen, onClose }) => {
   );
 };
 
-export default LoginModal;
+export default React.memo(LoginModal);

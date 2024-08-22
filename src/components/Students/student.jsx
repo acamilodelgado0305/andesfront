@@ -3,6 +3,8 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import { FaTrashAlt, FaUserEdit } from "react-icons/fa";
 import CreateStudentModal from "./addStudent";
+import { getStudents } from "../../services/studentService";
+import { deleteStudent } from "../../services/studentService";
 
 const Students = () => {
   const [students, setStudents] = useState([]);
@@ -17,17 +19,28 @@ const Students = () => {
   };
 
   useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const data = await getStudents();
+        setStudents(data);
+      } catch (err) {
+        setError("Error al cargar los estudiantes");
+        console.error("Error fetching students:", err);
+      }
+    };
+
     fetchStudents();
   }, []);
 
-  const fetchStudents = async () => {
-    const res = await axios.get("https://fevaback.app.la-net.co/api/students");
-    setStudents(res.data);
-  };
-
-  const deleteStudent = async (id) => {
-    await axios.delete("http://localhost:7000/api/students/" + id);
-    fetchStudents();
+  const handleDelete = async (id) => {
+    try {
+      await deleteStudent(id);
+      // Actualiza la lista de estudiantes después de eliminar
+      const updatedStudents = students.filter((student) => student.id !== id);
+      setStudents(updatedStudents);
+    } catch (error) {
+      console.error("Error al eliminar el estudiante:", error);
+    }
   };
 
   return (
@@ -67,6 +80,9 @@ const Students = () => {
                 Teléfono
               </th>
               <th className="px-6 py-3 border-b text-left text-gray-600">
+                Fecha de Graduación
+              </th>
+              <th className="px-6 py-3 border-b text-left text-gray-600">
                 Acciones
               </th>
             </tr>
@@ -91,6 +107,9 @@ const Students = () => {
                 </td>
                 <td className="px-6 py-4 border-b">{student.email}</td>
                 <td className="px-6 py-4 border-b">{student.telefono}</td>
+                <td className="px-6 py-4 border-b">
+                  {student.fecha_graduacion}
+                </td>
                 <td className="px-6 py-4 border-b flex space-x-2">
                   <button
                     className="text-red-500 hover:text-red-700"
@@ -100,7 +119,7 @@ const Students = () => {
                           "¿Está seguro de que desea eliminar este estudiante?"
                         )
                       ) {
-                        deleteStudent(student.id);
+                        handleDelete(student.id);
                       }
                     }}
                   >

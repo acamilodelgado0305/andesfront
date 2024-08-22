@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { addStudent, getPrograms } from "../../services/studentService";
 
 const CreateStudentModal = ({ isOpen, onClose }) => {
+  const [programas, setProgramas] = useState([]);
   const [formData, setFormData] = useState({
     nombre: "",
     apellido: "",
@@ -12,35 +14,47 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
     ultimoCursoVisto: "",
     numeroCedula: "",
     modalidadEstudio: "",
+    fechaGraduacion: "",
   });
 
+  const coordinadores = [
+    { value: "Adriana Benitez", label: "Adriana Benitez" },
+    { value: "Camilo Delgado", label: "Camilo Delgado" },
+    { value: "coordinador3", label: "Coordinador 3" },
+  ];
+
+  useEffect(() => {
+    const fetchProgramsData = async () => {
+      try {
+        const data = await getPrograms(); // Asegúrate de que getPrograms() sea la función correcta para obtener los programas
+        setProgramas(data);
+      } catch (err) {
+        console.error("Error fetching Programs:", err);
+      }
+    };
+
+    fetchProgramsData();
+  }, []);
+
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: name === "programaId" || name === "ultimoCursoVisto" ? parseInt(value) : value, // Convertir a entero si el campo es "programaId" o "ultimoCursoVisto"
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch("http://localhost:7000/api/students", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        alert("Estudiante creado exitosamente");
-        onClose(); // Cierra el modal
-      } else {
-        alert("Hubo un error al crear el estudiante");
-      }
+      // Verifica el contenido de formData antes de enviar
+      console.log("Datos del formulario:", formData);
+      const response = await addStudent(formData);
+      alert("Estudiante creado exitosamente");
+      onClose(); // Cierra el modal
     } catch (error) {
-      console.error("Error:", error);
-      alert("Error al crear el estudiante");
+      console.error("Error al agregar el estudiante:", error);
+      alert("Hubo un error al crear el estudiante");
     }
   };
 
@@ -48,7 +62,7 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-      <div className="h-[90%] bg-white pt-6 rounded-lg shadow-lg max-w-lg w-full">
+      <div className="h-[90%] bg-white p-3 rounded-lg shadow-lg max-w-lg w-full">
         <h2 className="text-2xl font-semibold mb-4">Crear Nuevo Estudiante</h2>
         <form
           onSubmit={handleSubmit}
@@ -111,36 +125,60 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
           </div>
           <div>
             <label className="block text-gray-700">Programa ID</label>
-            <input
-              type="number"
+            <select
+              id="programaId"
               name="programaId"
               value={formData.programaId}
               onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
+              className="w-full p-2 bg-gray-100 rounded border border-gray-300"
               required
-            />
+            >
+              <option value="">Selecciona un programa</option>
+              {programas.map((pro) => (
+                <option key={pro.id} value={pro.id}>
+                  {pro.nombre}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-gray-700">Coordinador</label>
-            <input
-              type="text"
+            <select
+              id="coordinador"
               name="coordinador"
               value={formData.coordinador}
               onChange={handleChange}
               className="w-full px-3 py-2 border rounded"
               required
-            />
+            >
+              <option value="" disabled>
+                Selecciona un coordinador
+              </option>
+              {coordinadores.map((coordinador) => (
+                <option key={coordinador.value} value={coordinador.value}>
+                  {coordinador.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-gray-700">Último Curso Visto</label>
-            <input
-              type="number"
+            <select
               name="ultimoCursoVisto"
               value={formData.ultimoCursoVisto}
               onChange={handleChange}
               className="w-full px-3 py-2 border rounded"
               required
-            />
+            >
+              <option value="">Selecciona un curso</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+              <option value="11">11</option>
+            </select>
           </div>
           <div>
             <label className="block text-gray-700">Número de Cédula</label>
@@ -159,6 +197,17 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
               type="text"
               name="modalidadEstudio"
               value={formData.modalidadEstudio}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700">Fecha de Graduación</label>
+            <input
+              type="date"
+              name="fechaGraduacion"
+              value={formData.fechaGraduacion}
               onChange={handleChange}
               className="w-full px-3 py-2 border rounded"
               required

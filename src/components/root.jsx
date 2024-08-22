@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React from 'react';
 import { Outlet, Link } from "react-router-dom";
 import {
   BsCart,
@@ -9,54 +9,36 @@ import {
 } from "react-icons/bs";
 import { MdSchool } from "react-icons/md";
 
-export default class Root extends Component {
-  render() {
-    return (
-      <>
-        <div id="sidebar">
-          <h1>Administrador</h1>
-          <div></div>
-          <nav>
-            <ul>
-              <li className="sidebar-list-item">
-                <Link to="/inicio/dashboard" className="sidebar-link">
-                  <div className="icon-container">
-                    <BsBarChartFill className="icon" />
-                    <span>Dashboard</span>
-                  </div>
-                </Link>
-              </li>
-              <li className="sidebar-list-item">
-                <Link to="/inicio/students" className="sidebar-link">
-                  <div className="icon-container">
-                    <BsPersonCheckFill className="icon" />
-                    <span>Estudiantes</span>
-                  </div>
-                </Link>
-              </li>
-              <li className="sidebar-list-item">
-                <Link to="/inicio/facturas" className="sidebar-link">
-                  <div className="icon-container">
-                    <BsBox className="icon" />
-                    <span>Facturas</span>
-                  </div>
-                </Link>
-              </li>
-              <li className="sidebar-list-item">
-                <Link to="/inicio/programas" className="sidebar-link">
-                  <div className="icon-container">
-                    <MdSchool className="icon" />
-                    <span>Programas</span>
-                  </div>
-                </Link>
-              </li>
-            </ul>
-          </nav>
+const Root = () => {
+  return (
+    <div className="flex h-screen bg-gray-100">
+      <aside className="w-64 bg-white shadow-md">
+        <div className="p-5">
+          <h1 className="text-2xl font-bold text-gray-800">Administrador</h1>
         </div>
-        <div id="detail">
-          <Outlet />
-        </div>
-      </>
-    );
-  }
+        <nav className="mt-5">
+          <ul>
+            <SidebarItem to="/inicio/dashboard" icon={<BsBarChartFill />} text="Dashboard" />
+            <SidebarItem to="/inicio/students" icon={<BsPersonCheckFill />} text="Estudiantes" />
+            <SidebarItem to="/inicio/facturas" icon={<BsBox />} text="Facturas" />
+            <SidebarItem to="/inicio/programas" icon={<MdSchool />} text="Programas" />
+          </ul>
+        </nav>
+      </aside>
+      <main className="flex-1  overflow-y-auto">
+        <Outlet />
+      </main>
+    </div>
+  );
 }
+
+const SidebarItem = ({ to, icon, text }) => (
+  <li className="mb-2">
+    <Link to={to} className="flex items-center px-5 py-3 text-gray-700 hover:bg-indigo-100 hover:text-indigo-600 rounded-lg transition-colors duration-150 ease-in-out">
+      <span className="text-lg mr-4">{icon}</span>
+      <span className="font-medium">{text}</span>
+    </Link>
+  </li>
+);
+
+export default Root;
