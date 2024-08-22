@@ -39,6 +39,15 @@ const Students = () => {
     }
   };
 
+  const getCoordinatorStyle = (coordinator) => {
+    if (coordinator === "Camilo Delgado") {
+      return "underline text-orange-600";
+    } else if (coordinator === "Adriana Benitez") {
+      return "underline text-red-600";
+    }
+    return "";
+  };
+
   return (
     <div className="container mx-auto mt-8 p-4">
       <div className="flex justify-between mb-4">
@@ -88,9 +97,7 @@ const Students = () => {
               <tr key={student.id} className="hover:bg-gray-100">
                 <td className="px-6 py-4 border-b">{student.numero_cedula}</td>
                 <td
-                  className={`px-6 py-4 border-b ${
-                    student.coordinador === "Camilo Delgado" ? "underline text-orange-600" : ""
-                  }`}
+                  className={`px-6 py-4 border-b ${getCoordinatorStyle(student.coordinador)}`}
                 >
                   {student.coordinador}
                 </td>
