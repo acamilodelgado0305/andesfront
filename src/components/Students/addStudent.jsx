@@ -40,18 +40,33 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: name === "programaId" || name === "ultimoCursoVisto" ? parseInt(value) : value, // Convertir a entero si el campo es "programaId" o "ultimoCursoVisto"
+      [name]:
+        name === "programaId" || name === "ultimoCursoVisto"
+          ? parseInt(value)
+          : value, // Convertir a entero si el campo es "programaId" o "ultimoCursoVisto"
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const apiUrl = "https://fevaback.app.la-net.co/api/students";
     try {
-      // Verifica el contenido de formData antes de enviar
       console.log("Datos del formulario:", formData);
-      const response = await addStudent(formData);
-      alert("Estudiante creado exitosamente");
-      onClose(); // Cierra el modal
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        alert("Estudiante creado exitosamente");
+        onClose(); // Cierra el modal
+      } else {
+        console.error("Error al agregar el estudiante:", response.statusText);
+        alert("Hubo un error al crear el estudiante");
+      }
     } catch (error) {
       console.error("Error al agregar el estudiante:", error);
       alert("Hubo un error al crear el estudiante");

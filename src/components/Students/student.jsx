@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { Link } from "react-router-dom";
 import { FaTrashAlt, FaUserEdit } from "react-icons/fa";
 import CreateStudentModal from "./addStudent";
-import { getStudents } from "../../services/studentService";
-import { deleteStudent } from "../../services/studentService";
+import { getStudents, deleteStudent } from "../../services/studentService";
 
 const Students = () => {
   const [students, setStudents] = useState([]);
@@ -24,7 +22,6 @@ const Students = () => {
         const data = await getStudents();
         setStudents(data);
       } catch (err) {
-        setError("Error al cargar los estudiantes");
         console.error("Error fetching students:", err);
       }
     };
@@ -35,7 +32,6 @@ const Students = () => {
   const handleDelete = async (id) => {
     try {
       await deleteStudent(id);
-      // Actualiza la lista de estudiantes después de eliminar
       const updatedStudents = students.filter((student) => student.id !== id);
       setStudents(updatedStudents);
     } catch (error) {
@@ -91,7 +87,13 @@ const Students = () => {
             {students.map((student) => (
               <tr key={student.id} className="hover:bg-gray-100">
                 <td className="px-6 py-4 border-b">{student.numero_cedula}</td>
-                <td className="px-6 py-4 border-b">{student.coordinador}</td>
+                <td
+                  className={`px-6 py-4 border-b ${
+                    student.coordinador === "Camilo Delgado" ? "underline text-orange-600" : ""
+                  }`}
+                >
+                  {student.coordinador}
+                </td>
                 <td className="px-6 py-4 border-b">{student.nombre}</td>
                 <td className="px-6 py-4 border-b">{student.apellido}</td>
                 <td className="px-6 py-4 border-b">
