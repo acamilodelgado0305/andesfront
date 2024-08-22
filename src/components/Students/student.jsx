@@ -16,16 +16,16 @@ const Students = () => {
     setIsModalOpen(false);
   };
 
-  useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        const data = await getStudents();
-        setStudents(data);
-      } catch (err) {
-        console.error("Error fetching students:", err);
-      }
-    };
+  const fetchStudents = async () => {
+    try {
+      const data = await getStudents();
+      setStudents(data);
+    } catch (err) {
+      console.error("Error fetching students:", err);
+    }
+  };
 
+  useEffect(() => {
     fetchStudents();
   }, []);
 
@@ -37,6 +37,10 @@ const Students = () => {
     } catch (error) {
       console.error("Error al eliminar el estudiante:", error);
     }
+  };
+
+  const handleStudentAdded = () => {
+    fetchStudents(); // Actualiza la lista de estudiantes después de agregar uno nuevo
   };
 
   const getCoordinatorStyle = (coordinator) => {
@@ -58,7 +62,11 @@ const Students = () => {
         >
           Crear Estudiante
         </button>
-        <CreateStudentModal isOpen={isModalOpen} onClose={closeModal} />
+        <CreateStudentModal
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          onStudentAdded={handleStudentAdded}
+        />
       </div>
 
       <div className="overflow-x-auto">

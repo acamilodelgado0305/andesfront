@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { addStudent, getPrograms } from "../../services/studentService";
 
-const CreateStudentModal = ({ isOpen, onClose }) => {
+const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
   const [programas, setProgramas] = useState([]);
   const [formData, setFormData] = useState({
     nombre: "",
@@ -26,7 +26,7 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
   useEffect(() => {
     const fetchProgramsData = async () => {
       try {
-        const data = await getPrograms(); // Asegúrate de que getPrograms() sea la función correcta para obtener los programas
+        const data = await getPrograms();
         setProgramas(data);
       } catch (err) {
         console.error("Error fetching Programs:", err);
@@ -43,7 +43,7 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
       [name]:
         name === "programaId" || name === "ultimoCursoVisto"
           ? parseInt(value)
-          : value, // Convertir a entero si el campo es "programaId" o "ultimoCursoVisto"
+          : value,
     });
   };
 
@@ -51,7 +51,6 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
     e.preventDefault();
     const apiUrl = "https://fevaback.app.la-net.co/api/students";
     try {
-      console.log("Datos del formulario:", formData);
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
@@ -62,6 +61,7 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
 
       if (response.ok) {
         alert("Estudiante creado exitosamente");
+        onStudentAdded(); // Llama a la función para actualizar la lista de estudiantes
         onClose(); // Cierra el modal
       } else {
         console.error("Error al agregar el estudiante:", response.statusText);
@@ -119,7 +119,7 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
           <div>
             <label className="block text-gray-700">Teléfono</label>
             <input
-              type="text"
+              type="tel"
               name="telefono"
               value={formData.telefono}
               onChange={handleChange}
@@ -139,19 +139,18 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
             />
           </div>
           <div>
-            <label className="block text-gray-700">Programa ID</label>
+            <label className="block text-gray-700">Programa</label>
             <select
-              id="programaId"
               name="programaId"
               value={formData.programaId}
               onChange={handleChange}
-              className="w-full p-2 bg-gray-100 rounded border border-gray-300"
+              className="w-full px-3 py-2 border rounded"
               required
             >
-              <option value="">Selecciona un programa</option>
-              {programas.map((pro) => (
-                <option key={pro.id} value={pro.id}>
-                  {pro.nombre}
+              <option value="">Seleccione un programa</option>
+              {programas.map((programa) => (
+                <option key={programa.id} value={programa.id}>
+                  {programa.nombre}
                 </option>
               ))}
             </select>
@@ -159,16 +158,13 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
           <div>
             <label className="block text-gray-700">Coordinador</label>
             <select
-              id="coordinador"
               name="coordinador"
               value={formData.coordinador}
               onChange={handleChange}
               className="w-full px-3 py-2 border rounded"
               required
             >
-              <option value="" disabled>
-                Selecciona un coordinador
-              </option>
+              <option value="">Seleccione un coordinador</option>
               {coordinadores.map((coordinador) => (
                 <option key={coordinador.value} value={coordinador.value}>
                   {coordinador.label}
@@ -178,22 +174,14 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
           </div>
           <div>
             <label className="block text-gray-700">Último Curso Visto</label>
-            <select
+            <input
+              type="number"
               name="ultimoCursoVisto"
               value={formData.ultimoCursoVisto}
               onChange={handleChange}
               className="w-full px-3 py-2 border rounded"
               required
-            >
-              <option value="">Selecciona un curso</option>
-              <option value="5">5</option>
-              <option value="6">6</option>
-              <option value="7">7</option>
-              <option value="8">8</option>
-              <option value="9">9</option>
-              <option value="10">10</option>
-              <option value="11">11</option>
-            </select>
+            />
           </div>
           <div>
             <label className="block text-gray-700">Número de Cédula</label>
@@ -228,19 +216,19 @@ const CreateStudentModal = ({ isOpen, onClose }) => {
               required
             />
           </div>
-          <div className="flex justify-end space-x-4">
+          <div className="flex justify-end mt-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-500 text-white rounded"
+              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mr-2"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded"
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
             >
-              Crear
+              Guardar Estudiante
             </button>
           </div>
         </form>
