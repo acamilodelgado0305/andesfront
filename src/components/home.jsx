@@ -1,128 +1,36 @@
-import React, { Component, useEffect } from 'react'
-import {
-  BsFillArchiveFill,
-  BsFillGrid3X3GapFill,
-  BsPeopleFill,
-  BsFillBellFill,
-} from "react-icons/bs";
-import { AreaChart } from "keep-react";
-import {Link} from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import { getStudents } from '../services/studentService';
 
-export default class Home extends Component {
-  render() {
-    const chartData = [
-      {
-        name: "1",
-        price: 0,
-        sell: 0,
-      },
-      {
-        name: "2",
-        price: 300,
-        sell: 200,
-      },
-      {
-        name: "3",
-        price: 170,
-        sell: 120,
-      },
-      {
-        name: "4",
-        price: 190,
-        sell: 130,
-      },
-      {
-        name: "5",
-        price: 220,
-        sell: 120,
-      },
-      {
-        name: "6",
-        price: 400,
-        sell: 213,
-      },
-      {
-        name: "7",
-        price: 420,
-        sell: 325,
-      },
-      {
-        name: "8",
-        price: 450,
-        sell: 250,
-      },
-      {
-        name: "9",
-        price: 400,
-        sell: 300,
-      },
-      {
-        name: "10",
-        price: 500,
-        sell: 400,
-      },
-    ];
-    return (
-      <main className="main-container">
+const Home = () => {
+  const [studentCount, setStudentCount] = useState(0);
+
+  const fetchStudents = async () => {
+    try {
+      const data = await getStudents();
+      setStudentCount(data.length); // Asume que `data` es un array de estudiantes
+    } catch (err) {
+      console.error("Error fetching students:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  return (
+    <main className="flex flex-col items-center p-4">
       <div className="main-title">
-        <h3>DASHBOARD</h3>
+        <h3 className="text-2xl font-semibold mb-4">DASHBOARD</h3>
       </div>
     
-    <div className="Buttons">
-          <Link to="/sigin">
-            <button type="button" className="btn btn-primary">
-              SigIn
-            </button>
-          </Link>
-        </div>
-
-        <div className="Buttons">
-          <Link to="/login">
-            <button type="button" className="btn btn-primary">
-              Login
-            </button>
-          </Link>
-        </div>
-      
-
-      <div className="main-cards">
-        <div className="card">
-          <div className="card-inner">
-            <h3>PRODUCTOS</h3>
-            <BsFillArchiveFill className="card_icon" />
-          </div>
-          <h1>300</h1>
-        </div>
-        <div className="card">
-          <div className="card-inner">
-            <h3>TRAFICO</h3>
-            <BsFillGrid3X3GapFill className="card_icon" />
-          </div>
-          <h1>12</h1>
-        </div>
-        <div className="card">
-          <div className="card-inner">
-            <h3>CLIENTES ACTIVOS</h3>
-            <BsPeopleFill className="card_icon" />
-          </div>
-          <h1>33</h1>
-        </div>
-        <div className="card">
-          <div className="card-inner">
-            <h3>ALERTAS</h3>
-            <BsFillBellFill className="card_icon" />
-          </div>
-          <h1>42</h1>
+      <div className="card bg-white shadow-md rounded-lg p-6 w-full max-w-sm">
+        <div className="card-inner flex justify-between items-center">
+          <h3 className="text-xl font-bold">ESTUDIANTES</h3>
+          <h1 className="text-3xl font-bold">{studentCount}</h1>
         </div>
       </div>
-
-      <AreaChart
-        chartData={chartData}
-        dataKey="price"
-        secondaryDataKey="sell"
-        showTooltip={true}
-      />
     </main>
-    )
-  }
-}
+  );
+};
+
+export default Home;
