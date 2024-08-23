@@ -174,14 +174,21 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
           </div>
           <div>
             <label className="block text-gray-700">Último Curso Visto</label>
-            <input
-              type="number"
+            <select
               name="ultimoCursoVisto"
               value={formData.ultimoCursoVisto}
               onChange={handleChange}
               className="w-full px-3 py-2 border rounded"
               required
-            />
+            >
+              <option value={5}>5</option>
+              <option value={6}>6</option>
+              <option value={7}>7</option>
+              <option value={8}>8</option>
+              <option value={9}>9</option>
+              <option value={10}>10</option>
+              <option value={11}>11</option>
+            </select>
           </div>
           <div>
             <label className="block text-gray-700">Número de Cédula</label>
@@ -196,14 +203,16 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
           </div>
           <div>
             <label className="block text-gray-700">Modalidad de Estudio</label>
-            <input
-              type="text"
+            <select
               name="modalidadEstudio"
               value={formData.modalidadEstudio}
               onChange={handleChange}
               className="w-full px-3 py-2 border rounded"
               required
-            />
+            >
+              <option value="Clases en Linea">Clases en Linea</option>
+              <option value="Modulos por WhsatSapp">Modulos </option>
+            </select>
           </div>
           <div>
             <label className="block text-gray-700">Fecha de Graduación</label>

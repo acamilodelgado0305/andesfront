@@ -47,7 +47,7 @@ const Students = () => {
     if (coordinator === "Camilo Delgado") {
       return "underline text-orange-600";
     } else if (coordinator === "Adriana Benitez") {
-      return "underline text-red-600";
+      return "underline text-blue-600";
     }
     return "";
   };
@@ -87,6 +87,9 @@ const Students = () => {
                 Estado
               </th>
               <th className="px-6 py-3 border-b text-left text-gray-600">
+                Programa
+              </th>
+              <th className="px-6 py-3 border-b text-left text-gray-600">
                 Email
               </th>
               <th className="px-6 py-3 border-b text-left text-gray-600">
@@ -122,6 +125,7 @@ const Students = () => {
                     {student.activo ? "Activo" : "Inactivo"}
                   </span>
                 </td>
+                <td className="px-6 py-4 border-b">{student.programa_id}</td>
                 <td className="px-6 py-4 border-b">{student.email}</td>
                 <td className="px-6 py-4 border-b">{student.telefono}</td>
                 <td className="px-6 py-4 border-b">
