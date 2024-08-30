@@ -11,6 +11,7 @@ import Landing from "./components/auth/landing";
 import Students from "./components/Students/student";
 import Facturas from "./components/facturas/facturas";
 import Programas from "./components/programas/programas";
+import FormCamilo from "./components/PublicForms.jsx/formCamilo";
 import "./index.css";
 
 const router = createBrowserRouter([
@@ -24,9 +25,10 @@ const router = createBrowserRouter([
         element: <Landing />,
       },
       {
-        path: "sigin",
-        element: <Sigin />,
-      },
+        path: "/register",
+        element: <FormCamilo />,
+      }
+      
     ],
   },
   {
@@ -53,7 +55,7 @@ const router = createBrowserRouter([
       {
         path: "students/facturas/:id",
         element: <Facturas />,
-      },
+      }
     ],
   },
 ]);
