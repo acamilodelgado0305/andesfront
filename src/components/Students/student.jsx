@@ -1,12 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FaTrashAlt, FaUserEdit } from "react-icons/fa";
+import axios from "axios";
 import CreateStudentModal from "./addStudent";
 import { getStudents, deleteStudent } from "../../services/studentService";
 
 const Students = () => {
   const [students, setStudents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [programas, setProgramas] = useState([]);
+
+  useEffect(() => {
+    fetchPrograms();
+    fetchStudents();
+  }, []);
+
+  const fetchPrograms = async () => {
+    try {
+      const res = await axios.get("https://fevaback.app.la-net.co/api/programs");
+      setProgramas(res.data);
+    } catch (error) {
+      console.error("Error fetching programs:", error);
+    }
+  };
 
   const openModal = () => {
     setIsModalOpen(true);
@@ -25,10 +41,6 @@ const Students = () => {
     }
   };
 
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-
   const handleDelete = async (id) => {
     try {
       await deleteStudent(id);
@@ -40,7 +52,7 @@ const Students = () => {
   };
 
   const handleStudentAdded = () => {
-    fetchStudents(); // Actualiza la lista de estudiantes después de agregar uno nuevo
+    fetchStudents();
   };
 
   const getCoordinatorStyle = (coordinator) => {
@@ -52,8 +64,13 @@ const Students = () => {
     return "";
   };
 
+  const getProgramName = (programId) => {
+    const program = programas.find(p => p.id === programId);
+    return program ? program.nombre : "Programa no encontrado";
+  };
+
   return (
-    <div className="container mx-auto mt-8 p-4">
+    <div className="mx-auto mt-8 p-2">
       <div className="flex justify-between mb-4">
         <h1 className="text-2xl font-semibold">Lista de Estudiantes</h1>
         <button
@@ -99,6 +116,9 @@ const Students = () => {
                 Fecha de Graduación
               </th>
               <th className="px-6 py-3 border-b text-left text-gray-600">
+                Facturas
+              </th>
+              <th className="px-6 py-3 border-b text-left text-gray-600">
                 Acciones
               </th>
             </tr>
@@ -108,7 +128,9 @@ const Students = () => {
               <tr key={student.id} className="hover:bg-gray-100">
                 <td className="px-6 py-4 border-b">{student.numero_cedula}</td>
                 <td
-                  className={`px-6 py-4 border-b ${getCoordinatorStyle(student.coordinador)}`}
+                  className={`px-6 py-4 border-b ${getCoordinatorStyle(
+                    student.coordinador
+                  )}`}
                 >
                   {student.coordinador}
                 </td>
@@ -125,12 +147,18 @@ const Students = () => {
                     {student.activo ? "Activo" : "Inactivo"}
                   </span>
                 </td>
-                <td className="px-6 py-4 border-b">{student.programa_id}</td>
+                <td className="px-6 py-4 border-b">{getProgramName(student.programa_id)}</td>
                 <td className="px-6 py-4 border-b">{student.email}</td>
                 <td className="px-6 py-4 border-b">{student.telefono}</td>
                 <td className="px-6 py-4 border-b">
                   {student.fecha_graduacion}
                 </td>
+                <td className="px-6 py-4 border-b"><Link
+                    to={`/inicio/students/facturas/${student.id}`}
+                    className="text-blue-500 hover:text-blue-700"
+                  >
+                    Ver Facturas
+                  </Link></td>
                 <td className="px-6 py-4 border-b flex space-x-2">
                   <button
                     className="text-red-500 hover:text-red-700"
@@ -147,7 +175,7 @@ const Students = () => {
                     <FaTrashAlt />
                   </button>
                   <Link
-                    to={`/clientes/editar/${student.id}`}
+                    to={`/student/edit/${student.id}`}
                     className="text-blue-500 hover:text-blue-700"
                   >
                     <FaUserEdit />

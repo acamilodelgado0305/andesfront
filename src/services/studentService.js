@@ -43,7 +43,7 @@ export const addStudent = async (studentData) => {
     }
 };
 
-// Función para obtener todas las cuentas
+//--------------------------------STUDENTS-----------------------------------------------
 export const getStudents = async () => {
   try {
     const response = await backApi.get("api/students");
@@ -54,6 +54,43 @@ export const getStudents = async () => {
   }
 };
 
+export const getStudentById = async (id) => {
+  try {
+    const response = await backApi.get(`/api/students/${id}`);
+    return response.data; // Devuelve los datos del estudiante
+  } catch (error) {
+    console.error('Error al obtener el estudiante por ID:', error);
+    throw error;
+  }
+};
+
+
+
+export const deleteStudent = async (studentId) => {
+  try {
+      const response = await backApi.delete(`/api/students/${studentId}`);
+      return response.data; // Devuelve los datos de la respuesta, como un mensaje de éxito
+  } catch (error) {
+      console.error('Error al eliminar el estudiante:', error);
+      throw error;
+  }
+};
+
+
+//-------------------------------INVOICES-------------------------------
+
+export const getInvoicebyStudent = async (id) => {
+  try {
+    const response = await backApi.get(`/api/invoices/student/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error al obtener las facturas por estudiante:", error);
+    throw error;
+  }
+};
+
+
+//----------------------------------------PROGRAMAS--------------------------------------
 
 export const getPrograms = async () => {
     try {
@@ -66,13 +103,5 @@ export const getPrograms = async () => {
   };
 
 
-export const deleteStudent = async (studentId) => {
-    try {
-        const response = await backApi.delete(`/api/students/${studentId}`);
-        return response.data; // Devuelve los datos de la respuesta, como un mensaje de éxito
-    } catch (error) {
-        console.error('Error al eliminar el estudiante:', error);
-        throw error;
-    }
-};
+
 

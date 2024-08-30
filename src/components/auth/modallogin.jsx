@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../../services/studentService";
-import axios from "axios";
+import Swal from "sweetalert2";
 
 const LoginModal = ({ isOpen, onClose }) => {
   const [user, setUser] = useState({ email: "", password: "" });
@@ -21,13 +21,25 @@ const LoginModal = ({ isOpen, onClose }) => {
       const response = await login(user.email, user.password);
 
       if (response.message === "Inicio de sesión exitoso") {
+        await Swal.fire({
+          icon: 'success',
+          title: '¡Éxito!',
+          text: 'Has iniciado sesión correctamente.',
+          timer: 1500,
+          showConfirmButton: false
+        });
         console.log("Navigating to /inicio");
         navigate("/inicio");
       } else {
-        console.error("Error:", response.error || "Error desconocido");
+        throw new Error(response.error || "Error desconocido");
       }
     } catch (error) {
       console.error("Error al iniciar sesión:", error);
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Hubo un problema al iniciar sesión. Por favor, intenta de nuevo.',
+      });
     } finally {
       setIsLoading(false);
       setUser({ email: "", password: "" });

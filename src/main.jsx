@@ -8,7 +8,7 @@ import ErrorPage from "./error-page";
 import Home from "./components/home";
 import Sigin from "./components/auth/register";
 import Landing from "./components/auth/landing";
-import Students from "./components/Students/student"
+import Students from "./components/Students/student";
 import Facturas from "./components/facturas/facturas";
 import Programas from "./components/programas/programas";
 import "./index.css";
@@ -47,12 +47,12 @@ const router = createBrowserRouter([
         element: <Students />,
       },
       {
-        path: "facturas",
-        element: <Facturas />,
-      },
-      {
         path: "programas",
         element: <Programas />,
+      },
+      {
+        path: "students/facturas/:id",
+        element: <Facturas />,
       },
     ],
   },
