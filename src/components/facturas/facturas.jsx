@@ -73,13 +73,13 @@ const Facturas = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {/* Tarjeta de Matrícula */}
-        <div className={`${getCardColor(facturas.filter(factura => factura.tipo === "Matrícula" || factura.programa === 7))} shadow-lg rounded-lg p-6 text-white`}>
+        <div className={`${getCardColor(facturas.filter(factura => factura.tipo === "Matrícula"))} shadow-lg rounded-lg p-6 text-white`}>
           <h2 className="text-2xl font-bold mb-4">Matrícula</h2>
           {facturas
-            .filter((factura) => factura.tipo === "Matrícula" || factura.programa === 7)
+            .filter((factura) => factura.tipo === "Matrícula")
             .map(renderFactura)}
           <div className="flex justify-center mt-4">
-            {facturas.filter(factura => factura.tipo === "Matrícula" || factura.programa === 7).some(factura => !factura.estado) ? (
+            {facturas.filter(factura => factura.tipo === "Matrícula").some(factura => !factura.estado) ? (
               <button className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-300 ease-in-out">
                 Pagar
               </button>
