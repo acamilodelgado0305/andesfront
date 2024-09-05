@@ -87,9 +87,6 @@ const Facturas = () => {
 
       <div className="flex justify-between mb-8">
         <h2 className="text-2xl font-bold text-gray-800">Lista de Facturas Mensuales</h2>
-        <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300 ease-in-out">
-          Crear Factura
-        </button>
       </div>
 
       <div className="overflow-x-auto">
