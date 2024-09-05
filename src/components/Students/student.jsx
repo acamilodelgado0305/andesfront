@@ -1,14 +1,22 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { FaTrashAlt, FaUserEdit } from "react-icons/fa";
+import { FaTrashAlt, FaUserEdit, FaSearch, FaFilter, FaDownload } from "react-icons/fa";
 import axios from "axios";
 import CreateStudentModal from "./addStudent";
 import { getStudents, deleteStudent } from "../../services/studentService";
+import { Table, Input, Button, Dropdown, Menu, Modal, message } from 'antd';
+import { CSVLink } from "react-csv";
 
 const Students = () => {
   const [students, setStudents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [programas, setProgramas] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState({
+    coordinador: null,
+    programa: null,
+    activo: null,
+  });
 
   useEffect(() => {
     fetchPrograms();
@@ -21,15 +29,8 @@ const Students = () => {
       setProgramas(res.data);
     } catch (error) {
       console.error("Error fetching programs:", error);
+      message.error("Error al cargar los programas");
     }
-  };
-
-  const openModal = () => {
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
   };
 
   const fetchStudents = async () => {
@@ -38,28 +39,37 @@ const Students = () => {
       setStudents(data);
     } catch (err) {
       console.error("Error fetching students:", err);
+      message.error("Error al cargar los estudiantes");
     }
   };
 
   const handleDelete = async (id) => {
-    try {
-      await deleteStudent(id);
-      const updatedStudents = students.filter((student) => student.id !== id);
-      setStudents(updatedStudents);
-    } catch (error) {
-      console.error("Error al eliminar el estudiante:", error);
-    }
+    Modal.confirm({
+      title: '¿Está seguro de que desea eliminar este estudiante?',
+      content: 'Esta acción no se puede deshacer.',
+      onOk: async () => {
+        try {
+          await deleteStudent(id);
+          setStudents(students.filter((student) => student.id !== id));
+          message.success("Estudiante eliminado con éxito");
+        } catch (error) {
+          console.error("Error al eliminar el estudiante:", error);
+          message.error("Error al eliminar el estudiante");
+        }
+      },
+    });
   };
 
   const handleStudentAdded = () => {
     fetchStudents();
+    message.success("Estudiante añadido con éxito");
   };
 
   const getCoordinatorStyle = (coordinator) => {
     if (coordinator === "Camilo Delgado") {
-      return "underline text-orange-600";
+      return "text-orange-600";
     } else if (coordinator === "Adriana Benitez") {
-      return "underline text-blue-600";
+      return "text-blue-600";
     }
     return "";
   };
@@ -69,123 +79,180 @@ const Students = () => {
     return program ? program.nombre : "Programa no encontrado";
   };
 
+  const filteredStudents = useMemo(() => {
+    return students.filter(student => {
+      const matchesSearch = (
+        student.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.numero_cedula.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      const matchesFilters = (
+        (!filters.coordinador || student.coordinador === filters.coordinador) &&
+        (!filters.programa || student.programa_id === filters.programa) &&
+        (filters.activo === null || student.activo === filters.activo)
+      );
+      return matchesSearch && matchesFilters;
+    });
+  }, [students, searchTerm, filters]);
+
+  const columns = [
+    {
+      title: 'ID',
+      dataIndex: 'numero_cedula',
+      key: 'numero_cedula',
+    },
+    {
+      title: 'Coordinador',
+      dataIndex: 'coordinador',
+      key: 'coordinador',
+      render: (text) => <span className={getCoordinatorStyle(text)}>{text}</span>,
+    },
+    {
+      title: 'Nombre',
+      dataIndex: 'nombre',
+      key: 'nombre',
+    },
+    {
+      title: 'Apellido',
+      dataIndex: 'apellido',
+      key: 'apellido',
+    },
+    {
+      title: 'Estado',
+      dataIndex: 'activo',
+      key: 'activo',
+      render: (activo) => (
+        <span className={`px-2 py-1 rounded-full text-sm ${
+          activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"
+        }`}>
+          {activo ? "Activo" : "Inactivo"}
+        </span>
+      ),
+    },
+    {
+      title: 'Programa',
+      dataIndex: 'programa_id',
+      key: 'programa_id',
+      render: (programId) => getProgramName(programId),
+    },
+    {
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email',
+    },
+    {
+      title: 'Teléfono',
+      dataIndex: 'telefono',
+      key: 'telefono',
+    },
+    {
+      title: 'Fecha de Graduación',
+      dataIndex: 'fecha_graduacion',
+      key: 'fecha_graduacion',
+    },
+    {
+      title: 'Facturas',
+      key: 'facturas',
+      render: (_, record) => (
+        <Link to={`/inicio/students/facturas/${record.id}`} className="text-blue-500 hover:text-blue-700">
+          Ver Facturas
+        </Link>
+      ),
+    },
+    {
+      title: 'Acciones',
+      key: 'acciones',
+      render: (_, record) => (
+        <div className="flex space-x-2">
+          <Button icon={<FaTrashAlt />} onClick={() => handleDelete(record.id)} danger />
+          <Link to={`/student/edit/${record.id}`}>
+            <Button icon={<FaUserEdit />} type="primary" />
+          </Link>
+        </div>
+      ),
+    },
+  ];
+
+  const filterMenu = (
+    <Menu>
+      <Menu.SubMenu key="coordinador" title="Coordinador">
+        <Menu.Item key="coordinador-todos" onClick={() => setFilters({ ...filters, coordinador: null })}>
+          Todos
+        </Menu.Item>
+        <Menu.Item key="coordinador-camilo" onClick={() => setFilters({ ...filters, coordinador: "Camilo Delgado" })}>
+          Camilo Delgado
+        </Menu.Item>
+        <Menu.Item key="coordinador-adriana" onClick={() => setFilters({ ...filters, coordinador: "Adriana Benitez" })}>
+          Adriana Benitez
+        </Menu.Item>
+      </Menu.SubMenu>
+      <Menu.SubMenu key="programa" title="Programa">
+        <Menu.Item key="programa-todos" onClick={() => setFilters({ ...filters, programa: null })}>
+          Todos
+        </Menu.Item>
+        {programas.map(programa => (
+          <Menu.Item key={`programa-${programa.id}`} onClick={() => setFilters({ ...filters, programa: programa.id })}>
+            {programa.nombre}
+          </Menu.Item>
+        ))}
+      </Menu.SubMenu>
+      <Menu.SubMenu key="estado" title="Estado">
+        <Menu.Item key="estado-todos" onClick={() => setFilters({ ...filters, activo: null })}>
+          Todos
+        </Menu.Item>
+        <Menu.Item key="estado-activo" onClick={() => setFilters({ ...filters, activo: true })}>
+          Activo
+        </Menu.Item>
+        <Menu.Item key="estado-inactivo" onClick={() => setFilters({ ...filters, activo: false })}>
+          Inactivo
+        </Menu.Item>
+      </Menu.SubMenu>
+    </Menu>
+  );
+
   return (
     <div className="mx-auto mt-8 p-2">
       <div className="flex justify-between mb-4">
-        <h1 className="text-2xl font-semibold">Lista de Estudiantes</h1>
-        <button
-          onClick={openModal}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Crear Estudiante
-        </button>
-        <CreateStudentModal
-          isOpen={isModalOpen}
-          onClose={closeModal}
-          onStudentAdded={handleStudentAdded}
-        />
+        <h1 className="text-2xl font-semibold">Gestión de Estudiantes</h1>
+        <div className="space-x-2">
+          <Button onClick={() => setIsModalOpen(true)} type="primary" icon={<FaUserEdit />}>
+            Crear Estudiante
+          </Button>
+          <CSVLink
+            data={filteredStudents}
+            filename={"estudiantes.csv"}
+            className="ant-btn ant-btn-primary"
+          >
+            <FaDownload /> Exportar CSV
+          </CSVLink>
+        </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border border-gray-300">
-          <thead>
-            <tr>
-              <th className="px-6 py-3 border-b text-left text-gray-600">ID</th>
-              <th className="px-6 py-3 border-b text-left text-gray-600">
-                Coordinador
-              </th>
-              <th className="px-6 py-3 border-b text-left text-gray-600">
-                Nombre
-              </th>
-              <th className="px-6 py-3 border-b text-left text-gray-600">
-                Apellido
-              </th>
-              <th className="px-6 py-3 border-b text-left text-gray-600">
-                Estado
-              </th>
-              <th className="px-6 py-3 border-b text-left text-gray-600">
-                Programa
-              </th>
-              <th className="px-6 py-3 border-b text-left text-gray-600">
-                Email
-              </th>
-              <th className="px-6 py-3 border-b text-left text-gray-600">
-                Teléfono
-              </th>
-              <th className="px-6 py-3 border-b text-left text-gray-600">
-                Fecha de Graduación
-              </th>
-              <th className="px-6 py-3 border-b text-left text-gray-600">
-                Facturas
-              </th>
-              <th className="px-6 py-3 border-b text-left text-gray-600">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.map((student) => (
-              <tr key={student.id} className="hover:bg-gray-100">
-                <td className="px-6 py-4 border-b">{student.numero_cedula}</td>
-                <td
-                  className={`px-6 py-4 border-b ${getCoordinatorStyle(
-                    student.coordinador
-                  )}`}
-                >
-                  {student.coordinador}
-                </td>
-                <td className="px-6 py-4 border-b">{student.nombre}</td>
-                <td className="px-6 py-4 border-b">{student.apellido}</td>
-                <td className="px-6 py-4 border-b">
-                  <span
-                    className={`px-2 py-1 rounded-full text-sm ${
-                      student.activo
-                        ? "bg-green-200 text-green-800"
-                        : "bg-red-200 text-red-800"
-                    }`}
-                  >
-                    {student.activo ? "Activo" : "Inactivo"}
-                  </span>
-                </td>
-                <td className="px-6 py-4 border-b">{getProgramName(student.programa_id)}</td>
-                <td className="px-6 py-4 border-b">{student.email}</td>
-                <td className="px-6 py-4 border-b">{student.telefono}</td>
-                <td className="px-6 py-4 border-b">
-                  {student.fecha_graduacion}
-                </td>
-                <td className="px-6 py-4 border-b"><Link
-                    to={`/inicio/students/facturas/${student.id}`}
-                    className="text-blue-500 hover:text-blue-700"
-                  >
-                    Ver Facturas
-                  </Link></td>
-                <td className="px-6 py-4 border-b flex space-x-2">
-                  <button
-                    className="text-red-500 hover:text-red-700"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "¿Está seguro de que desea eliminar este estudiante?"
-                        )
-                      ) {
-                        handleDelete(student.id);
-                      }
-                    }}
-                  >
-                    <FaTrashAlt />
-                  </button>
-                  <Link
-                    to={`/student/edit/${student.id}`}
-                    className="text-blue-500 hover:text-blue-700"
-                  >
-                    <FaUserEdit />
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mb-4 flex space-x-2">
+        <Input
+          placeholder="Buscar por nombre, apellido o ID"
+          prefix={<FaSearch />}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ width: 300 }}
+        />
+        <Dropdown overlay={filterMenu} trigger={['click']}>
+          <Button icon={<FaFilter />}>Filtrar</Button>
+        </Dropdown>
       </div>
+
+      <Table
+        columns={columns}
+        dataSource={filteredStudents}
+        rowKey="id"
+        pagination={{ pageSize: 10 }}
+      />
+
+      <CreateStudentModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onStudentAdded={handleStudentAdded}
+      />
     </div>
   );
 };

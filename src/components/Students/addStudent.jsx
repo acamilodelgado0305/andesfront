@@ -1,27 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { addStudent, getPrograms } from "../../services/studentService";
-import Swal from "sweetalert2";
+import { getPrograms } from "../../services/studentService";
+import { Modal, Form, Input, Select, DatePicker, Button, message } from 'antd';
+import { UserOutlined, MailOutlined, PhoneOutlined, IdcardOutlined } from '@ant-design/icons';
+import moment from 'moment';
+
+const { Option } = Select;
 
 const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
+  const [form] = Form.useForm();
   const [programas, setProgramas] = useState([]);
-  const [formData, setFormData] = useState({
-    nombre: "",
-    apellido: "",
-    email: "",
-    telefono: "",
-    fechaNacimiento: "",
-    programaId: {},
-    coordinador: "",
-    ultimoCursoVisto: {},
-    numeroCedula: "",
-    modalidadEstudio: "Clases en Linea",
-    fechaGraduacion: "",
-  });
-
-  const coordinadores = [
-    { value: "Adriana Benitez", label: "Adriana Benitez" },
-    { value: "Camilo Delgado", label: "Camilo Delgado" },
-  ];
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchProgramsData = async () => {
@@ -30,246 +18,186 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
         setProgramas(data);
       } catch (err) {
         console.error("Error fetching Programs:", err);
+        message.error("Error al cargar los programas");
       }
     };
 
     fetchProgramsData();
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]:
-        name === "programaId" || name === "ultimoCursoVisto"
-          ? parseInt(value, 10)
-          : value.trim(), // Trim para eliminar espacios en blanco
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    Swal.fire({
-      title: "Procesando...",
-      text: "Por favor, espera.",
-      icon: "info",
-      allowOutsideClick: false,
-      showConfirmButton: false,
-      willOpen: () => {
-        Swal.showLoading();
-      },
-    });
+  const handleSubmit = async (values) => {
+    setLoading(true);
     const apiUrl = "https://fevaback.app.la-net.co/api/students";
     try {
+      const formattedValues = {
+        ...values,
+        fechaNacimiento: values.fechaNacimiento.format('YYYY-MM-DD'),
+        fechaGraduacion: values.fechaGraduacion.format('YYYY-MM-DD'),
+        programaId: parseInt(values.programaId, 10),
+        ultimoCursoVisto: parseInt(values.ultimoCursoVisto, 10),
+      };
+
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formattedValues),
       });
 
       if (response.ok) {
-        Swal.fire({
-          title: "Éxito",
-          text: "Estudiante creado exitosamente",
-          icon: "success",
-          confirmButtonText: "Cerrar",
-        }).then(() => {
-          onStudentAdded(); // Llama a la función para actualizar la lista de estudiantes
-          onClose(); // Cierra el modal
-        });
-        // Cierra el modal
+        message.success("Estudiante creado exitosamente");
+        onStudentAdded();
+        onClose();
+        form.resetFields();
       } else {
-        console.error("Error al agregar el estudiente:", response.statusText);
-        Swal.fire({
-          title: 'Error',
-          text: 'Hubo un error al crear el Estudiente',
-          icon: 'error',
-          confirmButtonText: 'Cerrar'
-        });
-     
+        throw new Error(response.statusText);
       }
     } catch (error) {
-      Swal.fire({
-        title: 'Error',
-        text: 'Hubo un error al crear el estudiente',
-        icon: 'error',
-        confirmButtonText: 'Cerrar'
-      });
+      console.error("Error al agregar el estudiante:", error);
+      message.error("Hubo un error al crear el estudiante");
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75">
-      <div className="h-[90%] bg-white p-3 rounded-lg shadow-lg max-w-lg w-full">
-        <h2 className="text-2xl font-semibold mb-4">Crear Nuevo Estudiante</h2>
-        <form
-          onSubmit={handleSubmit}
-          className="h-[90%] overflow-y-auto overflow-x-hidden"
-        >
-          <div>
-            <label className="block text-gray-700">Nombre</label>
-            <input
-              type="text"
-              name="nombre"
-              value={formData.nombre}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700">Apellido</label>
-            <input
-              type="text"
-              name="apellido"
-              value={formData.apellido}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700">Teléfono</label>
-            <input
-              type="tel"
-              name="telefono"
-              value={formData.telefono}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700">Fecha de Nacimiento</label>
-            <input
-              type="date"
-              name="fechaNacimiento"
-              value={formData.fechaNacimiento}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700">Programa</label>
-            <select
-              name="programaId"
-              value={formData.programaId}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            >
-              <option value="">Seleccione un programa</option>
+    <Modal
+      title="Crear Nuevo Estudiante"
+      visible={isOpen}
+      onCancel={onClose}
+      footer={null}
+      width={700}
+    >
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={handleSubmit}
+        initialValues={{
+          modalidadEstudio: "Clases en Linea",
+        }}
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <Form.Item
+            name="nombre"
+            label="Nombre"
+            rules={[{ required: true, message: 'Por favor ingrese el nombre' }]}
+          >
+            <Input prefix={<UserOutlined />} placeholder="Nombre" />
+          </Form.Item>
+
+          <Form.Item
+            name="apellido"
+            label="Apellido"
+            rules={[{ required: true, message: 'Por favor ingrese el apellido' }]}
+          >
+            <Input prefix={<UserOutlined />} placeholder="Apellido" />
+          </Form.Item>
+
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, message: 'Por favor ingrese el email' },
+              { type: 'email', message: 'Por favor ingrese un email válido' }
+            ]}
+          >
+            <Input prefix={<MailOutlined />} placeholder="Email" />
+          </Form.Item>
+
+          <Form.Item
+            name="telefono"
+            label="Teléfono"
+            rules={[{ required: true, message: 'Por favor ingrese el teléfono' }]}
+          >
+            <Input prefix={<PhoneOutlined />} placeholder="Teléfono" />
+          </Form.Item>
+
+          <Form.Item
+            name="fechaNacimiento"
+            label="Fecha de Nacimiento"
+            rules={[{ required: true, message: 'Por favor seleccione la fecha de nacimiento' }]}
+          >
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+
+          <Form.Item
+            name="programaId"
+            label="Programa"
+            rules={[{ required: true, message: 'Por favor seleccione un programa' }]}
+          >
+            <Select placeholder="Seleccione un programa">
               {programas.map((programa) => (
-                <option key={programa.id} value={programa.id}>
+                <Option key={programa.id} value={programa.id}>
                   {programa.nombre}
-                </option>
+                </Option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-gray-700">Coordinador</label>
-            <select
-              name="coordinador"
-              value={formData.coordinador}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            >
-              <option value="">Seleccione un coordinador</option>
-              {coordinadores.map((coordinador) => (
-                <option key={coordinador.value} value={coordinador.value}>
-                  {coordinador.label}
-                </option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="coordinador"
+            label="Coordinador"
+            rules={[{ required: true, message: 'Por favor seleccione un coordinador' }]}
+          >
+            <Select placeholder="Seleccione un coordinador">
+              <Option value="Adriana Benitez">Adriana Benitez</Option>
+              <Option value="Camilo Delgado">Camilo Delgado</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="ultimoCursoVisto"
+            label="Último Curso Visto"
+            rules={[{ required: true, message: 'Por favor seleccione el último curso visto' }]}
+          >
+            <Select placeholder="Seleccione el último curso visto">
+              {[5, 6, 7, 8, 9, 10, 11].map((curso) => (
+                <Option key={curso} value={curso}>
+                  {curso}
+                </Option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-gray-700">Último Curso Visto</label>
-            <select
-              name="ultimoCursoVisto"
-              value={formData.ultimoCursoVisto}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            >
-              <option value={5}>5</option>
-              <option value={6}>6</option>
-              <option value={7}>7</option>
-              <option value={8}>8</option>
-              <option value={9}>9</option>
-              <option value={10}>10</option>
-              <option value={11}>11</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-gray-700">Número de Cédula</label>
-            <input
-              type="text"
-              name="numeroCedula"
-              value={formData.numeroCedula}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700">Modalidad de Estudio</label>
-            <select
-              name="modalidadEstudio"
-              value={formData.modalidadEstudio}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            >
-              <option value="Clases en Linea">Clases en Linea</option>
-              <option value="Modulos por WhsatSapp">Modulos </option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-gray-700">Fecha de Graduación</label>
-            <input
-              type="date"
-              name="fechaGraduacion"
-              value={formData.fechaGraduacion}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border rounded"
-              required
-            />
-          </div>
-          <div className="flex justify-end mt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mr-2"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Guardar Estudiante
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="numeroCedula"
+            label="Número de Cédula"
+            rules={[{ required: true, message: 'Por favor ingrese el número de cédula' }]}
+          >
+            <Input prefix={<IdcardOutlined />} placeholder="Número de Cédula" />
+          </Form.Item>
+
+          <Form.Item
+            name="modalidadEstudio"
+            label="Modalidad de Estudio"
+            rules={[{ required: true, message: 'Por favor seleccione la modalidad de estudio' }]}
+          >
+            <Select>
+              <Option value="Clases en Linea">Clases en Línea</Option>
+              <Option value="Modulos por WhatsApp">Módulos por WhatsApp</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="fechaGraduacion"
+            label="Fecha de Graduación"
+            rules={[{ required: true, message: 'Por favor seleccione la fecha de graduación' }]}
+          >
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+        </div>
+
+        <Form.Item className="flex justify-end">
+          <Button type="default" onClick={onClose} className="mr-2">
+            Cancelar
+          </Button>
+          <Button type="primary" htmlType="submit" loading={loading}>
+            Guardar Estudiante
+          </Button>
+        </Form.Item>
+      </Form>
+    </Modal>
   );
 };
 
