@@ -1,43 +1,74 @@
-import React from 'react';
-import { Outlet, Link } from "react-router-dom";
+import React, { useState } from 'react';
+import { Outlet, Link, useLocation } from "react-router-dom";
+import { Layout, Menu, Typography, Avatar, Button } from 'antd';
 import {
-  BsCart,
-  BsBarChartFill,
-  BsPersonCheckFill,
-  BsBox,
-  BsPersonXFill,
-} from "react-icons/bs";
-import { MdSchool } from "react-icons/md";
+  BarChartOutlined,
+  UserOutlined,
+  BookOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  LogoutOutlined,
+} from '@ant-design/icons';
+
+const { Header, Sider, Content } = Layout;
+const { Title } = Typography;
 
 const Root = () => {
+  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+
+  const toggleSidebar = () => {
+    setCollapsed(!collapsed);
+  };
+
+  const menuItems = [
+    { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Dashboard' },
+    { key: '/inicio/students', icon: <UserOutlined />, label: 'Estudiantes' },
+    { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas' },
+  ];
+
   return (
-    <div className="flex h-screen bg-gray-100">
-      <aside className="w-64 bg-white shadow-md">
-        <div className="p-5">
-          <h1 className="text-2xl font-bold text-gray-800">Administrador</h1>
-        </div>
-        <nav className="mt-5">
-          <ul>
-            <SidebarItem to="/inicio/dashboard" icon={<BsBarChartFill />} text="Dashboard" />
-            <SidebarItem to="/inicio/students" icon={<BsPersonCheckFill />} text="Estudiantes" />
-            <SidebarItem to="/inicio/programas" icon={<MdSchool />} text="Programas" />
-          </ul>
-        </nav>
-      </aside>
-      <main className="flex-1  overflow-y-auto">
-        <Outlet />
-      </main>
-    </div>
+    <Layout style={{ minHeight: '100vh' }}>
+      <Sider trigger={null} collapsible collapsed={collapsed} 
+             breakpoint="lg" collapsedWidth="80"
+             onBreakpoint={(broken) => {
+               if (broken) {
+                 setCollapsed(true);
+               }
+             }}>
+        <Menu
+          theme="dark"
+          mode="inline"
+          selectedKeys={[location.pathname]}
+          items={menuItems.map(item => ({
+            key: item.key,
+            icon: item.icon,
+            label: <Link to={item.key}>{item.label}</Link>,
+          }))}
+        />
+      </Sider>
+      <Layout>
+        <Header className="bg-white p-0 flex justify-between items-center">
+          <Button
+            type="text"
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={toggleSidebar}
+            className="text-xl w-16 h-16"
+          />
+          <div className="flex items-center mr-4">
+            <Avatar icon={<UserOutlined />} className="mr-2" />
+            <span className="mr-4">John Doe</span>
+            <Button type="link" icon={<LogoutOutlined />}>
+              Logout
+            </Button>
+          </div>
+        </Header>
+        <Content className="m-4 p-4 bg-white rounded-lg overflow-y-auto">
+          <Outlet />
+        </Content>
+      </Layout>
+    </Layout>
   );
 }
-
-const SidebarItem = ({ to, icon, text }) => (
-  <li className="mb-2">
-    <Link to={to} className="flex items-center px-5 py-3 text-gray-700 hover:bg-indigo-100 hover:text-indigo-600 rounded-lg transition-colors duration-150 ease-in-out">
-      <span className="text-lg mr-4">{icon}</span>
-      <span className="font-medium">{text}</span>
-    </Link>
-  </li>
-);
 
 export default Root;
