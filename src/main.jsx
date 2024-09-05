@@ -10,7 +10,7 @@ import Sigin from "./components/auth/register";
 import Landing from "./components/auth/landing";
 import Students from "./components/Students/student";
 import Facturas from "./components/facturas/facturas";
-import Programas from "./components/programas/programas";
+import Programs from "./components/programas/programas";
 import FormCamilo from "./components/PublicForms.jsx/formCamilo";
 import "./index.css";
 
@@ -50,7 +50,7 @@ const router = createBrowserRouter([
       },
       {
         path: "programas",
-        element: <Programas />,
+        element: <Programs />,
       },
       {
         path: "students/facturas/:id",

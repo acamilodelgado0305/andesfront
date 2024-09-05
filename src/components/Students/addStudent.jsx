@@ -10,18 +10,17 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
     email: "",
     telefono: "",
     fechaNacimiento: "",
-    programaId: "",
+    programaId: {},
     coordinador: "",
-    ultimoCursoVisto: "",
+    ultimoCursoVisto: {},
     numeroCedula: "",
-    modalidadEstudio: "",
+    modalidadEstudio: "Clases en Linea",
     fechaGraduacion: "",
   });
 
   const coordinadores = [
     { value: "Adriana Benitez", label: "Adriana Benitez" },
     { value: "Camilo Delgado", label: "Camilo Delgado" },
-    { value: "coordinador3", label: "Coordinador 3" },
   ];
 
   useEffect(() => {
@@ -31,11 +30,6 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
         setProgramas(data);
       } catch (err) {
         console.error("Error fetching Programs:", err);
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: 'No se pudieron cargar los programas. Por favor, intenta de nuevo.',
-        });
       }
     };
 
@@ -44,17 +38,27 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
+    setFormData((prevFormData) => ({
+      ...prevFormData,
       [name]:
         name === "programaId" || name === "ultimoCursoVisto"
-          ? parseInt(value)
-          : value,
-    });
+          ? parseInt(value, 10)
+          : value.trim(), // Trim para eliminar espacios en blanco
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    Swal.fire({
+      title: "Procesando...",
+      text: "Por favor, espera.",
+      icon: "info",
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      willOpen: () => {
+        Swal.showLoading();
+      },
+    });
     const apiUrl = "https://fevaback.app.la-net.co/api/students";
     try {
       const response = await fetch(apiUrl, {
@@ -66,24 +70,32 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
       });
 
       if (response.ok) {
-        await Swal.fire({
-          icon: 'success',
-          title: '¡Éxito!',
-          text: 'Estudiante creado exitosamente',
-          timer: 1500,
-          showConfirmButton: false
+        Swal.fire({
+          title: "Éxito",
+          text: "Estudiante creado exitosamente",
+          icon: "success",
+          confirmButtonText: "Cerrar",
+        }).then(() => {
+          onStudentAdded(); // Llama a la función para actualizar la lista de estudiantes
+          onClose(); // Cierra el modal
         });
-        onStudentAdded();
-        onClose();
+        // Cierra el modal
       } else {
-        throw new Error(response.statusText);
+        console.error("Error al agregar el estudiente:", response.statusText);
+        Swal.fire({
+          title: 'Error',
+          text: 'Hubo un error al crear el Estudiente',
+          icon: 'error',
+          confirmButtonText: 'Cerrar'
+        });
+     
       }
     } catch (error) {
-      console.error("Error al agregar el estudiante:", error);
-      await Swal.fire({
-        icon: 'error',
+      Swal.fire({
         title: 'Error',
-        text: 'Hubo un problema al crear el estudiante. Por favor, intenta de nuevo.',
+        text: 'Hubo un error al crear el estudiente',
+        icon: 'error',
+        confirmButtonText: 'Cerrar'
       });
     }
   };
@@ -98,7 +110,148 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
           onSubmit={handleSubmit}
           className="h-[90%] overflow-y-auto overflow-x-hidden"
         >
-          {/* ... (el resto del formulario permanece igual) ... */}
+          <div>
+            <label className="block text-gray-700">Nombre</label>
+            <input
+              type="text"
+              name="nombre"
+              value={formData.nombre}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700">Apellido</label>
+            <input
+              type="text"
+              name="apellido"
+              value={formData.apellido}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700">Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700">Teléfono</label>
+            <input
+              type="tel"
+              name="telefono"
+              value={formData.telefono}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700">Fecha de Nacimiento</label>
+            <input
+              type="date"
+              name="fechaNacimiento"
+              value={formData.fechaNacimiento}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700">Programa</label>
+            <select
+              name="programaId"
+              value={formData.programaId}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            >
+              <option value="">Seleccione un programa</option>
+              {programas.map((programa) => (
+                <option key={programa.id} value={programa.id}>
+                  {programa.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-gray-700">Coordinador</label>
+            <select
+              name="coordinador"
+              value={formData.coordinador}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            >
+              <option value="">Seleccione un coordinador</option>
+              {coordinadores.map((coordinador) => (
+                <option key={coordinador.value} value={coordinador.value}>
+                  {coordinador.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-gray-700">Último Curso Visto</label>
+            <select
+              name="ultimoCursoVisto"
+              value={formData.ultimoCursoVisto}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            >
+              <option value={5}>5</option>
+              <option value={6}>6</option>
+              <option value={7}>7</option>
+              <option value={8}>8</option>
+              <option value={9}>9</option>
+              <option value={10}>10</option>
+              <option value={11}>11</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-gray-700">Número de Cédula</label>
+            <input
+              type="text"
+              name="numeroCedula"
+              value={formData.numeroCedula}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700">Modalidad de Estudio</label>
+            <select
+              name="modalidadEstudio"
+              value={formData.modalidadEstudio}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            >
+              <option value="Clases en Linea">Clases en Linea</option>
+              <option value="Modulos por WhsatSapp">Modulos </option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-gray-700">Fecha de Graduación</label>
+            <input
+              type="date"
+              name="fechaGraduacion"
+              value={formData.fechaGraduacion}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border rounded"
+              required
+            />
+          </div>
           <div className="flex justify-end mt-4">
             <button
               type="button"

@@ -20,7 +20,6 @@ const Root = () => {
           <ul>
             <SidebarItem to="/inicio/dashboard" icon={<BsBarChartFill />} text="Dashboard" />
             <SidebarItem to="/inicio/students" icon={<BsPersonCheckFill />} text="Estudiantes" />
-            <SidebarItem to="/inicio/facturas" icon={<BsBox />} text="Facturas" />
             <SidebarItem to="/inicio/programas" icon={<MdSchool />} text="Programas" />
           </ul>
         </nav>
