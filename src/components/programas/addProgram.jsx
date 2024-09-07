@@ -8,7 +8,7 @@ const CreateProgramModal = ({ isOpen, onClose, onProgramAdded }) => {
   const [formData, setFormData] = useState({
     nombre: "",
     descripcion: "",
-    valor: {},
+    monto: {},
   });
 
   const handleChange = (e) => {
@@ -101,11 +101,11 @@ const CreateProgramModal = ({ isOpen, onClose, onProgramAdded }) => {
             />
           </div>
           <div className="mb-4">
-            <label className="block text-gray-700 mb-1">Valor</label>
+            <label className="block text-gray-700 mb-1">Monto</label>
             <input
               type="number"
-              name="valor"
-              value={formData.valor}
+              name="monto"
+              value={formData.monto}
               onChange={handleChange}
               className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
