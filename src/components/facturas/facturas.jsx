@@ -24,7 +24,6 @@ const Facturas = () => {
       console.error("Error fetching total pagado:", err);
     }
   };
-  
 
   const fetchInvoicebyStudent = async (id) => {
     try {
@@ -133,6 +132,7 @@ const Facturas = () => {
           );
 
           message.success("La factura ha sido pagada");
+          fetchPaymentInvoicebyStudent(id);
         } catch (error) {
           message.error("Hubo un problema al procesar el pago");
         }
