@@ -33,8 +33,6 @@ export const login = async (email, password) => {
   }
 };
 
-
-
 //--------------------------------STUDENTS-----------------------------------------------
 export const getStudents = async () => {
   try {
@@ -46,14 +44,13 @@ export const getStudents = async () => {
   }
 };
 
-
 export const addStudent = async (studentData) => {
   try {
-      const response = await backApi.post('/api/students', studentData);
-      return response.data; // Devuelve los datos de la respuesta, como el ID del estudiante o un mensaje de éxito
+    const response = await backApi.post("/api/students", studentData);
+    return response.data; // Devuelve los datos de la respuesta, como el ID del estudiante o un mensaje de éxito
   } catch (error) {
-      console.error('Error al agregar el estudiante:', error);
-      throw error;
+    console.error("Error al agregar el estudiante:", error);
+    throw error;
   }
 };
 
@@ -62,23 +59,20 @@ export const getStudentById = async (id) => {
     const response = await backApi.get(`/api/students/${id}`);
     return response.data; // Devuelve los datos del estudiante
   } catch (error) {
-    console.error('Error al obtener el estudiante por ID:', error);
+    console.error("Error al obtener el estudiante por ID:", error);
     throw error;
   }
 };
 
-
-
 export const deleteStudent = async (studentId) => {
   try {
-      const response = await backApi.delete(`/api/students/${studentId}`);
-      return response.data; // Devuelve los datos de la respuesta, como un mensaje de éxito
+    const response = await backApi.delete(`/api/students/${studentId}`);
+    return response.data; // Devuelve los datos de la respuesta, como un mensaje de éxito
   } catch (error) {
-      console.error('Error al eliminar el estudiante:', error);
-      throw error;
+    console.error("Error al eliminar el estudiante:", error);
+    throw error;
   }
 };
-
 
 //-------------------------------INVOICES-------------------------------
 
@@ -93,52 +87,75 @@ export const getInvoicebyStudent = async (id) => {
 };
 
 
+export const getTotalPaymentInvoicebyStudent = async (id) => {
+  try {
+    const response = await backApi.get(`/api/invoices/total-pagado/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error al obtener el total de facturas pagas por estudiante:", error);
+    throw error;
+  }
+};
+
+export const payInvoice = async (facturaId) => {
+  try {
+    const response = await backApi.put(`/api/invoices/status/${facturaId}`, {
+      estado: true,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error al procesar el pago:", error);
+    throw error;
+  }
+};
+
 //----------------------------------------PROGRAMAS--------------------------------------
 
 export const getPrograms = async () => {
-    try {
-      const response = await backApi.get("/api/programs");
-      return response.data;
-    } catch (error) {
-      console.error("Error al obtener los programas:", error);
-      throw error;
+  try {
+    const response = await backApi.get("/api/programs");
+    return response.data;
+  } catch (error) {
+    console.error("Error al obtener los programas:", error);
+    throw error;
+  }
+};
+
+export const addProgram = async (programData) => {
+  try {
+    const response = await backApi.post("/api/programs", programData);
+
+    // Comprueba si la respuesta es exitosa
+    if (response.status >= 200 && response.status < 300) {
+      return { ok: true, data: response.data }; // Retorna un objeto con 'ok' y 'data' para mantener la coherencia
+    } else {
+      return { ok: false, error: response.statusText || "Error desconocido" };
     }
-  };
+  } catch (error) {
+    console.error("Error al agregar el programa:", error);
 
+    // Puedes incluir detalles más específicos sobre el error aquí
+    return {
+      ok: false,
+      error: error.message || "Error al realizar la solicitud",
+    };
+  }
+};
 
-  export const addProgram = async (programData) => {
-    try {
-      const response = await backApi.post("/api/programs", programData);
-      
-      // Comprueba si la respuesta es exitosa
-      if (response.status >= 200 && response.status < 300) {
-        return { ok: true, data: response.data }; // Retorna un objeto con 'ok' y 'data' para mantener la coherencia
-      } else {
-        return { ok: false, error: response.statusText || 'Error desconocido' };
-      }
-    } catch (error) {
-      console.error('Error al agregar el programa:', error);
-  
-      // Puedes incluir detalles más específicos sobre el error aquí
-      return { ok: false, error: error.message || 'Error al realizar la solicitud' };
+export const deleteProgram = async (programId) => {
+  try {
+    const response = await backApi.delete(`/api/programs/${programId}`);
+
+    if (response.status >= 200 && response.status < 300) {
+      return { ok: true, data: response.data };
+    } else {
+      return { ok: false, error: response.statusText || "Error desconocido" };
     }
-  };
-
-  export const deleteProgram = async (programId) => {
-    try {
-      const response = await backApi.delete(`/api/programs/${programId}`);
-      
-      if (response.status >= 200 && response.status < 300) {
-        return { ok: true, data: response.data };
-      } else {
-        return { ok: false, error: response.statusText || 'Error desconocido' };
-      }
-    } catch (error) {
-      console.error('Error al eliminar el programa:', error);
-      return { ok: false, error: error.message || 'Error al realizar la solicitud' };
-    }
-  };
-  
-
-
-
+  } catch (error) {
+    console.error("Error al eliminar el programa:", error);
+    return {
+      ok: false,
+      error: error.message || "Error al realizar la solicitud",
+    };
+  }
+};
