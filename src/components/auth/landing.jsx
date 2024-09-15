@@ -20,7 +20,7 @@ const Landing = () => {
             <p className="text-xl mb-8">
               Tu futuro comienza aquí: Validación de bachillerato y cursos técnicos 100% online
             </p>
-            <Link to="/matriculate" className="inline-block bg-white text-blue-600 font-bold py-2 px-6 rounded-full hover:bg-blue-100 transition duration-300">
+            <Link to="/register/c" className="inline-block bg-white text-blue-600 font-bold py-2 px-6 rounded-full hover:bg-blue-100 transition duration-300">
               Matricúlate Ahora
             </Link>
           </div>
