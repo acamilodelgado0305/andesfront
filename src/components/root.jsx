@@ -9,6 +9,7 @@ import {
   MenuUnfoldOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
+import Logo from "../../images/logo.png";
 
 const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
@@ -56,8 +57,8 @@ const Root = () => {
             className="text-xl w-16 h-16"
           />
           <div className="flex items-center mr-4">
-            <Avatar icon={<UserOutlined />} className="mr-2" />
-            <span className="mr-4">John Doe</span>
+          <Avatar src={Logo} className="mr-2" />
+            <span className="mr-4">IFEVA</span>
             <Button type="link" icon={<LogoutOutlined />}>
               Logout
             </Button>

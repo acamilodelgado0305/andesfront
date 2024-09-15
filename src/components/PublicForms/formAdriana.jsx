@@ -7,14 +7,16 @@ import {
   PhoneOutlined,
   IdcardOutlined,
 } from "@ant-design/icons";
+import PhoneInput from "react-phone-input-2";
 import Logo from "../../../images/logo.png";
 
 const { Option } = Select;
 
-const StudentForm = ({ onStudentAdded }) => {
+const AdrianaForm = () => {
   const [form] = Form.useForm();
   const [programas, setProgramas] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   useEffect(() => {
     const fetchProgramsData = async () => {
@@ -36,11 +38,12 @@ const StudentForm = ({ onStudentAdded }) => {
     try {
       const formattedValues = {
         ...values,
-        coordinador: "Adriana Benitez", // Automatically set the coordinator
+        coordinador: "Adriana Benitez",
         fechaNacimiento: values.fechaNacimiento.format("YYYY-MM-DD"),
         fechaGraduacion: values.fechaGraduacion.format("YYYY-MM-DD"),
         programaId: parseInt(values.programaId, 10),
         ultimoCursoVisto: parseInt(values.ultimoCursoVisto, 10),
+        telefono: phoneNumber, // Use the phoneNumber state which includes the country code
       };
 
       const response = await fetch(apiUrl, {
@@ -53,8 +56,8 @@ const StudentForm = ({ onStudentAdded }) => {
 
       if (response.ok) {
         message.success("Estudiante creado exitosamente");
-        onStudentAdded();
         form.resetFields();
+        setPhoneNumber(""); // Reset phone number
       } else {
         throw new Error(response.statusText);
       }
@@ -69,10 +72,12 @@ const StudentForm = ({ onStudentAdded }) => {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="mb-8 flex justify-center">
-       
-
         <div className="w-64 h-24  flex items-center justify-center">
-        <img src={Logo} alt="Descripción de la imagen" className="w-32 h-32" />
+          <img
+            src={Logo}
+            alt="Descripción de la imagen"
+            className="w-32 h-32"
+          />
         </div>
       </div>
 
@@ -118,14 +123,26 @@ const StudentForm = ({ onStudentAdded }) => {
 
           <Form.Item
             name="telefono"
-            label="Teléfono"
             rules={[
               { required: true, message: "Por favor ingrese el teléfono" },
             ]}
           >
-            <Input prefix={<PhoneOutlined />} placeholder="Teléfono" />
+            <div className="relative">
+              <PhoneInput
+                country={"co"}
+                value={phoneNumber}
+                onChange={(phone) => setPhoneNumber(phone)}
+                inputClass="w-full py-1 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                buttonClass="absolute inset-y-0 left-0 flex items-center px-2 pointer-events-none"
+                containerClass="relative"
+                inputProps={{
+                  name: "telefono",
+                  required: true,
+                  autoFocus: true,
+                }}
+              />
+            </div>
           </Form.Item>
-
           <Form.Item
             name="fechaNacimiento"
             label="Fecha de Nacimiento"
@@ -227,4 +244,4 @@ const StudentForm = ({ onStudentAdded }) => {
   );
 };
 
-export default StudentForm;
+export default AdrianaForm;

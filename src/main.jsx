@@ -11,8 +11,8 @@ import Landing from "./components/auth/landing";
 import Students from "./components/Students/student";
 import Facturas from "./components/facturas/facturas";
 import Programs from "./components/programas/programas";
-import FormCamilo from "./components/PublicForms/formCamilo";
-import FormAdriana from "./components/PublicForms/formAdriana";
+import CamiloForm from "./components/PublicForms/formCamilo";
+import AdrianaForm from "./components/PublicForms/formAdriana";
 
 import "./index.css";
 
@@ -32,11 +32,11 @@ const router = createBrowserRouter([
   },
   {
     path: "/register/c",
-    element: <FormAdriana />,
+    element: <CamiloForm />,
   },
   {
-    path: "/register/a",
-    element: <FormCamilo />,
+    path: "/register/ab",
+    element: <AdrianaForm />,
   },
   {
     path: "/inicio",
