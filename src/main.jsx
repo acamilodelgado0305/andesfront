@@ -11,7 +11,9 @@ import Landing from "./components/auth/landing";
 import Students from "./components/Students/student";
 import Facturas from "./components/facturas/facturas";
 import Programs from "./components/programas/programas";
-import FormCamilo from "./components/PublicForms.jsx/formCamilo";
+import FormCamilo from "./components/PublicForms/formCamilo";
+import FormAdriana from "./components/PublicForms/formAdriana";
+
 import "./index.css";
 
 const router = createBrowserRouter([
@@ -24,12 +26,17 @@ const router = createBrowserRouter([
         index: true,
         element: <Landing />,
       },
-      {
-        path: "/register",
-        element: <FormCamilo />,
-      }
+     
       
     ],
+  },
+  {
+    path: "/register/c",
+    element: <FormAdriana />,
+  },
+  {
+    path: "/register/a",
+    element: <FormCamilo />,
   },
   {
     path: "/inicio",

@@ -65,6 +65,7 @@ const Facturas = () => {
     try {
       const data = await getStudentById(id);
       setStudent(data);
+      console.log(data);
     } catch (err) {
       console.error("Error fetching student:", err);
     }
@@ -140,6 +141,32 @@ const Facturas = () => {
     });
   };
 
+  const handlePaymentMatricula = async (studentId) => {
+    Modal.confirm({
+      title: "¿Desea realizar el pago?",
+      content: "Esta acción no se puede deshacer",
+      okText: "Sí, pagar",
+      cancelText: "Cancelar",
+      onOk: async () => {
+        try {
+          await payInvoice(studentId);
+
+          setFacturas((prevStudents) =>
+            prevStudents.map((student) =>
+              student.id === studentId ? { ...student, estado_matricula: true } : student
+            )
+          );
+
+
+          message.success("La Matricula ha sido pagada");
+          fetchStudentById(id);
+        } catch (error) {
+          message.error("Hubo un problema al procesar el pago");
+        }
+      },
+    });
+  };
+
   return (
     <div className="mx-auto mt-8 p-4">
       <div className="mb-8">
@@ -159,11 +186,38 @@ const Facturas = () => {
             </h3>
           </div>
           <div className="border-t border-gray-200">
-            <dl>
-              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+            <dl className="sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-2 sm:gap-4">
                 <dt className="text-sm font-medium text-gray-500">Matrícula</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0">
                   {formatCurrency(student.matricula)}
+                </dd>
+              </div>
+              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-2 sm:gap-4">
+                <dt className="text-sm font-medium text-gray-500">
+                  {student.estado_matricula ? (
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      Pagada
+                    </span>
+                  ) : (
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                      Pendiente
+                    </span>
+                  )}
+                </dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0">
+                  {student.estado_matricula ? (
+                    <button className="bg-gray-500 text-white px-4 py-2 rounded-lg cursor-not-allowed">
+                      Pagado
+                    </button>
+                  ) : (
+                    <button
+                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-300 ease-in-out"
+                      onClick={() => handlePaymentMatricula(student.id)}
+                    >
+                      Pagar
+                    </button>
+                  )}
                 </dd>
               </div>
             </dl>
