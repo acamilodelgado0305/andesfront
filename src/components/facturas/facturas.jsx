@@ -5,8 +5,18 @@ import {
   getStudentById,
   payInvoice,
   getTotalPaymentInvoicebyStudent,
+  deleteInvoice,
 } from "../../services/studentService";
 import { Table, Input, Button, Dropdown, Menu, Modal, message } from "antd";
+import {
+  FaTrashAlt,
+  FaUserEdit,
+  FaSearch,
+  FaFilter,
+  FaDownload,
+  FaWhatsapp
+
+} from "react-icons/fa";
 
 const Facturas = () => {
   const { id } = useParams();
@@ -153,15 +163,33 @@ const Facturas = () => {
 
           setFacturas((prevStudents) =>
             prevStudents.map((student) =>
-              student.id === studentId ? { ...student, estado_matricula: true } : student
+              student.id === studentId
+                ? { ...student, estado_matricula: true }
+                : student
             )
           );
-
 
           message.success("La Matricula ha sido pagada");
           fetchStudentById(id);
         } catch (error) {
           message.error("Hubo un problema al procesar el pago");
+        }
+      },
+    });
+  };
+
+  const handleDelete = async (id) => {
+    Modal.confirm({
+      title: "¿Está seguro de que desea eliminar esta Factura?",
+      content: "Esta acción no se puede deshacer.",
+      onOk: async () => {
+        try {
+          await deleteInvoice(id);
+          setFacturas(facturas.filter((factura) => factura.id !== id));
+          message.success("Factura eliminado con éxito");
+        } catch (error) {
+          console.error("Error al eliminar la Factura:", error);
+          message.error("Error al eliminar el Factura");
         }
       },
     });
@@ -248,6 +276,9 @@ const Facturas = () => {
                 Estado
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Pagar
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acciones
               </th>
             </tr>
@@ -288,6 +319,13 @@ const Facturas = () => {
                       Pagar
                     </button>
                   )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <Button
+                    icon={<FaTrashAlt />}
+                    onClick={() => handleDelete(factura.id)}
+                    danger
+                  />
                 </td>
               </tr>
             ))}

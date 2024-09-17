@@ -109,6 +109,17 @@ export const payInvoice = async (facturaId) => {
   }
 };
 
+
+export const deleteInvoice = async (invoiceId) => {
+  try {
+    const response = await backApi.delete(`/api/invoices/${invoiceId}`);
+    return response.data; // Devuelve los datos de la respuesta, como un mensaje de éxito
+  } catch (error) {
+    console.error("Error al eliminar el estudiante:", error);
+    throw error;
+  }
+};
+
 //----------------------------------------PROGRAMAS--------------------------------------
 
 export const getPrograms = async () => {
