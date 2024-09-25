@@ -3,5 +3,17 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/',  // Si está en la raíz, no hay necesidad de cambiar el base.
+  server: {
+    proxy: {
+      '/api': {
+        target: ['https://fevaback.app.validaciondebachillerato.com.co'],
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
+  optimizeDeps: {
+    include: ['jwt-decode']
+  }
 })
