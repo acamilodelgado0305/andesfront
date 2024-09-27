@@ -7,6 +7,34 @@ const Home = () => {
     monthlyStats: []
   });
 
+  const fetchData = async () => {
+    try {
+      const students = await getStudents();
+
+      
+      // Simulamos datos mensuales para el gráfico
+      const monthlyData = [
+        { month: 'Ene', students: 120 },
+        { month: 'Feb', students: 150 },
+        { month: 'Mar', students: 180 },
+        { month: 'Abr', students: 220 },
+        { month: 'May', students: 250 },
+        { month: 'Jun', students: 280 },
+      ];
+
+      setStats({
+        studentCount: students.length,
+      
+        monthlyStats: monthlyData
+      });
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const StatCard = ({ title, value, icon }) => (
     <div className="bg-white rounded-lg shadow-md p-6">
