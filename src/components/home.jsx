@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { getStudents  } from '../services/studentService';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Home = () => {
   const [stats, setStats] = useState({
@@ -48,7 +47,7 @@ const Home = () => {
   );
 
   return (
-    <main className="p-4 md:p-10 mx-auto max-w-7xl bg-gray-100 min-h-screen">
+    <main className="p-4 md:p-10 mx-auto max-full bg-gray-100 min-h-screen">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
         <button 
@@ -78,19 +77,7 @@ const Home = () => {
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Crecimiento de estudiantes</h2>
-        <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.monthlyStats}>
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="students" fill="#3b82f6" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+    
     </main>
   );
 };

@@ -6,12 +6,15 @@ import {
   FaSearch,
   FaFilter,
   FaDownload,
-  FaWhatsapp
-
+  FaWhatsapp,
 } from "react-icons/fa";
 import axios from "axios";
 import CreateStudentModal from "./addStudent";
-import { getStudents, deleteStudent } from "../../services/studentService";
+import {
+  getStudents,
+  deleteStudent,
+  getPrograms,
+} from "../../services/studentService";
 import { Table, Input, Button, Dropdown, Menu, Modal, message } from "antd";
 import { CSVLink } from "react-csv";
 
@@ -33,14 +36,13 @@ const Students = () => {
 
   const fetchPrograms = async () => {
     try {
-      const res = await axios.get(
-        "https://fevaback.app.la-net.co/api/programs"
-      );
-      setProgramas(res.data);
-    } catch (error) {
-      console.error("Error fetching programs:", error);
+      const data = await getPrograms();
+      setProgramas(data);
+      console.log(data)
+    } catch (err) {
+      console.error("Error fetching programs:", err);
       message.error("Error al cargar los programas");
-    }
+    } 
   };
 
   const fetchStudents = async () => {
@@ -175,11 +177,15 @@ const Students = () => {
       ),
     },
     {
-      title: 'Acciones',
-      key: 'acciones',
+      title: "Acciones",
+      key: "acciones",
       render: (_, record) => (
         <div className="flex space-x-2">
-          <Button icon={<FaTrashAlt />} onClick={() => handleDelete(record.id)} danger />
+          <Button
+            icon={<FaTrashAlt />}
+            onClick={() => handleDelete(record.id)}
+            danger
+          />
           <Link to={`/student/edit/${record.id}`}>
             <Button icon={<FaUserEdit />} type="primary" />
           </Link>
@@ -187,22 +193,21 @@ const Students = () => {
             icon={<FaWhatsapp />}
             type="default"
             onClick={() => {
-              let phoneNumber = record.telefono.replace(/\D/g, ''); // Elimina todos los caracteres no numéricos
-              
+              let phoneNumber = record.telefono.replace(/\D/g, ""); // Elimina todos los caracteres no numéricos
+
               // Verifica si el número ya tiene el código de país
-              if (!phoneNumber.startsWith('57')) {
+              if (!phoneNumber.startsWith("57")) {
                 phoneNumber = `57${phoneNumber}`; // Agrega el código de país de Colombia
               }
-    
-              window.open(`https://wa.me/${phoneNumber}`, '_blank');  // Abre WhatsApp con el número formateado
+
+              window.open(`https://wa.me/${phoneNumber}`, "_blank"); // Abre WhatsApp con el número formateado
             }}
           >
             WhatsApp
           </Button>
         </div>
       ),
-    }
-    
+    },
   ];
 
   const filterMenu = (
