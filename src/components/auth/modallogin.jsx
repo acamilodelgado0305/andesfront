@@ -34,7 +34,7 @@ const LoginModal = ({ isOpen, onClose }) => {
         });
 
         // Redirigir al dashboard
-        navigate("/inicio/dashboard");
+        navigate("/inicio");
       } else {
         throw new Error(response.error || "Error desconocido");
       }
