@@ -6,14 +6,14 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Root from "./components/root";
 import ErrorPage from "./error-page";
 import Home from "./components/home";
-import Sigin from "./components/auth/register";
 import Landing from "./components/auth/landing";
 import Students from "./components/Students/student";
 import Facturas from "./components/facturas/facturas";
 import Programs from "./components/programas/programas";
 import CamiloForm from "./components/PublicForms/formCamilo";
 import AdrianaForm from "./components/PublicForms/formAdriana";
-
+import ProtectedRoute from "./ProtectedRoute";
+//import { AuthProvider } from "./AuthContext";
 import "./index.css";
 
 const router = createBrowserRouter([
@@ -26,7 +26,6 @@ const router = createBrowserRouter([
         index: true,
         element: <Landing />,
       },
-      
     ],
   },
   {
@@ -39,29 +38,29 @@ const router = createBrowserRouter([
   },
   {
     path: "/inicio",
-    element: <Root />,
+    element: <ProtectedRoute element={<Root />} />, // Proteger la ruta principal
     errorElement: <ErrorPage />,
     children: [
       {
         index: true,
-        element: <Home />,
+        element: <ProtectedRoute element={<Home />} />, // Proteger la ruta de inicio
       },
       {
         path: "dashboard",
-        element: <Home />,
+        element: <ProtectedRoute element={<Home />} />, // Proteger la ruta del dashboard
       },
       {
         path: "students",
-        element: <Students />,
+        element: <ProtectedRoute element={<Students />} />, // Proteger la ruta de estudiantes
       },
       {
         path: "programas",
-        element: <Programs />,
+        element: <ProtectedRoute element={<Programs />} />, // Proteger la ruta de programas
       },
       {
         path: "students/facturas/:id",
-        element: <Facturas />,
-      }
+        element: <ProtectedRoute element={<Facturas />} />, // Proteger la ruta de facturas
+      },
     ],
   },
 ]);
