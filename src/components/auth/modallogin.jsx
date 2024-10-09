@@ -20,7 +20,11 @@ const LoginModal = ({ isOpen, onClose }) => {
     try {
       const response = await login(user.email, user.password);
 
-      if (response.message === "Inicio de sesión exitoso") {
+      if (response.message === "Inicio de sesión exitoso" && response.token) {
+        // Guarda el token en el localStorage
+        localStorage.setItem("token", response.token);
+
+        // Mostrar mensaje de éxito y redirigir al dashboard
         await Swal.fire({
           icon: 'success',
           title: '¡Éxito!',
@@ -28,7 +32,8 @@ const LoginModal = ({ isOpen, onClose }) => {
           timer: 1500,
           showConfirmButton: false
         });
-        console.log("Navigating to /inicio");
+
+        // Redirigir al dashboard
         navigate("/inicio");
       } else {
         throw new Error(response.error || "Error desconocido");
