@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react'; // Asegúrate de importar useContext
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { Layout, Menu, Typography, Avatar, Button } from 'antd';
+import { Layout, Menu, Avatar, Button } from 'antd';
 import {
   BarChartOutlined,
   UserOutlined,
@@ -10,16 +10,21 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons';
 import Logo from "../../images/logo.png";
+import { AuthContext } from "../AuthContext";
 
 const { Header, Sider, Content } = Layout;
-const { Title } = Typography;
 
 const Root = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { logout } = useContext(AuthContext);
 
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
+  };
+
+  const handleLogout = () => {
+    logout(); // Llama a la función logout del contexto
   };
 
   const menuItems = [
@@ -31,13 +36,13 @@ const Root = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider trigger={null} collapsible collapsed={collapsed} 
-             breakpoint="lg" collapsedWidth="80"
-             onBreakpoint={(broken) => {
-               if (broken) {
-                 setCollapsed(true);
-               }
-             }}>
+      <Sider trigger={null} collapsible collapsed={collapsed}
+        breakpoint="lg" collapsedWidth="80"
+        onBreakpoint={(broken) => {
+          if (broken) {
+            setCollapsed(true);
+          }
+        }}>
         <Menu
           theme="dark"
           mode="inline"
@@ -58,9 +63,9 @@ const Root = () => {
             className="text-xl w-16 h-16"
           />
           <div className="flex items-center mr-4">
-          <Avatar src={Logo} className="mr-2" />
+            <Avatar src={Logo} className="mr-2" />
             <span className="mr-4">IFEVA</span>
-            <Button type="link" icon={<LogoutOutlined />}>
+            <Button type="link" icon={<LogoutOutlined />} onClick={handleLogout}>
               Logout
             </Button>
           </div>

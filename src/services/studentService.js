@@ -35,7 +35,6 @@ export const login = async (email, password) => {
     throw error;
   }
 };
-
 //--------------------------------STUDENTS-----------------------------------------------
 export const getStudents = async () => {
   try {
