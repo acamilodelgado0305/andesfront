@@ -13,14 +13,17 @@ const backApi = axios.create({
 // Interceptor para agregar el token a las solicitudes
 backApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("authToken");
+    const token = localStorage.getItem("token");
+    console.log("Token:", token); // Asegúrate de que el token se esté obteniendo correctamente
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log("Config headers:", config.headers); // Verifica qué headers se están enviando
     return config;
   },
   (error) => Promise.reject(error)
 );
+
 
 // Servicio de autenticación
 export const login = async (email, password) => {
@@ -39,7 +42,7 @@ export const getStudents = async () => {
     const response = await backApi.get("api/students");
     return response.data;
   } catch (error) {
-    console.error("Error al obtener las cuentas:", error);
+    console.error("Error al obtener los estudientes:", error);
     throw error;
   }
 };
@@ -156,6 +159,59 @@ export const addProgram = async (programData) => {
 export const deleteProgram = async (programId) => {
   try {
     const response = await backApi.delete(`/api/programs/${programId}`);
+
+    if (response.status >= 200 && response.status < 300) {
+      return { ok: true, data: response.data };
+    } else {
+      return { ok: false, error: response.statusText || "Error desconocido" };
+    }
+  } catch (error) {
+    console.error("Error al eliminar el programa:", error);
+    return {
+      ok: false,
+      error: error.message || "Error al realizar la solicitud",
+    };
+  }
+};
+
+
+//-------------------MATERIAS----------------------------------//
+
+
+export const getSubjects = async () => {
+  try {
+    const response = await backApi.get("/api/subjects");
+    return response.data;
+  } catch (error) {
+    console.error("Error al obtener las materias:", error);
+    throw error;
+  }
+};
+
+export const addSubject = async (subjectData) => {
+  try {
+    const response = await backApi.post("/api/subjects", subjectData);
+
+    // Comprueba si la respuesta es exitosa
+    if (response.status >= 200 && response.status < 300) {
+      return { ok: true, data: response.data }; // Retorna un objeto con 'ok' y 'data' para mantener la coherencia
+    } else {
+      return { ok: false, error: response.statusText || "Error desconocido" };
+    }
+  } catch (error) {
+    console.error("Error al agregar la materia:", error);
+
+    // Puedes incluir detalles más específicos sobre el error aquí
+    return {
+      ok: false,
+      error: error.message || "Error al realizar la solicitud",
+    };
+  }
+};
+
+export const deleteSubject = async (programId) => {
+  try {
+    const response = await backApi.delete(`/api/subjects/${programId}`);
 
     if (response.status >= 200 && response.status < 300) {
       return { ok: true, data: response.data };
