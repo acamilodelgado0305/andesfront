@@ -1,30 +1,28 @@
 import React, { createContext, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-// Crear el contexto
 export const AuthContext = createContext();
 
-// Proveedor del contexto
 export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(null);
+    const navigate = useNavigate();
 
-    // Cargar el token desde localStorage cuando la aplicación se monta
     useEffect(() => {
-        const storedToken = localStorage.getItem("authToken");
+        const storedToken = sessionStorage.getItem("authToken");
         if (storedToken) {
             setToken(storedToken);
         }
     }, []);
 
-    // Función para iniciar sesión
-    const login = (token) => {
-        localStorage.setItem("authToken", token);
-        setToken(token);
+    const login = (newToken) => {
+        sessionStorage.setItem("authToken", newToken);
+        setToken(newToken);
     };
 
-    // Función para cerrar sesión
     const logout = () => {
-        localStorage.removeItem("authToken");
+        sessionStorage.removeItem("authToken");
         setToken(null);
+        navigate("/"); // Redirigir al inicio
     };
 
     return (
