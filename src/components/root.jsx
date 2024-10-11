@@ -31,6 +31,7 @@ const Root = () => {
     { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Dashboard' },
     { key: '/inicio/students', icon: <UserOutlined />, label: 'Estudiantes' },
     { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas' },
+    { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias' }
   ];
 
   return (

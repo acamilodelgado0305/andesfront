@@ -11,6 +11,7 @@ import Landing from "./components/auth/landing";
 import Students from "./components/Students/student";
 import Facturas from "./components/facturas/facturas";
 import Programs from "./components/programas/programas";
+import Materias from "./components/materias/Materias";
 import CamiloForm from "./components/PublicForms/formCamilo";
 import AdrianaForm from "./components/PublicForms/formAdriana";
 import ProtectedRoute from "./ProtectedRoute";
@@ -29,6 +30,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="dashboard" element={<ProtectedRoute element={<Home />} />} />
             <Route path="students" element={<ProtectedRoute element={<Students />} />} />
             <Route path="programas" element={<ProtectedRoute element={<Programs />} />} />
+            <Route path="materias" element={<ProtectedRoute element={<Materias />} />} />
             <Route path="students/facturas/:id" element={<ProtectedRoute element={<Facturas />} />} />
           </Route>
           <Route path="*" element={<ErrorPage />} /> {/* Ruta de error */}
