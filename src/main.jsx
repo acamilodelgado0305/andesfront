@@ -30,6 +30,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="dashboard" element={<ProtectedRoute element={<Home />} />} />
             <Route path="students" element={<ProtectedRoute element={<Students />} />} />
             <Route path="programas" element={<ProtectedRoute element={<Programs />} />} />
+            <Route path="materias" element={<ProtectedRoute element={<Materias />} />} />
             <Route path="students/facturas/:id" element={<ProtectedRoute element={<Facturas />} />} />
           </Route>
           <Route path="*" element={<ErrorPage />} /> {/* Ruta de error */}
