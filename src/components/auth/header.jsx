@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MenuOutlined } from '@ant-design/icons'; // Importar el icono de hamburguesa
+import { MenuOutlined } from '@ant-design/icons';
 
 const Header = ({ onLoginClick }) => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // Estado para controlar el menú móvil
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -15,7 +15,6 @@ const Header = ({ onLoginClick }) => {
         <Link to="/" className="text-2xl font-bold">IE Villa de los Andes</Link>
 
         <div className="flex items-center">
-          {/* Botón de hamburguesa en pantallas pequeñas */}
           <button
             onClick={toggleMenu}
             className="text-white text-2xl lg:hidden focus:outline-none"
