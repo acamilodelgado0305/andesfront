@@ -17,6 +17,7 @@ import {
 } from "../../services/studentService";
 import { Table, Input, Button, Dropdown, Menu, Modal, message } from "antd";
 import { CSVLink } from "react-csv";
+import StudentDetailModal from './StudentDetailModal';
 
 const Students = () => {
   const [students, setStudents] = useState([]);
@@ -28,6 +29,9 @@ const Students = () => {
     programa: null,
     activo: null,
   });
+
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   useEffect(() => {
     fetchPrograms();
@@ -104,6 +108,17 @@ const Students = () => {
       return matchesSearch && matchesFilters;
     });
   }, [students, searchTerm, filters]);
+
+
+  const handleRowClick = (record) => {
+    setSelectedStudent(record);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleGraduate = async (studentId) => {
+  
+    await fetchStudents(); 
+  };
 
   const columns = [
     {
@@ -287,13 +302,7 @@ const Students = () => {
           >
             Crear Estudiante
           </Button>
-          <CSVLink
-            data={filteredStudents}
-            filename={"estudiantes.csv"}
-            className="ant-btn ant-btn-primary"
-          >
-            <FaDownload /> Exportar CSV
-          </CSVLink>
+         
         </div>
       </div>
 
@@ -315,12 +324,25 @@ const Students = () => {
         dataSource={filteredStudents}
         rowKey="id"
         pagination={{ pageSize: 10 }}
+        onRow={(record) => ({
+          onClick: () => handleRowClick(record),
+          style: { cursor: 'pointer' }  // Changes cursor to pointer on hover
+        })}
       />
 
       <CreateStudentModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onStudentAdded={handleStudentAdded}
+      />
+
+      <StudentDetailModal
+        student={selectedStudent}
+        visible={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        onGraduate={handleGraduate}
+        getCoordinatorStyle={getCoordinatorStyle}
+        getProgramName={getProgramName}
       />
     </div>
   );
