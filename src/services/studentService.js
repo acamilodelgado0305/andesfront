@@ -225,3 +225,17 @@ export const deleteSubject = async (programId) => {
     };
   }
 };
+
+export const uploadStudents = async (formData) => {
+  try {
+    const response = await backApi.post("/api/upload-students", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data", // Opcional, Axios lo configura automáticamente
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error al cargar estudiantes:", error);
+    throw error;
+  }
+};
