@@ -1,11 +1,13 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../../AuthContext";
 import { login } from "../../services/studentService";
 import Swal from "sweetalert2";
 
 const LoginModal = ({ isOpen, onClose }) => {
   const [user, setUser] = useState({ email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
+  const { login: contextLogin } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleInputChange = useCallback((event) => {
@@ -21,16 +23,16 @@ const LoginModal = ({ isOpen, onClose }) => {
       const response = await login(user.email, user.password);
 
       if (response.message === "Inicio de sesión exitoso" && response.token) {
-        // Guarda el token en el localStorage
-        localStorage.setItem("token", response.token);
+        // Guarda el token en el contexto
+        contextLogin(response.token);
 
         // Mostrar mensaje de éxito y redirigir al dashboard
         await Swal.fire({
-          icon: 'success',
-          title: '¡Éxito!',
-          text: 'Has iniciado sesión correctamente.',
+          icon: "success",
+          title: "¡Éxito!",
+          text: "Has iniciado sesión correctamente.",
           timer: 1500,
-          showConfirmButton: false
+          showConfirmButton: false,
         });
 
         // Redirigir al dashboard
@@ -41,9 +43,9 @@ const LoginModal = ({ isOpen, onClose }) => {
     } catch (error) {
       console.error("Error al iniciar sesión:", error);
       await Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Hubo un problema al iniciar sesión. Por favor, intenta de nuevo.',
+        icon: "error",
+        title: "Error",
+        text: "Hubo un problema al iniciar sesión. Por favor, intenta de nuevo.",
       });
     } finally {
       setIsLoading(false);
