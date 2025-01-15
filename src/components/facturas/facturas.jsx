@@ -159,23 +159,45 @@ const Facturas = () => {
       cancelText: "Cancelar",
       onOk: async () => {
         try {
-          await payInvoice(studentId);
+          // Actualizamos usando la ruta correcta
+          const response = await fetch(`http://localhost:3001/api/students/status/${studentId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              estado_matricula: true
+            })
+          });
 
-          setFacturas((prevStudents) =>
-            prevStudents.map((student) =>
-              student.id === studentId
-                ? { ...student, estado_matricula: true }
-                : student
-            )
-          );
+          if (!response.ok) {
+            throw new Error('Error al actualizar el estado de la matrícula');
+          }
 
-          message.success("La Matricula ha sido pagada");
+          // Actualizamos el estado local del estudiante
+          setStudent(prevStudent => ({
+            ...prevStudent,
+            estado_matricula: true
+          }));
+
+          // Actualizamos el total pagado sumando el valor de la matrícula
+          setTotalPagado(prevTotal => prevTotal + student.matricula);
+
           fetchStudentById(id);
+          message.success("La Matrícula ha sido pagada");
+
+          // Refrescamos los datos
+          await fetchStudentById(id);
+          await fetchPaymentInvoicebyStudent(id);
+
         } catch (error) {
+          console.error("Error al procesar el pago:", error);
           message.error("Hubo un problema al procesar el pago");
         }
       },
+
     });
+
   };
 
   const handleDelete = async (id) => {

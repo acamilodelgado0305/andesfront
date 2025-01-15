@@ -1,22 +1,24 @@
 import React from 'react';
 import { Modal, Button, Descriptions, message } from 'antd';
 import { Link } from 'react-router-dom';
-import { 
-  FaUserEdit, 
-  FaGraduationCap, 
-  FaFileInvoiceDollar, 
-  FaWhatsapp 
+import {
+  FaUserEdit,
+  FaGraduationCap,
+  FaFileInvoiceDollar,
+  FaWhatsapp,
+  FaTrashAlt
 } from 'react-icons/fa';
 
+const apiUrl = import.meta.env.VITE_API_BACKEND;
 
-
-const StudentDetailModal = ({ 
-  student, 
-  visible, 
+const StudentDetailModal = ({
+  student,
+  visible,
   onClose,
   onGraduate,
+  onDelete, // Nuevo prop para manejar la eliminación
   getCoordinatorStyle,
-  getProgramName 
+  getProgramName,
 }) => {
   if (!student) return null;
 
@@ -31,6 +33,36 @@ const StudentDetailModal = ({
         } catch (error) {
           console.error("Error al graduar el estudiante:", error);
           message.error("Error al graduar el estudiante");
+        }
+      },
+    });
+  };
+
+  const handleDelete = async (id) => {
+    Modal.confirm({
+      title: "¿Está seguro de que desea eliminar este estudiante?",
+      content: "Esta acción no se puede deshacer.",
+      onOk: async () => {
+        try {
+          const response = await fetch(`${apiUrl}/students/${id}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+          }
+
+          message.success("Estudiante eliminado con éxito");
+          onClose(); // Cerramos el modal
+          if (onDelete) {
+            onDelete(id); // Notificamos al componente padre
+          }
+        } catch (error) {
+          console.error("Error al eliminar el estudiante:", error);
+          message.error("Error al eliminar el estudiante");
         }
       },
     });
@@ -52,6 +84,7 @@ const StudentDetailModal = ({
       footer={null}
       width={800}
     >
+      {/* ... resto del código del modal ... */}
       <Descriptions bordered column={2}>
         <Descriptions.Item label="ID">{student.numero_cedula}</Descriptions.Item>
         <Descriptions.Item label="Coordinador">
@@ -67,9 +100,7 @@ const StudentDetailModal = ({
           {getProgramName(student.programa_id)}
         </Descriptions.Item>
         <Descriptions.Item label="Estado">
-          <span className={`px-2 py-1 rounded-full text-sm ${
-            student.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"
-          }`}>
+          <span className={`px-2 py-1 rounded-full text-sm ${student.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"}`}>
             {student.activo ? "Activo" : "Inactivo"}
           </span>
         </Descriptions.Item>
@@ -79,13 +110,20 @@ const StudentDetailModal = ({
       </Descriptions>
 
       <div className="flex justify-end space-x-2 mt-4">
+        <Button
+          icon={<FaTrashAlt />}
+          onClick={() => handleDelete(student.id)}
+          danger
+        >
+          Eliminar
+        </Button>
         <Link to={`/student/edit/${student.id}`}>
           <Button icon={<FaUserEdit />} type="primary">
             Editar
           </Button>
         </Link>
-        <Button 
-          icon={<FaGraduationCap />} 
+        <Button
+          icon={<FaGraduationCap />}
           onClick={handleGraduate}
           disabled={student.fecha_graduacion}
         >

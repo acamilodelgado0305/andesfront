@@ -28,7 +28,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
 
   const handleSubmit = async (values) => {
     setLoading(true);
-    const apiUrl = "https://fevaback.app.la-net.co/api/students";
+    const apiUrl = "http://localhost:3001/api/students";
     try {
       const formattedValues = {
         ...values,

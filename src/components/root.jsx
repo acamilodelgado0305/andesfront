@@ -70,7 +70,7 @@ const Root = () => {
             </Button>
           </div>
         </Header>
-        <Content className="m-4 p-4 bg-white rounded-lg overflow-y-auto">
+        <Content className="m-2 p-2 bg-white rounded-lg overflow-y-auto">
           <Outlet />
         </Content>
       </Layout>
