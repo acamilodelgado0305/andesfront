@@ -122,9 +122,13 @@ const Students = () => {
 
   const columns = [
     {
-      title: "ID",
-      dataIndex: "numero_cedula",
-      key: "numero_cedula",
+      title: "Documento",
+      key: "documento",
+      render: (_, record) => (
+        <span>
+          {record.tipo_documento} {record.numero_documento || 'No especificado'}
+        </span>
+      ),
     },
     {
       title: "Coordinador",
@@ -135,27 +139,32 @@ const Students = () => {
       ),
     },
     {
-      title: "Nombre",
-      dataIndex: "nombre",
-      key: "nombre",
-    },
-    {
-      title: "Apellido",
-      dataIndex: "apellido",
-      key: "apellido",
+      title: "Nombre Completo",
+      key: "nombre_completo",
+      render: (_, record) => (
+        <span>{`${record.nombre || ''} ${record.apellido || ''}`}</span>
+      ),
     },
     {
       title: "Estado",
-      dataIndex: "activo",
-      key: "activo",
-      render: (activo) => (
-        <span
-          className={`px-2 py-1 rounded-full text-sm ${
-            activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"
-          }`}
-        >
-          {activo ? "Activo" : "Inactivo"}
-        </span>
+      key: "estados",
+      render: (_, record) => (
+        <div className="space-y-1">
+          <div>
+            <span className={`px-2 py-1 rounded-full text-sm ${
+              record.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"
+            }`}>
+              {record.activo ? "Activo" : "Inactivo"}
+            </span>
+          </div>
+          <div>
+            <span className={`px-2 py-1 rounded-full text-sm ${
+              record.estado_matricula ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"
+            }`}>
+              {record.estado_matricula ? "Matrícula Paga" : "Matrícula Pendiente"}
+            </span>
+          </div>
+        </div>
       ),
     },
     {
@@ -165,19 +174,37 @@ const Students = () => {
       render: (programId) => getProgramName(programId),
     },
     {
-      title: "Email",
-      dataIndex: "email",
-      key: "email",
+      title: "Contacto",
+      key: "contacto",
+      render: (_, record) => (
+        <div className="space-y-1">
+          <div>{record.email || 'No especificado'}</div>
+          <div>
+            Llamadas: {record.telefono_llamadas || 'No especificado'}
+          </div>
+          <div>
+            WhatsApp: {record.telefono_whatsapp || 'No especificado'}
+          </div>
+        </div>
+      ),
     },
     {
-      title: "Teléfono",
-      dataIndex: "telefono",
-      key: "telefono",
-    },
-    {
-      title: "Fecha de Graduación",
-      dataIndex: "fecha_graduacion",
-      key: "fecha_graduacion",
+      title: "Fechas",
+      key: "fechas",
+      render: (_, record) => (
+        <div className="space-y-1">
+          <div>
+            <span className="font-medium">Inscripción:</span>{' '}
+            {record.fecha_inscripcion ? new Date(record.fecha_inscripcion).toLocaleDateString() : 'No especificado'}
+          </div>
+          {record.fecha_graduacion && (
+            <div>
+              <span className="font-medium">Graduación:</span>{' '}
+              {new Date(record.fecha_graduacion).toLocaleDateString()}
+            </div>
+          )}
+        </div>
+      ),
     },
     {
       title: "Facturas",
@@ -198,24 +225,33 @@ const Students = () => {
         <div className="flex space-x-2">
           <Button
             icon={<FaTrashAlt />}
-            onClick={() => handleDelete(record.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(record.id);
+            }}
             danger
           />
-          <Link to={`/student/edit/${record.id}`}>
+          <Link to={`/student/edit/${record.id}`} onClick={(e) => e.stopPropagation()}>
             <Button icon={<FaUserEdit />} type="primary" />
           </Link>
           <Button
             icon={<FaWhatsapp />}
             type="default"
-            onClick={() => {
-              let phoneNumber = record.telefono.replace(/\D/g, ""); // Elimina todos los caracteres no numéricos
-
-              // Verifica si el número ya tiene el código de país
-              if (!phoneNumber.startsWith("57")) {
-                phoneNumber = `57${phoneNumber}`; // Agrega el código de país de Colombia
+            onClick={(e) => {
+              e.stopPropagation();
+              let phoneNumber = record.telefono_whatsapp?.replace(/\D/g, "") || 
+                              record.telefono_llamadas?.replace(/\D/g, "");
+  
+              if (!phoneNumber) {
+                message.error("No hay número de teléfono disponible");
+                return;
               }
-
-              window.open(`https://wa.me/${phoneNumber}`, "_blank"); // Abre WhatsApp con el número formateado
+  
+              if (!phoneNumber.startsWith("57")) {
+                phoneNumber = `57${phoneNumber}`;
+              }
+  
+              window.open(`https://wa.me/${phoneNumber}`, "_blank");
             }}
           >
             WhatsApp

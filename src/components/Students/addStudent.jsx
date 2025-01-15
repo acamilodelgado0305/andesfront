@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getPrograms } from "../../services/studentService";
 import { Modal, Form, Input, Select, DatePicker, Button, message, Tabs } from "antd";
-import { UserOutlined, PhoneOutlined, IdcardOutlined, HomeOutlined } from "@ant-design/icons";
+import { UserOutlined, PhoneOutlined, IdcardOutlined } from "@ant-design/icons";
 import UploadStudentsButton from "./UploadStudentsButton";
 
 const { Option } = Select;
@@ -63,178 +63,140 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
   return (
     <Modal
       title="Crear o Cargar Estudiantes"
-      visible={isOpen}
+      open={isOpen}
       onCancel={onClose}
       footer={null}
-      width={900}
+      width={1200}
+      style={{ top: 20 }}
     >
       <Tabs defaultActiveKey="1">
         <TabPane tab="Crear Estudiante" key="1">
           <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <div className="grid grid-cols-2 gap-4">
-              {/* Información Básica */}
-              <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: "Ingrese el nombre" }]}>
-                <Input prefix={<UserOutlined />} placeholder="Nombre" />
-              </Form.Item>
+            <div className="grid grid-cols-3 gap-4">
+              {/* Columna 1: Información Personal */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-gray-700 mb-4">Información Personal</h3>
+                
+                <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
+                  <Input prefix={<UserOutlined />} />
+                </Form.Item>
 
-              <Form.Item name="apellido" label="Apellido" rules={[{ required: true, message: "Ingrese el apellido" }]}>
-                <Input placeholder="Apellido" />
-              </Form.Item>
-              <Form.Item
-                name="email"
-                label="Correo Electrónico"
-                rules={[
-                  { required: true, message: 'Ingrese un correo electrónico' },
-                  { type: 'email', message: 'Ingrese un correo electrónico válido' },
-                ]}
-              >
-                <Input placeholder="Correo Electrónico" />
-              </Form.Item>
+                <Form.Item name="apellido" label="Apellido" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
 
-              <Form.Item
-                name="tipoDocumento"
-                label="Tipo de Documento"
-                rules={[{ required: true, message: "Seleccione el tipo de documento" }]}
-              >
-                <Select placeholder="Seleccione el tipo de documento">
-                  <Option value="Cédula">Cédula</Option>
-                  <Option value="Pasaporte">Pasaporte</Option>
-                </Select>
-              </Form.Item>
+                <Form.Item name="email" label="Correo Electrónico" 
+                  rules={[{ required: true }, { type: 'email' }]}>
+                  <Input />
+                </Form.Item>
 
-              <Form.Item
-                name="numeroDocumento"
-                label="Número de Documento"
-                rules={[{ required: true, message: "Ingrese el número de documento" }]}
-              >
-                <Input prefix={<IdcardOutlined />} placeholder="Número de Documento" />
-              </Form.Item>
+                <Form.Item name="fechaNacimiento" label="Fecha de Nacimiento" rules={[{ required: true }]}>
+                  <DatePicker style={{ width: "100%" }} />
+                </Form.Item>
 
-              <Form.Item
-                name="lugarExpedicion"
-                label="Lugar de Expedición"
-                rules={[{ required: true, message: "Ingrese el lugar de expedición" }]}
-              >
-                <Input placeholder="Lugar de Expedición" />
-              </Form.Item>
+                <Form.Item name="lugarNacimiento" label="Lugar de Nacimiento" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
 
-              <Form.Item
-                name="fechaNacimiento"
-                label="Fecha de Nacimiento"
-                rules={[{ required: true, message: "Seleccione la fecha de nacimiento" }]}
-              >
-                <DatePicker style={{ width: "100%" }} />
-              </Form.Item>
+                <Form.Item name="eps" label="EPS" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
 
-              <Form.Item
-                name="lugarNacimiento"
-                label="Lugar de Nacimiento"
-                rules={[{ required: true, message: "Ingrese el lugar de nacimiento" }]}
-              >
-                <Input placeholder="Lugar de Nacimiento" />
-              </Form.Item>
+                <Form.Item name="rh" label="RH" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
+              </div>
 
-              <Form.Item
-                name="telefonoLlamadas"
-                label="Teléfono para Llamadas"
-                rules={[{ required: true, message: "Ingrese el teléfono para llamadas" }]}
-              >
-                <Input prefix={<PhoneOutlined />} placeholder="Teléfono para Llamadas" />
-              </Form.Item>
+              {/* Columna 2: Información de Contacto y Documentación */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-gray-700 mb-4">Contacto y Documentación</h3>
+                
+                <Form.Item name="tipoDocumento" label="Tipo de Documento" rules={[{ required: true }]}>
+                  <Select>
+                    <Option value="CC">Cédula</Option>
+                    <Option value="TI">Tarjeta de Identidad</Option>
+                    <Option value="CE">Cédula Extranjería</Option>
+                    <Option value="PA">Pasaporte</Option>
+                  </Select>
+                </Form.Item>
 
-              <Form.Item
-                name="telefonoWhatsapp"
-                label="Teléfono para WhatsApp"
-                rules={[{ required: true, message: "Ingrese el teléfono para WhatsApp" }]}
-              >
-                <Input placeholder="Teléfono para WhatsApp" />
-              </Form.Item>
+                <Form.Item name="numeroDocumento" label="Número de Documento" rules={[{ required: true }]}>
+                  <Input prefix={<IdcardOutlined />} />
+                </Form.Item>
 
-              <Form.Item
-                name="eps"
-                label="EPS"
-                rules={[{ required: true, message: "Ingrese el EPS" }]}
-              >
-                <Input placeholder="EPS" />
-              </Form.Item>
+                <Form.Item name="lugarExpedicion" label="Lugar de Expedición" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
 
-              <Form.Item
-                name="rh"
-                label="RH"
-                rules={[{ required: true, message: "Ingrese el grupo sanguíneo" }]}
-              >
-                <Input placeholder="RH" />
-              </Form.Item>
+                <Form.Item name="telefonoLlamadas" label="Teléfono para Llamadas" rules={[{ required: true }]}>
+                  <Input prefix={<PhoneOutlined />} />
+                </Form.Item>
 
-              <Form.Item
-                name="programaId"
-                label="Programa"
-                rules={[{ required: true, message: "Por favor seleccione un programa" }]}
-              >
-                <Select placeholder="Seleccione un programa">
-                  {programas.map((programa) => (
-                    <Option key={programa.id} value={programa.id}>
-                      {programa.nombre}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-              <Form.Item
-                name="ultimoCursoAprobado"
-                label="Último Curso Aprobado"
-                rules={[{ required: true, message: 'Ingrese el último curso aprobado' }]}
-              >
-                <Input placeholder="Ingrese el último curso aprobado" />
-              </Form.Item>
+                <Form.Item name="telefonoWhatsapp" label="Teléfono para WhatsApp" rules={[{ required: true }]}>
+                  <Input prefix={<PhoneOutlined />} />
+                </Form.Item>
+              </div>
 
-              {/* Información Médica */}
-              <Form.Item name="eps" label="EPS" rules={[{ required: true, message: 'Ingrese el EPS' }]}>
-                <Input placeholder="EPS" />
-              </Form.Item>
+              {/* Columna 3: Información Académica y Administrativa */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-gray-700 mb-4">Información Académica</h3>
+                
+                <Form.Item name="programaId" label="Programa" rules={[{ required: true }]}>
+                  <Select>
+                    {programas.map((programa) => (
+                      <Option key={programa.id} value={programa.id}>
+                        {programa.nombre}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
 
-              <Form.Item name="rh" label="RH" rules={[{ required: true, message: 'Ingrese el grupo sanguíneo' }]}>
-                <Input placeholder="RH" />
-              </Form.Item>
+                <Form.Item name="coordinador" label="Coordinador" rules={[{ required: true }]}>
+                  <Select>
+                    <Option value="Adriana Benitez">Adriana Benitez</Option>
+                    <Option value="Camilo Delgado">Camilo Delgado</Option>
+                  </Select>
+                </Form.Item>
 
-              {/* Información del Acudiente */}
-              <Form.Item name="nombreAcudiente" label="Nombre del Acudiente" rules={[{ required: true, message: 'Ingrese el nombre del acudiente' }]}>
-                <Input placeholder="Nombre del Acudiente" />
-              </Form.Item>
+                <Form.Item name="ultimoCursoAprobado" label="Último Curso Aprobado" rules={[{ required: true }]}>
+                  <Input />
+                </Form.Item>
 
-              <Form.Item name="telefonoAcudiente" label="Teléfono del Acudiente" rules={[{ required: true, message: 'Ingrese el teléfono del acudiente' }]}>
-                <Input placeholder="Teléfono del Acudiente" />
-              </Form.Item>
+                <Form.Item name="simat" label="SIMAT" rules={[{ required: true }]}>
+                  <Select>
+                    <Option value="Activo">Activo</Option>
+                    <Option value="Inactivo">Inactivo</Option>
+                  </Select>
+                </Form.Item>
 
-              <Form.Item name="direccionAcudiente" label="Dirección del Acudiente" rules={[{ required: true, message: 'Ingrese la dirección del acudiente' }]}>
-                <Input placeholder="Dirección del Acudiente" />
-              </Form.Item>
+                <Form.Item name="pagoMatricula" label="Estado de Matrícula" rules={[{ required: true }]}>
+                  <Select>
+                    <Option value="Pagado">Pagado</Option>
+                    <Option value="Pendiente">Pendiente</Option>
+                  </Select>
+                </Form.Item>
+              </div>
 
-              {/* Estado Administrativo */}
-              <Form.Item name="simat" label="SIMAT" rules={[{ required: true, message: 'Seleccione el estado en SIMAT' }]}>
-                <Select placeholder="Seleccione el estado">
-                  <Option value="Activo">Activo</Option>
-                  <Option value="Inactivo">Inactivo</Option>
-                </Select>
-              </Form.Item>
-              <Form.Item name="pagoMatricula" label="Pago Matrícula" rules={[{ required: true, message: 'Seleccione el estado del pago' }]}>
-                <Select placeholder="Seleccione el estado del pago">
-                  <Option value="Pagado">Pagado</Option>
-                  <Option value="Pendiente">Pendiente</Option>
-                </Select>
-              </Form.Item>
-              <Form.Item
-                name="coordinador"
-                label="Seleccionar Coordinador"
-                rules={[{ required: true, message: 'Seleccione un coordinador' }]}
-              >
-                <Select placeholder="Seleccione un coordinador">
-                  <Option value="Adriana Benitez">Adriana Benitez</Option>
-                  <Option value="Camilo Delgado">Camilo Delgado</Option>
-                </Select>
-              </Form.Item>
+              {/* Columna adicional: Información del Acudiente (span completo) */}
+              <div className="col-span-3">
+                <h3 className="font-semibold text-gray-700 mb-4">Información del Acudiente</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <Form.Item name="nombreAcudiente" label="Nombre del Acudiente">
+                    <Input />
+                  </Form.Item>
+
+                  <Form.Item name="telefonoAcudiente" label="Teléfono del Acudiente">
+                    <Input prefix={<PhoneOutlined />} />
+                  </Form.Item>
+
+                  <Form.Item name="direccionAcudiente" label="Dirección del Acudiente">
+                    <Input />
+                  </Form.Item>
+                </div>
+              </div>
             </div>
 
-            <div className="flex justify-end space-x-4">
+            <div className="flex justify-end space-x-4 mt-4">
               <Button type="default" onClick={onClose}>
                 Cancelar
               </Button>
