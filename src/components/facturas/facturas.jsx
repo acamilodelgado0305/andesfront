@@ -7,6 +7,7 @@ import {
   getTotalPaymentInvoicebyStudent,
   deleteInvoice,
 } from "../../services/studentService";
+import axios from 'axios';
 import { Table, Input, Button, Dropdown, Menu, Modal, message } from "antd";
 import {
   FaTrashAlt,
@@ -27,9 +28,27 @@ const Facturas = () => {
   const fetchPaymentInvoicebyStudent = async (id) => {
     try {
       const result = await getTotalPaymentInvoicebyStudent(id);
-      const totalPagado = parseFloat(result.total_pagado || 0); // Extrae el valor y conviértelo a número
-      setTotalPagado(totalPagado);
-      console.log(totalPagado);
+      const totalFacturas = parseFloat(result.total_pagado || 0);
+      
+      // Obtenemos los datos del estudiante si no los tenemos
+      if (!student) {
+        const studentData = await getStudentById(id);
+        setStudent(studentData);
+        
+        // Si la matrícula está pagada, la sumamos al total
+        if (studentData.estado_matricula) {
+          setTotalPagado(totalFacturas + parseFloat(studentData.matricula || 0));
+        } else {
+          setTotalPagado(totalFacturas);
+        }
+      } else {
+        // Si ya tenemos los datos del estudiante
+        if (student.estado_matricula) {
+          setTotalPagado(totalFacturas + parseFloat(student.matricula || 0));
+        } else {
+          setTotalPagado(totalFacturas);
+        }
+      }
     } catch (err) {
       console.error("Error fetching total pagado:", err);
     }
@@ -88,11 +107,7 @@ const Facturas = () => {
     setTotalPagado(total);
   };
 
-  useEffect(() => {
-    fetchInvoicebyStudent(id);
-    fetchStudentById(id);
-    fetchPaymentInvoicebyStudent(id);
-  }, [id]);
+  
 
   const formatDateToMonth = (fecha) => {
     const meses = [
@@ -159,45 +174,47 @@ const Facturas = () => {
       cancelText: "Cancelar",
       onOk: async () => {
         try {
-          // Actualizamos usando la ruta correcta
-          const response = await fetch(`https://back.app.validaciondebachillerato.com.co/api/students/status/${studentId}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              estado_matricula: true
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error('Error al actualizar el estado de la matrícula');
+          if (!student || !student.matricula) {
+            throw new Error('Datos del estudiante no disponibles');
           }
 
-          // Actualizamos el estado local del estudiante
-          setStudent(prevStudent => ({
-            ...prevStudent,
-            estado_matricula: true
-          }));
+          const matriculaValue = parseFloat(student.matricula);
 
-          // Actualizamos el total pagado sumando el valor de la matrícula
-          setTotalPagado(prevTotal => prevTotal + student.matricula);
+          const response = await axios({
+            method: 'PUT',
+            url: `http://localhost:3001/api/students/status_matricula/${studentId}`,
+            data: {
+              estado_matricula: true
+            },
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
 
-          fetchStudentById(id);
-          message.success("La Matrícula ha sido pagada");
+          if (response.data && response.status === 200) {
+            // Actualizar el estado del estudiante
+            setStudent(prevStudent => ({
+              ...prevStudent,
+              estado_matricula: true
+            }));
 
-          // Refrescamos los datos
-          await fetchStudentById(id);
-          await fetchPaymentInvoicebyStudent(id);
+            // Actualizar el total pagado incluyendo la matrícula
+            setTotalPagado(prevTotal => prevTotal + matriculaValue);
 
+            message.success("La Matrícula ha sido pagada exitosamente");
+
+            // Refrescar datos
+            await Promise.all([
+              fetchStudentById(studentId),
+              fetchPaymentInvoicebyStudent(studentId)
+            ]);
+          }
         } catch (error) {
-          console.error("Error al procesar el pago:", error);
-          message.error("Hubo un problema al procesar el pago");
+          console.error("Error al procesar el pago de matrícula:", error);
+          message.error(`Error al procesar el pago: ${error.response?.data?.message || 'Error al conectar con el servidor'}`);
         }
-      },
-
+      }
     });
-
   };
 
   const handleDelete = async (id) => {
@@ -216,6 +233,18 @@ const Facturas = () => {
       },
     });
   };
+
+
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await fetchStudentById(id);
+      await fetchInvoicebyStudent(id);
+      await fetchPaymentInvoicebyStudent(id);
+    };
+
+    loadInitialData();
+  }, [id]);
+
 
   return (
     <div className="mx-auto mt-8 p-4">
@@ -357,7 +386,12 @@ const Facturas = () => {
 
       <div className="mt-8">
         <h2 className="text-2xl font-bold text-gray-800">
-          Total pagado: {formatCurrency(parseFloat(totalPagado) || 0)}
+          Total pagado: {formatCurrency(totalPagado)} 
+          {student?.estado_matricula && (
+            <span className="text-sm text-gray-500 ml-2">
+              (Incluye matrícula: {formatCurrency(parseFloat(student?.matricula || 0))})
+            </span>
+          )}
         </h2>
       </div>
     </div>
