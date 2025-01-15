@@ -28,7 +28,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
 
   const handleSubmit = async (values) => {
     setLoading(true);
-    const apiUrl = "http://localhost:3001/api/students";
+    const apiUrl = "https://back.app.validaciondebachillerato.com.co/api/students";
     try {
       const formattedValues = {
         ...values,
