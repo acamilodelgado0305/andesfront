@@ -182,7 +182,7 @@ const StudentDetailModal = ({
         </Button>
         <Link to={`/inicio/students/facturas/${student.id}`}>
           <Button icon={<FaFileInvoiceDollar />}>
-            Ver Facturas
+            Ver Pagos
           </Button>
         </Link>
         <Button

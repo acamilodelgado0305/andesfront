@@ -74,7 +74,7 @@ const Students = () => {
     } catch (err) {
       console.error("Error fetching programs:", err);
       message.error("Error al cargar los programas");
-    } 
+    }
   };
 
   const fetchStudents = async () => {
@@ -125,14 +125,23 @@ const Students = () => {
 
   const filteredStudents = useMemo(() => {
     return students.filter((student) => {
-      const matchesSearch =
-        student.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.numero_cedula.toLowerCase().includes(searchTerm.toLowerCase());
+      // Normaliza el término de búsqueda y lo divide en palabras
+      const searchTerms = searchTerm.toLowerCase().trim().split(/\s+/);
+
+      // Normaliza el nombre del estudiante
+      const studentName = student.nombre.toLowerCase();
+
+      // Verifica si todos los términos de búsqueda están contenidos en el nombre
+      const matchesSearch = searchTerms.every(term =>
+        studentName.includes(term)
+      );
+
+      // Aplica los demás filtros existentes
       const matchesFilters =
         (!filters.coordinador || student.coordinador === filters.coordinador) &&
         (!filters.programa || student.programa_id === filters.programa) &&
         (filters.activo === null || student.activo === filters.activo);
+
       return matchesSearch && matchesFilters;
     });
   }, [students, searchTerm, filters]);
@@ -144,8 +153,8 @@ const Students = () => {
   };
 
   const handleGraduate = async (studentId) => {
-  
-    await fetchStudents(); 
+
+    await fetchStudents();
   };
 
   const columns = [
@@ -170,7 +179,7 @@ const Students = () => {
       title: "Nombre Completo",
       key: "nombre_completo",
       render: (_, record) => (
-        <span>{`${record.nombre || ''} ${record.apellido || ''}`}</span>
+        <span>{record.nombre}</span>
       ),
     },
     {
@@ -179,16 +188,14 @@ const Students = () => {
       render: (_, record) => (
         <div className="space-y-1">
           <div>
-            <span className={`px-2 py-1 rounded-full text-sm ${
-              record.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"
-            }`}>
+            <span className={`px-2 py-1 rounded-full text-sm ${record.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"
+              }`}>
               {record.activo ? "Activo" : "Inactivo"}
             </span>
           </div>
           <div>
-            <span className={`px-2 py-1 rounded-full text-sm ${
-              record.estado_matricula ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"
-            }`}>
+            <span className={`px-2 py-1 rounded-full text-sm ${record.estado_matricula ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"
+              }`}>
               {record.estado_matricula ? "Matrícula Paga" : "Matrícula Pendiente"}
             </span>
           </div>
@@ -235,14 +242,14 @@ const Students = () => {
       ),
     },
     {
-      title: "Facturas",
+      title: "Pagos",
       key: "facturas",
       render: (_, record) => (
         <Link
           to={`/inicio/students/facturas/${record.id}`}
           className="text-blue-500 hover:text-blue-700"
         >
-          Ver Facturas
+          Ver Pagos
         </Link>
       ),
     },
@@ -267,18 +274,18 @@ const Students = () => {
             type="default"
             onClick={(e) => {
               e.stopPropagation();
-              let phoneNumber = record.telefono_whatsapp?.replace(/\D/g, "") || 
-                              record.telefono_llamadas?.replace(/\D/g, "");
-  
+              let phoneNumber = record.telefono_whatsapp?.replace(/\D/g, "") ||
+                record.telefono_llamadas?.replace(/\D/g, "");
+
               if (!phoneNumber) {
                 message.error("No hay número de teléfono disponible");
                 return;
               }
-  
+
               if (!phoneNumber.startsWith("57")) {
                 phoneNumber = `57${phoneNumber}`;
               }
-  
+
               window.open(`https://wa.me/${phoneNumber}`, "_blank");
             }}
           >
@@ -366,17 +373,18 @@ const Students = () => {
           >
             Crear Estudiante
           </Button>
-         
+
         </div>
       </div>
 
       <div className="mb-4 flex space-x-2">
         <Input
-          placeholder="Buscar por nombre, apellido o ID"
+          placeholder="Buscar por nombre..."
           prefix={<FaSearch />}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           style={{ width: 300 }}
+          allowClear // Añade un botón para limpiar la búsqueda
         />
         <Dropdown overlay={filterMenu} trigger={["click"]}>
           <Button icon={<FaFilter />}>Filtrar</Button>
