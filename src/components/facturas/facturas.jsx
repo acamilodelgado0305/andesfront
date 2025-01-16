@@ -182,7 +182,7 @@ const Facturas = () => {
 
           const response = await axios({
             method: 'PUT',
-            url: `http://localhost:3001/api/students/status_matricula/${studentId}`,
+            url: `https://back.app.validaciondebachillerato.com.co/api/students/status_matricula/${studentId}`,
             data: {
               estado_matricula: true
             },
