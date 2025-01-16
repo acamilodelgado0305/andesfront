@@ -30,7 +30,7 @@ const Students = () => {
     activo: null,
   });
   const [coordinatorName, setCoordinatorName] = useState(null);
-  const [coordinatorName, setCoordinatorName] = useState(null);
+ 
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
