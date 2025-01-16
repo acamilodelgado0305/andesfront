@@ -29,14 +29,42 @@ const Students = () => {
     programa: null,
     activo: null,
   });
+  const [coordinatorName, setCoordinatorName] = useState(null);
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
+
+  const fetchUserData = async () => {
+    try {
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        console.error("No userId found in localStorage");
+        return;
+      }
+
+      const response = await axios.get(`https://back.app.validaciondebachillerato.com.co/auth/users/${userId}`);
+      const { name } = response.data;
+      setCoordinatorName(name);
+      setFilters(prev => ({ ...prev, coordinador: name }));
+    } catch (err) {
+      console.error("Error fetching user data:", err);
+      message.error("Error al cargar la información del usuario");
+    }
+  };
+
   useEffect(() => {
     fetchPrograms();
     fetchStudents();
+    fetchUserData();
   }, []);
+
+
+  useEffect(() => {
+    if (coordinatorName) {
+      fetchStudents();
+    }
+  }, [coordinatorName]);
 
   const fetchPrograms = async () => {
     try {
