@@ -160,8 +160,8 @@ const Facturas = () => {
       onOk: async () => {
         try {
           // Actualizamos usando la ruta correcta
-          const response = await fetch(`https://back.app.validaciondebachillerato.com.co/api/students/status/${studentId}`, {
-            method: 'PATCH',
+          const response = await fetch(`http://localhost:3001/api/students/status/${studentId}`, {
+            method: 'PUT',
             headers: {
               'Content-Type': 'application/json'
             },
