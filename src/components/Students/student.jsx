@@ -30,6 +30,7 @@ const Students = () => {
     activo: null,
   });
   const [coordinatorName, setCoordinatorName] = useState(null);
+  const [coordinatorName, setCoordinatorName] = useState(null);
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -57,7 +58,15 @@ const Students = () => {
     fetchPrograms();
     fetchStudents();
     fetchUserData();
+    fetchUserData();
   }, []);
+
+
+  useEffect(() => {
+    if (coordinatorName) {
+      fetchStudents();
+    }
+  }, [coordinatorName]);
 
 
   useEffect(() => {
