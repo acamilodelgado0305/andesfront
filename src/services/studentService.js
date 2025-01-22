@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BACK_URL = import.meta.env.VITE_API_BACKEND;
+const BACK_URL = 'https://back.app.validaciondebachillerato.com.co';
 
 // Instancia de axios personalizada
 const backApi = axios.create({
