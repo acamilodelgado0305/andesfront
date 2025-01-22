@@ -1,22 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { getPrograms } from "../../services/studentService";
 import { Form, Input, Select, DatePicker, Button, message } from "antd";
-import {
-  UserOutlined,
-  MailOutlined,
-  PhoneOutlined,
-  IdcardOutlined,
-} from "@ant-design/icons";
-import PhoneInput from "react-phone-input-2";
-import Logo from "../../../images/logo.png";
+import { UserOutlined, PhoneOutlined, IdcardOutlined } from "@ant-design/icons";
 
 const { Option } = Select;
 
-const AdrianaForm = () => {
+const StudentRegistrationForm = ({ onStudentAdded }) => {
   const [form] = Form.useForm();
   const [programas, setProgramas] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState("");
 
   useEffect(() => {
     const fetchProgramsData = async () => {
@@ -34,17 +26,24 @@ const AdrianaForm = () => {
 
   const handleSubmit = async (values) => {
     setLoading(true);
-    const apiUrl = "https://fevaback.app.la-net.co/api/students";
+    const apiUrl = "https://back.app.validaciondebachillerato.com.co/api/students";
+    
     try {
+      if (!values.fechaNacimiento) {
+        throw new Error("La fecha de nacimiento es requerida");
+      }
+
       const formattedValues = {
         ...values,
-        coordinador: "Adriana Benitez",
         fechaNacimiento: values.fechaNacimiento.format("YYYY-MM-DD"),
-        fechaGraduacion: values.fechaGraduacion.format("YYYY-MM-DD"),
-        programaId: parseInt(values.programaId, 10),
-        ultimoCursoVisto: parseInt(values.ultimoCursoVisto, 10),
-        telefono: phoneNumber, // Use the phoneNumber state which includes the country code
+        programa_id: parseInt(values.programa_id, 10),
+        // Add default values here
+        coordinador: "Adriana Benitez",
+        simat: "Inactivo",
+        pagoMatricula: false
       };
+
+      console.log('Sending data:', formattedValues);
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -54,194 +53,201 @@ const AdrianaForm = () => {
         body: JSON.stringify(formattedValues),
       });
 
-      if (response.ok) {
-        message.success("Estudiante creado exitosamente");
-        form.resetFields();
-        setPhoneNumber(""); // Reset phone number
-      } else {
-        throw new Error(response.statusText);
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.message || `Error del servidor: ${response.status}`);
       }
+
+      const data = await response.json();
+      console.log('Success response:', data);
+
+      message.success("Estudiante registrado exitosamente");
+      onStudentAdded?.();
+      form.resetFields();
     } catch (error) {
-      console.error("Error al agregar el estudiante:", error);
-      message.error("Hubo un error al crear el estudiante");
+      console.error("Error detallado al registrar el estudiante:", {
+        message: error.message,
+        stack: error.stack,
+        values: values
+      });
+      
+      message.error(`Error al registrar el estudiante: ${error.message || 'Por favor intente nuevamente'}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="mb-8 flex justify-center">
-        <div className="w-64 h-24  flex items-center justify-center">
-          <img
-            src={Logo}
-            alt="Descripción de la imagen"
-            className="w-32 h-32"
-          />
-        </div>
+    <div className="max-w-3xl mx-auto py-8 px-4">
+      <div className="bg-purple-100 rounded-t-lg p-6 border-b-8 border-purple-500">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Registro de Estudiante</h1>
+        <p className="text-gray-600">Por favor complete todos los campos requeridos para registrar un nuevo estudiante.</p>
       </div>
 
-      <h2 className="text-2xl font-bold mb-6">Registro de Nuevo Estudiante</h2>
-
-      <Form
-        form={form}
-        layout="vertical"
+      <Form 
+        form={form} 
+        layout="vertical" 
         onFinish={handleSubmit}
-        initialValues={{
-          modalidadEstudio: "Clases en Linea",
-        }}
+        className="space-y-6"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Form.Item
-            name="nombre"
-            label="Nombre"
-            rules={[{ required: true, message: "Por favor ingrese el nombre" }]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="Nombre" />
-          </Form.Item>
+        {/* Información Personal */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b">
+            Información Personal
+          </h2>
+          <div className="space-y-4">
+            <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
+              <Input prefix={<UserOutlined />} className="h-10" />
+            </Form.Item>
 
-          <Form.Item
-            name="apellido"
-            label="Apellido"
-            rules={[
-              { required: true, message: "Por favor ingrese el apellido" },
-            ]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="Apellido" />
-          </Form.Item>
+            <Form.Item name="apellido" label="Apellido" rules={[{ required: true }]}>
+              <Input className="h-10" />
+            </Form.Item>
 
-          <Form.Item
-            name="email"
-            label="Email"
-            rules={[
-              { required: true, message: "Por favor ingrese el email" },
-              { type: "email", message: "Por favor ingrese un email válido" },
-            ]}
-          >
-            <Input prefix={<MailOutlined />} placeholder="Email" />
-          </Form.Item>
+            <Form.Item 
+              name="email" 
+              label="Correo Electrónico" 
+              rules={[{ required: true }, { type: 'email' }]}
+            >
+              <Input className="h-10" />
+            </Form.Item>
 
-          <Form.Item
-            name="telefono"
-            rules={[
-              { required: true, message: "Por favor ingrese el teléfono" },
-            ]}
-          >
-            <div className="relative">
-              <PhoneInput
-                country={"co"}
-                value={phoneNumber}
-                onChange={(phone) => setPhoneNumber(phone)}
-                inputClass="w-full py-1 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                buttonClass="absolute inset-y-0 left-0 flex items-center px-2 pointer-events-none"
-                containerClass="relative"
-                inputProps={{
-                  name: "telefono",
-                  required: true,
-                  autoFocus: true,
-                }}
-              />
-            </div>
-          </Form.Item>
-          <Form.Item
-            name="fechaNacimiento"
-            label="Fecha de Nacimiento"
-            rules={[
-              {
-                required: true,
-                message: "Por favor seleccione la fecha de nacimiento",
-              },
-            ]}
-          >
-            <DatePicker style={{ width: "100%" }} />
-          </Form.Item>
+            <Form.Item 
+              name="fechaNacimiento" 
+              label="Fecha de Nacimiento" 
+              rules={[{ required: true }]}
+            >
+              <DatePicker className="w-full h-10" />
+            </Form.Item>
 
-          <Form.Item
-            name="programaId"
-            label="Programa"
-            rules={[
-              { required: true, message: "Por favor seleccione un programa" },
-            ]}
-          >
-            <Select placeholder="Seleccione un programa">
-              {programas.map((programa) => (
-                <Option key={programa.id} value={programa.id}>
-                  {programa.nombre}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
+            <Form.Item name="eps" label="EPS" rules={[{ required: true }]}>
+              <Input className="h-10" />
+            </Form.Item>
 
-          <Form.Item
-            name="ultimoCursoVisto"
-            label="Último Curso Visto"
-            rules={[
-              {
-                required: true,
-                message: "Por favor seleccione el último curso visto",
-              },
-            ]}
-          >
-            <Select placeholder="Seleccione el último curso visto">
-              {[5, 6, 7, 8, 9, 10, 11].map((curso) => (
-                <Option key={curso} value={curso}>
-                  {curso}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="numeroCedula"
-            label="Número de Cédula"
-            rules={[
-              {
-                required: true,
-                message: "Por favor ingrese el número de cédula",
-              },
-            ]}
-          >
-            <Input prefix={<IdcardOutlined />} placeholder="Número de Cédula" />
-          </Form.Item>
-
-          <Form.Item
-            name="modalidadEstudio"
-            label="Modalidad de Estudio"
-            rules={[
-              {
-                required: true,
-                message: "Por favor seleccione la modalidad de estudio",
-              },
-            ]}
-          >
-            <Select>
-              <Option value="Clases en Linea">Clases en Línea</Option>
-              <Option value="Modulos por WhatsApp">Módulos por WhatsApp</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="fechaGraduacion"
-            label="Fecha de Graduación"
-            rules={[
-              {
-                required: true,
-                message: "Por favor seleccione la fecha de graduación",
-              },
-            ]}
-          >
-            <DatePicker style={{ width: "100%" }} />
-          </Form.Item>
+            <Form.Item name="rh" label="RH" rules={[{ required: true }]}>
+              <Input className="h-10" />
+            </Form.Item>
+          </div>
         </div>
 
-        <Form.Item className="flex justify-center mt-6">
-          <Button type="primary" htmlType="submit" loading={loading}>
-            Registro
+        {/* Documentación */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b">
+            Documentación
+          </h2>
+          <div className="space-y-4">
+            <Form.Item name="tipoDocumento" label="Tipo de Documento" rules={[{ required: true }]}>
+              <Select className="h-10">
+                <Option value="CC">Cédula</Option>
+                <Option value="TI">Tarjeta de Identidad</Option>
+                <Option value="CE">Cédula Extranjería</Option>
+                <Option value="PA">Pasaporte</Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item 
+              name="numeroDocumento" 
+              label="Número de Documento" 
+              rules={[{ required: true }]}
+            >
+              <Input prefix={<IdcardOutlined />} className="h-10" />
+            </Form.Item>
+
+            <Form.Item 
+              name="lugarExpedicion" 
+              label="Lugar de Expedición" 
+              rules={[{ required: true }]}
+            >
+              <Input className="h-10" />
+            </Form.Item>
+          </div>
+        </div>
+
+        {/* Información de Contacto */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b">
+            Información de Contacto
+          </h2>
+          <div className="space-y-4">
+            <Form.Item 
+              name="telefonoLlamadas" 
+              label="Teléfono para Llamadas" 
+              rules={[{ required: true }]}
+            >
+              <Input prefix={<PhoneOutlined />} className="h-10" />
+            </Form.Item>
+
+            <Form.Item 
+              name="telefonoWhatsapp" 
+              label="Teléfono para WhatsApp" 
+              rules={[{ required: true }]}
+            >
+              <Input prefix={<PhoneOutlined />} className="h-10" />
+            </Form.Item>
+          </div>
+        </div>
+
+        {/* Información Académica */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b">
+            Información Académica
+          </h2>
+          <div className="space-y-4">
+            <Form.Item name="programa_id" label="Programa" rules={[{ required: true }]}>
+              <Select className="h-10">
+                {programas.map((programa) => (
+                  <Option key={programa.id} value={programa.id}>
+                    {programa.nombre}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+
+            <Form.Item 
+              name="ultimoCursoAprobado" 
+              label="Último Curso Aprobado" 
+              rules={[{ required: true }]}
+            >
+              <Input className="h-10" />
+            </Form.Item>
+          </div>
+        </div>
+
+        {/* Información del Acudiente */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 pb-2 border-b">
+            Información del Acudiente
+          </h2>
+          <div className="space-y-4">
+            <Form.Item name="nombreAcudiente" label="Nombre del Acudiente">
+              <Input className="h-10" />
+            </Form.Item>
+
+            <Form.Item name="telefonoAcudiente" label="Teléfono del Acudiente">
+              <Input prefix={<PhoneOutlined />} className="h-10" />
+            </Form.Item>
+
+            <Form.Item name="direccionAcudiente" label="Dirección del Acudiente">
+              <Input className="h-10" />
+            </Form.Item>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <Button 
+            type="primary" 
+            htmlType="submit" 
+            loading={loading}
+            className="w-full h-12 text-lg bg-purple-600 hover:bg-purple-700"
+          >
+            Registrar Estudiante
           </Button>
-        </Form.Item>
+        </div>
       </Form>
     </div>
   );
 };
 
-export default AdrianaForm;
+export default StudentRegistrationForm;

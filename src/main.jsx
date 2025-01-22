@@ -13,7 +13,7 @@ import Facturas from "./components/facturas/facturas";
 import Programs from "./components/programas/programas";
 import Materias from "./components/materias/Materias";
 import CamiloForm from "./components/PublicForms/formCamilo";
-import AdrianaForm from "./components/PublicForms/formAdriana";
+import StudentRegistrationForm from "./components/PublicForms/formAdriana";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -32,7 +32,7 @@ const App = () => (
           {/* Rutas públicas */}
           <Route path="/" element={<Landing />} />
           <Route path="/register/c" element={<CamiloForm />} />
-          <Route path="/register/ab" element={<AdrianaForm />} />
+          <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
 
           {/* Rutas principales */}
           <Route path="/inicio" element={<Root />}>
