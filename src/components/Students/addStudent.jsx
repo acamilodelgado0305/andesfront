@@ -158,6 +158,14 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
                   </Select>
                 </Form.Item>
 
+
+                <Form.Item name="modalidad_estudio" label="Modalidad de estudio" rules={[{ required: true }]}>
+                  <Select>
+                    <Option value="Clases en Linea">Clases en Linea</Option>
+                    <Option value="Modulos por WhastApp">Modulos por WhastApp</Option>
+                  </Select>
+                </Form.Item>
+
                 <Form.Item name="ultimoCursoAprobado" label="Último Curso Aprobado" rules={[{ required: true }]}>
                   <Input />
                 </Form.Item>

@@ -27,7 +27,7 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
   const handleSubmit = async (values) => {
     setLoading(true);
     const apiUrl = "https://back.app.validaciondebachillerato.com.co/api/students";
-    
+
     try {
       if (!values.fechaNacimiento) {
         throw new Error("La fecha de nacimiento es requerida");
@@ -72,7 +72,7 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
         stack: error.stack,
         values: values
       });
-      
+
       message.error(`Error al registrar el estudiante: ${error.message || 'Por favor intente nuevamente'}`);
     } finally {
       setLoading(false);
@@ -86,9 +86,9 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
         <p className="text-gray-600">Por favor complete todos los campos requeridos para registrar un nuevo estudiante.</p>
       </div>
 
-      <Form 
-        form={form} 
-        layout="vertical" 
+      <Form
+        form={form}
+        layout="vertical"
         onFinish={handleSubmit}
         className="space-y-6"
       >
@@ -106,17 +106,17 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
               <Input className="h-10" />
             </Form.Item>
 
-            <Form.Item 
-              name="email" 
-              label="Correo Electrónico" 
+            <Form.Item
+              name="email"
+              label="Correo Electrónico"
               rules={[{ required: true }, { type: 'email' }]}
             >
               <Input className="h-10" />
             </Form.Item>
 
-            <Form.Item 
-              name="fechaNacimiento" 
-              label="Fecha de Nacimiento" 
+            <Form.Item
+              name="fechaNacimiento"
+              label="Fecha de Nacimiento"
               rules={[{ required: true }]}
             >
               <DatePicker className="w-full h-10" />
@@ -147,17 +147,17 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
               </Select>
             </Form.Item>
 
-            <Form.Item 
-              name="numeroDocumento" 
-              label="Número de Documento" 
+            <Form.Item
+              name="numeroDocumento"
+              label="Número de Documento"
               rules={[{ required: true }]}
             >
               <Input prefix={<IdcardOutlined />} className="h-10" />
             </Form.Item>
 
-            <Form.Item 
-              name="lugarExpedicion" 
-              label="Lugar de Expedición" 
+            <Form.Item
+              name="lugarExpedicion"
+              label="Lugar de Expedición"
               rules={[{ required: true }]}
             >
               <Input className="h-10" />
@@ -171,17 +171,17 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             Información de Contacto
           </h2>
           <div className="space-y-4">
-            <Form.Item 
-              name="telefonoLlamadas" 
-              label="Teléfono para Llamadas" 
+            <Form.Item
+              name="telefonoLlamadas"
+              label="Teléfono para Llamadas"
               rules={[{ required: true }]}
             >
               <Input prefix={<PhoneOutlined />} className="h-10" />
             </Form.Item>
 
-            <Form.Item 
-              name="telefonoWhatsapp" 
-              label="Teléfono para WhatsApp" 
+            <Form.Item
+              name="telefonoWhatsapp"
+              label="Teléfono para WhatsApp"
               rules={[{ required: true }]}
             >
               <Input prefix={<PhoneOutlined />} className="h-10" />
@@ -205,12 +205,21 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
               </Select>
             </Form.Item>
 
-            <Form.Item 
-              name="ultimoCursoAprobado" 
-              label="Último Curso Aprobado" 
+            <Form.Item
+              name="ultimoCursoAprobado"
+              label="Último Curso Aprobado"
               rules={[{ required: true }]}
             >
               <Input className="h-10" />
+            </Form.Item>
+
+
+
+            <Form.Item name="modalidad_estudio" label="Modalidad de estudio" rules={[{ required: true }]}>
+              <Select>
+                <Option value="Clases en Linea">Clases en Linea</Option>
+                <Option value="Modulos por WhastApp">Modulos por WhastApp</Option>
+              </Select>
             </Form.Item>
           </div>
         </div>
@@ -236,9 +245,9 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <Button 
-            type="primary" 
-            htmlType="submit" 
+          <Button
+            type="primary"
+            htmlType="submit"
             loading={loading}
             className="w-full h-12 text-lg bg-purple-600 hover:bg-purple-700"
           >
