@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button, Descriptions, Form, Input, Select, DatePicker, message, InputNumber } from 'antd';
 import { Link } from 'react-router-dom';
 import {
@@ -11,6 +11,8 @@ import {
 } from 'react-icons/fa';
 import dayjs from 'dayjs';
 
+import { getPrograms } from "../../services/studentService";
+
 const apiUrl = import.meta.env.VITE_API_BACKEND;
 
 const StudentDetailModal = ({
@@ -19,12 +21,30 @@ const StudentDetailModal = ({
   onClose,
   onGraduate,
   onDelete,
+  fetchStudents,  // Add this to the props destructuring
   getCoordinatorStyle,
   getProgramName,
 }) => {
   const [form] = Form.useForm();
   const [isEditing, setIsEditing] = useState(false);
   const [editedStudent, setEditedStudent] = useState(student);
+  const [programs, setPrograms] = useState([]); 2
+  2
+
+
+  useEffect(() => {
+    const fetchPrograms = async () => {
+      try {
+        const programsList = await getPrograms();
+        setPrograms(programsList);
+      } catch (error) {
+        console.error("Error fetching programs:", error);
+        message.error("No se pudieron cargar los programas");
+      }
+    };
+
+    fetchPrograms();
+  }, []);
 
   if (!student) return null;
 
@@ -102,28 +122,57 @@ const StudentDetailModal = ({
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
+      
+      // Transform the values to match the API expected format
       const formattedValues = {
-        ...values,
-        fecha_nacimiento: values.fecha_nacimiento?.toISOString(),
-        fecha_inscripcion: values.fecha_inscripcion?.toISOString(),
-        fecha_graduacion: values.fecha_graduacion?.toISOString(),
+        nombre: values.nombre,
+        apellido: values.apellido,
+        email: values.email,
+        tipoDocumento: values.tipo_documento,
+        numeroDocumento: values.numero_documento,
+        lugarExpedicion: values.lugar_expedicion,
+        fechaNacimiento: values.fecha_nacimiento?.toISOString(),
+        lugarNacimiento: values.lugar_nacimiento,
+        telefonoLlamadas: values.telefono_llamadas,
+        telefonoWhatsapp: values.telefono_whatsapp,
+        eps: values.eps,
+        rh: values.rh,
+        nombreAcudiente: values.nombre_acudiente,
+        tipoDocumentoAcudiente: values.tipo_documento_acudiente,
+        telefonoAcudiente: values.telefono_acudiente,
+        direccionAcudiente: values.direccion_acudiente,
+        simat: values.simat,
+        estadoMatricula: values.estado_matricula,
+        programa_id: values.programa_id,
+        coordinador: values.coordinador,
+        activo: values.activo,
+        matricula: values.matricula,
+        modalidad_estudio: values.modalidad_estudio,
+        ultimo_curso_visto: values.ultimo_curso_visto,
       };
-
-      const response = await fetch(`${apiUrl}/students/${student.id}`, {
+  
+      const response = await fetch(`https://back.app.validaciondebachillerato.com.co/api/students/${student.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(formattedValues),
       });
-
+  
       if (!response.ok) {
         throw new Error('Error en la respuesta del servidor');
       }
-
-      setEditedStudent({ ...student, ...formattedValues });
+  
+      const updatedStudent = await response.json();
+      setEditedStudent(updatedStudent);
       setIsEditing(false);
       message.success('Estudiante actualizado exitosamente');
+      
+  
+      
+
+      await fetchStudents(); 
+      onClose();
     } catch (error) {
       console.error('Error al guardar:', error);
       message.error('Error al actualizar el estudiante');
@@ -266,17 +315,34 @@ const StudentDetailModal = ({
           <Descriptions.Item label="Información Académica" span={2}>
             <Descriptions bordered column={2} size="small">
               <Descriptions.Item label="Programa">
-                {isEditing ? renderEditableField('programa_id', {
-                  type: 'select',
-                  selectOptions: [
-                    // Aquí deberías mapear tus programas
-                  ]
-                }) : getProgramName(student.programa_id)}
+                {isEditing ? (
+                  renderEditableField('programa_id', {
+                    type: 'select',
+                    selectOptions: programs.map(program => ({
+                      value: program.id,
+                      label: program.nombre
+                    }))
+                  })
+                ) : (
+                  getProgramName(student.programa_id)
+                )}
               </Descriptions.Item>
               <Descriptions.Item label="Coordinador">
                 <span className={getCoordinatorStyle(student.coordinador)}>
                   {isEditing ? renderEditableField('coordinador') : student.coordinador}
                 </span>
+              </Descriptions.Item>
+
+
+              <Descriptions.Item label="Estado">
+                {isEditing ? renderEditableField('activo', {
+                  type: 'select',
+                  selectOptions: [
+                    { value: 'activo', label: 'Activo' },
+                    { value: 'Inactivo', label: 'Inactivo' },
+                   
+                  ]
+                }) : student.activo}
               </Descriptions.Item>
               <Descriptions.Item label="Estado">
                 <span className={`px-2 py-1 rounded-full text-sm ${student.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"
@@ -298,9 +364,9 @@ const StudentDetailModal = ({
                 {isEditing ? renderEditableField('modalidad_estudio', {
                   type: 'select',
                   selectOptions: [
-                    { value: 'PRESENCIAL', label: 'Presencial' },
-                    { value: 'VIRTUAL', label: 'Virtual' },
-                    { value: 'HIBRIDA', label: 'Híbrida' }
+                    { value: 'Clases en Linea', label: 'Clases en Linea' },
+                    { value: 'Modulos por WhastApp', label: 'Modulos por WhastApp' },
+
                   ]
                 }) : student.modalidad_estudio}
               </Descriptions.Item>

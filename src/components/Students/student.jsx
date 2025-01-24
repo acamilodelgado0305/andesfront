@@ -30,7 +30,7 @@ const Students = () => {
     activo: null,
   });
   const [coordinatorName, setCoordinatorName] = useState(null);
- 
+
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -57,7 +57,6 @@ const Students = () => {
   useEffect(() => {
     fetchPrograms();
     fetchStudents();
-    fetchUserData();
     fetchUserData();
   }, []);
 
@@ -164,6 +163,15 @@ const Students = () => {
   const handleGraduate = async (studentId) => {
 
     await fetchStudents();
+  };
+
+
+  const handleStudentUpdated = (updatedStudent) => {
+    setStudents(prevStudents =>
+      prevStudents.map(student =>
+        student.id === updatedStudent.id ? updatedStudent : student
+      )
+    );
   };
 
   const columns = [
@@ -275,9 +283,7 @@ const Students = () => {
             }}
             danger
           />
-          <Link to={`/student/edit/${record.id}`} onClick={(e) => e.stopPropagation()}>
-            <Button icon={<FaUserEdit />} type="primary" />
-          </Link>
+          
           <Button
             icon={<FaWhatsapp />}
             type="default"
@@ -422,6 +428,7 @@ const Students = () => {
         visible={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         onGraduate={handleGraduate}
+        fetchStudents={fetchStudents}  // Explicitly pass the function
         getCoordinatorStyle={getCoordinatorStyle}
         getProgramName={getProgramName}
       />
