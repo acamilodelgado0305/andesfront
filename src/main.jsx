@@ -14,6 +14,7 @@ import Programs from "./components/programas/programas";
 import Materias from "./components/materias/Materias";
 import CamiloForm from "./components/PublicForms/formCamilo";
 import StudentRegistrationForm from "./components/PublicForms/formAdriana";
+import StudentRegistrationForm1 from "./components/PublicForms/formCamilo";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -31,7 +32,7 @@ const App = () => (
         <Routes>
           {/* Rutas públicas */}
           <Route path="/" element={<Landing />} />
-          <Route path="/register/c" element={<CamiloForm />} />
+          <Route path="/Camilodelgado" element={<StudentRegistrationForm1 />} />
           <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
 
           {/* Rutas principales */}
