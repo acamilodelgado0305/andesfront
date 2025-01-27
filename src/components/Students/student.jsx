@@ -28,6 +28,7 @@ const Students = () => {
     coordinador: null,
     programa: null,
     activo: null,
+    estado_matricula: null,
   });
   const [coordinatorName, setCoordinatorName] = useState(null);
 
@@ -136,23 +137,37 @@ const Students = () => {
       // Normaliza el término de búsqueda y lo divide en palabras
       const searchTerms = searchTerm.toLowerCase().trim().split(/\s+/);
 
-      // Normaliza el nombre del estudiante
+      // Normaliza el nombre del estudiante y el teléfono de WhatsApp
       const studentName = student.nombre.toLowerCase();
+      const whatsappNumber = student.telefono_whatsapp?.toLowerCase() || '';
 
-      // Verifica si todos los términos de búsqueda están contenidos en el nombre
+      // Verifica si todos los términos de búsqueda están contenidos en el nombre o en el teléfono
       const matchesSearch = searchTerms.every(term =>
-        studentName.includes(term)
+        studentName.includes(term) || whatsappNumber.includes(term)
       );
 
-      // Aplica los demás filtros existentes
-      const matchesFilters =
-        (!filters.coordinador || student.coordinador === filters.coordinador) &&
-        (!filters.programa || student.programa_id === filters.programa) &&
-        (filters.activo === null || student.activo === filters.activo);
+      // Verificación de filtros con manejo explícito de booleanos
+      const matchesCoordinator = !filters.coordinador || student.coordinador === filters.coordinador;
+      const matchesProgram = !filters.programa || student.programa_id === filters.programa;
+      const matchesActive = filters.activo === null || Boolean(student.activo) === filters.activo;
+      const matchesMatricula = filters.estado_matricula === null ||
+        Boolean(student.estado_matricula) === filters.estado_matricula;
 
-      return matchesSearch && matchesFilters;
+      return matchesSearch &&
+        matchesCoordinator &&
+        matchesProgram &&
+        matchesActive &&
+        matchesMatricula;
     });
   }, [students, searchTerm, filters]);
+
+  useEffect(() => {
+    console.log('Current filters:', filters);
+    console.log('Filtered students:', filteredStudents);
+  }, [filters, filteredStudents]);
+
+
+
 
 
   const handleRowClick = (record) => {
@@ -283,7 +298,7 @@ const Students = () => {
             }}
             danger
           />
-          
+
           <Button
             icon={<FaWhatsapp />}
             type="default"
@@ -373,8 +388,38 @@ const Students = () => {
           Inactivo
         </Menu.Item>
       </Menu.SubMenu>
+      <Menu.SubMenu key="estado_matricula" title="Estado Matrícula">
+        <Menu.Item
+          key="matricula-todos"
+          onClick={() => {
+            console.log("Setting estado_matricula to null");
+            setFilters({ ...filters, estado_matricula: null });
+          }}
+        >
+          Todos
+        </Menu.Item>
+        <Menu.Item
+          key="matricula-paga"
+          onClick={() => {
+            console.log("Setting estado_matricula to true");
+            setFilters({ ...filters, estado_matricula: true });
+          }}
+        >
+          Matrícula Paga
+        </Menu.Item>
+        <Menu.Item
+          key="matricula-pendiente"
+          onClick={() => {
+            console.log("Setting estado_matricula to false");
+            setFilters({ ...filters, estado_matricula: false });
+          }}
+        >
+          Matrícula Pendiente
+        </Menu.Item>
+      </Menu.SubMenu>
     </Menu>
   );
+
 
   return (
     <div className="mx-auto mt-8 p-2">
@@ -394,12 +439,12 @@ const Students = () => {
 
       <div className="mb-4 flex space-x-2">
         <Input
-          placeholder="Buscar por nombre..."
+          placeholder="Buscar por nombre o WhatsApp..."  // Updated placeholder
           prefix={<FaSearch />}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           style={{ width: 300 }}
-          allowClear // Añade un botón para limpiar la búsqueda
+          allowClear
         />
         <Dropdown overlay={filterMenu} trigger={["click"]}>
           <Button icon={<FaFilter />}>Filtrar</Button>
