@@ -351,6 +351,14 @@ const Students = () => {
         >
           Adriana Benitez
         </Menu.Item>
+        <Menu.Item
+          key="coordinador-blanca"
+          onClick={() =>
+            setFilters({ ...filters, coordinador: "Blanca Sanchez" })
+          }
+        >
+          Blanca Sanchez
+        </Menu.Item>
       </Menu.SubMenu>
       <Menu.SubMenu key="programa" title="Programa">
         <Menu.Item

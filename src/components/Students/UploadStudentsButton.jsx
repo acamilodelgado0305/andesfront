@@ -48,6 +48,7 @@ const UploadStudentsButton = () => {
                     <option value="">Seleccione un coordinador</option>
                     <option value="Adriana Benitez">Adriana Benitez</option>
                     <option value="Camilo Delgado">Camilo Delgado</option>
+                    <option value="Blanca Sanchez">Blanca Sanchez</option>
                 </select>
             </div>
 
