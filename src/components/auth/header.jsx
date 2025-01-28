@@ -10,7 +10,7 @@ const Header = ({ onLoginClick }) => {
   };
 
   return (
-    <header className="bg-blue-600 text-white py-4 px-4 sm:px-6 lg:px-8 fixed w-full top-0 z-10">
+    <header className="bg-white text-blue py-4 px-4 sm:px-6 lg:px-8 fixed w-full top-0 z-10">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <Link to="/" className="text-2xl font-bold">IE Villa de los Andes</Link>
 
@@ -43,7 +43,7 @@ const Header = ({ onLoginClick }) => {
 
       {/* Menú móvil, visible sólo si isMenuOpen es true */}
       {isMenuOpen && (
-        <nav className="lg:hidden bg-blue-600 mt-2 p-4">
+        <nav className="lg:hidden bg-white mt-2 p-4">
           <ul className="flex flex-col space-y-4">
             <li><Link to="/programas" className="hover:text-blue-200">Programas</Link></li>
             <li><Link to="/cursos" className="hover:text-blue-200">Cursos</Link></li>
