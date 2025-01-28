@@ -5,7 +5,7 @@ import { UserOutlined, PhoneOutlined, IdcardOutlined } from "@ant-design/icons";
 
 const { Option } = Select;
 
-const StudentRegistrationForm1 = ({ onStudentAdded }) => {
+const StudentRegistrationFormBlanca = ({ onStudentAdded }) => {
   const [form] = Form.useForm();
   const [programas, setProgramas] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -38,7 +38,7 @@ const StudentRegistrationForm1 = ({ onStudentAdded }) => {
         fechaNacimiento: values.fechaNacimiento.format("YYYY-MM-DD"),
         programa_id: parseInt(values.programa_id, 10),
         // Add default values here
-        coordinador: "Camilo Delgado",
+        coordinador: "Blanca Sanchez",
         simat: "Inactivo",
         pagoMatricula: false
       };
@@ -81,7 +81,7 @@ const StudentRegistrationForm1 = ({ onStudentAdded }) => {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <div className="bg-blue-100 rounded-t-lg p-6 border-b-8 border-green-500">
+      <div className="bg-red-100 rounded-t-lg p-6 border-b-8 border-red-500">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Registro de Estudiante</h1>
         <p className="text-gray-600">Por favor complete todos los campos requeridos para registrar un nuevo estudiante.</p>
       </div>
@@ -249,7 +249,7 @@ const StudentRegistrationForm1 = ({ onStudentAdded }) => {
             type="primary"
             htmlType="submit"
             loading={loading}
-            className="w-full h-12 text-lg bg-green-600 hover:bg-green-700"
+            className="w-full h-12 text-lg bg-red-600 hover:bg-red-700"
           >
             Registrar Estudiante
           </Button>
@@ -259,4 +259,4 @@ const StudentRegistrationForm1 = ({ onStudentAdded }) => {
   );
 };
 
-export default StudentRegistrationForm1;
+export default StudentRegistrationFormBlanca;
