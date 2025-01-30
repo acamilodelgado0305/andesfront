@@ -1,243 +1,594 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { HelmetProvider } from 'react-helmet-async';
+import { 
+  Book, Calendar, Clock, Users, Monitor, Star, 
+  MessageSquare, Mail, Facebook, Instagram, Linkedin,
+  Check, Award, GraduationCap, ArrowRight, Phone,
+  MapPin, Shield, Trophy, Target, Zap
+} from 'lucide-react';
 import Modal from './modallogin';
 import Header from './header';
-import { Book, Calendar, Clock, Users, Monitor, Star, MessageSquare, Mail, Facebook, Instagram, Linkedin } from 'lucide-react';
-import imp1 from "../../../images/imp1.jpg";
+import { Alert } from 'antd';
+
 
 const Landing = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showPromo, setShowPromo] = useState(false);
+  const [visibleSection, setVisibleSection] = useState('');
 
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisibleSection(entry.target.id);
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    document.querySelectorAll('section[id]').forEach((section) => {
+      observer.observe(section);
+    });
+
+    // Mostrar promoción después de 5 segundos
+    const timer = setTimeout(() => setShowPromo(true), 5000);
+
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
+  }, []);
+
+  const fadeIn = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  };
 
   return (
-    <div className="w-full min-h-screen bg-gray-100 flex flex-col">
-      <Header onLoginClick={openModal} />
+    <div className="w-full min-h-screen bg-gray-50 flex flex-col">
+      <HelmetProvider >
+        <title>Villa de los Andes | Educación Online - Validación Bachillerato y Cursos Técnicos</title>
+        <meta name="description" content="Obtén tu título de bachiller y certificaciones técnicas 100% online. Clases en vivo, tutorías personalizadas y precios accesibles. ¡Comienza hoy!" />
+        <meta name="keywords" content="validación bachillerato, educación online, cursos técnicos, clases virtuales, título bachiller" />
+        <meta property="og:title" content="Villa de los Andes - Educación Online" />
+        <meta property="og:description" content="Educación flexible y de calidad: Validación de bachillerato y cursos técnicos 100% online con clases diarias." />
+        <meta property="og:type" content="website" />
+        <link rel="canonical" href="https://villadelosandes.edu.co" />
+      </HelmetProvider >
+
+      <Header onLoginClick={() => setIsModalOpen(true)} />
+
+      {showPromo && (
+        <motion.div
+          initial={{ y: -100 }}
+          animate={{ y: 0 }}
+          className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50"
+        >
+          <Alert className="bg-blue-50 border-blue-200">
+           
+              ¡Matrícula GRATIS si te inscribes hoy! Oferta por tiempo limitado.
+           
+          </Alert>
+        </motion.div>
+      )}
 
       <main className="mt-16">
-        <section
-          className="relative bg-cover bg-center py-60 px-4 sm:px-6 lg:px-8"
-          style={{
-            backgroundImage: `url(${imp1})`,
-          }}
-        >
-          {/* Overlay for better text readability */}
-          <div className="absolute inset-0 bg-black bg-opacity-50"></div>
-
-          <div className="relative max-w-4xl mx-auto text-center">
-            <h1 className="text-4xl font-bold mb-4 text-white">
-              Fundación Educativa Villa de los Andes
-            </h1>
-            <p className="text-xl mb-8 text-white">
-              Educación flexible y de calidad: Validación de bachillerato y cursos técnicos 100% online con clases diarias
-            </p>
-            <Link
-              to="/register/c"
-              className="inline-block bg-blue-600 text-white font-bold py-3 px-8 rounded-full hover:bg-blue-700 transition duration-300"
+        {/* Hero Section */}
+        <section id="hero" className="relative min-h-screen flex items-center">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-900 to-blue-600 opacity-90" />
+          <div className="relative max-w-6xl mx-auto px-4 py-32 sm:px-6 lg:px-8">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={fadeIn}
+              className="text-center"
             >
-              ¡Comienza Tu Educación Hoy!
-            </Link>
+              <h1 className="text-4xl md:text-6xl font-extrabold text-white mb-6 leading-tight">
+                Tu Futuro Educativo 
+                <span className="block text-yellow-400">Comienza Aquí</span>
+              </h1>
+              <p className="text-xl md:text-2xl text-white mb-8 max-w-3xl mx-auto">
+                Educación flexible y personalizada con títulos oficiales. 
+                Clases en vivo y tutorías individuales.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-6 justify-center">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Link
+                    to="/register/bachillerato"
+                    className="inline-flex items-center bg-white text-blue-600 font-bold py-4 px-8 rounded-lg hover:bg-gray-100 transition duration-300 text-lg shadow-lg"
+                  >
+                    Validar Bachillerato
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Link
+                    to="/register/tecnico"
+                    className="inline-flex items-center bg-yellow-400 text-blue-900 font-bold py-4 px-8 rounded-lg hover:bg-yellow-300 transition duration-300 text-lg shadow-lg"
+                  >
+                    Explorar Cursos Técnicos
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </motion.div>
+              </div>
+            </motion.div>
           </div>
         </section>
 
-       
-
-        <section className="py-20 bg-gray-50">
-          <div className="container mx-auto px-6">
-            <h2 className="text-3xl font-bold text-center mb-12">
-              ¿Por qué elegir Villa de los Andes?
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              <div className="text-center">
-                <Clock className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Horarios Flexibles</h3>
-                <p className="text-gray-600">Estudia a tu propio ritmo con acceso 24/7</p>
-              </div>
-              <div className="text-center">
-                <Monitor className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Clases En Vivo</h3>
-                <p className="text-gray-600">Sesiones interactivas diarias con profesores expertos</p>
-              </div>
-              <div className="text-center">
-                <Book className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Material Actualizado</h3>
-                <p className="text-gray-600">Contenido digital interactivo y recursos modernos</p>
-              </div>
-              <div className="text-center">
-                <Users className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Apoyo Personalizado</h3>
-                <p className="text-gray-600">Tutorías individuales y seguimiento constante</p>
-              </div>
+        {/* Benefits Section */}
+        <section id="beneficios" className="py-20 bg-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeIn}
+              className="text-center mb-16"
+            >
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                ¿Por Qué Elegirnos?
+              </h2>
+              <p className="text-xl text-gray-600">
+                Educación de calidad adaptada a tu vida
+              </p>
+            </motion.div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: Shield,
+                  title: "Título Oficial",
+                  description: "Certificaciones avaladas por el Ministerio de Educación"
+                },
+                {
+                  icon: Clock,
+                  title: "Flexibilidad Total",
+                  description: "Estudia a tu ritmo con acceso 24/7 a la plataforma"
+                },
+                {
+                  icon: Users,
+                  title: "Apoyo Continuo",
+                  description: "Tutorías personalizadas y seguimiento académico"
+                }
+              ].map((benefit, index) => (
+                <motion.div
+                  key={index}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  variants={fadeIn}
+                  className="bg-gray-50 p-8 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300"
+                >
+                  <benefit.icon className="h-12 w-12 text-blue-600 mb-6 mx-auto" />
+                  <h3 className="text-xl font-bold mb-4">{benefit.title}</h3>
+                  <p className="text-gray-600">{benefit.description}</p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </section>
 
-        <section className="bg-white py-16 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-center mb-8">Nuestros Programas Educativos</h2>
-            <div className="space-y-8">
-              <div className="bg-gray-50 p-6 rounded-lg shadow-md">
-                <h3 className="text-2xl font-semibold mb-4">Validación de Bachillerato</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-center">
-                    <Star className="h-5 w-5 text-blue-600 mr-2" />
-                    <span>Modalidad 100% online con clases diarias en vivo</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Star className="h-5 w-5 text-blue-600 mr-2" />
-                    <span>Título oficial avalado por el Ministerio de Educación</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Star className="h-5 w-5 text-blue-600 mr-2" />
-                    <span>Tutorías personalizadas y seguimiento académico</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Star className="h-5 w-5 text-blue-600 mr-2" />
-                    <span>Plataforma virtual disponible 24/7</span>
-                  </li>
-                </ul>
-                <div className="mt-6">
-                  <Link to="/bachillerato" className="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded-full hover:bg-blue-700 transition duration-300">
-                    Ver Detalles del Programa
-                  </Link>
+        {/* Programs Section */}
+        <section id="programas" className="py-20 bg-gray-50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeIn}
+              className="text-center mb-16"
+            >
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                Programas Educativos
+              </h2>
+              <p className="text-xl text-gray-600">
+                Elige el programa que mejor se adapte a tus objetivos
+              </p>
+            </motion.div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Validación Card */}
+              <motion.div
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+                variants={fadeIn}
+                className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
+              >
+                <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6">
+                  <h3 className="text-2xl font-bold text-white">Validación de Bachillerato</h3>
+                  <p className="text-blue-100 mt-2">Obtén tu título oficial</p>
                 </div>
-              </div>
-
-              <div className="bg-gray-50 p-6 rounded-lg shadow-md">
-                <h3 className="text-2xl font-semibold mb-4 text-center text-blue-600">Cursos Técnicos Especializados</h3>
-                <p className="text-lg mb-4 text-gray-700">
-                  Estudia con nosotros en modalidad <span className="font-bold">virtual</span>, con clases de lunes a viernes de <span className="font-bold">8:00 PM a 9:00 PM</span>.
-                </p>
-                <p className="text-lg font-semibold mb-4 text-gray-800">Requisitos:</p>
-                <ul className="list-disc pl-6 mb-4 text-gray-700">
-                  <li>Foto del diploma y acta de bachiller</li>
-                  <li>Foto del documento de identidad</li>
-                  <li>Llenar el formulario de inscripción</li>
-                </ul>
-                <p className="text-lg font-semibold mb-4 text-gray-800">Información del curso:</p>
-                <ul className="list-disc pl-6 mb-6 text-gray-700">
-                  <li>Duración: <span className="font-bold">2 semestres</span></li>
-                  <li>Matrícula: <span className="font-bold">$90.000</span></li>
-                  <li>Pensión mensual: <span className="font-bold">$70.000</span></li>
-                </ul>
-                <p className="text-lg font-semibold mb-4 text-gray-800">Nuestros cursos:</p>
-                <ul className="space-y-3">
-                  <li className="flex items-center">
-                    <Book className="h-5 w-5 text-blue-600 mr-2" />
-                    Auxiliar en Asistente Administrativo y de Oficina
-                  </li>
-                  <li className="flex items-center">
-                    <Users className="h-5 w-5 text-blue-600 mr-2" />
-                    Asistente en Gestión Humana
-                  </li>
-                  <li className="flex items-center">
-                    <Monitor className="h-5 w-5 text-blue-600 mr-2" />
-                    Desarrollo y Análisis de Sistemas de Información
-                  </li>
-                  <li className="flex items-center">
-                    <MessageSquare className="h-5 w-5 text-blue-600 mr-2" />
-                    Auxiliar Educativo en Atención Integral a la Primera Infancia
-                  </li>
-                  <li className="flex items-center">
-                    <Star className="h-5 w-5 text-blue-600 mr-2" />
-                    Seguridad y Salud en el Trabajo
-                  </li>
-                </ul>
-                <div className="mt-6 text-center">
+                <div className="p-6">
+                  <div className="mb-6">
+                    <p className="text-3xl font-bold text-gray-900">$85.000</p>
+                    <p className="text-gray-600">Matrícula única</p>
+                  </div>
+                  <p className="text-gray-600 mb-6">Mensualidad: $65.000</p>
+                  <ul className="space-y-4 mb-8">
+                    {[
+                      "Duración personalizada según tu nivel",
+                      "Clases virtuales en vivo",
+                      "Material didáctico digital",
+                      "Tutorías individuales",
+                      "Título oficial MEN"
+                    ].map((feature, index) => (
+                      <li key={index} className="flex items-start">
+                        <Check className="h-6 w-6 text-green-500 mr-2 flex-shrink-0" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
                   <Link
-                    to="/cursos-tecnicos"
-                    className="inline-block bg-blue-600 text-white font-bold py-2 px-6 rounded-full hover:bg-blue-700 transition duration-300"
+                    to="/bachillerato"
+                    className="block text-center bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300"
                   >
                     Más Información
                   </Link>
                 </div>
-              </div>
+              </motion.div>
 
+              {/* Cursos Técnicos Card */}
+              <motion.div
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true }}
+                variants={fadeIn}
+                className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
+              >
+                <div className="bg-gradient-to-r from-green-600 to-green-800 p-6">
+                  <h3 className="text-2xl font-bold text-white">Cursos Técnicos</h3>
+                  <p className="text-green-100 mt-2">Formación profesional especializada</p>
+                </div>
+                <div className="p-6">
+                  <div className="mb-6">
+                    <p className="text-3xl font-bold text-gray-900">$90.000</p>
+                    <p className="text-gray-600">Matrícula única</p>
+                  </div>
+                  <p className="text-gray-600 mb-6">Mensualidad: $70.000</p>
+                  <ul className="space-y-4 mb-8">
+                    {[
+                      "Duración: 2 semestres",
+                      "Clases L-V de 8:00 PM a 9:00 PM",
+                      "Certificación profesional",
+                      "Prácticas virtuales",
+                      "Bolsa de empleo"
+                    ].map((feature, index) => (
+                      <li key={index} className="flex items-start">
+                        <Check className="h-6 w-6 text-green-500 mr-2 flex-shrink-0" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    to="/cursos-tecnicos"
+                    className="block text-center bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-300"
+                  >
+                    Ver Programas
+                  </Link>
+                </div>
+              </motion.div>
             </div>
           </div>
         </section>
 
-        <section className="bg-gray-100 py-16 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl font-bold mb-8">Testimonios de Nuestros Estudiantes</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <div className="mb-4">
-                  <Star className="h-6 w-6 text-yellow-400 inline" />
-                  <Star className="h-6 w-6 text-yellow-400 inline" />
-                  <Star className="h-6 w-6 text-yellow-400 inline" />
-                  <Star className="h-6 w-6 text-yellow-400 inline" />
-                  <Star className="h-6 w-6 text-yellow-400 inline" />
-                </div>
-                <p className="italic mb-4">"Las clases en línea son excelentes y los profesores están siempre disponibles para resolver dudas. Pude terminar mi bachillerato mientras trabajaba."</p>
-                <p className="font-semibold">- María González, Graduada 2023</p>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <div className="mb-4">
-                  <Star className="h-6 w-6 text-yellow-400 inline" />
-                  <Star className="h-6 w-6 text-yellow-400 inline" />
-                  <Star className="h-6 w-6 text-yellow-400 inline" />
-                  <Star className="h-6 w-6 text-yellow-400 inline" />
-                  <Star className="h-6 w-6 text-yellow-400 inline" />
-                </div>
-                <p className="italic mb-4">"El curso técnico de programación superó mis expectativas. Las clases diarias y el material práctico me ayudaron a conseguir trabajo rápidamente."</p>
-                <p className="font-semibold">- Carlos Rodríguez, Graduado en Desarrollo Web</p>
-              </div>
+        {/* Statistics Section */}
+        <section id="estadisticas" className="py-20 bg-blue-900 text-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              {[
+                { icon: GraduationCap, number: "1000+", label: "Graduados" },
+                { icon: Trophy, number: "95%", label: "Tasa de Éxito" },
+                { icon: Target, number: "100%", label: "Online" },
+                { icon: Users, number: "50+", label: "Docentes" }
+              ].map((stat, index) => (
+                <motion.div
+                  key={index}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  variants={fadeIn}
+                  className="text-center"
+                >
+                  <stat.icon className="h-12 w-12 text-blue-400 mx-auto mb-4" />
+                  <p className="text-4xl font-bold mb-2">{stat.number}</p>
+                  <p className="text-blue-200">{stat.label}</p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </section>
 
-        <section className="bg-white py-16 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl font-bold mb-8">¡Comienza Tu Futuro Hoy!</h2>
-            <p className="text-xl mb-8">Proceso de matrícula simple y rápido. Inicia tus clases de inmediato.</p>
-            <Link to="/matricula" className="inline-block bg-green-500 text-white font-bold py-3 px-8 rounded-full text-xl hover:bg-green-600 transition duration-300">
-              Matricúlate Ahora
-            </Link>
+        {/* Call to Action */}
+        <section id="matricula" className="py-20 bg-gradient-to-r from-blue-600 to-blue-800">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeIn}
+            >
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-8">
+              ¡Comienza Tu Futuro Educativo Hoy!
+              </h2>
+              <p className="text-xl text-blue-100 mb-8">
+                Matrícula simplificada y clases que inician de inmediato
+              </p>
+              <div className="flex flex-col md:flex-row gap-4 justify-center">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Link
+                    to="/matricula"
+                    className="inline-flex items-center bg-white text-blue-600 font-bold py-4 px-8 rounded-lg hover:bg-gray-100 transition duration-300 text-lg shadow-lg"
+                  >
+                    Matricúlate Ahora
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </motion.div>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <a
+                    href="tel:+573132529490"
+                    className="inline-flex items-center bg-transparent border-2 border-white text-white font-bold py-4 px-8 rounded-lg hover:bg-white hover:text-blue-600 transition duration-300 text-lg"
+                  >
+                    <Phone className="mr-2 h-5 w-5" />
+                    Llámanos
+                  </a>
+                </motion.div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* FAQ Section */}
+        <section id="faq" className="py-20 bg-white">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeIn}
+              className="text-center mb-16"
+            >
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                Preguntas Frecuentes
+              </h2>
+              <p className="text-xl text-gray-600">
+                Resolvemos tus dudas sobre nuestros programas
+              </p>
+            </motion.div>
+            
+            <div className="space-y-8">
+              {[
+                {
+                  q: "¿Los títulos son oficiales?",
+                  a: "Sí, todos nuestros títulos están avalados por el Ministerio de Educación Nacional y son válidos en todo el territorio colombiano."
+                },
+                {
+                  q: "¿Cómo son las clases virtuales?",
+                  a: "Las clases se realizan en vivo a través de nuestra plataforma. Son interactivas y quedan grabadas para que puedas repasarlas cuando lo necesites."
+                },
+                {
+                  q: "¿Cuánto tiempo toma completar el bachillerato?",
+                  a: "La duración depende de tu último grado aprobado y edad. En tu primera asesoría definiremos un plan personalizado para ti."
+                },
+                {
+                  q: "¿Qué requisitos necesito para inscribirme?",
+                  a: "Necesitas documento de identidad, certificados de estudios anteriores y acceso a internet. ¡Nosotros te guiamos en todo el proceso!"
+                }
+              ].map((faq, index) => (
+                <motion.div
+                  key={index}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  variants={fadeIn}
+                  className="bg-gray-50 p-6 rounded-lg"
+                >
+                  <h3 className="text-xl font-bold mb-4">{faq.q}</h3>
+                  <p className="text-gray-600">{faq.a}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Contact Section */}
+        <section id="contacto" className="py-20 bg-gray-50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeIn}
+              className="grid grid-cols-1 md:grid-cols-2 gap-12"
+            >
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                  ¿Necesitas más información?
+                </h2>
+                <p className="text-xl text-gray-600 mb-8">
+                  Nuestro equipo está listo para responder todas tus preguntas
+                </p>
+                <div className="space-y-6">
+                  <div className="flex items-center">
+                    <Phone className="h-6 w-6 text-blue-600 mr-4" />
+                    <div>
+                      <p className="font-semibold">Llámanos o escríbenos</p>
+                      <a href="tel:+573132529490" className="text-blue-600 hover:text-blue-700">
+                        +57 313 2529490
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <Mail className="h-6 w-6 text-blue-600 mr-4" />
+                    <div>
+                      <p className="font-semibold">Correo electrónico</p>
+                      <a href="mailto:f.eduvativavilladelosandes@gmail.com" className="text-blue-600 hover:text-blue-700">
+                        f.eduvativavilladelosandes@gmail.com
+                      </a>
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <MapPin className="h-6 w-6 text-blue-600 mr-4" />
+                    <div>
+                      <p className="font-semibold">Horario de atención</p>
+                      <p>Lunes a Viernes: 8:00 AM - 6:00 PM</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-8 rounded-lg shadow-md">
+                <h3 className="text-2xl font-bold mb-6">Solicita información</h3>
+                <form className="space-y-6">
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre completo
+                    </label>
+                    <input
+                      type="text"
+                      id="name"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Correo electrónico
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                      Teléfono
+                    </label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="program" className="block text-sm font-medium text-gray-700 mb-1">
+                      Programa de interés
+                    </label>
+                    <select
+                      id="program"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Selecciona un programa</option>
+                      <option value="bachillerato">Validación de Bachillerato</option>
+                      <option value="tecnico">Cursos Técnicos</option>
+                    </select>
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300"
+                  >
+                    Enviar Solicitud
+                  </button>
+                </form>
+              </div>
+            </motion.div>
           </div>
         </section>
       </main>
 
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="container mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <footer className="bg-gray-900 text-white py-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
             <div>
               <h3 className="text-xl font-bold mb-4">Villa de los Andes</h3>
               <p className="text-gray-400">
-                Transformando vidas a través de la educación en línea
+                Transformando vidas a través de la educación en línea desde 2015
               </p>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Contacto</h4>
-              <div className="flex items-center mb-2">
-                <Mail className="h-5 w-5 mr-2" />
-                <span>f.eduvativavilladelosandes@gmail.com</span>
+              <div className="flex space-x-4 mt-6">
+                <a href="#" className="text-gray-400 hover:text-white transition duration-200">
+                  <Facebook className="h-6 w-6" />
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white transition duration-200">
+                  <Instagram className="h-6 w-6" />
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white transition duration-200">
+                  <Linkedin className="h-6 w-6" />
+                </a>
               </div>
-              <div className="flex items-center mb-2">
-                <MessageSquare className="h-5 w-5 mr-2" />
-                <span>+57 313 2529490</span>
-              </div>
             </div>
+
             <div>
               <h4 className="text-lg font-semibold mb-4">Programas</h4>
               <ul className="space-y-2">
-                <li>Validación de Bachillerato</li>
-                <li>Cursos Técnicos</li>
-                <li>Educación Continua</li>
-                <li>Certificaciones</li>
+                <li>
+                  <Link to="/bachillerato" className="text-gray-400 hover:text-white transition duration-200">
+                    Validación de Bachillerato
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/cursos-tecnicos" className="text-gray-400 hover:text-white transition duration-200">
+                    Cursos Técnicos
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/matricula" className="text-gray-400 hover:text-white transition duration-200">
+                    Proceso de Matrícula
+                  </Link>
+                </li>
               </ul>
             </div>
+
             <div>
-              <h4 className="text-lg font-semibold mb-4">Síguenos</h4>
-              <div className="flex space-x-4">
-                <Facebook className="h-6 w-6 cursor-pointer hover:text-blue-400" />
-                <Instagram className="h-6 w-6 cursor-pointer hover:text-pink-400" />
-                <Linkedin className="h-6 w-6 cursor-pointer hover:text-blue-400" />
-              </div>
+              <h4 className="text-lg font-semibold mb-4">Contacto</h4>
+              <ul className="space-y-4">
+                <li className="flex items-center">
+                  <Phone className="h-5 w-5 mr-2 text-gray-400" />
+                  <a href="tel:+573132529490" className="text-gray-400 hover:text-white transition duration-200">
+                    +57 313 2529490
+                  </a>
+                </li>
+                <li className="flex items-center">
+                  <Mail className="h-5 w-5 mr-2 text-gray-400" />
+                  <a href="mailto:f.eduvativavilladelosandes@gmail.com" className="text-gray-400 hover:text-white transition duration-200">
+                    f.eduvativavilladelosandes@gmail.com
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Legal</h4>
+              <ul className="space-y-2">
+                <li>
+                  <Link to="/privacidad" className="text-gray-400 hover:text-white transition duration-200">
+                    Política de Privacidad
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/terminos" className="text-gray-400 hover:text-white transition duration-200">
+                    Términos y Condiciones
+                  </Link>
+                </li>
+              </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center">
+
+          <div className="border-t border-gray-800 mt-12 pt-8 text-center">
             <p className="text-gray-400">
               © {new Date().getFullYear()} Fundación Educativa Villa de los Andes. Todos los derechos reservados.
             </p>
@@ -245,21 +596,38 @@ const Landing = () => {
         </div>
       </footer>
 
-      <Modal isOpen={isModalOpen} onClose={closeModal}>
-        <h2 className="text-2xl font-bold mb-4">Iniciar Sesión</h2>
-        <form className="space-y-4">
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700">Usuario:</label>
-            <input type="text" id="username" name="username" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" />
-          </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Contraseña:</label>
-            <input type="password" id="password" name="password" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" />
-          </div>
-          <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300">
-            Iniciar Sesión
-          </button>
-        </form>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <div className="p-6">
+          <h2 className="text-2xl font-bold mb-6">Iniciar Sesión</h2>
+          <form className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Correo electrónico
+              </label>
+              <input
+                type="email"
+                id="email"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Contraseña
+              </label>
+              <input
+                type="password"
+                id="password"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300"
+            >
+              Ingresar
+            </button>
+          </form>
+        </div>
       </Modal>
     </div>
   );
