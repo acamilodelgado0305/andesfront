@@ -45,7 +45,7 @@ const Header = ({ onLoginClick }) => {
         <div className="flex justify-between items-center">
           <Link 
             to="/" 
-            className="text-2xl font-bold text-blue-600 hover:text-blue-700 transition-colors duration-300"
+            className="text-2xl font-bold text-blue-600 hover:text-yellow-400 transition-colors duration-300"
           >
             IE Villa de los Andes
           </Link>
@@ -60,8 +60,8 @@ const Header = ({ onLoginClick }) => {
                       to={to}
                       className={`font-medium transition-colors duration-300 ${
                         location.pathname === to
-                          ? 'text-blue-600'
-                          : 'text-gray-600 hover:text-blue-600'
+                          ? 'text-yellow-400'
+                          : 'text-gray-600 hover:text-yellow-400'
                       }`}
                     >
                       {label}
@@ -73,7 +73,7 @@ const Header = ({ onLoginClick }) => {
 
             <button
               onClick={onLoginClick}
-              className="hidden lg:block bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300"
+              className="hidden lg:block bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-yellow-400 transition-colors duration-300"
             >
               Iniciar Sesión
             </button>
@@ -81,7 +81,7 @@ const Header = ({ onLoginClick }) => {
             {/* Botón de menú móvil */}
             <button
               onClick={toggleMenu}
-              className="lg:hidden text-gray-600 hover:text-blue-600 transition-colors duration-300 p-2"
+              className="lg:hidden text-gray-600 hover:text-yellow-400 transition-colors duration-300 p-2"
               aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
             >
               {isMenuOpen ? <CloseOutlined /> : <MenuOutlined />}
@@ -103,8 +103,8 @@ const Header = ({ onLoginClick }) => {
                     to={to}
                     className={`block font-medium py-2 transition-colors duration-300 ${
                       location.pathname === to
-                        ? 'text-blue-600'
-                        : 'text-gray-600 hover:text-blue-600'
+                        ? 'text-yellow-400'
+                        : 'text-gray-600 hover:text-yellow-400'
                     }`}
                   >
                     {label}
@@ -114,7 +114,7 @@ const Header = ({ onLoginClick }) => {
               <li>
                 <button
                   onClick={onLoginClick}
-                  className="w-full bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-300"
+                  className="w-full bg-yellow-400 text-white font-semibold py-2 px-6 rounded-lg hover:bg-yellow-400 transition-colors duration-300"
                 >
                   Iniciar Sesión
                 </button>
