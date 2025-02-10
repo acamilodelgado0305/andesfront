@@ -81,7 +81,7 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <div className="bg-yellow-100 rounded-t-lg p-6 border-b-8 border-yellow-500">
+      <div className="bg-red-100 rounded-t-lg p-6 border-b-8 border-red-500">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Registro de Estudiante</h1>
         <p className="text-gray-600">Por favor complete todos los campos requeridos para registrar un nuevo estudiante.</p>
       </div>
@@ -98,18 +98,18 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
             Información Personal
           </h2>
           <div className="space-y-4">
-            <Form.Item name="nombre" label="Nombre" rules={[{ requiyellow: true }]}>
+            <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
               <Input prefix={<UserOutlined />} className="h-10" />
             </Form.Item>
 
-            <Form.Item name="apellido" label="Apellido" rules={[{ requiyellow: true }]}>
+            <Form.Item name="apellido" label="Apellido" rules={[{ required: true }]}>
               <Input className="h-10" />
             </Form.Item>
 
             <Form.Item
               name="email"
               label="Correo Electrónico"
-              rules={[{ requiyellow: true }, { type: 'email' }]}
+              rules={[{ required: true }, { type: 'email' }]}
             >
               <Input className="h-10" />
             </Form.Item>
@@ -117,16 +117,16 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
             <Form.Item
               name="fechaNacimiento"
               label="Fecha de Nacimiento"
-              rules={[{ requiyellow: true }]}
+              rules={[{ required: true }]}
             >
               <DatePicker className="w-full h-10" />
             </Form.Item>
 
-            <Form.Item name="eps" label="EPS" rules={[{ requiyellow: true }]}>
+            <Form.Item name="eps" label="EPS" rules={[{ required: true }]}>
               <Input className="h-10" />
             </Form.Item>
 
-            <Form.Item name="rh" label="RH" rules={[{ requiyellow: true }]}>
+            <Form.Item name="rh" label="RH" rules={[{ required: true }]}>
               <Input className="h-10" />
             </Form.Item>
           </div>
@@ -138,7 +138,7 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
             Documentación
           </h2>
           <div className="space-y-4">
-            <Form.Item name="tipoDocumento" label="Tipo de Documento" rules={[{ requiyellow: true }]}>
+            <Form.Item name="tipoDocumento" label="Tipo de Documento" rules={[{ required: true }]}>
               <Select className="h-10">
                 <Option value="CC">Cédula</Option>
                 <Option value="TI">Tarjeta de Identidad</Option>
@@ -150,7 +150,7 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
             <Form.Item
               name="numeroDocumento"
               label="Número de Documento"
-              rules={[{ requiyellow: true }]}
+              rules={[{ required: true }]}
             >
               <Input prefix={<IdcardOutlined />} className="h-10" />
             </Form.Item>
@@ -158,7 +158,7 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
             <Form.Item
               name="lugarExpedicion"
               label="Lugar de Expedición"
-              rules={[{ requiyellow: true }]}
+              rules={[{ required: true }]}
             >
               <Input className="h-10" />
             </Form.Item>
@@ -174,7 +174,7 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
             <Form.Item
               name="telefonoLlamadas"
               label="Teléfono para Llamadas"
-              rules={[{ requiyellow: true }]}
+              rules={[{ required: true }]}
             >
               <Input prefix={<PhoneOutlined />} className="h-10" />
             </Form.Item>
@@ -182,7 +182,7 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
             <Form.Item
               name="telefonoWhatsapp"
               label="Teléfono para WhatsApp"
-              rules={[{ requiyellow: true }]}
+              rules={[{ required: true }]}
             >
               <Input prefix={<PhoneOutlined />} className="h-10" />
             </Form.Item>
@@ -195,7 +195,7 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
             Información Académica
           </h2>
           <div className="space-y-4">
-            <Form.Item name="programa_id" label="Programa" rules={[{ requiyellow: true }]}>
+            <Form.Item name="programa_id" label="Programa" rules={[{ required: true }]}>
               <Select className="h-10">
                 {programas.map((programa) => (
                   <Option key={programa.id} value={programa.id}>
@@ -208,14 +208,14 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
             <Form.Item
               name="ultimoCursoAprobado"
               label="Último Curso Aprobado"
-              rules={[{ requiyellow: true }]}
+              rules={[{ required: true }]}
             >
               <Input className="h-10" />
             </Form.Item>
 
 
 
-            <Form.Item name="modalidad_estudio" label="Modalidad de estudio" rules={[{ requiyellow: true }]}>
+            <Form.Item name="modalidad_estudio" label="Modalidad de estudio" rules={[{ required: true }]}>
               <Select>
                 <Option value="Clases en Linea">Clases en Linea</Option>
                 <Option value="Modulos por WhastApp">Modulos por WhastApp</Option>
@@ -249,7 +249,7 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
             type="primary"
             htmlType="submit"
             loading={loading}
-            className="w-full h-12 text-lg bg-yellow-600 hover:bg-yellow-700"
+            className="w-full h-12 text-lg bg-red-600 hover:bg-red-700"
           >
             Registrar Estudiante
           </Button>
