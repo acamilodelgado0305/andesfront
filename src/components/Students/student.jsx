@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
-  FaTrashAlt,
   FaUserEdit,
   FaSearch,
   FaFilter,
-  FaDownload,
-  FaWhatsapp,
 } from "react-icons/fa";
 import axios from "axios";
 import CreateStudentModal from "./addStudent";
@@ -15,9 +12,9 @@ import {
   deleteStudent,
   getPrograms,
 } from "../../services/studentService";
-import { Table, Input, Button, Dropdown, Menu, Modal, message } from "antd";
-import { CSVLink } from "react-csv";
+import { Input, Button, Dropdown, Menu, Modal, message } from "antd";
 import StudentDetailModal from './StudentDetailModal';
+import StudentTable from "./StudentTable";
 
 const Students = () => {
   const [students, setStudents] = useState([]);
@@ -31,11 +28,9 @@ const Students = () => {
     estado_matricula: null,
   });
   const [coordinatorName, setCoordinatorName] = useState(null);
-
-
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
-
+  const [loading, setLoading] = useState(false);
 
   const fetchUserData = async () => {
     try {
@@ -61,25 +56,10 @@ const Students = () => {
     fetchUserData();
   }, []);
 
-
-  useEffect(() => {
-    if (coordinatorName) {
-      fetchStudents();
-    }
-  }, [coordinatorName]);
-
-
-  useEffect(() => {
-    if (coordinatorName) {
-      fetchStudents();
-    }
-  }, [coordinatorName]);
-
   const fetchPrograms = async () => {
     try {
       const data = await getPrograms();
       setProgramas(data);
-      console.log(data)
     } catch (err) {
       console.error("Error fetching programs:", err);
       message.error("Error al cargar los programas");
@@ -87,12 +67,15 @@ const Students = () => {
   };
 
   const fetchStudents = async () => {
+    setLoading(true);
     try {
       const data = await getStudents();
       setStudents(data);
     } catch (err) {
       console.error("Error fetching students:", err);
       message.error("Error al cargar los estudiantes");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -112,219 +95,6 @@ const Students = () => {
       },
     });
   };
-
-  const handleStudentAdded = () => {
-    fetchStudents();
-    message.success("Estudiante añadido con éxito");
-  };
-
-  const getCoordinatorStyle = (coordinator) => {
-    if (coordinator === "Camilo Delgado") {
-      return "text-orange-600";
-    } else if (coordinator === "Adriana Benitez") {
-      return "text-blue-600";
-    }
-    return "";
-  };
-
-  const getProgramName = (programId) => {
-    const program = programas.find((p) => p.id === programId);
-    return program ? program.nombre : "Programa no encontrado";
-  };
-
-  const filteredStudents = useMemo(() => {
-    return students.filter((student) => {
-      // Normaliza el término de búsqueda y lo divide en palabras
-      const searchTerms = searchTerm.toLowerCase().trim().split(/\s+/);
-
-      // Normaliza el nombre del estudiante y el teléfono de WhatsApp
-      const studentName = student.nombre.toLowerCase();
-      const whatsappNumber = student.telefono_whatsapp?.toLowerCase() || '';
-
-      // Verifica si todos los términos de búsqueda están contenidos en el nombre o en el teléfono
-      const matchesSearch = searchTerms.every(term =>
-        studentName.includes(term) || whatsappNumber.includes(term)
-      );
-
-      // Verificación de filtros con manejo explícito de booleanos
-      const matchesCoordinator = !filters.coordinador || student.coordinador === filters.coordinador;
-      const matchesProgram = !filters.programa || student.programa_id === filters.programa;
-      const matchesActive = filters.activo === null || Boolean(student.activo) === filters.activo;
-      const matchesMatricula = filters.estado_matricula === null ||
-        Boolean(student.estado_matricula) === filters.estado_matricula;
-
-      return matchesSearch &&
-        matchesCoordinator &&
-        matchesProgram &&
-        matchesActive &&
-        matchesMatricula;
-    });
-  }, [students, searchTerm, filters]);
-
-  useEffect(() => {
-    console.log('Current filters:', filters);
-    console.log('Filtered students:', filteredStudents);
-  }, [filters, filteredStudents]);
-
-
-
-
-
-  const handleRowClick = (record) => {
-    setSelectedStudent(record);
-    setIsDetailModalOpen(true);
-  };
-
-  const handleGraduate = async (studentId) => {
-
-    await fetchStudents();
-  };
-
-
-  const handleStudentUpdated = (updatedStudent) => {
-    setStudents(prevStudents =>
-      prevStudents.map(student =>
-        student.id === updatedStudent.id ? updatedStudent : student
-      )
-    );
-  };
-
-  const columns = [
-    {
-      title: "Documento",
-      key: "documento",
-      render: (_, record) => (
-        <span>
-          {record.tipo_documento} {record.numero_documento || 'No especificado'}
-        </span>
-      ),
-    },
-    {
-      title: "Coordinador",
-      dataIndex: "coordinador",
-      key: "coordinador",
-      render: (text) => (
-        <span className={getCoordinatorStyle(text)}>{text}</span>
-      ),
-    },
-    {
-      title: "Nombre Completo",
-      key: "nombre_completo",
-      render: (_, record) => (
-        <span>{record.nombre}</span>
-      ),
-    },
-    {
-      title: "Estado",
-      key: "estados",
-      render: (_, record) => (
-        <div className="space-y-1">
-          <div>
-            <span className={`px-2 py-1 rounded-full text-sm ${record.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"
-              }`}>
-              {record.activo ? "Activo" : "Inactivo"}
-            </span>
-          </div>
-          <div>
-            <span className={`px-2 py-1 rounded-full text-sm ${record.estado_matricula ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"
-              }`}>
-              {record.estado_matricula ? "Matrícula Paga" : "Matrícula Pendiente"}
-            </span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: "Programa",
-      dataIndex: "programa_id",
-      key: "programa_id",
-      render: (programId) => getProgramName(programId),
-    },
-    {
-      title: "Contacto",
-      key: "contacto",
-      render: (_, record) => (
-        <div className="space-y-1">
-          <div>{record.email || 'No especificado'}</div>
-          <div>
-            Llamadas: {record.telefono_llamadas || 'No especificado'}
-          </div>
-          <div>
-            WhatsApp: {record.telefono_whatsapp || 'No especificado'}
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: "Fechas",
-      key: "fechas",
-      render: (_, record) => (
-        <div className="space-y-1">
-          <div>
-            <span className="font-medium">Inscripción:</span>{' '}
-            {record.fecha_inscripcion ? new Date(record.fecha_inscripcion).toLocaleDateString() : 'No especificado'}
-          </div>
-          {record.fecha_graduacion && (
-            <div>
-              <span className="font-medium">Graduación:</span>{' '}
-              {new Date(record.fecha_graduacion).toLocaleDateString()}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: "Pagos",
-      key: "facturas",
-      render: (_, record) => (
-        <Link
-          to={`/inicio/students/facturas/${record.id}`}
-          className="text-blue-500 hover:text-blue-700"
-        >
-          Ver Pagos
-        </Link>
-      ),
-    },
-    {
-      title: "Acciones",
-      key: "acciones",
-      render: (_, record) => (
-        <div className="flex space-x-2">
-          <Button
-            icon={<FaTrashAlt />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete(record.id);
-            }}
-            danger
-          />
-
-          <Button
-            icon={<FaWhatsapp />}
-            type="default"
-            onClick={(e) => {
-              e.stopPropagation();
-              let phoneNumber = record.telefono_whatsapp?.replace(/\D/g, "") ||
-                record.telefono_llamadas?.replace(/\D/g, "");
-
-              if (!phoneNumber) {
-                message.error("No hay número de teléfono disponible");
-                return;
-              }
-
-              if (!phoneNumber.startsWith("57")) {
-                phoneNumber = `57${phoneNumber}`;
-              }
-
-              window.open(`https://wa.me/${phoneNumber}`, "_blank");
-            }}
-          >
-            WhatsApp
-          </Button>
-        </div>
-      ),
-    },
-  ];
 
   const filterMenu = (
     <Menu>
@@ -437,6 +207,50 @@ const Students = () => {
   );
 
 
+  const getCoordinatorStyle = (coordinator) => {
+    if (coordinator === "Camilo Delgado") {
+      return "text-orange-600";
+    } else if (coordinator === "Adriana Benitez") {
+      return "text-blue-600";
+    }
+    return "";
+  };
+
+  const getProgramName = (programId) => {
+    const program = programas.find((p) => p.id === programId);
+    return program ? program.nombre : "Programa no encontrado";
+  };
+
+  const filteredStudents = useMemo(() => {
+    return students.filter((student) => {
+      const searchTerms = searchTerm.toLowerCase().trim().split(/\s+/);
+      const studentName = student.nombre.toLowerCase();
+      const whatsappNumber = student.telefono_whatsapp?.toLowerCase() || '';
+      const llamadasNumber = student.telefono_llamadas?.toLowerCase() || '';
+
+      const matchesSearch = searchTerms.every(term =>
+        studentName.includes(term) || whatsappNumber.includes(term)|| llamadasNumber.includes(term)
+      );
+
+      const matchesCoordinator = !filters.coordinador || student.coordinador === filters.coordinador;
+      const matchesProgram = !filters.programa || student.programa_id === filters.programa;
+      const matchesActive = filters.activo === null || Boolean(student.activo) === filters.activo;
+      const matchesMatricula = filters.estado_matricula === null ||
+        Boolean(student.estado_matricula) === filters.estado_matricula;
+
+      return matchesSearch &&
+        matchesCoordinator &&
+        matchesProgram &&
+        matchesActive &&
+        matchesMatricula;
+    });
+  }, [students, searchTerm, filters]);
+
+  const handleStudentAdded = () => {
+    fetchStudents();
+    message.success("Estudiante añadido con éxito");
+  };
+
   return (
     <div className="mx-auto mt-8 p-2">
       <div className="flex justify-between mb-4">
@@ -449,13 +263,12 @@ const Students = () => {
           >
             Crear Estudiante
           </Button>
-
         </div>
       </div>
 
       <div className="mb-4 flex space-x-2">
         <Input
-          placeholder="Buscar por nombre o WhatsApp..."  // Updated placeholder
+          placeholder="Buscar por nombre o WhatsApp..."
           prefix={<FaSearch />}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -467,15 +280,12 @@ const Students = () => {
         </Dropdown>
       </div>
 
-      <Table
-        columns={columns}
-        dataSource={filteredStudents}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
-        onRow={(record) => ({
-          onClick: () => handleRowClick(record),
-          style: { cursor: 'pointer' }  // Changes cursor to pointer on hover
-        })}
+      <StudentTable
+        students={filteredStudents}
+        loading={loading}
+        onDelete={handleDelete}
+        getProgramName={getProgramName}
+        getCoordinatorStyle={getCoordinatorStyle}
       />
 
       <CreateStudentModal
@@ -488,8 +298,7 @@ const Students = () => {
         student={selectedStudent}
         visible={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
-        onGraduate={handleGraduate}
-        fetchStudents={fetchStudents}  // Explicitly pass the function
+        fetchStudents={fetchStudents}
         getCoordinatorStyle={getCoordinatorStyle}
         getProgramName={getProgramName}
       />

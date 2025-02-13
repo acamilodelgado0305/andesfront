@@ -45,7 +45,7 @@ const Header = ({ onLoginClick }) => {
         <div className="flex justify-between items-center">
           <Link 
             to="/" 
-            className="text-2xl font-bold text-blue-600 hover:text-yellow-400 transition-colors duration-300"
+            className="text-2xl font-bold text-red-700 hover:text-yellow-400 transition-colors duration-300"
           >
             IE Villa de los Andes
           </Link>
@@ -73,7 +73,7 @@ const Header = ({ onLoginClick }) => {
 
             <button
               onClick={onLoginClick}
-              className="hidden lg:block bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-yellow-400 transition-colors duration-300"
+              className="hidden lg:block bg-red-800 text-white font-semibold py-2 px-6 rounded-lg hover:bg-yellow-400 transition-colors duration-300"
             >
               Iniciar Sesión
             </button>
