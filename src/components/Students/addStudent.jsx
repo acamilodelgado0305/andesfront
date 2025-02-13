@@ -98,11 +98,11 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
                   <Input />
                 </Form.Item>
 
-                <Form.Item name="eps" label="EPS" rules={[{ required: true }]}>
+                <Form.Item name="eps" label="EPS" >
                   <Input />
                 </Form.Item>
 
-                <Form.Item name="rh" label="RH" rules={[{ required: true }]}>
+                <Form.Item name="rh" label="RH">
                   <Input />
                 </Form.Item>
               </div>
@@ -155,6 +155,8 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
                   <Select>
                     <Option value="Adriana Benitez">Adriana Benitez</Option>
                     <Option value="Camilo Delgado">Camilo Delgado</Option>
+                    <Option value="Camilo Delgado">Blanca Sanchez</Option>
+                    <Option value="Camilo Delgado">Mauricio Pulido</Option>
                   </Select>
                 </Form.Item>
 
