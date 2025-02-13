@@ -129,54 +129,54 @@ const StudentTable = ({ onDelete, students = [], loading = false, getProgramName
       render: (programId) => getProgramName(programId),
     },
     {
-        title: (
-          <div className="flex flex-col" style={{ margin: '-4px 0', gap: 1, lineHeight: 1 }}>
-            Correo
-            <Input
-              placeholder="Buscar"
-              onChange={(e) => handleSearch(e.target.value, 'email')}
-              style={{ marginTop: 2, padding: 4, height: 28, fontSize: 12 }}
-            />
-          </div>
-        ),
-        key: "email",
-        render: (_, record) => (
-          <span>{record.email}</span>
-        ),
-      },
-      {
-        title: (
-          <div className="flex flex-col" style={{ margin: '-4px 0', gap: 1, lineHeight: 1 }}>
-            WhatsApp
-            <Input
-              placeholder="Buscar"
-              onChange={(e) => handleSearch(e.target.value, 'telefono_llamadas')}
-              style={{ marginTop: 2, padding: 4, height: 28, fontSize: 12 }}
-            />
-          </div>
-        ),
-        key: "telefono_whatsapp",
-        render: (_, record) => (
-          <span>{record.telefono_whatsapp}</span>
-        ),
-      },
-      {
-        title: (
-          <div className="flex flex-col" style={{ margin: '-4px 0', gap: 1, lineHeight: 1 }}>
-            Llamadas
-            <Input
-              placeholder="Buscar"
-              onChange={(e) => handleSearch(e.target.value, 'telefono_llamadas')}
-              style={{ marginTop: 2, padding: 4, height: 28, fontSize: 12 }}
-            />
-          </div>
-        ),
-        key: "nombre_completo",
-        render: (_, record) => (
-          <span>{record.telefono_llamadas}</span>
-        ),
-      },
-    
+      title: (
+        <div className="flex flex-col" style={{ margin: '-4px 0', gap: 1, lineHeight: 1 }}>
+          Correo
+          <Input
+            placeholder="Buscar"
+            onChange={(e) => handleSearch(e.target.value, 'email')}
+            style={{ marginTop: 2, padding: 4, height: 28, fontSize: 12 }}
+          />
+        </div>
+      ),
+      key: "email",
+      render: (_, record) => (
+        <span>{record.email}</span>
+      ),
+    },
+    {
+      title: (
+        <div className="flex flex-col" style={{ margin: '-4px 0', gap: 1, lineHeight: 1 }}>
+          WhatsApp
+          <Input
+            placeholder="Buscar"
+            onChange={(e) => handleSearch(e.target.value, 'telefono_llamadas')}
+            style={{ marginTop: 2, padding: 4, height: 28, fontSize: 12 }}
+          />
+        </div>
+      ),
+      key: "telefono_whatsapp",
+      render: (_, record) => (
+        <span>{record.telefono_whatsapp}</span>
+      ),
+    },
+    {
+      title: (
+        <div className="flex flex-col" style={{ margin: '-4px 0', gap: 1, lineHeight: 1 }}>
+          Llamadas
+          <Input
+            placeholder="Buscar"
+            onChange={(e) => handleSearch(e.target.value, 'telefono_llamadas')}
+            style={{ marginTop: 2, padding: 4, height: 28, fontSize: 12 }}
+          />
+        </div>
+      ),
+      key: "nombre_completo",
+      render: (_, record) => (
+        <span>{record.telefono_llamadas}</span>
+      ),
+    },
+
     {
       title: "Fechas",
       key: "fechas",
@@ -247,61 +247,59 @@ const StudentTable = ({ onDelete, students = [], loading = false, getProgramName
       ),
     },
   ];
-
-  const StudentDetailDrawer = ({ student }) => (
-    <div className="p-4">
-      <Title level={4}>Detalles del Estudiante</Title>
-      <div className="space-y-4">
-        <div>
-          <p className="font-bold">Documento:</p>
-          <p>{student.tipo_documento} {student.numero_documento || 'No especificado'}</p>
-        </div>
-        <div>
-          <p className="font-bold">Nombre:</p>
-          <p>{student.nombre || '-'}</p>
-        </div>
-        <div>
-          <p className="font-bold">Coordinador:</p>
-          <p className={getCoordinatorStyle(student.coordinador)}>{student.coordinador || '-'}</p>
-        </div>
-        <div>
-          <p className="font-bold">Estado:</p>
-          <div className="space-y-2">
-            <span className={`px-2 py-1 rounded-full text-sm ${student.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"}`}>
+  const StudentDetailDrawer = ({ student, onDelete, closeDrawer }) => {
+    return (
+      <div className="p-6 w-full max-w-lg bg-white shadow-lg rounded-lg">
+        <h2 className="text-xl font-semibold text-gray-800 border-b pb-3 mb-4">Detalles del Estudiante</h2>
+        <div className="space-y-4">
+          {[
+            { label: "Documento", value: `${student.tipo_documento} ${student.numero_documento || 'No especificado'}` },
+            { label: "Lugar de Expedición", value: student.lugar_expedicion || 'No especificado' },
+            { label: "Nombre", value: student.nombre || '-' },
+            { label: "Apellido", value: student.apellido || '-' },
+            { label: "Coordinador", value: student.coordinador || '-' },
+            { label: "Programa", value: getProgramName(student.programa_id) || '-' },
+            { label: "Email", value: student.email || 'No especificado' },
+            { label: "Llamadas", value: student.telefono_llamadas || 'No especificado' },
+            { label: "WhatsApp", value: student.telefono_whatsapp || 'No especificado' },
+            { label: "Fecha de Nacimiento", value: student.fecha_nacimiento ? new Date(student.fecha_nacimiento).toLocaleDateString() : 'No especificado' },
+            { label: "Inscripción", value: student.fecha_inscripcion ? new Date(student.fecha_inscripcion).toLocaleDateString() : 'No especificado' },
+            student.fecha_graduacion && { label: "Graduación", value: new Date(student.fecha_graduacion).toLocaleDateString() },
+            { label: "Matrícula", value: student.matricula ? `$${student.matricula}` : 'No especificado' },
+            { label: "EPS", value: student.eps || 'No definido' },
+            { label: "RH", value: student.rh || 'No definido' },
+            { label: "SIMAT", value: student.simat || 'No especificado' },
+            { label: "Modalidad de Estudio", value: student.modalidad_estudio || 'No especificado' },
+            { label: "Nombre Acudiente", value: student.nombre_acudiente || 'No definido' },
+            { label: "Tipo Documento Acudiente", value: student.tipo_documento_acudiente || 'No definido' },
+            { label: "Teléfono Acudiente", value: student.telefono_acudiente || 'No definido' },
+            { label: "Dirección Acudiente", value: student.direccion_acudiente || 'No definido' },
+          ]
+            .filter(Boolean)
+            .map((item, index) => (
+              <div key={index} className="flex justify-between border-b pb-2">
+                <p className="font-medium text-gray-600">{item.label}:</p>
+                <p className="text-gray-800">{item.value}</p>
+              </div>
+            ))}
+          <div className="flex flex-wrap gap-2 mt-4">
+            <span className={`px-3 py-1 text-sm font-medium rounded-full ${student.activo ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
               {student.activo ? "Activo" : "Inactivo"}
             </span>
-            <span className={`px-2 py-1 rounded-full text-sm ${student.estado_matricula ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"}`}>
+            <span className={`px-3 py-1 text-sm font-medium rounded-full ${student.estado_matricula ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
               {student.estado_matricula ? "Matrícula Paga" : "Matrícula Pendiente"}
             </span>
           </div>
         </div>
-        <div>
-          <p className="font-bold">Programa:</p>
-          <p>{getProgramName(student.programa_id) || '-'}</p>
-        </div>
-        <div>
-          <p className="font-bold">Contacto:</p>
-          <p>Email: {student.email || 'No especificado'}</p>
-          <p>Llamadas: {student.telefono_llamadas || 'No especificado'}</p>
-          <p>WhatsApp: {student.telefono_whatsapp || 'No especificado'}</p>
-        </div>
-        <div>
-          <p className="font-bold">Fechas:</p>
-          <p>Inscripción: {student.fecha_inscripcion ? new Date(student.fecha_inscripcion).toLocaleDateString() : 'No especificado'}</p>
-          {student.fecha_graduacion && (
-            <p>Graduación: {new Date(student.fecha_graduacion).toLocaleDateString()}</p>
-          )}
+        <div className="mt-6 flex justify-end space-x-3">
+          <Button type="primary" danger onClick={() => onDelete?.(student.id)}>
+            Eliminar
+          </Button>
+          <Button onClick={closeDrawer}>Cerrar</Button>
         </div>
       </div>
-      <div className="mt-8 space-x-4">
-        <Button type="primary" danger onClick={() => onDelete?.(student.id)}>
-          Eliminar
-        </Button>
-        <Button onClick={closeDrawer}>Cerrar</Button>
-      </div>
-    </div>
-  );
-
+    );
+  };
   return (
     <>
       <Table

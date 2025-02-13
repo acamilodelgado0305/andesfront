@@ -211,9 +211,9 @@ const Students = () => {
     if (coordinator === "Camilo Delgado") {
       return "text-orange-600";
     } else if (coordinator === "Adriana Benitez") {
-      return "text-blue-600";
+      return "text-purple-600";
     }
-    return "";
+    return "blue-600";
   };
 
   const getProgramName = (programId) => {
