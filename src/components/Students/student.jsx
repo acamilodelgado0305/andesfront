@@ -66,6 +66,12 @@ const Students = () => {
     }
   };
 
+  const handleEdit = (student) => {
+    setSelectedStudent(student);
+    setIsDetailModalOpen(true);
+  };
+
+
   const fetchStudents = async () => {
     setLoading(true);
     try {
@@ -229,7 +235,7 @@ const Students = () => {
       const llamadasNumber = student.telefono_llamadas?.toLowerCase() || '';
 
       const matchesSearch = searchTerms.every(term =>
-        studentName.includes(term) || whatsappNumber.includes(term)|| llamadasNumber.includes(term)
+        studentName.includes(term) || whatsappNumber.includes(term) || llamadasNumber.includes(term)
       );
 
       const matchesCoordinator = !filters.coordinador || student.coordinador === filters.coordinador;
@@ -284,6 +290,7 @@ const Students = () => {
         students={filteredStudents}
         loading={loading}
         onDelete={handleDelete}
+        onEdit={handleEdit}  // Add this prop
         getProgramName={getProgramName}
         getCoordinatorStyle={getCoordinatorStyle}
       />

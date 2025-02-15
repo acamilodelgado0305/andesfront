@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Input, Drawer, Button, Typography, message } from 'antd';
 import { Link } from 'react-router-dom';
-import { FaTrashAlt, FaWhatsapp } from 'react-icons/fa';
+import { FaTrashAlt, FaWhatsapp, FaEdit } from 'react-icons/fa';
 
 const { Title } = Typography;
 
-const StudentTable = ({ onDelete, students = [], loading = false, getProgramName, getCoordinatorStyle }) => {
+const StudentTable = ({ onDelete,
+  onEdit, // Add this prop
+  students = [],
+  loading = false,
+  getProgramName,
+  getCoordinatorStyle
+}) => {
   const [searchText, setSearchText] = useState({});
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -219,6 +225,14 @@ const StudentTable = ({ onDelete, students = [], loading = false, getProgramName
               onDelete?.(record.id);
             }}
             danger
+          />
+          <Button
+            icon={<FaEdit />}
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit?.(record); // Changed this line to call onEdit with the record
+            }}
+            type="primary"
           />
 
           <Button
