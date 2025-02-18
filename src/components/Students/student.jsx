@@ -43,7 +43,11 @@ const Students = () => {
       const response = await axios.get(`https://back.app.validaciondebachillerato.com.co/auth/users/${userId}`);
       const { name } = response.data;
       setCoordinatorName(name);
-      setFilters(prev => ({ ...prev, coordinador: name }));
+
+      // Only set coordinator filter if the current user is Adriana Benitez
+      if (name === "Adriana Benitez") {
+        setFilters(prev => ({ ...prev, coordinador: name }));
+      }
     } catch (err) {
       console.error("Error fetching user data:", err);
       message.error("Error al cargar la información del usuario");
@@ -102,9 +106,64 @@ const Students = () => {
     });
   };
 
-  const filterMenu = (
-    <Menu>
-      
+  const getFilterMenu = () => {
+    const filterItems = [
+      // Only include coordinator submenu if the current user is Adriana Benitez
+      coordinatorName === "Adriana Benitez" && (
+        <Menu.SubMenu key="coordinador" title="Coordinador">
+          <Menu.Item
+            key="coordinador-todos"
+            onClick={() => setFilters({ ...filters, coordinador: null })}
+          >
+            Todos
+          </Menu.Item>
+          <Menu.Item
+            key="coordinador-adriana"
+            onClick={() =>
+              setFilters({ ...filters, coordinador: "Adriana Benitez" })
+            }
+          >
+            Adriana Benitez
+          </Menu.Item>
+
+
+          <Menu.Item
+            key="coordinador-camilo"
+            onClick={() =>
+              setFilters({ ...filters, coordinador: "Camilo Delgado" })
+            }
+          >
+            Camilo Delgado
+          </Menu.Item>
+          <Menu.Item
+            key="coordinador-blanca"
+            onClick={() =>
+              setFilters({ ...filters, coordinador: "Blanca Sanchez" })
+            }
+          >
+            Blanca Sanchez
+          </Menu.Item>
+
+          <Menu.Item
+            key="coordinador-mauricio"
+            onClick={() =>
+              setFilters({ ...filters, coordinador: "Mauricio Pulido" })
+            }
+          >
+            Mauricio Pulido
+          </Menu.Item>
+          <Menu.Item
+            key="coordinador-marily"
+            onClick={() =>
+              setFilters({ ...filters, coordinador: "Marily Gordillo" })
+            }
+          >
+            Marily Gordillo
+          </Menu.Item>
+
+
+        </Menu.SubMenu>
+      ),
       <Menu.SubMenu key="programa" title="Programa">
         <Menu.Item
           key="programa-todos"
@@ -120,7 +179,7 @@ const Students = () => {
             {programa.nombre}
           </Menu.Item>
         ))}
-      </Menu.SubMenu>
+      </Menu.SubMenu>,
       <Menu.SubMenu key="estado" title="Estado">
         <Menu.Item
           key="estado-todos"
@@ -140,7 +199,7 @@ const Students = () => {
         >
           Inactivo
         </Menu.Item>
-      </Menu.SubMenu>
+      </Menu.SubMenu>,
       <Menu.SubMenu key="estado_matricula" title="Estado Matrícula">
         <Menu.Item
           key="matricula-todos"
@@ -170,8 +229,10 @@ const Students = () => {
           Matrícula Pendiente
         </Menu.Item>
       </Menu.SubMenu>
-    </Menu>
-  );
+    ].filter(Boolean); // Remove any null/undefined items
+
+    return <Menu>{filterItems}</Menu>;
+  };
 
 
   const getCoordinatorStyle = (coordinator) => {
@@ -242,7 +303,7 @@ const Students = () => {
           style={{ width: 300 }}
           allowClear
         />
-        <Dropdown overlay={filterMenu} trigger={["click"]}>
+        <Dropdown overlay={getFilterMenu()} trigger={["click"]}>
           <Button icon={<FaFilter />}>Filtrar</Button>
         </Dropdown>
       </div>
