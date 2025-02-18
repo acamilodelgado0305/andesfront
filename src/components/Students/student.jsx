@@ -104,46 +104,7 @@ const Students = () => {
 
   const filterMenu = (
     <Menu>
-      <Menu.SubMenu key="coordinador" title="Coordinador">
-        <Menu.Item
-          key="coordinador-todos"
-          onClick={() => setFilters({ ...filters, coordinador: null })}
-        >
-          Todos
-        </Menu.Item>
-        <Menu.Item
-          key="coordinador-camilo"
-          onClick={() =>
-            setFilters({ ...filters, coordinador: "Camilo Delgado" })
-          }
-        >
-          Camilo Delgado
-        </Menu.Item>
-        <Menu.Item
-          key="coordinador-adriana"
-          onClick={() =>
-            setFilters({ ...filters, coordinador: "Adriana Benitez" })
-          }
-        >
-          Adriana Benitez
-        </Menu.Item>
-        <Menu.Item
-          key="coordinador-blanca"
-          onClick={() =>
-            setFilters({ ...filters, coordinador: "Blanca Sanchez" })
-          }
-        >
-          Blanca Sanchez
-        </Menu.Item>
-        <Menu.Item
-          key="coordinador-mauricio"
-          onClick={() =>
-            setFilters({ ...filters, coordinador: "Mauricio Pulido" })
-          }
-        >
-          Mauricio Pulido
-        </Menu.Item>
-      </Menu.SubMenu>
+      
       <Menu.SubMenu key="programa" title="Programa">
         <Menu.Item
           key="programa-todos"

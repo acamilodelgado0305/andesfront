@@ -157,6 +157,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
                     <Option value="Camilo Delgado">Camilo Delgado</Option>
                     <Option value="Blanca Sanchez">Blanca Sanchez</Option>
                     <Option value="Mauricio Pulido">Mauricio Pulido</Option>
+                    <Option value="Mauricio Pulido">Marily Gordillo</Option>
                   </Select>
                 </Form.Item>
 
