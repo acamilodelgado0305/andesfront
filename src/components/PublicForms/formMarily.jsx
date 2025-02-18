@@ -81,7 +81,7 @@ const StudentRegistrationFormMarily = ({ onStudentAdded }) => {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <div className="bg-purple-100 rounded-t-lg p-6 border-b-8 border-purple-500">
+      <div className="bg-green-100 rounded-t-lg p-6 border-b-8 border-green-500">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Registro de Estudiante</h1>
         <p className="text-gray-600">Por favor complete todos los campos requeridos para registrar un nuevo estudiante.</p>
       </div>
@@ -249,7 +249,7 @@ const StudentRegistrationFormMarily = ({ onStudentAdded }) => {
             type="primary"
             htmlType="submit"
             loading={loading}
-            className="w-full h-12 text-lg bg-purple-600 hover:bg-purple-700"
+            className="w-full h-12 text-lg bg-green-600 hover:bg-green-700"
           >
             Registrar Estudiante
           </Button>
