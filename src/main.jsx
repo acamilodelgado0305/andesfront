@@ -18,6 +18,7 @@ import StudentRegistrationForm1 from "./components/PublicForms/formCamilo";
 import StudentRegistrationFormBlanca from "./components/PublicForms/formBlanca";
 import StudentRegistrationFormMauricio from "./components/PublicForms/formMauricio";
 import StudentRegistrationFormMarily from "./components/PublicForms/formMarily";
+import StudentRegistrationFormJesus from "./components/PublicForms/formJesus";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
           <Route path="/Blancasanchez" element={<StudentRegistrationFormBlanca />} />
           <Route path="/Mauriciopulido" element={<StudentRegistrationFormMauricio />} />
+          <Route path="/Jesusbenitez" element={<StudentRegistrationFormJesus />} />
           <Route path="/incase" element={<StudentRegistrationFormMarily />} />
           {/* Rutas principales */}
           <Route path="/inicio" element={<Root />}>
