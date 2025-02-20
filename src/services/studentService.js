@@ -14,7 +14,6 @@ const backApi = axios.create({
 backApi.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
-    console.log("Token:", token); // Asegúrate de que el token se esté obteniendo correctamente
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

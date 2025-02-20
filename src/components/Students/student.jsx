@@ -31,6 +31,7 @@ const Students = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
   const fetchUserData = async () => {
     try {
@@ -43,11 +44,7 @@ const Students = () => {
       const response = await axios.get(`https://back.app.validaciondebachillerato.com.co/auth/users/${userId}`);
       const { name } = response.data;
       setCoordinatorName(name);
-
-      // Only set coordinator filter if the current user is Adriana Benitez
-      if (name === "Adriana Benitez") {
-        setFilters(prev => ({ ...prev, coordinador: name }));
-      }
+      setIsAdminUser(name === "Adriana Benitez");
     } catch (err) {
       console.error("Error fetching user data:", err);
       message.error("Error al cargar la información del usuario");
@@ -55,10 +52,15 @@ const Students = () => {
   };
 
   useEffect(() => {
-    fetchPrograms();
-    fetchStudents();
     fetchUserData();
+    fetchPrograms();
   }, []);
+
+  useEffect(() => {
+    if (coordinatorName) {
+      fetchStudents();
+    }
+  }, [coordinatorName]);
 
   const fetchPrograms = async () => {
     try {
@@ -79,8 +81,18 @@ const Students = () => {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const data = await getStudents();
-      setStudents(data);
+      const allStudents = await getStudents();
+
+      // Si es Adriana Benitez, mostrar todos los estudiantes
+      if (coordinatorName === "Adriana Benitez") {
+        setStudents(allStudents);
+      } else {
+        // Para otros coordinadores, filtrar solo sus estudiantes
+        const filteredStudents = allStudents.filter(
+          student => student.coordinador === coordinatorName
+        );
+        setStudents(filteredStudents);
+      }
     } catch (err) {
       console.error("Error fetching students:", err);
       message.error("Error al cargar los estudiantes");
@@ -88,6 +100,8 @@ const Students = () => {
       setLoading(false);
     }
   };
+
+
 
   const handleDelete = async (id) => {
     Modal.confirm({
@@ -108,8 +122,8 @@ const Students = () => {
 
   const getFilterMenu = () => {
     const filterItems = [
-      // Only include coordinator submenu if the current user is Adriana Benitez
-      coordinatorName === "Adriana Benitez" && (
+      // Solo mostrar el filtro de coordinador si es Adriana Benitez
+      isAdminUser && (
         <Menu.SubMenu key="coordinador" title="Coordinador">
           <Menu.Item
             key="coordinador-todos"
@@ -119,49 +133,34 @@ const Students = () => {
           </Menu.Item>
           <Menu.Item
             key="coordinador-adriana"
-            onClick={() =>
-              setFilters({ ...filters, coordinador: "Adriana Benitez" })
-            }
+            onClick={() => setFilters({ ...filters, coordinador: "Adriana Benitez" })}
           >
             Adriana Benitez
           </Menu.Item>
-
-
           <Menu.Item
             key="coordinador-camilo"
-            onClick={() =>
-              setFilters({ ...filters, coordinador: "Camilo Delgado" })
-            }
+            onClick={() => setFilters({ ...filters, coordinador: "Camilo Delgado" })}
           >
             Camilo Delgado
           </Menu.Item>
           <Menu.Item
             key="coordinador-blanca"
-            onClick={() =>
-              setFilters({ ...filters, coordinador: "Blanca Sanchez" })
-            }
+            onClick={() => setFilters({ ...filters, coordinador: "Blanca Sanchez" })}
           >
             Blanca Sanchez
           </Menu.Item>
-
           <Menu.Item
             key="coordinador-mauricio"
-            onClick={() =>
-              setFilters({ ...filters, coordinador: "Mauricio Pulido" })
-            }
+            onClick={() => setFilters({ ...filters, coordinador: "Mauricio Pulido" })}
           >
             Mauricio Pulido
           </Menu.Item>
           <Menu.Item
             key="coordinador-marily"
-            onClick={() =>
-              setFilters({ ...filters, coordinador: "Marily Gordillo" })
-            }
+            onClick={() => setFilters({ ...filters, coordinador: "Marily Gordillo" })}
           >
             Marily Gordillo
           </Menu.Item>
-
-
         </Menu.SubMenu>
       ),
       <Menu.SubMenu key="programa" title="Programa">
@@ -203,33 +202,24 @@ const Students = () => {
       <Menu.SubMenu key="estado_matricula" title="Estado Matrícula">
         <Menu.Item
           key="matricula-todos"
-          onClick={() => {
-            console.log("Setting estado_matricula to null");
-            setFilters({ ...filters, estado_matricula: null });
-          }}
+          onClick={() => setFilters({ ...filters, estado_matricula: null })}
         >
           Todos
         </Menu.Item>
         <Menu.Item
           key="matricula-paga"
-          onClick={() => {
-            console.log("Setting estado_matricula to true");
-            setFilters({ ...filters, estado_matricula: true });
-          }}
+          onClick={() => setFilters({ ...filters, estado_matricula: true })}
         >
           Matrícula Paga
         </Menu.Item>
         <Menu.Item
           key="matricula-pendiente"
-          onClick={() => {
-            console.log("Setting estado_matricula to false");
-            setFilters({ ...filters, estado_matricula: false });
-          }}
+          onClick={() => setFilters({ ...filters, estado_matricula: false })}
         >
           Matrícula Pendiente
         </Menu.Item>
       </Menu.SubMenu>
-    ].filter(Boolean); // Remove any null/undefined items
+    ].filter(Boolean); // Eliminar elementos null/undefined
 
     return <Menu>{filterItems}</Menu>;
   };
@@ -267,12 +257,12 @@ const Students = () => {
         Boolean(student.estado_matricula) === filters.estado_matricula;
 
       return matchesSearch &&
-        matchesCoordinator &&
+        (isAdminUser ? matchesCoordinator : true) &&
         matchesProgram &&
         matchesActive &&
         matchesMatricula;
     });
-  }, [students, searchTerm, filters]);
+  }, [students, searchTerm, filters, isAdminUser]);
 
   const handleStudentAdded = () => {
     fetchStudents();
