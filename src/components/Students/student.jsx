@@ -161,6 +161,13 @@ const Students = () => {
           >
             Marily Gordillo
           </Menu.Item>
+
+          <Menu.Item
+            key="coordinador-jesus"
+            onClick={() => setFilters({ ...filters, coordinador: "Jesus Benitez" })}
+          >
+            Jesus Benitez
+          </Menu.Item>
         </Menu.SubMenu>
       ),
       <Menu.SubMenu key="programa" title="Programa">
