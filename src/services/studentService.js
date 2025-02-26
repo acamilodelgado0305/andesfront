@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BACK_URL = 'http://localhost:3001';
+const BACK_URL = 'https://back.app.validaciondebachillerato.com.co';
 
 // Instancia de axios personalizada
 const backApi = axios.create({
