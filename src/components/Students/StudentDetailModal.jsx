@@ -122,12 +122,19 @@ const StudentDetailModal = ({
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
-      
+
+      // Validar email de forma adicional (esto es redundante con las reglas del Form, pero es una capa extra de seguridad)
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (values.email && !emailRegex.test(values.email)) {
+        message.error('El formato de email es inválido');
+        return;
+      }
+
       // Transform the values to match the API expected format
       const formattedValues = {
         nombre: values.nombre,
         apellido: values.apellido,
-        email: values.email,
+        email: values.email || '', // Asegurar que nunca sea null
         tipoDocumento: values.tipo_documento,
         numeroDocumento: values.numero_documento,
         lugarExpedicion: values.lugar_expedicion,
@@ -150,7 +157,7 @@ const StudentDetailModal = ({
         modalidad_estudio: values.modalidad_estudio,
         ultimo_curso_visto: values.ultimo_curso_visto,
       };
-  
+
       const response = await fetch(`https://back.app.validaciondebachillerato.com.co/api/students/${student.id}`, {
         method: 'PUT',
         headers: {
@@ -158,24 +165,24 @@ const StudentDetailModal = ({
         },
         body: JSON.stringify(formattedValues),
       });
-  
+
       if (!response.ok) {
-        throw new Error('Error en la respuesta del servidor');
+        // Obtener detalles del error desde la respuesta del servidor
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error en la respuesta del servidor');
       }
-  
+
       const updatedStudent = await response.json();
       setEditedStudent(updatedStudent);
       setIsEditing(false);
       message.success('Estudiante actualizado exitosamente');
-      
-  
-      
 
-      await fetchStudents(); 
+      await fetchStudents();
       onClose();
     } catch (error) {
       console.error('Error al guardar:', error);
-      message.error('Error al actualizar el estudiante');
+      // Mostrar mensaje de error específico si está disponible
+      message.error(error.message || 'Error al actualizar el estudiante');
     }
   };
 
@@ -190,6 +197,38 @@ const StudentDetailModal = ({
 
   const renderEditableField = (name, options = {}) => {
     const { type = 'text', selectOptions = [] } = options;
+
+    // Special handling for email field
+    if (name === 'email') {
+      return (
+        <Form.Item
+          name={name}
+          rules={[
+            {
+              type: 'email',
+              message: 'Por favor ingrese un correo electrónico válido',
+            },
+            {
+              required: true,
+              message: 'Por favor ingrese un correo electrónico',
+            }
+          ]}
+          noStyle
+        >
+          <Input
+            placeholder="correo@ejemplo.com"
+            allowClear
+            onBlur={(e) => {
+              // Trim espacios al perder el foco
+              const value = e.target.value;
+              if (value && value.trim() !== value) {
+                form.setFieldsValue({ email: value.trim() });
+              }
+            }}
+          />
+        </Form.Item>
+      );
+    }
 
     if (type === 'select') {
       return (
@@ -340,7 +379,7 @@ const StudentDetailModal = ({
                   selectOptions: [
                     { value: 'activo', label: 'Activo' },
                     { value: 'Inactivo', label: 'Inactivo' },
-                   
+
                   ]
                 }) : student.activo}
               </Descriptions.Item>
