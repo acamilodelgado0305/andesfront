@@ -13,7 +13,6 @@ import dayjs from 'dayjs';
 import { getPrograms } from '../../services/studentService';
 import axios from "axios";
 
-const apiUrl = import.meta.env.VITE_API_BACKEND;
 
 const StudentDetailModal = ({
   student,
@@ -69,7 +68,7 @@ const StudentDetailModal = ({
       content: "Esta acción no se puede deshacer.",
       onOk: async () => {
         try {
-          const response = await fetch(`${apiUrl}/api/students/${student.id}`, {
+          const response = await fetch(`https://back.app.validaciondebachillerato.com.co/api/students/${student.id}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
@@ -159,7 +158,7 @@ const StudentDetailModal = ({
   
       // Petición con Axios
       const response = await axios.put(
-        `${apiUrl}/api/students/${student.id}`,
+        `https://back.app.validaciondebachillerato.com.co/api/students/${student.id}`,
         formattedValues,
         {
           headers: { 'Content-Type': 'application/json' }
