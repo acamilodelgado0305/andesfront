@@ -11,6 +11,7 @@ import {
 } from 'react-icons/fa';
 import dayjs from 'dayjs';
 import { getPrograms } from '../../services/studentService';
+import axios from "axios";
 
 const apiUrl = import.meta.env.VITE_API_BACKEND;
 
@@ -120,21 +121,21 @@ const StudentDetailModal = ({
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
-
-      // Validar email de forma adicional (esto es redundante con las reglas del Form, pero es una capa extra de seguridad)
+  
+      // Validación de email (redundante pero segura)
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (values.email && !emailRegex.test(values.email)) {
         message.error('El formato de email es inválido');
         return;
       }
-
-      // Transform the values to match the API expected format
+  
+      // Formatear datos para la API
       const formattedValues = {
         nombre: values.nombre,
         apellido: values.apellido,
-        email: values.email || '', // Asegurar que nunca sea null
+        email: values.email || '',
         tipoDocumento: values.tipo_documento,
-        programa_nombre: values.programa_nombre, // El nombre del programa seleccionado
+        programa_nombre: values.programa_nombre,
         numeroDocumento: values.numero_documento,
         lugarExpedicion: values.lugar_expedicion,
         fechaNacimiento: values.fecha_nacimiento?.toISOString(),
@@ -155,32 +156,36 @@ const StudentDetailModal = ({
         modalidad_estudio: values.modalidad_estudio,
         ultimo_curso_visto: values.ultimo_curso_visto,
       };
-
-      const response = await fetch(`${apiUrl}/api/students/${student.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formattedValues),
-      });
-
-      if (!response.ok) {
-        // Obtener detalles del error desde la respuesta del servidor
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error en la respuesta del servidor');
-      }
-
-      const updatedStudent = await response.json();
+  
+      // Petición con Axios
+      const response = await axios.put(
+        `${apiUrl}/api/students/${student.id}`,
+        formattedValues,
+        {
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+  
+      // Actualización exitosa
+      const updatedStudent = response.data; // Axios ya parsea el JSON
       setEditedStudent(updatedStudent);
       setIsEditing(false);
       message.success('Estudiante actualizado exitosamente');
-
+      
       await fetchStudents();
       onClose();
+  
     } catch (error) {
-      console.error('Error al guardar:', error);
-      // Mostrar mensaje de error específico si está disponible
-      message.error(error.message || 'Error al actualizar el estudiante');
+      // Manejo de errores específico para Axios
+      if (error.response) {
+        // Error de servidor (4xx/5xx)
+        console.error('Error del servidor:', error.response.data);
+        message.error(error.response.data.error || 'Error al actualizar');
+      } else {
+        // Otros errores (red, typo, etc)
+        console.error('Error inesperado:', error.message);
+        message.error('Error de comunicación con el servidor');
+      }
     }
   };
 
