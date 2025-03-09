@@ -306,13 +306,7 @@ const StudentTable = ({ onDelete,
               {student.estado_matricula ? "Matrícula Paga" : "Matrícula Pendiente"}
             </span>
           </div>
-        </div>
-        <div className="mt-6 flex justify-end space-x-3">
-          <Button type="primary" danger onClick={() => onDelete?.(student.id)}>
-            Eliminar
-          </Button>
-          <Button onClick={closeDrawer}>Cerrar</Button>
-        </div>
+        </div>    
       </div>
     );
   };
