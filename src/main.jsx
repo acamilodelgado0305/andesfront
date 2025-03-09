@@ -44,7 +44,7 @@ const App = () => (
           <Route path="/incase" element={<StudentRegistrationFormMarily />} />
           {/* Rutas principales */}
           <Route path="/inicio" element={<Root />}>
-            <Route index element={<Home />} />
+            <Route index element={<Students />} />
             <Route path="dashboard" element={<Home />} />
             <Route path="students" element={<Students />} />
             <Route path="programas" element={<Programs />} />

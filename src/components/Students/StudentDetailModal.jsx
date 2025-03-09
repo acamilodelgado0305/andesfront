@@ -10,8 +10,7 @@ import {
   FaSave
 } from 'react-icons/fa';
 import dayjs from 'dayjs';
-
-import { getPrograms } from "../../services/studentService";
+import { getPrograms } from '../../services/studentService';
 
 const apiUrl = import.meta.env.VITE_API_BACKEND;
 
@@ -21,31 +20,30 @@ const StudentDetailModal = ({
   onClose,
   onGraduate,
   onDelete,
-  fetchStudents,  // Add this to the props destructuring
+  fetchStudents,
   getCoordinatorStyle,
   getProgramName,
 }) => {
   const [form] = Form.useForm();
   const [isEditing, setIsEditing] = useState(false);
   const [editedStudent, setEditedStudent] = useState(student);
-  const [programs, setPrograms] = useState([]); 2
-  2
-
-
+  const [programs, setPrograms] = useState([]);
+  
+  // Fetch programs when component mounts
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        const programsList = await getPrograms();
-        setPrograms(programsList);
+        const programsData = await getPrograms();
+        setPrograms(programsData);
       } catch (error) {
-        console.error("Error fetching programs:", error);
-        message.error("No se pudieron cargar los programas");
+        console.error("Error al cargar los programas:", error);
+        message.error("Error al cargar los programas");
       }
     };
-
+    
     fetchPrograms();
   }, []);
-
+  
   if (!student) return null;
 
   const handleGraduate = async () => {
@@ -136,6 +134,7 @@ const StudentDetailModal = ({
         apellido: values.apellido,
         email: values.email || '', // Asegurar que nunca sea null
         tipoDocumento: values.tipo_documento,
+        programa_nombre: values.programa_nombre, // El nombre del programa seleccionado
         numeroDocumento: values.numero_documento,
         lugarExpedicion: values.lugar_expedicion,
         fechaNacimiento: values.fecha_nacimiento?.toISOString(),
@@ -150,7 +149,6 @@ const StudentDetailModal = ({
         direccionAcudiente: values.direccion_acudiente,
         simat: values.simat,
         estadoMatricula: values.estado_matricula,
-        programa_id: values.programa_id,
         coordinador: values.coordinador,
         activo: values.activo,
         matricula: values.matricula,
@@ -158,7 +156,7 @@ const StudentDetailModal = ({
         ultimo_curso_visto: values.ultimo_curso_visto,
       };
 
-      const response = await fetch(`https://back.app.validaciondebachillerato.com.co/api/students/${student.id}`, {
+      const response = await fetch(`${apiUrl}/api/students/${student.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -355,45 +353,47 @@ const StudentDetailModal = ({
             <Descriptions bordered column={2} size="small">
               <Descriptions.Item label="Programa">
                 {isEditing ? (
-                  renderEditableField('programa_id', {
-                    type: 'select',
-                    selectOptions: programs.map(program => ({
-                      value: program.id,
-                      label: program.nombre
-                    }))
-                  })
-                ) : (
-                  getProgramName(student.programa_id)
-                )}
+                  <Form.Item name="programa_nombre" noStyle>
+                    <Select style={{ width: '100%' }}>
+                      {programs.map(program => (
+                        <Select.Option key={program.id} value={program.nombre}>
+                          {program.nombre}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                ) : student.programa_nombre}
               </Descriptions.Item>
               <Descriptions.Item label="Coordinador">
                 <span className={getCoordinatorStyle(student.coordinador)}>
                   {isEditing ? renderEditableField('coordinador') : student.coordinador}
                 </span>
               </Descriptions.Item>
-
-
               <Descriptions.Item label="Estado">
                 {isEditing ? renderEditableField('activo', {
                   type: 'select',
                   selectOptions: [
-                    { value: 'activo', label: 'Activo' },
-                    { value: 'Inactivo', label: 'Inactivo' },
-
+                    { value: true, label: 'Activo' },
+                    { value: false, label: 'Inactivo' },
                   ]
-                }) : student.activo}
-              </Descriptions.Item>
-              <Descriptions.Item label="Estado">
-                <span className={`px-2 py-1 rounded-full text-sm ${student.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"
-                  }`}>
-                  {student.activo ? "Activo" : "Inactivo"}
-                </span>
+                }) : (
+                  <span className={`px-2 py-1 rounded-full text-sm ${student.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"}`}>
+                    {student.activo ? "Activo" : "Inactivo"}
+                  </span>
+                )}
               </Descriptions.Item>
               <Descriptions.Item label="Estado Matrícula">
-                <span className={`px-2 py-1 rounded-full text-sm ${student.estado_matricula ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"
-                  }`}>
-                  {student.estado_matricula ? "Pago" : "Pendiente"}
-                </span>
+                {isEditing ? renderEditableField('estado_matricula', {
+                  type: 'select',
+                  selectOptions: [
+                    { value: true, label: 'Pago' },
+                    { value: false, label: 'Pendiente' },
+                  ]
+                }) : (
+                  <span className={`px-2 py-1 rounded-full text-sm ${student.estado_matricula ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"}`}>
+                    {student.estado_matricula ? "Pago" : "Pendiente"}
+                  </span>
+                )}
               </Descriptions.Item>
               <Descriptions.Item label="Valor Matrícula">
                 {isEditing ? renderEditableField('matricula', { type: 'number' }) :
@@ -405,7 +405,6 @@ const StudentDetailModal = ({
                   selectOptions: [
                     { value: 'Clases en Linea', label: 'Clases en Linea' },
                     { value: 'Modulos por WhastApp', label: 'Modulos por WhastApp' },
-
                   ]
                 }) : student.modalidad_estudio}
               </Descriptions.Item>

@@ -9,7 +9,6 @@ const StudentTable = ({ onDelete,
   onEdit, // Add this prop
   students = [],
   loading = false,
-  getProgramName,
   getCoordinatorStyle
 }) => {
   const [searchText, setSearchText] = useState({});
@@ -102,6 +101,23 @@ const StudentTable = ({ onDelete,
       ),
     },
     {
+      title: (
+        <div className="flex flex-col" style={{ margin: '-4px 0', gap: 1, lineHeight: 1 }}>
+          Programa
+          <Input
+            placeholder="Buscar"
+            onChange={(e) => handleSearch(e.target.value, 'programa_nombre')}
+            style={{ marginTop: 2, padding: 4, height: 28, fontSize: 12 }}
+          />
+        </div>
+      ),
+      key: "programa_nombre",
+      render: (_, record) => (
+        <span>{record.programa_nombre}</span>
+      ),
+     
+    },
+    {
       title: "Estado",
       key: "estados",
       render: (_, record) => (
@@ -119,21 +135,7 @@ const StudentTable = ({ onDelete,
         </div>
       ),
     },
-    {
-      title: (
-        <div className="flex flex-col" style={{ margin: '-4px 0', gap: 1, lineHeight: 1 }}>
-          Programa
-          <Input
-            placeholder="Buscar"
-            onChange={(e) => handleSearch(e.target.value, 'programa_id')}
-            style={{ marginTop: 2, padding: 4, height: 28, fontSize: 12 }}
-          />
-        </div>
-      ),
-      dataIndex: "programa_id",
-      key: "programa_id",
-      render: (programId) => getProgramName(programId),
-    },
+    
     {
       title: (
         <div className="flex flex-col" style={{ margin: '-4px 0', gap: 1, lineHeight: 1 }}>
@@ -272,7 +274,7 @@ const StudentTable = ({ onDelete,
             { label: "Nombre", value: student.nombre || '-' },
             { label: "Apellido", value: student.apellido || '-' },
             { label: "Coordinador", value: student.coordinador || '-' },
-            { label: "Programa", value: getProgramName(student.programa_id) || '-' },
+            { label: "Programa", value: student.programa_nombre || '-' },
             { label: "Email", value: student.email || 'No especificado' },
             { label: "Llamadas", value: student.telefono_llamadas || 'No especificado' },
             { label: "WhatsApp", value: student.telefono_whatsapp || 'No especificado' },

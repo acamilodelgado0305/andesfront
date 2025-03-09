@@ -10,7 +10,7 @@ import CreateStudentModal from "./addStudent";
 import {
   getStudents,
   deleteStudent,
-  getPrograms,
+ 
 } from "../../services/studentService";
 import { Input, Button, Dropdown, Menu, Modal, message } from "antd";
 import StudentDetailModal from './StudentDetailModal';
@@ -53,7 +53,7 @@ const Students = () => {
 
   useEffect(() => {
     fetchUserData();
-    fetchPrograms();
+    
   }, []);
 
   useEffect(() => {
@@ -62,15 +62,7 @@ const Students = () => {
     }
   }, [coordinatorName]);
 
-  const fetchPrograms = async () => {
-    try {
-      const data = await getPrograms();
-      setProgramas(data);
-    } catch (err) {
-      console.error("Error fetching programs:", err);
-      message.error("Error al cargar los programas");
-    }
-  };
+
 
   const handleEdit = (student) => {
     setSelectedStudent(student);
@@ -241,10 +233,7 @@ const Students = () => {
     return "blue-600";
   };
 
-  const getProgramName = (programId) => {
-    const program = programas.find((p) => p.id === programId);
-    return program ? program.nombre : "Programa no encontrado";
-  };
+ 
 
   const filteredStudents = useMemo(() => {
     return students.filter((student) => {
@@ -258,7 +247,7 @@ const Students = () => {
       );
 
       const matchesCoordinator = !filters.coordinador || student.coordinador === filters.coordinador;
-      const matchesProgram = !filters.programa || student.programa_id === filters.programa;
+      const matchesProgram = !filters.programa || student.programa_nombre === filters.programa;
       const matchesActive = filters.activo === null || Boolean(student.activo) === filters.activo;
       const matchesMatricula = filters.estado_matricula === null ||
         Boolean(student.estado_matricula) === filters.estado_matricula;
@@ -276,22 +265,45 @@ const Students = () => {
     message.success("Estudiante añadido con éxito");
   };
 
-  return (
-    <div className="mx-auto mt-8 p-2">
-      <div className="flex justify-between mb-4">
-        <h1 className="text-2xl font-semibold">Gestión de Estudiantes</h1>
-        <div className="space-x-2">
-          <Button
-            onClick={() => setIsModalOpen(true)}
-            type="primary"
-            icon={<FaUserEdit />}
-          >
-            Crear Estudiante
-          </Button>
-        </div>
-      </div>
 
-      <div className="mb-4 flex space-x-2">
+  // Agrega esto antes del return
+
+// Modifica el cálculo de programCounts
+const programCounts = useMemo(() => {
+  // 1. Obtenemos el nombre del programa de validación
+  const validationProgramName = "Validación de bachillerato";
+  
+  // 2. Filtramos estudiantes de validación
+  const validationStudents = filteredStudents.filter(s => 
+    s.programa_nombre === validationProgramName
+  );
+  
+  // 3. Calculamos técnicos como total - validación
+  return {
+    total: filteredStudents.length,
+    validation: validationStudents.length,
+    technical: filteredStudents.length - validationStudents.length
+  };
+}, [filteredStudents]);
+
+  return (
+    <div className="px-4 mt-8 p-2">
+    <div className="grid grid-cols-3 gap-4 bg-white p-4 rounded shadow">
+  <div className="text-center">
+    <p className="text-2xl font-bold">{filteredStudents.length}</p>
+    <p>Total Estudiantes</p>
+  </div>
+  <div className="text-center">
+    <p className="text-2xl font-bold">{programCounts.validation}</p>
+    <p>Validación de Bachillerato</p>
+  </div>
+  <div className="text-center">
+    <p className="text-2xl font-bold text-green-600">{programCounts.technical}</p>
+    <p>Técnicos</p>
+  </div>
+</div>
+
+      <div className="my-3 mb-4 flex space-x-2">
         <Input
           placeholder="Buscar por nombre o WhatsApp..."
           prefix={<FaSearch />}
@@ -310,7 +322,7 @@ const Students = () => {
         loading={loading}
         onDelete={handleDelete}
         onEdit={handleEdit}  // Add this prop
-        getProgramName={getProgramName}
+      
         getCoordinatorStyle={getCoordinatorStyle}
       />
 
@@ -326,7 +338,7 @@ const Students = () => {
         onClose={() => setIsDetailModalOpen(false)}
         fetchStudents={fetchStudents}
         getCoordinatorStyle={getCoordinatorStyle}
-        getProgramName={getProgramName}
+        
       />
     </div>
   );

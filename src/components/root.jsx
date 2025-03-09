@@ -55,7 +55,7 @@ const Root = () => {
         />
       </Sider>
       <Layout>
-        <Header className="bg-white p-0 flex justify-between items-center">
+      <Header className="bg-white border-b border-gray-300 p-0 flex justify-between items-center">
           <Button
             type="text"
             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
