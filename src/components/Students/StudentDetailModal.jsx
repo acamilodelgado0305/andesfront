@@ -68,7 +68,7 @@ const StudentDetailModal = ({
       content: "Esta acción no se puede deshacer.",
       onOk: async () => {
         try {
-          const response = await fetch(`${apiUrl}/students/${student.id}`, {
+          const response = await fetch(`${apiUrl}/api/students/${student.id}`, {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
@@ -156,7 +156,7 @@ const StudentDetailModal = ({
         ultimo_curso_visto: values.ultimo_curso_visto,
       };
 
-      const response = await fetch(`${apiUrl}/students/${student.id}`, {
+      const response = await fetch(`${apiUrl}/api/students/${student.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
