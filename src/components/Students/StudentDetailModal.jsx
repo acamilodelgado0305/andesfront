@@ -156,7 +156,7 @@ const StudentDetailModal = ({
         ultimo_curso_visto: values.ultimo_curso_visto,
       };
 
-      const response = await fetch(`${apiUrl}/api/students/${student.id}`, {
+      const response = await fetch(`${apiUrl}/students/${student.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
