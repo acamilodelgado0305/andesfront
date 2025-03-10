@@ -5,6 +5,7 @@ import "./index.css";
 
 // Componentes
 import Root from "./components/root";
+import Login from "./components/auth/Login";
 import ErrorPage from "./error-page";
 import Home from "./components/home";
 import Landing from "./components/auth/landing";
@@ -19,6 +20,7 @@ import StudentRegistrationFormBlanca from "./components/PublicForms/formBlanca";
 import StudentRegistrationFormMauricio from "./components/PublicForms/formMauricio";
 import StudentRegistrationFormMarily from "./components/PublicForms/formMarily";
 import StudentRegistrationFormJesus from "./components/PublicForms/formJesus";
+import Certificados from "./components/Certificados/Certificados";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -36,6 +38,7 @@ const App = () => (
         <Routes>
           {/* Rutas públicas */}
           <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/Camilodelgado" element={<StudentRegistrationForm1 />} />
           <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
           <Route path="/Blancasanchez" element={<StudentRegistrationFormBlanca />} />
@@ -49,6 +52,7 @@ const App = () => (
             <Route path="students" element={<Students />} />
             <Route path="programas" element={<Programs />} />
             <Route path="materias" element={<Materias />} />
+            <Route path="certificados" element={<Certificados />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
           </Route>
 

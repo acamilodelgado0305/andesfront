@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { MenuOutlined, CloseOutlined } from '@ant-design/icons';
 
 const Header = ({ onLoginClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate(); 
 
   // Manejar el scroll para cambiar el estilo del header
   useEffect(() => {
@@ -72,11 +73,11 @@ const Header = ({ onLoginClick }) => {
             </nav>
 
             <button
-              onClick={onLoginClick}
-              className="hidden lg:block bg-red-800 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-400 transition-colors duration-300"
-            >
-              Iniciar Sesión
-            </button>
+                  onClick={() => navigate('/login')} // Redirigir a /login
+                  className="w-full bg-red-800 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-400 transition-colors duration-300"
+                >
+                  Iniciar Sesión
+                </button>
 
             {/* Botón de menú móvil */}
             <button
