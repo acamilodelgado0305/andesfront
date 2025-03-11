@@ -60,7 +60,7 @@ function Certificados() {
   const fetchCertificados = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('https://backendcoalianza.onrender.com/api/v1/clients');
+      const response = await axios.get('https://backendcoalianza.vercel.app/api/v1/clients');
       
       // Axios ya maneja automáticamente el parseo de JSON
       setCertificados(response.data);
@@ -102,7 +102,7 @@ function Certificados() {
         vendedor: userName || values.vendedor
       };
       
-      const response = await fetch('https://backendcoalianza.onrender.com/api/v1/clients', {
+      const response = await fetch('https://backendcoalianza.vercel.app/api/v1/clients', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
