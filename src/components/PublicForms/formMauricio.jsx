@@ -36,7 +36,6 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
       const formattedValues = {
         ...values,
         fechaNacimiento: values.fechaNacimiento.format("YYYY-MM-DD"),
-        programa_id: parseInt(values.programa_id, 10),
         // Add default values here
         coordinador: "Mauricio Pulido",
         simat: "Inactivo",
@@ -208,10 +207,10 @@ const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
         Información Académica
       </h2>
       <div className="space-y-4">
-        <Form.Item name="programa_id" label="Programa" rules={[{ requiblue: true }]}>
+        <Form.Item name="programa_nombre" label="Programa" rules={[{ requiblue: true }]}>
           <Select className="h-10">
             {programas.map((programa) => (
-              <Option key={programa.id} value={programa.id}>
+              <Option key={programa.id} value={programa.nombre}>
                 {programa.nombre}
               </Option>
             ))}

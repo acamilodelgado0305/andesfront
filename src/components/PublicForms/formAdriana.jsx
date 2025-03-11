@@ -36,7 +36,6 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
       const formattedValues = {
         ...values,
         fechaNacimiento: values.fechaNacimiento.format("YYYY-MM-DD"),
-        programa_id: parseInt(values.programa_id, 10),
         // Add default values here
         coordinador: "Adriana Benitez",
         simat: "Inactivo",
@@ -195,24 +194,36 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             Información Académica
           </h2>
           <div className="space-y-4">
-            <Form.Item name="programa_id" label="Programa" rules={[{ required: true }]}>
-              <Select className="h-10">
-                {programas.map((programa) => (
-                  <Option key={programa.id} value={programa.id}>
-                    {programa.nombre}
-                  </Option>
+            <Form.Item name="programa_nombre" label="Programa" rules={[{ required: true }]}>
+              <Select style={{ width: '100%' }}>
+                {programas.map(program => (
+                  <Select.Option key={program.id} value={program.nombre}>
+                    {program.nombre}
+                  </Select.Option>
                 ))}
               </Select>
             </Form.Item>
 
             <Form.Item
-              name="ultimoCursoAprobado"
+              name="ultimo_curso_visto"
               label="Último Curso Aprobado"
-              rules={[{ required: true }]}
+              rules={[{ required: true, message: 'Por favor seleccione el último curso aprobado!' }]}
             >
-              <Input className="h-10" />
+              <Select
+                placeholder="Seleccione un curso"
+                className="h-10"
+                style={{ width: '100%' }}
+              >
+                {Array.from({ length: 11 }, (_, index) => {
+                  const curso = (index + 1).toString(); // Convertimos el número a string
+                  return (
+                    <Option key={curso} value={curso}>
+                      {curso}°
+                    </Option>
+                  );
+                })}
+              </Select>
             </Form.Item>
-
 
 
             <Form.Item name="modalidad_estudio" label="Modalidad de estudio" rules={[{ required: true }]}>

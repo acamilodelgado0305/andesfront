@@ -24,7 +24,7 @@ const CertificadosTable = () => {
           return;
         }
         const response = await axios.get(
-          `http://localhost:3002/auth/users/${userId}`
+          `https://back.app.validaciondebachillerato.com.co/auth/users/${userId}`
         );
         
         setUserName(response.data.name || '');
