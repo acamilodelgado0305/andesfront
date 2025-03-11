@@ -61,7 +61,7 @@ const CertificadosTable = () => {
 
       console.log("Obteniendo certificados con parámetros:", params);
       
-      const response = await axios.get('http://localhost:3000/api/v1/clients', { params });
+      const response = await axios.get('https://backendcoalianza.vercel.app/api/v1/clients', { params });
       
       console.log("Certificados recibidos:", response.data);
       console.log("Filtrando por vendedor:", userName);
@@ -87,7 +87,7 @@ const CertificadosTable = () => {
     setDeleteLoading(true);
     try {
       console.log(`Eliminando certificado con ID: ${id}`);
-      await axios.delete(`http://localhost:3000/api/v1/clients/${id}`);
+      await axios.delete(`https://backendcoalianza.vercel.app/api/v1/clients/${id}`);
       message.success('Certificado eliminado correctamente');
       
       // Actualizar la lista de certificados

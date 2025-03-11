@@ -60,25 +60,24 @@ function Certificados() {
   const fetchCertificados = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('https://backendcoalianza.vercel.app/api/v1/clients');
       
-      // Axios ya maneja automáticamente el parseo de JSON
-      setCertificados(response.data);
-      
-    } catch (error) {
-      // Mejor manejo de errores de Axios
-      if (axios.isAxiosError(error)) {
-        console.error('Error Axios:', error.response?.data || error.message);
-        message.error(`Error: ${error.response?.data.message || 'Error al cargar los certificados'}`);
-      } else {
-        console.error('Error inesperado:', error);
-        message.error('Ocurrió un error inesperado');
+      const response = await fetch('https://backendcoalianza.vercel.app/api/v1/clients');
+  
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} - ${response.statusText}`);
       }
+  
+      const data = await response.json();
+      setCertificados(data);
+  
+    } catch (error) {
+      console.error('Error al cargar los certificados:', error);
+      message.error(`Error: ${error.message || 'Error al cargar los certificados'}`);
     } finally {
       setLoading(false);
     }
-};
-
+  };
+  
   // Abrir el drawer
   const showDrawer = () => {
     // Establecemos el vendedor con el nombre del usuario actual
