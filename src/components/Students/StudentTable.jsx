@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Input, Drawer, Button, Typography, message } from 'antd';
+import { Table, Input, Button, Typography, message } from 'antd';
 import { Link } from 'react-router-dom';
 import { FaTrashAlt, FaWhatsapp, FaEdit } from 'react-icons/fa';
+import StudentDetailModal from './StudentDetailModal';
 
 const { Title } = Typography;
 
-const StudentTable = ({ onDelete,
-  onEdit, // Add this prop
+const StudentTable = ({
+  onDelete,
+  onEdit,
   students = [],
   loading = false,
-  getCoordinatorStyle
+  getCoordinatorStyle,
 }) => {
   const [searchText, setSearchText] = useState({});
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Reemplazamos isDrawerOpen por isModalOpen
   const [filteredData, setFilteredData] = useState([]);
 
   useEffect(() => {
@@ -38,13 +40,13 @@ const StudentTable = ({ onDelete,
     }));
   };
 
-  const openDrawer = (student) => {
+  const openModal = (student) => {
     setSelectedStudent(student);
-    setIsDrawerOpen(true);
+    setIsModalOpen(true);
   };
 
-  const closeDrawer = () => {
-    setIsDrawerOpen(false);
+  const closeModal = () => {
+    setIsModalOpen(false);
     setSelectedStudent(null);
   };
 
@@ -115,7 +117,6 @@ const StudentTable = ({ onDelete,
       render: (_, record) => (
         <span>{record.programa_nombre}</span>
       ),
-     
     },
     {
       title: "Estado",
@@ -135,7 +136,6 @@ const StudentTable = ({ onDelete,
         </div>
       ),
     },
-    
     {
       title: (
         <div className="flex flex-col" style={{ margin: '-4px 0', gap: 1, lineHeight: 1 }}>
@@ -179,12 +179,11 @@ const StudentTable = ({ onDelete,
           />
         </div>
       ),
-      key: "nombre_completo",
+      key: "telefono_llamadas",
       render: (_, record) => (
         <span>{record.telefono_llamadas}</span>
       ),
     },
-
     {
       title: "Fechas",
       key: "fechas",
@@ -232,11 +231,10 @@ const StudentTable = ({ onDelete,
             icon={<FaEdit />}
             onClick={(e) => {
               e.stopPropagation();
-              onEdit?.(record); // Changed this line to call onEdit with the record
+              onEdit?.(record);
             }}
             type="primary"
           />
-
           <Button
             icon={<FaWhatsapp />}
             type="default"
@@ -263,53 +261,7 @@ const StudentTable = ({ onDelete,
       ),
     },
   ];
-  const StudentDetailDrawer = ({ student, onDelete, closeDrawer }) => {
-    return (
-      <div className="p-6 w-full max-w-lg bg-white shadow-lg rounded-lg">
-        <h2 className="text-xl font-semibold text-gray-800 border-b pb-3 mb-4">Detalles del Estudiante</h2>
-        <div className="space-y-4">
-          {[
-            { label: "Documento", value: `${student.tipo_documento} ${student.numero_documento || 'No especificado'}` },
-            { label: "Lugar de Expedición", value: student.lugar_expedicion || 'No especificado' },
-            { label: "Nombre", value: student.nombre || '-' },
-            { label: "Apellido", value: student.apellido || '-' },
-            { label: "Coordinador", value: student.coordinador || '-' },
-            { label: "Programa", value: student.programa_nombre || '-' },
-            { label: "Email", value: student.email || 'No especificado' },
-            { label: "Llamadas", value: student.telefono_llamadas || 'No especificado' },
-            { label: "WhatsApp", value: student.telefono_whatsapp || 'No especificado' },
-            { label: "Fecha de Nacimiento", value: student.fecha_nacimiento ? new Date(student.fecha_nacimiento).toLocaleDateString() : 'No especificado' },
-            { label: "Inscripción", value: student.fecha_inscripcion ? new Date(student.fecha_inscripcion).toLocaleDateString() : 'No especificado' },
-            student.fecha_graduacion && { label: "Graduación", value: new Date(student.fecha_graduacion).toLocaleDateString() },
-            { label: "Matrícula", value: student.matricula ? `$${student.matricula}` : 'No especificado' },
-            { label: "EPS", value: student.eps || 'No definido' },
-            { label: "RH", value: student.rh || 'No definido' },
-            { label: "SIMAT", value: student.simat || 'No especificado' },
-            { label: "Modalidad de Estudio", value: student.modalidad_estudio || 'No especificado' },
-            { label: "Nombre Acudiente", value: student.nombre_acudiente || 'No definido' },
-            { label: "Tipo Documento Acudiente", value: student.tipo_documento_acudiente || 'No definido' },
-            { label: "Teléfono Acudiente", value: student.telefono_acudiente || 'No definido' },
-            { label: "Dirección Acudiente", value: student.direccion_acudiente || 'No definido' },
-          ]
-            .filter(Boolean)
-            .map((item, index) => (
-              <div key={index} className="flex justify-between border-b pb-2">
-                <p className="font-medium text-gray-600">{item.label}:</p>
-                <p className="text-gray-800">{item.value}</p>
-              </div>
-            ))}
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className={`px-3 py-1 text-sm font-medium rounded-full ${student.activo ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-              {student.activo ? "Activo" : "Inactivo"}
-            </span>
-            <span className={`px-3 py-1 text-sm font-medium rounded-full ${student.estado_matricula ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-              {student.estado_matricula ? "Matrícula Paga" : "Matrícula Pendiente"}
-            </span>
-          </div>
-        </div>    
-      </div>
-    );
-  };
+
   return (
     <>
       <Table
@@ -320,7 +272,7 @@ const StudentTable = ({ onDelete,
         bordered
         loading={loading}
         onRow={(record) => ({
-          onClick: () => openDrawer(record),
+          onClick: () => openModal(record), // Cambiamos openDrawer por openModal
         })}
         rowClassName="clickable-row"
       />
@@ -340,14 +292,12 @@ const StudentTable = ({ onDelete,
           }
         `}
       </style>
-      <Drawer
-        open={isDrawerOpen}
-        onClose={closeDrawer}
-        placement="right"
-        width={420}
-      >
-        {selectedStudent && <StudentDetailDrawer student={selectedStudent} />}
-      </Drawer>
+      <StudentDetailModal
+        student={selectedStudent}
+        visible={isModalOpen} // Usamos visible como prop en lugar de open
+        onClose={closeModal} // Cambiamos onClose para cerrar el modal
+        getCoordinatorStyle={getCoordinatorStyle} // Pasamos esta prop que ya usas en Students
+      />
     </>
   );
 };

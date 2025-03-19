@@ -10,7 +10,6 @@ import CreateStudentModal from "./addStudent";
 import {
   getStudents,
   deleteStudent,
- 
 } from "../../services/studentService";
 import { Input, Button, Dropdown, Menu, Modal, message } from "antd";
 import StudentDetailModal from './StudentDetailModal';
@@ -19,7 +18,6 @@ import StudentTable from "./StudentTable";
 const Students = () => {
   const [students, setStudents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [programas, setProgramas] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     coordinador: null,
@@ -53,7 +51,6 @@ const Students = () => {
 
   useEffect(() => {
     fetchUserData();
-    
   }, []);
 
   useEffect(() => {
@@ -62,24 +59,18 @@ const Students = () => {
     }
   }, [coordinatorName]);
 
-
-
   const handleEdit = (student) => {
     setSelectedStudent(student);
     setIsDetailModalOpen(true);
   };
 
-
   const fetchStudents = async () => {
     setLoading(true);
     try {
       const allStudents = await getStudents();
-
-      // Si es Adriana Benitez, mostrar todos los estudiantes
       if (coordinatorName === "Adriana Benitez") {
         setStudents(allStudents);
       } else {
-        // Para otros coordinadores, filtrar solo sus estudiantes
         const filteredStudents = allStudents.filter(
           student => student.coordinador === coordinatorName
         );
@@ -92,8 +83,6 @@ const Students = () => {
       setLoading(false);
     }
   };
-
-
 
   const handleDelete = async (id) => {
     Modal.confirm({
@@ -112,9 +101,14 @@ const Students = () => {
     });
   };
 
+  // Calcular programas únicos a partir de students
+  const uniquePrograms = useMemo(() => {
+    const programs = [...new Set(students.map(student => student.programa_nombre))];
+    return programs.filter(Boolean); // Elimina valores falsy como null o undefined
+  }, [students]);
+
   const getFilterMenu = () => {
     const filterItems = [
-      // Solo mostrar el filtro de coordinador si es Adriana Benitez
       isAdminUser && (
         <Menu.SubMenu key="coordinador" title="Coordinador">
           <Menu.Item
@@ -153,7 +147,6 @@ const Students = () => {
           >
             Marily Gordillo
           </Menu.Item>
-
           <Menu.Item
             key="coordinador-jesus"
             onClick={() => setFilters({ ...filters, coordinador: "Jesus Benitez" })}
@@ -169,12 +162,12 @@ const Students = () => {
         >
           Todos
         </Menu.Item>
-        {programas.map((programa) => (
+        {uniquePrograms.map((programa, index) => (
           <Menu.Item
-            key={`programa-${programa.id}`}
-            onClick={() => setFilters({ ...filters, programa: programa.id })}
+            key={`programa-${index}`} // Usamos index como key porque programa_nombre no es un ID único
+            onClick={() => setFilters({ ...filters, programa: programa })}
           >
-            {programa.nombre}
+            {programa}
           </Menu.Item>
         ))}
       </Menu.SubMenu>,
@@ -218,11 +211,10 @@ const Students = () => {
           Matrícula Pendiente
         </Menu.Item>
       </Menu.SubMenu>
-    ].filter(Boolean); // Eliminar elementos null/undefined
+    ].filter(Boolean);
 
     return <Menu>{filterItems}</Menu>;
   };
-
 
   const getCoordinatorStyle = (coordinator) => {
     if (coordinator === "Camilo Delgado") {
@@ -232,8 +224,6 @@ const Students = () => {
     }
     return "blue-600";
   };
-
- 
 
   const filteredStudents = useMemo(() => {
     return students.filter((student) => {
@@ -265,43 +255,34 @@ const Students = () => {
     message.success("Estudiante añadido con éxito");
   };
 
-
-  // Agrega esto antes del return
-
-// Modifica el cálculo de programCounts
-const programCounts = useMemo(() => {
-  // 1. Obtenemos el nombre del programa de validación
-  const validationProgramName = "Validación de bachillerato";
-  
-  // 2. Filtramos estudiantes de validación
-  const validationStudents = filteredStudents.filter(s => 
-    s.programa_nombre === validationProgramName
-  );
-  
-  // 3. Calculamos técnicos como total - validación
-  return {
-    total: filteredStudents.length,
-    validation: validationStudents.length,
-    technical: filteredStudents.length - validationStudents.length
-  };
-}, [filteredStudents]);
+  const programCounts = useMemo(() => {
+    const validationProgramName = "Validación de bachillerato";
+    const validationStudents = filteredStudents.filter(s => 
+      s.programa_nombre === validationProgramName
+    );
+    return {
+      total: filteredStudents.length,
+      validation: validationStudents.length,
+      technical: filteredStudents.length - validationStudents.length
+    };
+  }, [filteredStudents]);
 
   return (
     <div className="px-4 mt-8 p-2">
-    <div className="grid grid-cols-3 gap-4 bg-white p-4 rounded shadow">
-  <div className="text-center">
-    <p className="text-2xl font-bold">{filteredStudents.length}</p>
-    <p>Total Estudiantes</p>
-  </div>
-  <div className="text-center">
-    <p className="text-2xl font-bold">{programCounts.validation}</p>
-    <p>Validación de Bachillerato</p>
-  </div>
-  <div className="text-center">
-    <p className="text-2xl font-bold text-green-600">{programCounts.technical}</p>
-    <p>Técnicos</p>
-  </div>
-</div>
+      <div className="grid grid-cols-3 gap-4 bg-white p-4 rounded shadow">
+        <div className="text-center">
+          <p className="text-2xl font-bold">{filteredStudents.length}</p>
+          <p>Total Estudiantes</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-bold">{programCounts.validation}</p>
+          <p>Validación de Bachillerato</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-bold text-green-600">{programCounts.technical}</p>
+          <p>Técnicos</p>
+        </div>
+      </div>
 
       <div className="my-3 mb-4 flex space-x-2">
         <Input
@@ -315,14 +296,19 @@ const programCounts = useMemo(() => {
         <Dropdown overlay={getFilterMenu()} trigger={["click"]}>
           <Button icon={<FaFilter />}>Filtrar</Button>
         </Dropdown>
+        <Button 
+          type="primary" 
+          onClick={() => setIsModalOpen(true)}
+        >
+          Agregar Estudiante
+        </Button>
       </div>
 
       <StudentTable
         students={filteredStudents}
         loading={loading}
         onDelete={handleDelete}
-        onEdit={handleEdit}  // Add this prop
-      
+        onEdit={handleEdit}
         getCoordinatorStyle={getCoordinatorStyle}
       />
 
@@ -338,7 +324,6 @@ const programCounts = useMemo(() => {
         onClose={() => setIsDetailModalOpen(false)}
         fetchStudents={fetchStudents}
         getCoordinatorStyle={getCoordinatorStyle}
-        
       />
     </div>
   );
