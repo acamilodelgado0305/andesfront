@@ -36,8 +36,6 @@ const Root = () => {
           return;
         }
 
-   
-        
         const response = await axios.get(
           `https://back.app.validaciondebachillerato.com.co/auth/users/${userId}`
         );
@@ -74,16 +72,17 @@ const Root = () => {
   // Configuración de menús según el tipo de aplicación
   const menuConfig = {
     feva: [
-      { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Dashboard' },
+      { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Tu trabajo' },
       { key: '/inicio/students', icon: <UserOutlined />, label: 'Estudiantes' },
       { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas' },
       { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias' },
     ],
     certificaciones: [
+      { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Tu trabajo' },
       { key: '/inicio/certificados', icon: <FileProtectOutlined />, label: 'Certificados' }
     ],
     all: [
-      { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Dashboard' },
+      { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Tu trabajo' },
       { key: '/inicio/students', icon: <UserOutlined />, label: 'Estudiantes' },
       { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas' },
       { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias' },

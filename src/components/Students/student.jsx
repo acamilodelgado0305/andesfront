@@ -1,16 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import {
-  FaUserEdit,
-  FaSearch,
-  FaFilter,
-} from "react-icons/fa";
+import { FaUserEdit, FaSearch, FaFilter } from "react-icons/fa";
 import axios from "axios";
 import CreateStudentModal from "./addStudent";
-import {
-  getStudents,
-  deleteStudent,
-} from "../../services/studentService";
+import { getStudents, deleteStudent } from "../../services/studentService";
 import { Input, Button, Dropdown, Menu, Modal, message } from "antd";
 import StudentDetailModal from './StudentDetailModal';
 import StudentTable from "./StudentTable";
@@ -38,7 +31,6 @@ const Students = () => {
         console.error("No userId found in localStorage");
         return;
       }
-
       const response = await axios.get(`https://back.app.validaciondebachillerato.com.co/auth/users/${userId}`);
       const { name } = response.data;
       setCoordinatorName(name);
@@ -71,9 +63,7 @@ const Students = () => {
       if (coordinatorName === "Adriana Benitez") {
         setStudents(allStudents);
       } else {
-        const filteredStudents = allStudents.filter(
-          student => student.coordinador === coordinatorName
-        );
+        const filteredStudents = allStudents.filter(student => student.coordinador === coordinatorName);
         setStudents(filteredStudents);
       }
     } catch (err) {
@@ -101,127 +91,103 @@ const Students = () => {
     });
   };
 
-  // Calcular programas únicos a partir de students
-  const uniquePrograms = useMemo(() => {
-    const programs = [...new Set(students.map(student => student.programa_nombre))];
-    return programs.filter(Boolean); // Elimina valores falsy como null o undefined
+  // Calcular estadísticas de programas y coordinadores
+  const stats = useMemo(() => {
+    const programStats = {};
+    const coordinatorStats = {};
+    
+    students.forEach(student => {
+      // Conteo por programa
+      const program = student.programa_nombre;
+      if (program) {
+        programStats[program] = (programStats[program] || 0) + 1;
+      }
+      // Conteo por coordinador
+      const coordinator = student.coordinador;
+      if (coordinator) {
+        coordinatorStats[coordinator] = (coordinatorStats[coordinator] || 0) + 1;
+      }
+    });
+
+    return {
+      programs: {
+        uniquePrograms: Object.keys(programStats).filter(Boolean),
+        programCounts: programStats,
+      },
+      coordinators: {
+        uniqueCoordinators: Object.keys(coordinatorStats).filter(Boolean),
+        coordinatorCounts: coordinatorStats,
+      },
+    };
   }, [students]);
 
   const getFilterMenu = () => {
     const filterItems = [
       isAdminUser && (
         <Menu.SubMenu key="coordinador" title="Coordinador">
-          <Menu.Item
-            key="coordinador-todos"
-            onClick={() => setFilters({ ...filters, coordinador: null })}
-          >
+          <Menu.Item key="coordinador-todos" onClick={() => setFilters({ ...filters, coordinador: null })}>
             Todos
           </Menu.Item>
-          <Menu.Item
-            key="coordinador-adriana"
-            onClick={() => setFilters({ ...filters, coordinador: "Adriana Benitez" })}
-          >
-            Adriana Benitez
-          </Menu.Item>
-          <Menu.Item
-            key="coordinador-camilo"
-            onClick={() => setFilters({ ...filters, coordinador: "Camilo Delgado" })}
-          >
-            Camilo Delgado
-          </Menu.Item>
-          <Menu.Item
-            key="coordinador-blanca"
-            onClick={() => setFilters({ ...filters, coordinador: "Blanca Sanchez" })}
-          >
-            Blanca Sanchez
-          </Menu.Item>
-          <Menu.Item
-            key="coordinador-mauricio"
-            onClick={() => setFilters({ ...filters, coordinador: "Mauricio Pulido" })}
-          >
-            Mauricio Pulido
-          </Menu.Item>
-          <Menu.Item
-            key="coordinador-marily"
-            onClick={() => setFilters({ ...filters, coordinador: "Marily Gordillo" })}
-          >
-            Marily Gordillo
-          </Menu.Item>
-          <Menu.Item
-            key="coordinador-jesus"
-            onClick={() => setFilters({ ...filters, coordinador: "Jesus Benitez" })}
-          >
-            Jesus Benitez
-          </Menu.Item>
+          {[
+            "Adriana Benitez",
+            "Camilo Delgado",
+            "Blanca Sanchez",
+            "Mauricio Pulido",
+            "Marily Gordillo",
+            "Jesus Benitez",
+          ].map(coordinador => (
+            <Menu.Item
+              key={`coordinador-${coordinador}`}
+              onClick={() => setFilters({ ...filters, coordinador })}
+            >
+              {`${coordinador} (${stats.coordinators.coordinatorCounts[coordinador] || 0})`}
+            </Menu.Item>
+          ))}
         </Menu.SubMenu>
       ),
       <Menu.SubMenu key="programa" title="Programa">
-        <Menu.Item
-          key="programa-todos"
-          onClick={() => setFilters({ ...filters, programa: null })}
-        >
+        <Menu.Item key="programa-todos" onClick={() => setFilters({ ...filters, programa: null })}>
           Todos
         </Menu.Item>
-        {uniquePrograms.map((programa, index) => (
+        {stats.programs.uniquePrograms.map((programa, index) => (
           <Menu.Item
-            key={`programa-${index}`} // Usamos index como key porque programa_nombre no es un ID único
-            onClick={() => setFilters({ ...filters, programa: programa })}
+            key={`programa-${index}`}
+            onClick={() => setFilters({ ...filters, programa })}
           >
-            {programa}
+            {`${programa} (${stats.programs.programCounts[programa] || 0})`}
           </Menu.Item>
         ))}
       </Menu.SubMenu>,
       <Menu.SubMenu key="estado" title="Estado">
-        <Menu.Item
-          key="estado-todos"
-          onClick={() => setFilters({ ...filters, activo: null })}
-        >
+        <Menu.Item key="estado-todos" onClick={() => setFilters({ ...filters, activo: null })}>
           Todos
         </Menu.Item>
-        <Menu.Item
-          key="estado-activo"
-          onClick={() => setFilters({ ...filters, activo: true })}
-        >
+        <Menu.Item key="estado-activo" onClick={() => setFilters({ ...filters, activo: true })}>
           Activo
         </Menu.Item>
-        <Menu.Item
-          key="estado-inactivo"
-          onClick={() => setFilters({ ...filters, activo: false })}
-        >
+        <Menu.Item key="estado-inactivo" onClick={() => setFilters({ ...filters, activo: false })}>
           Inactivo
         </Menu.Item>
       </Menu.SubMenu>,
       <Menu.SubMenu key="estado_matricula" title="Estado Matrícula">
-        <Menu.Item
-          key="matricula-todos"
-          onClick={() => setFilters({ ...filters, estado_matricula: null })}
-        >
+        <Menu.Item key="matricula-todos" onClick={() => setFilters({ ...filters, estado_matricula: null })}>
           Todos
         </Menu.Item>
-        <Menu.Item
-          key="matricula-paga"
-          onClick={() => setFilters({ ...filters, estado_matricula: true })}
-        >
+        <Menu.Item key="matricula-paga" onClick={() => setFilters({ ...filters, estado_matricula: true })}>
           Matrícula Paga
         </Menu.Item>
-        <Menu.Item
-          key="matricula-pendiente"
-          onClick={() => setFilters({ ...filters, estado_matricula: false })}
-        >
+        <Menu.Item key="matricula-pendiente" onClick={() => setFilters({ ...filters, estado_matricula: false })}>
           Matrícula Pendiente
         </Menu.Item>
-      </Menu.SubMenu>
+      </Menu.SubMenu>,
     ].filter(Boolean);
 
     return <Menu>{filterItems}</Menu>;
   };
 
   const getCoordinatorStyle = (coordinator) => {
-    if (coordinator === "Camilo Delgado") {
-      return "text-orange-600";
-    } else if (coordinator === "Adriana Benitez") {
-      return "text-purple-600";
-    }
+    if (coordinator === "Camilo Delgado") return "text-orange-600";
+    if (coordinator === "Adriana Benitez") return "text-purple-600";
     return "blue-600";
   };
 
@@ -235,18 +201,12 @@ const Students = () => {
       const matchesSearch = searchTerms.every(term =>
         studentName.includes(term) || whatsappNumber.includes(term) || llamadasNumber.includes(term)
       );
-
       const matchesCoordinator = !filters.coordinador || student.coordinador === filters.coordinador;
       const matchesProgram = !filters.programa || student.programa_nombre === filters.programa;
       const matchesActive = filters.activo === null || Boolean(student.activo) === filters.activo;
-      const matchesMatricula = filters.estado_matricula === null ||
-        Boolean(student.estado_matricula) === filters.estado_matricula;
+      const matchesMatricula = filters.estado_matricula === null || Boolean(student.estado_matricula) === filters.estado_matricula;
 
-      return matchesSearch &&
-        (isAdminUser ? matchesCoordinator : true) &&
-        matchesProgram &&
-        matchesActive &&
-        matchesMatricula;
+      return matchesSearch && (isAdminUser ? matchesCoordinator : true) && matchesProgram && matchesActive && matchesMatricula;
     });
   }, [students, searchTerm, filters, isAdminUser]);
 
@@ -257,13 +217,11 @@ const Students = () => {
 
   const programCounts = useMemo(() => {
     const validationProgramName = "Validación de bachillerato";
-    const validationStudents = filteredStudents.filter(s => 
-      s.programa_nombre === validationProgramName
-    );
+    const validationStudents = filteredStudents.filter(s => s.programa_nombre === validationProgramName);
     return {
       total: filteredStudents.length,
       validation: validationStudents.length,
-      technical: filteredStudents.length - validationStudents.length
+      technical: filteredStudents.length - validationStudents.length,
     };
   }, [filteredStudents]);
 
@@ -283,7 +241,16 @@ const Students = () => {
           <p>Técnicos</p>
         </div>
       </div>
-
+      {filters.programa && (
+        <div className="mt-4 text-blue-700">
+          Programa seleccionado: {filters.programa} ({filteredStudents.length} estudiantes)
+        </div>
+      )}
+      {filters.coordinador && (
+        <div className="mt-2 text-blue-700">
+          Coordinador seleccionado: {filters.coordinador} ({filteredStudents.length} estudiantes)
+        </div>
+      )}
       <div className="my-3 mb-4 flex space-x-2">
         <Input
           placeholder="Buscar por nombre o WhatsApp..."
@@ -296,14 +263,10 @@ const Students = () => {
         <Dropdown overlay={getFilterMenu()} trigger={["click"]}>
           <Button icon={<FaFilter />}>Filtrar</Button>
         </Dropdown>
-        <Button 
-          type="primary" 
-          onClick={() => setIsModalOpen(true)}
-        >
+        <Button type="primary" onClick={() => setIsModalOpen(true)}>
           Agregar Estudiante
         </Button>
       </div>
-
       <StudentTable
         students={filteredStudents}
         loading={loading}
@@ -311,13 +274,11 @@ const Students = () => {
         onEdit={handleEdit}
         getCoordinatorStyle={getCoordinatorStyle}
       />
-
       <CreateStudentModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onStudentAdded={handleStudentAdded}
       />
-
       <StudentDetailModal
         student={selectedStudent}
         visible={isDetailModalOpen}
