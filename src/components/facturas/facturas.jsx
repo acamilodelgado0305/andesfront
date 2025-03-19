@@ -129,7 +129,9 @@ const Facturas = () => {
   };
 
   const formatCurrency = (value) => {
-    return value.toLocaleString("es-CO", {
+    // Si value es null, undefined o no es un número, usamos 0 como fallback
+    const numericValue = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+    return numericValue.toLocaleString("es-CO", {
       style: "currency",
       currency: "COP",
     });
