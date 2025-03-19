@@ -9,17 +9,16 @@ const { Title, Text } = Typography;
 function Certificados() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [certificados, setCertificados] = useState([]);
+  const [filteredCertificados, setFilteredCertificados] = useState([]); // Nuevo estado para certificados filtrados
   const [loading, setLoading] = useState(false);
   const [userName, setUserName] = useState('');
   const [form] = Form.useForm();
 
-  // Opciones para el tipo de certificado
   const tipoOptions = [
     { label: 'Manipulación de alimentos', value: 'Manipulación de alimentos' },
     { label: 'Aseo Hospitalario', value: 'Aseo Hospitalario' },
   ];
 
-  // Cargar datos del usuario al montar el componente
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -28,17 +27,10 @@ function Certificados() {
           console.log("No se encontró userId en localStorage");
           return;
         }
-
-        console.log("Obteniendo datos del usuario con ID:", userId);
-        
         const response = await axios.get(
           `https://back.app.validaciondebachillerato.com.co/auth/users/${userId}`
         );
-        
-        console.log("Datos del usuario recibidos:", response.data);
-        
         setUserName(response.data.name || '');
-        console.log("Nombre del usuario establecido:", response.data.name);
       } catch (err) {
         console.error("Error al obtener datos del usuario:", err);
         message.error("Error al cargar datos del usuario");
@@ -46,30 +38,32 @@ function Certificados() {
     };
 
     fetchUserData();
-    fetchCertificados();
   }, []);
 
-  // Actualizar el campo vendedor en el formulario cuando cambia userName
+  useEffect(() => {
+    if (userName) {
+      fetchCertificados();
+    }
+  }, [userName]);
+
   useEffect(() => {
     if (userName && form) {
       form.setFieldsValue({ vendedor: userName });
     }
   }, [userName, form]);
 
-  // Función para obtener los certificados
   const fetchCertificados = async () => {
     try {
       setLoading(true);
-      
       const response = await fetch('https://backendcoalianza.vercel.app/api/v1/clients');
-  
       if (!response.ok) {
         throw new Error(`Error: ${response.status} - ${response.statusText}`);
       }
-  
       const data = await response.json();
       setCertificados(data);
-  
+      // Filtrar certificados por vendedor (usuario actual)
+      const userCertificados = data.filter(cert => cert.vendedor === userName);
+      setFilteredCertificados(userCertificados);
     } catch (error) {
       console.error('Error al cargar los certificados:', error);
       message.error(`Error: ${error.message || 'Error al cargar los certificados'}`);
@@ -77,45 +71,31 @@ function Certificados() {
       setLoading(false);
     }
   };
-  
-  // Abrir el drawer
+
   const showDrawer = () => {
-    // Establecemos el vendedor con el nombre del usuario actual
     form.setFieldsValue({ vendedor: userName });
     setIsDrawerOpen(true);
   };
 
-  // Cerrar el drawer
   const closeDrawer = () => {
     setIsDrawerOpen(false);
     form.resetFields();
   };
 
-  // Manejar el envío del formulario
   const handleSubmit = async (values) => {
     try {
       setLoading(true);
-      // Aseguramos que el vendedor sea el nombre del usuario actual
-      const dataToSubmit = {
-        ...values,
-        vendedor: userName || values.vendedor
-      };
-      
+      const dataToSubmit = { ...values, vendedor: userName || values.vendedor };
       const response = await fetch('https://backendcoalianza.vercel.app/api/v1/clients', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dataToSubmit),
       });
 
-      if (!response.ok) {
-        throw new Error('Error al registrar el certificado');
-      }
-
+      if (!response.ok) throw new Error('Error al registrar el certificado');
       message.success('Certificado registrado correctamente');
       closeDrawer();
-      fetchCertificados(); // Recargar la lista de certificados
+      fetchCertificados();
     } catch (error) {
       console.error('Error:', error);
       message.error('Error al registrar el certificado');
@@ -126,17 +106,14 @@ function Certificados() {
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
-      <Card 
-        className="shadow-md rounded-lg overflow-hidden"
-        bordered={false}
-      >
+      <Card className="shadow-md rounded-lg overflow-hidden" bordered={false}>
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
             <FileProtectOutlined className="text-blue-500 text-2xl mr-3" />
             <Title level={3} className="m-0 text-gray-800">Gestión de Certificados</Title>
           </div>
           <div className="flex gap-3">
-            <Button 
+            <Button
               icon={<ReloadOutlined />}
               onClick={fetchCertificados}
               loading={loading}
@@ -144,9 +121,9 @@ function Certificados() {
             >
               Actualizar
             </Button>
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />} 
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
               onClick={showDrawer}
               loading={loading}
               className="bg-blue-600 hover:bg-blue-700 border-0"
@@ -157,7 +134,7 @@ function Certificados() {
         </div>
 
         <Divider className="my-3" />
-        
+
         <div className="mb-4 flex justify-between items-center">
           <Text className="text-gray-500">
             Sistema de administración de certificados. Registre y gestione todos los certificados emitidos.
@@ -169,22 +146,31 @@ function Certificados() {
           )}
         </div>
 
-        {/* Resumen de certificados */}
+        {/* Resumen de certificados del usuario */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           {tipoOptions.map(tipo => (
-            <Card 
-              key={tipo.value} 
-              size="small" 
+            <Card
+              key={tipo.value}
+              size="small"
               className="bg-white shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex justify-between items-center">
                 <Text className="text-gray-700">{tipo.label}</Text>
                 <Tag color="blue">
-                  {certificados.filter(cert => cert.tipo?.includes(tipo.value)).length || 0}
+                  {filteredCertificados.filter(cert => cert.tipo?.includes(tipo.value)).length || 0}
                 </Tag>
               </div>
             </Card>
           ))}
+          <Card
+            size="small"
+            className="bg-white shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div className="flex justify-between items-center">
+              <Text className="text-gray-700">Total Certificados</Text>
+              <Tag color="purple">{filteredCertificados.length}</Tag>
+            </div>
+          </Card>
         </div>
 
         {/* Tabla de certificados */}
@@ -194,12 +180,16 @@ function Certificados() {
               <Spin size="large" tip="Cargando certificados..." />
             </div>
           ) : (
-            <CertificadosTable data={certificados} loading={loading} onRefresh={fetchCertificados} />
+            <CertificadosTable
+              data={filteredCertificados}
+              loading={loading}
+              onRefresh={fetchCertificados}
+              userName={userName}
+            />
           )}
         </div>
       </Card>
 
-      {/* Drawer para nuevo certificado */}
       <Drawer
         title={
           <div className="flex items-center">
@@ -217,9 +207,9 @@ function Certificados() {
             <Button onClick={closeDrawer} className="mr-3 border border-gray-300" style={{ marginRight: 8 }}>
               Cancelar
             </Button>
-            <Button 
-              type="primary" 
-              loading={loading} 
+            <Button
+              type="primary"
+              loading={loading}
               onClick={() => form.submit()}
               className="bg-blue-600 hover:bg-blue-700 border-0"
             >
@@ -228,7 +218,7 @@ function Certificados() {
           </div>
         }
       >
-        <Form 
+        <Form
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
@@ -240,67 +230,26 @@ function Certificados() {
               Complete todos los campos para registrar un nuevo certificado. Los campos marcados con (*) son obligatorios.
             </Text>
           </div>
-          
-          <Form.Item
-            name="nombre"
-            label="Nombre"
-            rules={[{ required: true, message: 'Por favor ingrese el nombre' }]}
-          >
-            <Input 
-              placeholder="Ingrese el nombre" 
-              className="hover:border-blue-500 focus:border-blue-500" 
-              prefix={<span className="text-gray-400">👤</span>}
-            />
+          <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: 'Por favor ingrese el nombre' }]}>
+            <Input placeholder="Ingrese el nombre" className="hover:border-blue-500 focus:border-blue-500" prefix={<span className="text-gray-400">👤</span>} />
           </Form.Item>
-          
-          <Form.Item
-            name="apellido"
-            label="Apellido"
-            rules={[{ required: true, message: 'Por favor ingrese el apellido' }]}
-          >
-            <Input 
-              placeholder="Ingrese el apellido" 
-              className="hover:border-blue-500 focus:border-blue-500" 
-            />
+          <Form.Item name="apellido" label="Apellido" rules={[{ required: true, message: 'Por favor ingrese el apellido' }]}>
+            <Input placeholder="Ingrese el apellido" className="hover:border-blue-500 focus:border-blue-500" />
           </Form.Item>
-          
-          <Form.Item
-            name="numeroDeDocumento"
-            label="Número de Documento"
-            rules={[{ required: true, message: 'Por favor ingrese el número de documento' }]}
-          >
-            <Input 
-              placeholder="Ingrese el número de documento" 
-              className="hover:border-blue-500 focus:border-blue-500" 
-              prefix={<span className="text-gray-400">🆔</span>}
-            />
+          <Form.Item name="numeroDeDocumento" label="Número de Documento" rules={[{ required: true, message: 'Por favor ingrese el número de documento' }]}>
+            <Input placeholder="Ingrese el número de documento" className="hover:border-blue-500 focus:border-blue-500" prefix={<span className="text-gray-400">🆔</span>} />
           </Form.Item>
-          
-          <Form.Item
-            name="vendedor"
-            label="Vendedor"
-            hidden={true} // Ocultamos este campo ya que se completa automáticamente
-          >
+          <Form.Item name="vendedor" label="Vendedor" hidden={true}>
             <Input disabled />
           </Form.Item>
-          
           <Divider className="my-4" />
-          
-          <Form.Item
-            name="tipo"
-            label="Tipo de Certificado"
-            rules={[{ required: true, message: 'Por favor seleccione al menos un tipo de certificado' }]}
-          >
+          <Form.Item name="tipo" label="Tipo de Certificado" rules={[{ required: true, message: 'Por favor seleccione al menos un tipo de certificado' }]}>
             <Select
               mode="multiple"
               placeholder="Seleccione el tipo de certificado"
               options={tipoOptions}
               className="w-full hover:border-blue-500 focus:border-blue-500"
-              tagRender={props => (
-                <Tag color="blue" closable={props.closable} onClose={props.onClose} style={{ marginRight: 3 }}>
-                  {props.label}
-                </Tag>
-              )}
+              tagRender={props => <Tag color="blue" closable={props.closable} onClose={props.onClose} style={{ marginRight: 3 }}>{props.label}</Tag>}
             />
           </Form.Item>
         </Form>

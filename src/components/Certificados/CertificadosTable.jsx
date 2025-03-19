@@ -1,102 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Table, DatePicker, Space, Spin, message, Button, Popconfirm, Tooltip } from 'antd';
 import { DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import axios from 'axios';
 import moment from 'moment';
 
-const CertificadosTable = () => {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+const CertificadosTable = ({ data, loading, onRefresh, userName }) => {
   const [filters, setFilters] = useState({
     startDate: null,
     endDate: null,
   });
-  const [userName, setUserName] = useState('');
-
-  // Obtener datos del usuario
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const userId = localStorage.getItem('userId');
-        if (!userId) {
-          console.log("No se encontró userId en localStorage");
-          return;
-        }
-        const response = await axios.get(
-          `https://back.app.validaciondebachillerato.com.co/auth/users/${userId}`
-        );
-        
-        setUserName(response.data.name || '');
-
-      } catch (err) {
-        console.error("Error al obtener datos del usuario:", err);
-        message.error("Error al cargar datos del usuario");
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  // Obtener certificados con filtros
-  useEffect(() => {
-    if (!userName) {
-      console.log("No hay nombre de usuario disponible aún");
-      return;
-    }
-
-    fetchCertificados();
-  }, [userName, filters]);
-
-  const fetchCertificados = async () => {
-    setLoading(true);
-    try {
-      const params = {};
-      if (filters.startDate) {
-        params.fechaInicio = filters.startDate.format('YYYY-MM-DD');
-      }
-      if (filters.endDate) {
-        params.fechaFin = filters.endDate.format('YYYY-MM-DD');
-      }
-
-      console.log("Obteniendo certificados con parámetros:", params);
-      
-      const response = await axios.get('https://backendcoalianza.vercel.app/api/v1/clients', { params });
-      
-      console.log("Certificados recibidos:", response.data);
-      console.log("Filtrando por vendedor:", userName);
-      
-      // Filtrar los certificados donde el vendedor coincide con el nombre del usuario
-      const filteredData = response.data.filter(client => {
-        const isMatch = client.vendedor === userName;
-        console.log(`Certificado ${client._id} - Vendedor: ${client.vendedor} - ¿Coincide?: ${isMatch}`);
-        return isMatch;
-      });
-      
-      console.log(`Filtrados ${filteredData.length} certificados para el vendedor ${userName}`);
-      setData(filteredData);
-    } catch (error) {
-      console.error('Error al obtener certificados:', error);
-      message.error("Error al cargar los certificados");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDeleteCertificado = async (id) => {
-    setDeleteLoading(true);
     try {
-      console.log(`Eliminando certificado con ID: ${id}`);
       await axios.delete(`https://backendcoalianza.vercel.app/api/v1/clients/${id}`);
       message.success('Certificado eliminado correctamente');
-      
-      // Actualizar la lista de certificados
-      fetchCertificados();
+      onRefresh();
     } catch (error) {
       console.error('Error al eliminar certificado:', error);
       message.error('Error al eliminar el certificado');
-    } finally {
-      setDeleteLoading(false);
     }
   };
 
@@ -107,13 +27,20 @@ const CertificadosTable = () => {
     });
   };
 
+  const filteredData = data.filter(cert => {
+    const certDate = moment(cert.createdAt);
+    const startDate = filters.startDate ? moment(filters.startDate) : null;
+    const endDate = filters.endDate ? moment(filters.endDate) : null;
+
+    return (!startDate || certDate.isSameOrAfter(startDate, 'day')) &&
+           (!endDate || certDate.isSameOrBefore(endDate, 'day'));
+  });
+
   const columns = [
     {
       title: 'Nombre Completo',
       dataIndex: 'nombre',
-      render: (text, record) => (
-        <span>{`${record.nombre.trim()} ${record.apellido.trim()}`}</span>
-      ),
+      render: (text, record) => <span>{`${record.nombre.trim()} ${record.apellido.trim()}`}</span>,
       sorter: (a, b) => a.nombre.localeCompare(b.nombre),
     },
     {
@@ -158,11 +85,10 @@ const CertificadosTable = () => {
             icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
           >
             <Tooltip title="Eliminar">
-              <Button 
-                danger 
-                type="link" 
-                icon={<DeleteOutlined />} 
-                loading={deleteLoading}
+              <Button
+                danger
+                type="link"
+                icon={<DeleteOutlined />}
                 className="text-red-500 hover:text-red-700"
               />
             </Tooltip>
@@ -189,7 +115,7 @@ const CertificadosTable = () => {
       <Spin spinning={loading}>
         <Table
           columns={columns}
-          dataSource={data}
+          dataSource={filteredData}
           rowKey="_id"
           pagination={{
             pageSize: 10,
