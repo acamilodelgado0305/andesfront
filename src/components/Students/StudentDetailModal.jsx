@@ -13,7 +13,6 @@ import dayjs from 'dayjs';
 import { getPrograms } from '../../services/studentService';
 import axios from "axios";
 
-
 const StudentDetailModal = ({
   student,
   visible,
@@ -28,8 +27,7 @@ const StudentDetailModal = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedStudent, setEditedStudent] = useState(student);
   const [programs, setPrograms] = useState([]);
-  
-  // Fetch programs when component mounts
+
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
@@ -40,10 +38,9 @@ const StudentDetailModal = ({
         message.error("Error al cargar los programas");
       }
     };
-    
     fetchPrograms();
   }, []);
-  
+
   if (!student) return null;
 
   const handleGraduate = async () => {
@@ -70,20 +67,12 @@ const StudentDetailModal = ({
         try {
           const response = await fetch(`https://back.app.validaciondebachillerato.com.co/api/students/${student.id}`, {
             method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
           });
-
-          if (!response.ok) {
-            throw new Error('Error en la respuesta del servidor');
-          }
-
+          if (!response.ok) throw new Error('Error en la respuesta del servidor');
           message.success("Estudiante eliminado con éxito");
           onClose();
-          if (onDelete) {
-            onDelete(student.id);
-          }
+          if (onDelete) onDelete(student.id);
         } catch (error) {
           console.error("Error al eliminar el estudiante:", error);
           message.error("Error al eliminar el estudiante");
@@ -93,17 +82,12 @@ const StudentDetailModal = ({
   };
 
   const handleWhatsAppClick = () => {
-    let phoneNumber = student.telefono_whatsapp?.replace(/\D/g, "") ||
-      student.telefono_llamadas?.replace(/\D/g, "");
-
+    let phoneNumber = student.telefono_whatsapp?.replace(/\D/g, "") || student.telefono_llamadas?.replace(/\D/g, "");
     if (!phoneNumber) {
       message.error("No hay número de teléfono disponible");
       return;
     }
-
-    if (!phoneNumber.startsWith("57")) {
-      phoneNumber = `57${phoneNumber}`;
-    }
+    if (!phoneNumber.startsWith("57")) phoneNumber = `57${phoneNumber}`;
     window.open(`https://wa.me/${phoneNumber}`, "_blank");
   };
 
@@ -120,15 +104,12 @@ const StudentDetailModal = ({
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
-  
-      // Validación de email (redundante pero segura)
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (values.email && !emailRegex.test(values.email)) {
         message.error('El formato de email es inválido');
         return;
       }
-  
-      // Formatear datos para la API
+
       const formattedValues = {
         nombre: values.nombre,
         apellido: values.apellido,
@@ -155,33 +136,24 @@ const StudentDetailModal = ({
         modalidad_estudio: values.modalidad_estudio,
         ultimo_curso_visto: values.ultimo_curso_visto,
       };
-  
-      // Petición con Axios
+
       const response = await axios.put(
         `https://back.app.validaciondebachillerato.com.co/api/students/${student.id}`,
         formattedValues,
-        {
-          headers: { 'Content-Type': 'application/json' }
-        }
+        { headers: { 'Content-Type': 'application/json' } }
       );
-  
-      // Actualización exitosa
-      const updatedStudent = response.data; // Axios ya parsea el JSON
+
+      const updatedStudent = response.data;
       setEditedStudent(updatedStudent);
       setIsEditing(false);
       message.success('Estudiante actualizado exitosamente');
-      
       await fetchStudents();
       onClose();
-  
     } catch (error) {
-      // Manejo de errores específico para Axios
       if (error.response) {
-        // Error de servidor (4xx/5xx)
         console.error('Error del servidor:', error.response.data);
         message.error(error.response.data.error || 'Error al actualizar');
       } else {
-        // Otros errores (red, typo, etc)
         console.error('Error inesperado:', error.message);
         message.error('Error de comunicación con el servidor');
       }
@@ -190,44 +162,23 @@ const StudentDetailModal = ({
 
   const formatDate = (dateString) => {
     if (!dateString) return 'No especificado';
-    return new Date(dateString).toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    return new Date(dateString).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
   const renderEditableField = (name, options = {}) => {
     const { type = 'text', selectOptions = [] } = options;
 
-    // Special handling for email field
     if (name === 'email') {
       return (
         <Form.Item
           name={name}
           rules={[
-            {
-              type: 'email',
-              message: 'Por favor ingrese un correo electrónico válido',
-            },
-            {
-              required: true,
-              message: 'Por favor ingrese un correo electrónico',
-            }
+            { type: 'email', message: 'Por favor ingrese un correo electrónico válido' },
+            { required: true, message: 'Por favor ingrese un correo electrónico' },
           ]}
           noStyle
         >
-          <Input
-            placeholder="correo@ejemplo.com"
-            allowClear
-            onBlur={(e) => {
-              // Trim espacios al perder el foco
-              const value = e.target.value;
-              if (value && value.trim() !== value) {
-                form.setFieldsValue({ email: value.trim() });
-              }
-            }}
-          />
+          <Input placeholder="correo@ejemplo.com" allowClear />
         </Form.Item>
       );
     }
@@ -259,97 +210,89 @@ const StudentDetailModal = ({
         </Form.Item>
       );
     }
-    return (
-      <Form.Item name={name} noStyle>
-        <Input />
-      </Form.Item>
-    );
+    return <Form.Item name={name} noStyle><Input /></Form.Item>;
   };
 
   return (
     <Modal
-      title={`Detalles del Estudiante: ${student.nombre} ${student.apellido}`}
+      title={
+        <div>
+          <span>{`Detalles del Estudiante: ${student.nombre} ${student.apellido}`}</span>
+          <div className="flex space-x-2 mt-2">
+            <Button
+              icon={<FaUserEdit />}
+              onClick={handleStartEditing}
+              disabled={isEditing}
+              type="primary"
+            >
+              Editar
+            </Button>
+            <Button
+              icon={<FaSave />}
+              onClick={handleSave}
+              disabled={!isEditing}
+              type="primary"
+            >
+              Guardar
+            </Button>
+            <Button
+              icon={<FaGraduationCap />}
+              onClick={handleGraduate}
+              disabled={student.fecha_graduacion || isEditing}
+            >
+              Graduar
+            </Button>
+            <Link to={`/inicio/students/facturas/${student.id}`}>
+              <Button icon={<FaFileInvoiceDollar />} disabled={isEditing}>
+                Ver Pagos
+              </Button>
+            </Link>
+            <Button
+              icon={<FaWhatsapp />}
+              onClick={handleWhatsAppClick}
+              disabled={isEditing}
+            >
+              WhatsApp
+            </Button>
+            <Button
+              icon={<FaTrashAlt />}
+              onClick={handleDelete}
+              danger
+              disabled={isEditing}
+            >
+              Eliminar
+            </Button>
+            
+          </div>
+        </div>
+      }
       open={visible}
       onCancel={onClose}
       width={1200}
-      footer={[
-        <Button
-          key="delete"
-          icon={<FaTrashAlt />}
-          onClick={handleDelete}
-          danger
-          disabled={isEditing}
-        >
-          Eliminar
-        </Button>,
-        <Button key="close" onClick={onClose}>
-          Cerrar
-        </Button>,
-        <Button
-          key="edit"
-          type="primary"
-          onClick={isEditing ? handleSave : handleStartEditing}
-          icon={isEditing ? <FaSave /> : <FaUserEdit />}
-        >
-          {isEditing ? 'Guardar' : 'Editar'}
-        </Button>,
-      ]}
+      footer={null} // Eliminamos el footer
     >
       <Form form={form} initialValues={student}>
-        <Descriptions bordered column={2} size="small" className="mb-4">
+        <Descriptions bordered column={2} size="small" className="mt-4">
           <Descriptions.Item label="Información Personal" span={2}>
             <Descriptions bordered column={2} size="small">
-              <Descriptions.Item label="Tipo de Documento">
-                {isEditing ? renderEditableField('tipo_documento', {
-                  type: 'select',
-                  selectOptions: [
-                    { value: 'CC', label: 'Cédula de Ciudadanía' },
-                    { value: 'TI', label: 'Tarjeta de Identidad' },
-                    { value: 'CE', label: 'Cédula de Extranjería' }
-                  ]
-                }) : student.tipo_documento}
-              </Descriptions.Item>
-              <Descriptions.Item label="Número de Documento">
-                {isEditing ? renderEditableField('numero_documento') : student.numero_documento}
-              </Descriptions.Item>
-              <Descriptions.Item label="Nombre">
-                {isEditing ? renderEditableField('nombre') : student.nombre}
-              </Descriptions.Item>
-              <Descriptions.Item label="Apellido">
-                {isEditing ? renderEditableField('apellido') : student.apellido}
-              </Descriptions.Item>
-              <Descriptions.Item label="Lugar de Expedición">
-                {isEditing ? renderEditableField('lugar_expedicion') : student.lugar_expedicion}
-              </Descriptions.Item>
-              <Descriptions.Item label="Lugar de Nacimiento">
-                {isEditing ? renderEditableField('lugar_nacimiento') : student.lugar_nacimiento}
-              </Descriptions.Item>
-              <Descriptions.Item label="Fecha de Nacimiento">
-                {isEditing ? renderEditableField('fecha_nacimiento', { type: 'date' }) : formatDate(student.fecha_nacimiento)}
-              </Descriptions.Item>
-              <Descriptions.Item label="EPS">
-                {isEditing ? renderEditableField('eps') : student.eps}
-              </Descriptions.Item>
-              <Descriptions.Item label="RH">
-                {isEditing ? renderEditableField('rh') : student.rh}
-              </Descriptions.Item>
-              <Descriptions.Item label="SIMAT">
-                {isEditing ? renderEditableField('simat') : student.simat}
-              </Descriptions.Item>
+              <Descriptions.Item label="Tipo de Documento">{isEditing ? renderEditableField('tipo_documento', { type: 'select', selectOptions: [{ value: 'CC', label: 'Cédula de Ciudadanía' }, { value: 'TI', label: 'Tarjeta de Identidad' }, { value: 'CE', label: 'Cédula de Extranjería' }] }) : student.tipo_documento}</Descriptions.Item>
+              <Descriptions.Item label="Número de Documento">{isEditing ? renderEditableField('numero_documento') : student.numero_documento}</Descriptions.Item>
+              <Descriptions.Item label="Nombre">{isEditing ? renderEditableField('nombre') : student.nombre}</Descriptions.Item>
+              <Descriptions.Item label="Apellido">{isEditing ? renderEditableField('apellido') : student.apellido}</Descriptions.Item>
+              <Descriptions.Item label="Lugar de Expedición">{isEditing ? renderEditableField('lugar_expedicion') : student.lugar_expedicion}</Descriptions.Item>
+              <Descriptions.Item label="Lugar de Nacimiento">{isEditing ? renderEditableField('lugar_nacimiento') : student.lugar_nacimiento}</Descriptions.Item>
+              <Descriptions.Item label="Fecha de Nacimiento">{isEditing ? renderEditableField('fecha_nacimiento', { type: 'date' }) : formatDate(student.fecha_nacimiento)}</Descriptions.Item>
+              <Descriptions.Item label="EPS">{isEditing ? renderEditableField('eps') : student.eps}</Descriptions.Item>
+              <Descriptions.Item label="RH">{isEditing ? renderEditableField('rh') : student.rh}</Descriptions.Item>
+              <Descriptions.Item label="SIMAT">{isEditing ? renderEditableField('simat') : student.simat}</Descriptions.Item>
             </Descriptions>
           </Descriptions.Item>
 
           <Descriptions.Item label="Información de Contacto" span={2}>
             <Descriptions bordered column={2} size="small">
-              <Descriptions.Item label="Email">
-                {isEditing ? renderEditableField('email') : student.email}
-              </Descriptions.Item>
-              <Descriptions.Item label="Teléfono Llamadas">
-                {isEditing ? renderEditableField('telefono_llamadas') : student.telefono_llamadas}
-              </Descriptions.Item>
-              <Descriptions.Item label="Teléfono WhatsApp">
-                {isEditing ? renderEditableField('telefono_whatsapp') : student.telefono_whatsapp}
-              </Descriptions.Item>
+              <Descriptions.Item label="Email">{isEditing ? renderEditableField('email') : student.email}</Descriptions.Item>
+              <Descriptions.Item label="Teléfono Llamadas">{isEditing ? renderEditableField('telefono_llamadas') : student.telefono_llamadas}</Descriptions.Item>
+              <Descriptions.Item label="Teléfono WhatsApp">{isEditing ? renderEditableField('telefono_whatsapp') : student.telefono_whatsapp}</Descriptions.Item>
             </Descriptions>
           </Descriptions.Item>
 
@@ -360,9 +303,7 @@ const StudentDetailModal = ({
                   <Form.Item name="programa_nombre" noStyle>
                     <Select style={{ width: '100%' }}>
                       {programs.map(program => (
-                        <Select.Option key={program.id} value={program.nombre}>
-                          {program.nombre}
-                        </Select.Option>
+                        <Select.Option key={program.id} value={program.nombre}>{program.nombre}</Select.Option>
                       ))}
                     </Select>
                   </Form.Item>
@@ -374,51 +315,30 @@ const StudentDetailModal = ({
                 </span>
               </Descriptions.Item>
               <Descriptions.Item label="Estado">
-                {isEditing ? renderEditableField('activo', {
-                  type: 'select',
-                  selectOptions: [
-                    { value: true, label: 'Activo' },
-                    { value: false, label: 'Inactivo' },
-                  ]
-                }) : (
+                {isEditing ? renderEditableField('activo', { type: 'select', selectOptions: [{ value: true, label: 'Activo' }, { value: false, label: 'Inactivo' }] }) : (
                   <span className={`px-2 py-1 rounded-full text-sm ${student.activo ? "bg-green-200 text-green-800" : "bg-red-200 text-red-800"}`}>
                     {student.activo ? "Activo" : "Inactivo"}
                   </span>
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="Estado Matrícula">
-                {isEditing ? renderEditableField('estado_matricula', {
-                  type: 'select',
-                  selectOptions: [
-                    { value: true, label: 'Pago' },
-                    { value: false, label: 'Pendiente' },
-                  ]
-                }) : (
+                {isEditing ? renderEditableField('estado_matricula', { type: 'select', selectOptions: [{ value: true, label: 'Pago' }, { value: false, label: 'Pendiente' }] }) : (
                   <span className={`px-2 py-1 rounded-full text-sm ${student.estado_matricula ? "bg-green-200 text-green-800" : "bg-yellow-200 text-yellow-800"}`}>
                     {student.estado_matricula ? "Pago" : "Pendiente"}
                   </span>
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="Valor Matrícula">
-                {isEditing ? renderEditableField('matricula', { type: 'number' }) :
-                  `$${student.matricula?.toLocaleString() || 'No especificado'}`}
+                {isEditing ? renderEditableField('matricula', { type: 'number' }) : `$${student.matricula?.toLocaleString() || 'No especificado'}`}
               </Descriptions.Item>
               <Descriptions.Item label="Modalidad">
-                {isEditing ? renderEditableField('modalidad_estudio', {
-                  type: 'select',
-                  selectOptions: [
-                    { value: 'Clases en Linea', label: 'Clases en Linea' },
-                    { value: 'Modulos por WhastApp', label: 'Modulos por WhastApp' },
-                  ]
-                }) : student.modalidad_estudio}
+                {isEditing ? renderEditableField('modalidad_estudio', { type: 'select', selectOptions: [{ value: 'Clases en Linea', label: 'Clases en Linea' }, { value: 'Modulos por WhastApp', label: 'Modulos por WhastApp' }] }) : student.modalidad_estudio}
               </Descriptions.Item>
               <Descriptions.Item label="Fecha de Inscripción">
-                {isEditing ? renderEditableField('fecha_inscripcion', { type: 'date' }) :
-                  formatDate(student.fecha_inscripcion)}
+                {isEditing ? renderEditableField('fecha_inscripcion', { type: 'date' }) : formatDate(student.fecha_inscripcion)}
               </Descriptions.Item>
               <Descriptions.Item label="Fecha de Graduación">
-                {isEditing ? renderEditableField('fecha_graduacion', { type: 'date' }) :
-                  formatDate(student.fecha_graduacion)}
+                {isEditing ? renderEditableField('fecha_graduacion', { type: 'date' }) : formatDate(student.fecha_graduacion)}
               </Descriptions.Item>
               <Descriptions.Item label="Último Curso Visto">
                 {isEditing ? renderEditableField('ultimo_curso_visto') : student.ultimo_curso_visto}
@@ -428,50 +348,13 @@ const StudentDetailModal = ({
 
           <Descriptions.Item label="Información del Acudiente" span={2}>
             <Descriptions bordered column={2} size="small">
-              <Descriptions.Item label="Nombre">
-                {isEditing ? renderEditableField('nombre_acudiente') : student.nombre_acudiente}
-              </Descriptions.Item>
-              <Descriptions.Item label="Tipo de Documento">
-                {isEditing ? renderEditableField('tipo_documento_acudiente', {
-                  type: 'select',
-                  selectOptions: [
-                    { value: 'CC', label: 'Cédula de Ciudadanía' },
-                    { value: 'CE', label: 'Cédula de Extranjería' },
-                    { value: 'PASAPORTE', label: 'Pasaporte' }
-                  ]
-                }) : student.tipo_documento_acudiente}
-              </Descriptions.Item>
-              <Descriptions.Item label="Teléfono">
-                {isEditing ? renderEditableField('telefono_acudiente') : student.telefono_acudiente}
-              </Descriptions.Item>
-              <Descriptions.Item label="Dirección">
-                {isEditing ? renderEditableField('direccion_acudiente') : student.direccion_acudiente}
-              </Descriptions.Item>
+              <Descriptions.Item label="Nombre">{isEditing ? renderEditableField('nombre_acudiente') : student.nombre_acudiente}</Descriptions.Item>
+              <Descriptions.Item label="Tipo de Documento">{isEditing ? renderEditableField('tipo_documento_acudiente', { type: 'select', selectOptions: [{ value: 'CC', label: 'Cédula de Ciudadanía' }, { value: 'CE', label: 'Cédula de Extranjería' }, { value: 'PASAPORTE', label: 'Pasaporte' }] }) : student.tipo_documento_acudiente}</Descriptions.Item>
+              <Descriptions.Item label="Teléfono">{isEditing ? renderEditableField('telefono_acudiente') : student.telefono_acudiente}</Descriptions.Item>
+              <Descriptions.Item label="Dirección">{isEditing ? renderEditableField('direccion_acudiente') : student.direccion_acudiente}</Descriptions.Item>
             </Descriptions>
           </Descriptions.Item>
         </Descriptions>
-
-        <div className="flex justify-end space-x-2 mt-4">
-          <Button
-            icon={<FaGraduationCap />}
-            onClick={handleGraduate}
-            disabled={student.fecha_graduacion || isEditing}
-          >
-            Graduar
-          </Button>
-          <Link to={`/inicio/students/facturas/${student.id}`}>
-            <Button icon={<FaFileInvoiceDollar />} disabled={isEditing}>
-              Ver Pagos
-            </Button>
-          </Link>
-          <Button
-            icon={<FaWhatsapp />}
-            onClick={handleWhatsAppClick}
-            disabled={isEditing}
-          >
-            WhatsApp
-          </Button>
-        </div>
       </Form>
     </Modal>
   );
