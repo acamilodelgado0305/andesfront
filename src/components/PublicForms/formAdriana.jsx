@@ -139,7 +139,7 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
           <div className="space-y-4">
             <Form.Item name="tipoDocumento" label="Tipo de Documento" rules={[{ required: true }]}>
               <Select className="h-10">
-                <Option value="CC">Cédula</Option>
+                <Option value="CC">Cédula de Cuidadania</Option>
                 <Option value="TI">Tarjeta de Identidad</Option>
                 <Option value="CE">Cédula Extranjería</Option>
                 <Option value="PA">Pasaporte</Option>
@@ -148,10 +148,14 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
 
             <Form.Item
               name="numeroDocumento"
-              label="Número de Documento"
+              label="Número de Documento (sin puntos ni decimales)"
               rules={[{ required: true }]}
             >
-              <Input prefix={<IdcardOutlined />} className="h-10" />
+              <Input 
+    prefix={<IdcardOutlined />} 
+    className="h-10" 
+    placeholder="Ejemplo: 1234567890"
+  />
             </Form.Item>
 
             <Form.Item
