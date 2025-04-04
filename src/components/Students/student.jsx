@@ -272,6 +272,7 @@ const Students = () => {
         loading={loading}
         onDelete={handleDelete}
         onEdit={handleEdit}
+        fetchStudents={fetchStudents}
         getCoordinatorStyle={getCoordinatorStyle}
       />
       <CreateStudentModal

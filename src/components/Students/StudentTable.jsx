@@ -12,6 +12,7 @@ const StudentTable = ({
   students = [],
   loading = false,
   getCoordinatorStyle,
+  fetchStudents
 }) => {
   const [searchText, setSearchText] = useState({});
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -294,9 +295,10 @@ const StudentTable = ({
       </style>
       <StudentDetailModal
         student={selectedStudent}
-        visible={isModalOpen} // Usamos visible como prop en lugar de open
-        onClose={closeModal} // Cambiamos onClose para cerrar el modal
-        getCoordinatorStyle={getCoordinatorStyle} // Pasamos esta prop que ya usas en Students
+        visible={isModalOpen}
+        onClose={closeModal}
+        getCoordinatorStyle={getCoordinatorStyle}
+        fetchStudents={fetchStudents} // Pasa fetchStudents aquí
       />
     </>
   );
