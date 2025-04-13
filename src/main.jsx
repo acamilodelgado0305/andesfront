@@ -21,6 +21,7 @@ import StudentRegistrationFormMauricio from "./components/PublicForms/formMauric
 import StudentRegistrationFormMarily from "./components/PublicForms/formMarily";
 import StudentRegistrationFormJesus from "./components/PublicForms/formJesus";
 import Certificados from "./components/Certificados/Certificados";
+import StudentInformacion from "./components/Students/StudentInformacion"; // Asegúrate de que esté importado
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="materias" element={<Materias />} />
             <Route path="certificados" element={<Certificados />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
+            <Route path="students/view/:id" element={<StudentInformacion />} /> {/* Nueva ruta */}
           </Route>
 
           {/* Ruta de error */}

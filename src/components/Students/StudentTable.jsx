@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Input, Button, Typography, message } from 'antd';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Importa useNavigate
 import { FaTrashAlt, FaWhatsapp, FaEdit } from 'react-icons/fa';
-import StudentDetailModal from './StudentDetailModal';
 
 const { Title } = Typography;
 
@@ -15,9 +14,8 @@ const StudentTable = ({
   fetchStudents
 }) => {
   const [searchText, setSearchText] = useState({});
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false); // Reemplazamos isDrawerOpen por isModalOpen
   const [filteredData, setFilteredData] = useState([]);
+  const navigate = useNavigate(); // Hook para navegación
 
   useEffect(() => {
     if (Array.isArray(students)) {
@@ -39,16 +37,6 @@ const StudentTable = ({
       ...prev,
       [dataIndex]: value.toLowerCase(),
     }));
-  };
-
-  const openModal = (student) => {
-    setSelectedStudent(student);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedStudent(null);
   };
 
   const columns = [
@@ -273,7 +261,7 @@ const StudentTable = ({
         bordered
         loading={loading}
         onRow={(record) => ({
-          onClick: () => openModal(record), // Cambiamos openDrawer por openModal
+          onClick: () => navigate(`/inicio/students/view/${record.id}`), // Redirige a la ruta con el ID
         })}
         rowClassName="clickable-row"
       />
@@ -293,13 +281,6 @@ const StudentTable = ({
           }
         `}
       </style>
-      <StudentDetailModal
-        student={selectedStudent}
-        visible={isModalOpen}
-        onClose={closeModal}
-        getCoordinatorStyle={getCoordinatorStyle}
-        fetchStudents={fetchStudents} // Pasa fetchStudents aquí
-      />
     </>
   );
 };
