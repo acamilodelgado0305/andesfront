@@ -137,7 +137,7 @@ function Bachillerato() {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+    <div className="flex justify-start items-start min-h-screen bg-gray-100">
       <Card className="w-full shadow-lg">
         <Title level={2}>Boletín - Validación de Bachillerato</Title>
         <div className="flex justify-between mb-4">
