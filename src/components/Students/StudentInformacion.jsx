@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { Tabs } from 'antd';
 import StudentDetails from './StudentDetails';
 import StudentInvoices from './StudentInvoices';
+import StudentGrades from './StudentGrades';
 
 const { TabPane } = Tabs;
 
@@ -21,10 +22,7 @@ function StudentInformation() {
           <StudentInvoices studentId={id} />
         </TabPane>
         <TabPane tab="Calificaciones" key="3">
-          <div>
-            <h2>Calificaciones del Estudiante</h2>
-            <p>Funcionalidad de calificaciones en desarrollo. Aquí se mostrarán las calificaciones del estudiante con ID: {id}</p>
-          </div>
+        <StudentGrades studentId={id} />
         </TabPane>
       </Tabs>
     </div>
