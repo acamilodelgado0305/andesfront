@@ -6,10 +6,18 @@ import axios from 'axios';
 
 const { Title, Text } = Typography;
 
+// Formateador para pesos colombianos
+const currencyFormatter = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
 function Certificados() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [certificados, setCertificados] = useState([]);
-  const [filteredCertificados, setFilteredCertificados] = useState([]); // Nuevo estado para certificados filtrados
+  const [filteredCertificados, setFilteredCertificados] = useState([]);
   const [loading, setLoading] = useState(false);
   const [userName, setUserName] = useState('');
   const [form] = Form.useForm();
@@ -19,12 +27,18 @@ function Certificados() {
     { label: 'Aseo Hospitalario', value: 'Aseo Hospitalario' },
   ];
 
+  const cuentaOptions = [
+    { label: 'Nequi', value: 'Nequi' },
+    { label: 'Daviplata', value: 'Daviplata' },
+    { label: 'Bancolombia', value: 'Bancolombia' },
+  ];
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const userId = localStorage.getItem('userId');
         if (!userId) {
-          console.log("No se encontró userId en localStorage");
+          console.log('No se encontró userId en localStorage');
           return;
         }
         const response = await axios.get(
@@ -32,8 +46,8 @@ function Certificados() {
         );
         setUserName(response.data.name || '');
       } catch (err) {
-        console.error("Error al obtener datos del usuario:", err);
-        message.error("Error al cargar datos del usuario");
+        console.error('Error al obtener datos del usuario:', err);
+        message.error('Error al cargar datos del usuario');
       }
     };
 
@@ -61,8 +75,7 @@ function Certificados() {
       }
       const data = await response.json();
       setCertificados(data);
-      // Filtrar certificados por vendedor (usuario actual)
-      const userCertificados = data.filter(cert => cert.vendedor === userName);
+      const userCertificados = data.filter((cert) => cert.vendedor === userName);
       setFilteredCertificados(userCertificados);
     } catch (error) {
       console.error('Error al cargar los certificados:', error);
@@ -85,7 +98,11 @@ function Certificados() {
   const handleSubmit = async (values) => {
     try {
       setLoading(true);
-      const dataToSubmit = { ...values, vendedor: userName || values.vendedor };
+      const dataToSubmit = {
+        ...values,
+        vendedor: userName || values.vendedor,
+        valor: parseFloat(values.valor), // Convertir valor a número
+      };
       const response = await fetch('https://backendcoalianza.vercel.app/api/v1/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,9 +163,8 @@ function Certificados() {
           )}
         </div>
 
-        {/* Resumen de certificados del usuario */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          {tipoOptions.map(tipo => (
+          {tipoOptions.map((tipo) => (
             <Card
               key={tipo.value}
               size="small"
@@ -157,7 +173,7 @@ function Certificados() {
               <div className="flex justify-between items-center">
                 <Text className="text-gray-700">{tipo.label}</Text>
                 <Tag color="blue">
-                  {filteredCertificados.filter(cert => cert.tipo?.includes(tipo.value)).length || 0}
+                  {filteredCertificados.filter((cert) => cert.tipo?.includes(tipo.value)).length || 0}
                 </Tag>
               </div>
             </Card>
@@ -173,7 +189,6 @@ function Certificados() {
           </Card>
         </div>
 
-        {/* Tabla de certificados */}
         <div className="bg-white rounded-lg overflow-hidden">
           {loading ? (
             <div className="flex justify-center items-center py-8">
@@ -230,26 +245,96 @@ function Certificados() {
               Complete todos los campos para registrar un nuevo certificado. Los campos marcados con (*) son obligatorios.
             </Text>
           </div>
-          <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: 'Por favor ingrese el nombre' }]}>
-            <Input placeholder="Ingrese el nombre" className="hover:border-blue-500 focus:border-blue-500" prefix={<span className="text-gray-400">👤</span>} />
+          <Form.Item
+            name="nombre"
+            label="Nombre"
+            rules={[{ required: true, message: 'Por favor ingrese el nombre' }]}
+          >
+            <Input
+              placeholder="Ingrese el nombre"
+              className="hover:border-blue-500 focus:border-blue-500"
+              prefix={<span className="text-gray-400">👤</span>}
+            />
           </Form.Item>
-          <Form.Item name="apellido" label="Apellido" rules={[{ required: true, message: 'Por favor ingrese el apellido' }]}>
-            <Input placeholder="Ingrese el apellido" className="hover:border-blue-500 focus:border-blue-500" />
+          <Form.Item
+            name="apellido"
+            label="Apellido"
+            rules={[{ required: true, message: 'Por favor ingrese el apellido' }]}
+          >
+            <Input
+              placeholder="Ingrese el apellido"
+              className="hover:border-blue-500 focus:border-blue-500"
+            />
           </Form.Item>
-          <Form.Item name="numeroDeDocumento" label="Número de Documento" rules={[{ required: true, message: 'Por favor ingrese el número de documento' }]}>
-            <Input placeholder="Ingrese el número de documento" className="hover:border-blue-500 focus:border-blue-500" prefix={<span className="text-gray-400">🆔</span>} />
+          <Form.Item
+            name="numeroDeDocumento"
+            label="Número de Documento"
+            rules={[{ required: true, message: 'Por favor ingrese el número de documento' }]}
+          >
+            <Input
+              placeholder="Ingrese el número de documento"
+              className="hover:border-blue-500 focus:border-blue-500"
+              prefix={<span className="text-gray-400">🆔</span>}
+            />
           </Form.Item>
           <Form.Item name="vendedor" label="Vendedor" hidden={true}>
             <Input disabled />
           </Form.Item>
           <Divider className="my-4" />
-          <Form.Item name="tipo" label="Tipo de Certificado" rules={[{ required: true, message: 'Por favor seleccione al menos un tipo de certificado' }]}>
+          <Form.Item
+            name="tipo"
+            label="Tipo de Certificado"
+            rules={[{ required: true, message: 'Por favor seleccione al menos un tipo de certificado' }]}
+          >
             <Select
               mode="multiple"
               placeholder="Seleccione el tipo de certificado"
               options={tipoOptions}
               className="w-full hover:border-blue-500 focus:border-blue-500"
-              tagRender={props => <Tag color="blue" closable={props.closable} onClose={props.onClose} style={{ marginRight: 3 }}>{props.label}</Tag>}
+              tagRender={(props) => (
+                <Tag
+                  color="blue"
+                  closable={props.closable}
+                  onClose={props.onClose}
+                  style={{ marginRight: 3 }}
+                >
+                  {props.label}
+                </Tag>
+              )}
+            />
+          </Form.Item>
+          <Form.Item
+            name="valor"
+            label="Valor"
+            rules={[
+              { required: true, message: 'Por favor ingrese el valor' },
+              {
+                validator: (_, value) =>
+                  value && parseFloat(value) >= 0
+                    ? Promise.resolve()
+                    : Promise.reject('El valor debe ser un número positivo'),
+              },
+            ]}
+          >
+            <Input
+              placeholder="Ingrese el valor"
+              type="number"
+              step="0.01"
+              className="hover:border-blue-500 focus:border-blue-500"
+              prefix={<span className="text-gray-400">$</span>}
+              formatter={(value) => (value ? currencyFormatter.format(value) : '')}
+              parser={(value) => value.replace(/[^\d.]/g, '')} // Remueve caracteres no numéricos
+            />
+          </Form.Item>
+          <Form.Item
+            name="cuenta"
+            label="Cuenta"
+            rules={[{ required: true, message: 'Por favor seleccione una cuenta' }]}
+          >
+            <Select
+              placeholder="Seleccione una cuenta"
+              options={cuentaOptions}
+              className="w-full hover:border-blue-500 focus:border-blue-500"
             />
           </Form.Item>
         </Form>
