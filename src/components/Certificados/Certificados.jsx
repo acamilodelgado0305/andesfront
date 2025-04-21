@@ -163,31 +163,7 @@ function Certificados() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          {tipoOptions.map((tipo) => (
-            <Card
-              key={tipo.value}
-              size="small"
-              className="bg-white shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="flex justify-between items-center">
-                <Text className="text-gray-700">{tipo.label}</Text>
-                <Tag color="blue">
-                  {filteredCertificados.filter((cert) => cert.tipo?.includes(tipo.value)).length || 0}
-                </Tag>
-              </div>
-            </Card>
-          ))}
-          <Card
-            size="small"
-            className="bg-white shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className="flex justify-between items-center">
-              <Text className="text-gray-700">Total Certificados</Text>
-              <Tag color="purple">{filteredCertificados.length}</Tag>
-            </div>
-          </Card>
-        </div>
+        
 
         <div className="bg-white rounded-lg overflow-hidden">
           {loading ? (

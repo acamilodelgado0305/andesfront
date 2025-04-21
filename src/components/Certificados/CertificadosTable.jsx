@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, DatePicker, Space, Spin, message, Button, Popconfirm, Tooltip, Tag } from 'antd';
-import { DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { Table, DatePicker, Space, Spin, message, Button, Popconfirm, Tooltip, Tag, Typography, Card } from 'antd';
+import { DeleteOutlined, ExclamationCircleOutlined, DollarOutlined, FileProtectOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import axios from 'axios';
 
@@ -12,11 +12,33 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
   maximumFractionDigits: 2,
 });
 
+const { Text, Title } = Typography;
+
 const CertificadosTable = ({ data, loading, onRefresh, userName }) => {
   const [filters, setFilters] = useState({
-    startDate: null,
-    endDate: null,
+    selectedMonth: null, // Almacena el mes seleccionado (formato moment)
   });
+
+  // Calcular certificados filtrados y total de ventas
+  const filteredData = data
+    .filter((cert) => {
+      const certDate = moment(cert.createdAt);
+      const selectedMonth = filters.selectedMonth;
+
+      // Filtrar por mes/año si hay un mes seleccionado
+      if (selectedMonth) {
+        return (
+          certDate.year() === selectedMonth.year() &&
+          certDate.month() === selectedMonth.month()
+        );
+      }
+      return true; // Si no hay filtro, mostrar todos
+    })
+    .sort((a, b) => moment(b.createdAt).unix() - moment(a.createdAt).unix()); // Ordenar por createdAt descendente
+
+  // Calcular el total de ventas y el número de certificados
+  const totalVentas = filteredData.reduce((sum, cert) => sum + (cert.valor || 0), 0);
+  const totalCertificados = filteredData.length;
 
   const handleDeleteCertificado = async (id) => {
     try {
@@ -29,25 +51,11 @@ const CertificadosTable = ({ data, loading, onRefresh, userName }) => {
     }
   };
 
-  const handleDateChange = (dates) => {
+  const handleMonthChange = (date) => {
     setFilters({
-      startDate: dates?.[0] || null,
-      endDate: dates?.[1] || null,
+      selectedMonth: date, // Almacenar el mes seleccionado (o null si se limpia)
     });
   };
-
-  const filteredData = data
-    .filter((cert) => {
-      const certDate = moment(cert.createdAt);
-      const startDate = filters.startDate ? moment(filters.startDate) : null;
-      const endDate = filters.endDate ? moment(filters.endDate) : null;
-
-      return (
-        (!startDate || certDate.isSameOrAfter(startDate, 'day')) &&
-        (!endDate || certDate.isSameOrBefore(endDate, 'day'))
-      );
-    })
-    .sort((a, b) => moment(b.createdAt).unix() - moment(a.createdAt).unix()); // Ordenar por createdAt descendente
 
   const columns = [
     {
@@ -115,7 +123,7 @@ const CertificadosTable = ({ data, loading, onRefresh, userName }) => {
       title: 'Fecha Creación',
       dataIndex: 'createdAt',
       render: (date) => moment(date).format('DD/MM/YYYY HH:mm'),
-      sorter: (a, b) => moment(b.createdAt).unix() - moment(a.createdAt).unix(), // Ordenar por createdAt descendente
+      sorter: (a, b) => moment(b.createdAt).unix() - moment(a.createdAt).unix(),
     },
     {
       title: 'Acciones',
@@ -148,16 +156,66 @@ const CertificadosTable = ({ data, loading, onRefresh, userName }) => {
 
   return (
     <div className="p-4">
-      <Space className="mb-4 flex items-center justify-between w-full">
-        <DatePicker.RangePicker
-          onChange={handleDateChange}
-          format="DD/MM/YYYY"
-          allowClear
-          placeholder={['Fecha inicio', 'Fecha fin']}
-        />
-        <div className="text-blue-600">
-          Mostrando certificados para: <strong>{userName}</strong>
-        </div>
+      <Space direction="vertical" size="middle" className="mb-4 w-full">
+        <Space className="flex items-center justify-between w-full">
+          <Space>
+            <DatePicker
+              picker="month"
+              onChange={handleMonthChange}
+              format="MMMM YYYY"
+              allowClear
+              placeholder="Seleccionar mes"
+            />
+            {filters.selectedMonth && (
+              <Text>
+                Mostrando certificados de{' '}
+                <strong>{filters.selectedMonth.format('MMMM YYYY')}</strong>
+              </Text>
+            )}
+          </Space>
+          <Text>
+            Mostrando certificados para: <strong>{userName}</strong>
+          </Text>
+        </Space>
+
+        {/* Contenedor destacado para el total de ventas y certificados */}
+        <Card
+          size="small"
+          className="shadow-sm"
+          style={{
+            backgroundColor: '#f6ffed',
+            borderColor: '#b7eb8f',
+          }}
+        >
+          <Space align="center" size="large">
+            <Space align="center">
+              <DollarOutlined style={{ fontSize: '24px', color: '#52c41a' }} />
+              <Title
+                level={4}
+                style={{
+                  margin: 0,
+                  color: '#52c41a',
+                  fontWeight: 'bold',
+                }}
+              >
+                Total Ventas: {currencyFormatter.format(totalVentas)}
+              </Title>
+            </Space>
+            <Space align="center">
+              <FileProtectOutlined style={{ fontSize: '24px', color: '#52c41a' }} />
+              <Title
+                level={4}
+                style={{
+                  margin: 0,
+                  color: '#52c41a',
+                  fontWeight: 'bold',
+                }}
+              >
+                Certificados: {totalCertificados}
+              </Title>
+            </Space>
+          </Space>
+        </Card>
       </Space>
 
       <Spin spinning={loading}>
