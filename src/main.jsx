@@ -24,6 +24,7 @@ import Certificados from "./components/Certificados/Certificados";
 import StudentInformacion from "./components/Students/StudentInformacion"; // Asegúrate de que esté importado
 import Calificaciones from "./components/Calificaciones/Calificaciones";
 import Bachillerato from "./components/Calificaciones/Bachillerato";
+import CursosTecnicos from "./components/Calificaciones/CursosTecnicos";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="materias" element={<Materias />} />
             <Route path="calificaciones" element={<Calificaciones />} />
             <Route path="calificaciones/bachillerato" element={<Bachillerato />} />
+            <Route path="calificaciones/cursos-tecnicos" element={<CursosTecnicos />} />
             <Route path="certificados" element={<Certificados />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
             <Route path="students/view/:id" element={<StudentInformacion />} /> {/* Nueva ruta */}

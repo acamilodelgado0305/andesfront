@@ -87,8 +87,8 @@ const Root = () => {
       { key: '/inicio/students', icon: <UserOutlined />, label: 'Estudiantes' },
       { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas' },
       { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias' },
-      { key: '/inicio/certificados', icon: <FileProtectOutlined />, label: 'Certificados' },
       { key: '/inicio/calificaciones', icon: <FileProtectOutlined />, label: 'Calificaciones' },
+      { key: '/inicio/certificados', icon: <FileProtectOutlined />, label: 'Certificados' },
       { key: '/inicio/admin', icon: <SettingOutlined />, label: 'Administración' },
     ]
   };

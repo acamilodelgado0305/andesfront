@@ -1,8 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, Typography } from 'antd';
+import { Button, Table, Typography, Layout } from 'antd';
+import { FileTextOutlined, BookOutlined } from '@ant-design/icons';
 
-const { Title, Paragraph } = Typography;
+const { Title, Text } = Typography;
+const { Content } = Layout;
 
 function Calificaciones() {
   const navigate = useNavigate();
@@ -15,35 +17,76 @@ function Calificaciones() {
     }
   };
 
+  const dataSource = [
+    {
+      key: '1',
+      programa: 'Validación de Bachillerato',
+      descripcion: 'Registro de calificaciones para el programa de validación de bachillerato.',
+      accion: 'bachillerato',
+    },
+    {
+      key: '2',
+      programa: 'Cursos Técnicos',
+      descripcion: 'Registro de calificaciones para los cursos técnicos ofrecidos.',
+      accion: 'cursos_tecnicos',
+    },
+  ];
+
+  const columns = [
+    {
+      title: 'Programa',
+      dataIndex: 'programa',
+      key: 'programa',
+      render: (text, record) => (
+        <span className="flex items-center">
+          {record.accion === 'bachillerato' ? <FileTextOutlined className="mr-2" /> : <BookOutlined className="mr-2" />}
+          <Text strong>{text}</Text>
+        </span>
+      ),
+    },
+    {
+      title: 'Descripción',
+      dataIndex: 'descripcion',
+      key: 'descripcion',
+      render: (text) => <Text>{text}</Text>,
+    },
+    {
+      title: 'Acción',
+      key: 'accion',
+      render: (_, record) => (
+        <Button
+          type="primary"
+          onClick={() => handleOptionSelect(record.accion)}
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          Registrar Calificaciones
+        </Button>
+      ),
+    },
+  ];
+
   return (
-    <div className="flex justify-center items-center min-h-screen ">
-      <Card
-        className="w-full max-w-md shadow-lg"
-        title={<Title level={2}>Registrar Calificaciones</Title>}
-      >
-        <Paragraph className="text-center mb-6">
-          Seleccione una opción:
-        </Paragraph>
-        <div className="flex flex-col gap-4">
-          <Button
-            type="primary"
-            size="large"
-            className="w-full"
-            onClick={() => handleOptionSelect('bachillerato')}
-          >
-            Validación de Bachillerato
-          </Button>
-          <Button
-            type="primary"
-            size="large"
-            className="w-full"
-            onClick={() => handleOptionSelect('cursos_tecnicos')}
-          >
-            Cursos Técnicos
-          </Button>
+    <Layout className="min-h-screen bg-gray-50">
+      <Content className="p-6">
+        <div className="max-w-4xl mx-auto">
+          <Title level={2} className="text-center mb-4 text-gray-800">
+            Registrar Calificaciones
+          </Title>
+          <Text className="block text-center mb-6 text-gray-600">
+            Seleccione el programa para registrar las calificaciones correspondientes.
+          </Text>
+          <Table
+            dataSource={dataSource}
+            columns={columns}
+            pagination={false}
+            bordered
+            className="shadow-md rounded-lg"
+            rowClassName="hover:bg-gray-100"
+            style={{ background: '#fff' }}
+          />
         </div>
-      </Card>
-    </div>
+      </Content>
+    </Layout>
   );
 }
 
