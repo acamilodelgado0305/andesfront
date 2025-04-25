@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { getPrograms } from "../../services/studentService";
 import { Form, Input, Select, DatePicker, Button, message } from "antd";
 import { UserOutlined, PhoneOutlined, IdcardOutlined } from "@ant-design/icons";
+import moment from "moment"; // Importamos moment para manejar fechas
 
 const { Option } = Select;
 
-const StudentRegistrationForm = ({ onStudentAdded }) => {
+const StudentRegistrationFormMauricio = ({ onStudentAdded }) => {
   const [form] = Form.useForm();
   const [programas, setProgramas] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -29,20 +30,20 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
     const apiUrl = "https://back.app.validaciondebachillerato.com.co/api/students";
 
     try {
-      if (!values.fechaNacimiento) {
-        throw new Error("La fecha de nacimiento es requerida");
+      // Validamos explícitamente la fecha de nacimiento
+      if (!values.fechaNacimiento || !moment.isMoment(values.fechaNacimiento) || !values.fechaNacimiento.isValid()) {
+        throw new Error("La fecha de nacimiento es inválida o no ha sido seleccionada");
       }
 
       const formattedValues = {
         ...values,
         fechaNacimiento: values.fechaNacimiento.format("YYYY-MM-DD"),
-        // Add default values here
         coordinador: "Mauricio Pulido",
         simat: "Inactivo",
-        pagoMatricula: false
+        pagoMatricula: false,
       };
 
-      console.log('Sending data:', formattedValues);
+      console.log("Sending data:", formattedValues);
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -52,7 +53,7 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
         body: JSON.stringify(formattedValues),
       });
 
-      console.log('Response status:', response.status);
+      console.log("Response status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
@@ -60,7 +61,7 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
       }
 
       const data = await response.json();
-      console.log('Success response:', data);
+      console.log("Success response:", data);
 
       message.success("Estudiante registrado exitosamente");
       onStudentAdded?.();
@@ -69,10 +70,10 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
       console.error("Error detallado al registrar el estudiante:", {
         message: error.message,
         stack: error.stack,
-        values: values
+        values,
       });
 
-      message.error(`Error al registrar el estudiante: ${error.message || 'Por favor intente nuevamente'}`);
+      message.error(`Error al registrar el estudiante: ${error.message || "Por favor intente nuevamente"}`);
     } finally {
       setLoading(false);
     }
@@ -80,7 +81,17 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <div className="bg-purple-100 rounded-t-lg p-6 border-b-8 border-purple-500">
+      {/* Logo container */}
+      <div className="flex justify-center mb-8">
+        <img
+          src="../../../images/frame4.png"
+          alt="Logo de la institución"
+          className="h-20 object-contain"
+        />
+      </div>
+
+      {/* Header azul */}
+      <div className="bg-blue-100 rounded-t-lg p-6 border-b-8 border-blue-800">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Registro de Estudiante</h1>
         <p className="text-gray-600">Por favor complete todos los campos requeridos para registrar un nuevo estudiante.</p>
       </div>
@@ -97,18 +108,29 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             Información Personal
           </h2>
           <div className="space-y-4">
-            <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
+            <Form.Item
+              name="nombre"
+              label="Nombre"
+              rules={[{ required: true, message: "El nombre es requerido" }]}
+            >
               <Input prefix={<UserOutlined />} className="h-10" />
             </Form.Item>
 
-            <Form.Item name="apellido" label="Apellido" rules={[{ required: true }]}>
+            <Form.Item
+              name="apellido"
+              label="Apellido"
+              rules={[{ required: true, message: "El apellido es requerido" }]}
+            >
               <Input className="h-10" />
             </Form.Item>
 
             <Form.Item
               name="email"
               label="Correo Electrónico"
-              rules={[{ required: true }, { type: 'email' }]}
+              rules={[
+                { required: true, message: "El correo es requerido" },
+                { type: "email", message: "Por favor ingrese un correo válido" },
+              ]}
             >
               <Input className="h-10" />
             </Form.Item>
@@ -116,16 +138,29 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             <Form.Item
               name="fechaNacimiento"
               label="Fecha de Nacimiento"
-              rules={[{ required: true }]}
+              rules={[{ required: true, message: "La fecha de nacimiento es requerida" }]}
             >
-              <DatePicker className="w-full h-10" />
+              <DatePicker
+                className="w-full h-10"
+                format="DD/MM/YYYY"
+                placeholder="Seleccione una fecha"
+                disabledDate={(current) => current && current > moment().endOf("day")} // Evita fechas futuras
+              />
             </Form.Item>
 
-            <Form.Item name="eps" label="EPS" rules={[{ required: true }]}>
+            <Form.Item
+              name="eps"
+              label="EPS"
+              rules={[{ required: true, message: "La EPS es requerida" }]}
+            >
               <Input className="h-10" />
             </Form.Item>
 
-            <Form.Item name="rh" label="RH" rules={[{ required: true }]}>
+            <Form.Item
+              name="rh"
+              label="RH"
+              rules={[{ required: true, message: "El RH es requerido" }]}
+            >
               <Input className="h-10" />
             </Form.Item>
           </div>
@@ -137,9 +172,13 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             Documentación
           </h2>
           <div className="space-y-4">
-            <Form.Item name="tipoDocumento" label="Tipo de Documento" rules={[{ required: true }]}>
+            <Form.Item
+              name="tipoDocumento"
+              label="Tipo de Documento"
+              rules={[{ required: true, message: "El tipo de documento es requerido" }]}
+            >
               <Select className="h-10">
-                <Option value="CC">Cédula de Cuidadania</Option>
+                <Option value="CC">Cédula</Option>
                 <Option value="TI">Tarjeta de Identidad</Option>
                 <Option value="CE">Cédula Extranjería</Option>
                 <Option value="PA">Pasaporte</Option>
@@ -148,20 +187,16 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
 
             <Form.Item
               name="numeroDocumento"
-              label="Número de Documento (sin puntos ni decimales)"
-              rules={[{ required: true }]}
+              label="Número de Documento"
+              rules={[{ required: true, message: "El número de documento es requerido" }]}
             >
-              <Input 
-    prefix={<IdcardOutlined />} 
-    className="h-10" 
-    placeholder="Ejemplo: 1234567890"
-  />
+              <Input prefix={<IdcardOutlined />} className="h-10" />
             </Form.Item>
 
             <Form.Item
               name="lugarExpedicion"
               label="Lugar de Expedición"
-              rules={[{ required: true }]}
+              rules={[{ required: true, message: "El lugar de expedición es requerido" }]}
             >
               <Input className="h-10" />
             </Form.Item>
@@ -177,7 +212,7 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             <Form.Item
               name="telefonoLlamadas"
               label="Teléfono para Llamadas"
-              rules={[{ required: true }]}
+              rules={[{ required: true, message: "El teléfono para llamadas es requerido" }]}
             >
               <Input prefix={<PhoneOutlined />} className="h-10" />
             </Form.Item>
@@ -185,7 +220,7 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             <Form.Item
               name="telefonoWhatsapp"
               label="Teléfono para WhatsApp"
-              rules={[{ required: true }]}
+              rules={[{ required: true, message: "El teléfono para WhatsApp es requerido" }]}
             >
               <Input prefix={<PhoneOutlined />} className="h-10" />
             </Form.Item>
@@ -198,42 +233,36 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             Información Académica
           </h2>
           <div className="space-y-4">
-            <Form.Item name="programa_nombre" label="Programa" rules={[{ required: true }]}>
-              <Select style={{ width: '100%' }}>
-                {programas.map(program => (
-                  <Select.Option key={program.id} value={program.nombre}>
-                    {program.nombre}
-                  </Select.Option>
+            <Form.Item
+              name="programa_nombre"
+              label="Programa"
+              rules={[{ required: true, message: "El programa es requerido" }]}
+            >
+              <Select className="h-10">
+                {programas.map((programa) => (
+                  <Option key={programa.id} value={programa.nombre}>
+                    {programa.nombre}
+                  </Option>
                 ))}
               </Select>
             </Form.Item>
 
             <Form.Item
-              name="ultimo_curso_visto"
+              name="ultimoCursoAprobado"
               label="Último Curso Aprobado"
-              rules={[{ required: true, message: 'Por favor seleccione el último curso aprobado!' }]}
+              rules={[{ required: true, message: "El último curso aprobado es requerido" }]}
             >
-              <Select
-                placeholder="Seleccione un curso"
-                className="h-10"
-                style={{ width: '100%' }}
-              >
-                {Array.from({ length: 11 }, (_, index) => {
-                  const curso = (index + 1).toString(); // Convertimos el número a string
-                  return (
-                    <Option key={curso} value={curso}>
-                      {curso}°
-                    </Option>
-                  );
-                })}
-              </Select>
+              <Input className="h-10" />
             </Form.Item>
 
-
-            <Form.Item name="modalidad_estudio" label="Modalidad de estudio" rules={[{ required: true }]}>
-              <Select>
-                <Option value="Clases en Linea">Clases en Linea</Option>
-                <Option value="Modulos por WhastApp">Modulos por WhastApp</Option>
+            <Form.Item
+              name="modalidad_estudio"
+              label="Modalidad de estudio"
+              rules={[{ required: true, message: "La modalidad de estudio es requerida" }]}
+            >
+              <Select className="h-10">
+                <Option value="Clases en Linea">Clases en Línea</Option>
+                <Option value="Modulos por WhastApp">Módulos por WhatsApp</Option>
               </Select>
             </Form.Item>
           </div>
@@ -264,7 +293,7 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             type="primary"
             htmlType="submit"
             loading={loading}
-            className="w-full h-12 text-lg bg-purple-600 hover:bg-purple-700"
+            className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700"
           >
             Registrar Estudiante
           </Button>
@@ -274,4 +303,4 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
   );
 };
 
-export default StudentRegistrationForm;
+export default StudentRegistrationFormMauricio;
