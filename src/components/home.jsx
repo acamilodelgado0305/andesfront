@@ -38,6 +38,10 @@ const Home = () => {
       { key: '/inicio/certificados', icon: <FileProtectOutlined className="text-purple-500" />, label: 'Certificados', description: 'Gestiona los certificados emitidos' },
       { key: '/inicio/admin', icon: <SettingOutlined className="text-purple-500" />, label: 'Administración', description: 'Configura el sistema' },
     ],
+    docente: [
+      { key: '/inicio/dashboard', icon: <BarChartOutlined className="text-purple-500" />, label: 'Tu trabajo', description: 'Revisa tus estadísticas y progreso' },
+      { key: '/inicio/calificaciones', icon: <BookOutlined className="text-purple-500" />, label: 'Calificaciones', description: 'Registra tus calificaciones' },
+    ],
   };
 
   // Determinar el saludo según la hora
