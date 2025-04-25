@@ -1,177 +1,221 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { Outlet, Link, useLocation } from "react-router-dom";
-import { Layout, Menu, Avatar, Button, message } from 'antd';
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Layout, Menu, Button, Avatar, message, Typography } from 'antd';
 import {
-  BarChartOutlined,
-  UserOutlined,
+  DashboardOutlined,
+  TeamOutlined,
+  ReadOutlined,
   BookOutlined,
+  FileTextOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   LogoutOutlined,
   SettingOutlined,
-  FileProtectOutlined
+  UserOutlined,
 } from '@ant-design/icons';
-import loginimage from "../../images/sixNyx.jpg";
-import { AuthContext } from "../AuthContext";
+import { AuthContext } from '../AuthContext';
 import axios from 'axios';
 
 const { Header, Sider, Content } = Layout;
+const { Text } = Typography;
 
-const Root = () => {
-  const [collapsed, setCollapsed] = useState(false);
+// Configuración de menús por rol y aplicación
+const MENU_CONFIG = {
+  feva: [
+    { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
+    { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
+    {
+      key: '/academic-management',
+      icon: <ReadOutlined />,
+      label: 'Gestión Académica',
+      children: [
+        { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas Académicos', path: '/inicio/programas' },
+        { key: '/inicio/materias', icon: <BookOutlined />, label: 'Asignaturas', path: '/inicio/materias' },
+      ],
+    },
+    { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
+  ],
+  certificaciones: [
+    { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
+    { key: '/inicio/certificados', icon: <FileTextOutlined />, label: 'Certificados', path: '/inicio/certificados' },
+  ],
+  all: [
+    { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
+    { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
+    { key: '/inicio/certificados', icon: <FileTextOutlined />, label: 'Certificados', path: '/inicio/certificados' },
+    {
+      key: '/academic-management',
+      icon: <ReadOutlined />,
+      label: 'Gestión Académica',
+      children: [
+        { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas Académicos', path: '/inicio/programas' },
+        { key: '/inicio/materias', icon: <BookOutlined />, label: 'Asignaturas', path: '/inicio/materias' },
+      ],
+    },
+    { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
+    
+    { key: '/inicio/admin', icon: <SettingOutlined />, label: 'Administración', path: '/inicio/admin' },
+  ],
+  docente: [
+    { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
+    { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
+  ],
+};
+
+const RootLayout = () => {
+  const [isSiderCollapsed, setIsSiderCollapsed] = useState(false);
+  const [userProfile, setUserProfile] = useState({ name: '', role: '', app: 'feva' });
+  const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
   const { logout } = useContext(AuthContext);
-  const [userApp, setUserApp] = useState('');
-  const [userRole, setUserRole] = useState(''); // Nuevo estado para el rol
-  const [coordinatorName, setCoordinatorName] = useState('');
-  const [loading, setLoading] = useState(true);
 
+  // Fetch user data
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchUserProfile = async () => {
       try {
-        setLoading(true);
+        setIsLoading(true);
         const userId = localStorage.getItem('userId');
-        if (!userId) {
-          setLoading(false);
-          return;
-        }
+        if (!userId) return;
 
         const response = await axios.get(
           `https://back.app.validaciondebachillerato.com.co/auth/users/${userId}`
         );
 
         if (response.data) {
-          setUserApp(response.data.app || 'feva');
-          setUserRole(response.data.role || ''); // Almacenar el rol
-          setCoordinatorName(response.data.name || '');
-        } else {
-          setUserApp('feva');
+          setUserProfile({
+            name: response.data.name || 'Usuario',
+            role: response.data.role || '',
+            app: response.data.app || 'feva',
+          });
         }
-      } catch (err) {
-        console.error("Error al cargar datos del usuario:", err);
-        message.error("Error al cargar datos del usuario");
-        setUserApp('feva');
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        message.error('No se pudieron cargar los datos del usuario');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
-    fetchUserData();
+    fetchUserProfile();
   }, []);
 
-  // Configuración de menús según el tipo de aplicación y rol
-  const menuConfig = {
-    feva: [
-      { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Tu trabajo' },
-      { key: '/inicio/students', icon: <UserOutlined />, label: 'Estudiantes' },
-      { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas' },
-      { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias' },
-      { key: '/inicio/calificaciones', icon: <FileProtectOutlined />, label: 'Calificaciones' },
-    ],
-    certificaciones: [
-      { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Tu trabajo' },
-      { key: '/inicio/certificados', icon: <FileProtectOutlined />, label: 'Certificados' }
-    ],
-    all: [
-      { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Tu trabajo' },
-      { key: '/inicio/students', icon: <UserOutlined />, label: 'Estudiantes' },
-      { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas' },
-      { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias' },
-      { key: '/inicio/calificaciones', icon: <FileProtectOutlined />, label: 'Calificaciones' },
-      { key: '/inicio/certificados', icon: <FileProtectOutlined />, label: 'Certificados' },
-      { key: '/inicio/admin', icon: <SettingOutlined />, label: 'Administración' },
-    ],
-    docente: [
-      { key: '/inicio/dashboard', icon: <BarChartOutlined />, label: 'Tu trabajo' },
-      { key: '/inicio/calificaciones', icon: <FileProtectOutlined />, label: 'Calificaciones' },
-    ]
-  };
-
-  // Determinar qué menú mostrar según el rol y userApp
+  // Determinar los ítems del menú según el rol y la aplicación
   const getMenuItems = () => {
     // Si el usuario es docente, mostrar solo el menú de docente
-    if (userRole === 'docente') {
-      return menuConfig.docente;
+    if (userProfile.role === 'docente') {
+      return MENU_CONFIG.docente;
     }
 
-    // Si no hay userApp, mostrar menú por defecto
-    if (!userApp || userApp === '') {
-      return menuConfig.feva;
+    // Si no hay userApp o es vacío, mostrar menú por defecto
+    if (!userProfile.app || userProfile.app === '') {
+      return MENU_CONFIG.feva;
     }
 
-    // Si el tipo de app existe en menuConfig, usar ese menú
-    if (menuConfig[userApp]) {
-      return menuConfig[userApp];
+    // Si el tipo de app existe en MENU_CONFIG, usar ese menú
+    if (MENU_CONFIG[userProfile.app]) {
+      return MENU_CONFIG[userProfile.app];
     }
 
     // Si no hay coincidencia, usar menú por defecto
-    return menuConfig.feva;
+    return MENU_CONFIG.feva;
   };
 
-  const menuItems = getMenuItems();
+  // Toggle del sidebar
+  const toggleSider = () => setIsSiderCollapsed((prev) => !prev);
 
-  const toggleSidebar = () => setCollapsed(prev => !prev);
+  // Generar ítems del menú para Ant Design
+  const menuItems = getMenuItems().map((item) => ({
+    key: item.key,
+    icon: item.icon,
+    label: item.path ? <Link to={item.path}>{item.label}</Link> : item.label,
+    children: item.children?.map((child) => ({
+      key: child.key,
+      icon: child.icon,
+      label: <Link to={child.path}>{child.label}</Link>,
+    })),
+  }));
 
   return (
-    <Layout 
-    className='bg-gray-100'>
+    <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
       <Sider
-      
-        trigger={null}
+        width={260}
         collapsible
-        collapsed={collapsed}
+        collapsed={isSiderCollapsed}
+        trigger={null}
         breakpoint="lg"
-        collapsedWidth="120"
-    
+        collapsedWidth={80}
+        style={{ background: '#fff', boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)' }}
       >
-        <div className=" bg-white p-5 flex items-center justify-start h-16">
-        
-          {!collapsed && <h2 className="text-xl font-semibold mb-2 text-start text-blue-700">
-            Classuite
-          </h2>}
+        <div className="p-4 flex items-center justify-between h-16 border-b">
+          {!isSiderCollapsed && (
+            <Text strong style={{ fontSize: 20, color: '#1a73e8' }}>
+              Classuite
+            </Text>
+          )}
+          {isSiderCollapsed && (
+            <Avatar size={32} icon={<UserOutlined />} style={{ backgroundColor: '#1a73e8' }} />
+          )}
         </div>
 
-        {loading ? (
-          <div className="text-center text-white p-4">Cargando...</div>
+        {isLoading ? (
+          <div className="text-center p-4">
+            <Text>Cargando...</Text>
+          </div>
         ) : (
           <Menu
             theme="light"
             mode="inline"
             selectedKeys={[location.pathname]}
-            items={menuItems.map(item => ({
-              key: item.key,
-              icon: item.icon,
-              label: <Link to={item.key}>{item.label}</Link>,
-            }))}
-            className='h-full  '
+            items={menuItems}
+            style={{ borderRight: 'none' }}
           />
         )}
       </Sider>
 
       <Layout>
-        <Header className="bg-white border-b border-gray-300 p-0 flex justify-between items-center">
+        <Header
+          style={{
+            background: '#fff',
+            padding: '0 16px',
+            borderBottom: '1px solid #e8e8e8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <Button
             type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={toggleSidebar}
-            className="text-blue-700 text-xl w-16 h-16"
+            icon={isSiderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={toggleSider}
+            style={{ fontSize: 18, width: 64, height: 64, color: '#1a73e8' }}
           />
 
-          <div className="flex items-center mr-4 space-x-4">
-            
-            <span className="text-blue-700 font-semibold">{coordinatorName || 'Usuario'}</span>
+          <div className="flex items-center space-x-4">
+            <Avatar size={32} icon={<UserOutlined />} style={{ backgroundColor: '#1a73e8' }} />
+            <Text strong style={{ color: '#1a73e8' }}>
+              {userProfile.name}
+            </Text>
             <Button
               type="link"
-              icon={<LogoutOutlined className="text-red-500" />}
+              icon={<LogoutOutlined style={{ color: '#ff4d4f' }} />}
               onClick={logout}
-              className="text-red-500"
+              style={{ color: '#ff4d4f' }}
             >
-              Cerrar sesión
+              Cerrar Sesión
             </Button>
           </div>
         </Header>
 
-        <Content className="m-2 p-4 bg-white rounded-lg overflow-y-auto">
+        <Content
+          style={{
+            margin: '16px',
+            padding: '24px',
+            background: '#fff',
+            borderRadius: 8,
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+            overflow: 'auto',
+          }}
+        >
           <Outlet />
         </Content>
       </Layout>
@@ -179,4 +223,4 @@ const Root = () => {
   );
 };
 
-export default Root;
+export default RootLayout;
