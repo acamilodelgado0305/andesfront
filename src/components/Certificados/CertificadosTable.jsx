@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Table, DatePicker, Space, Spin, message, Button, Popconfirm, Tooltip, Tag, Typography, Card } from 'antd';
-import { DeleteOutlined, ExclamationCircleOutlined, DollarOutlined, FileProtectOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Table, DatePicker, Space, Spin, message, Button, Popconfirm, Tooltip, Tag, Typography, Card, Select } from 'antd';
+import { DeleteOutlined, ExclamationCircleOutlined, DollarOutlined, FileProtectOutlined, DownloadOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import axios from 'axios';
+import jsPDF from 'jspdf';
 
 // Formateador para pesos colombianos
 const currencyFormatter = new Intl.NumberFormat('es-CO', {
@@ -13,32 +14,91 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 });
 
 const { Text, Title } = Typography;
+const { Option } = Select;
 
 const CertificadosTable = ({ data, loading, onRefresh, userName }) => {
   const [filters, setFilters] = useState({
-    selectedMonth: null, // Almacena el mes seleccionado (formato moment)
+    selectedMonth: moment(), // Mes actual por defecto
+    selectedAccount: null, // Cuenta seleccionada (null para todas)
   });
 
-  // Calcular certificados filtrados y total de ventas
-  const filteredData = data
-    .filter((cert) => {
-      const certDate = moment(cert.createdAt);
-      const selectedMonth = filters.selectedMonth;
+  // Memoizar filteredData para optimizar el filtrado
+  const filteredData = useMemo(() => {
+    console.log('Filtrando datos para mes:', filters.selectedMonth.format('YYYY-MM'));
+    console.log('Cuenta seleccionada:', filters.selectedAccount);
 
-      // Filtrar por mes/año si hay un mes seleccionado
-      if (selectedMonth) {
-        return (
-          certDate.year() === selectedMonth.year() &&
-          certDate.month() === selectedMonth.month()
-        );
-      }
-      return true; // Si no hay filtro, mostrar todos
-    })
-    .sort((a, b) => moment(b.createdAt).unix() - moment(a.createdAt).unix()); // Ordenar por createdAt descendente
+    const result = data
+      .filter((cert) => {
+        // Validar que createdAt sea una fecha válida
+        if (!cert.createdAt || !moment(cert.createdAt).isValid()) {
+          console.warn('Fecha inválida en certificado:', cert);
+          return false;
+        }
+
+        const certDate = moment(cert.createdAt);
+        const { selectedMonth, selectedAccount } = filters;
+
+        // Filtrar por mes/año
+        const monthMatch = selectedMonth
+          ? certDate.year() === selectedMonth.year() && certDate.month() === selectedMonth.month()
+          : true;
+
+        // Filtrar por cuenta
+        const accountMatch = selectedAccount ? cert.cuenta === selectedAccount : true;
+
+        return monthMatch && accountMatch;
+      })
+      .sort((a, b) => moment(b.createdAt).unix() - moment(a.createdAt).unix());
+
+    console.log('Certificados filtrados:', result.length);
+    return result;
+  }, [data, filters]);
 
   // Calcular el total de ventas y el número de certificados
   const totalVentas = filteredData.reduce((sum, cert) => sum + (cert.valor || 0), 0);
   const totalCertificados = filteredData.length;
+
+  // Función para descargar el PDF
+  const handleDownloadPDF = () => {
+    try {
+      console.log('Iniciando descarga de PDF...');
+      console.log('Datos filtrados:', filteredData);
+
+      if (filteredData.length === 0) {
+        message.warning('No hay certificados para descargar en el mes seleccionado.');
+        return;
+      }
+
+      const doc = new jsPDF();
+      console.log('Documento PDF creado');
+
+      // Título
+      doc.setFontSize(16);
+      doc.text('Certificados Vendidos', 14, 20);
+      doc.setFontSize(12);
+      doc.text(`Mes: ${filters.selectedMonth.format('MMMM YYYY')}`, 14, 30);
+      doc.text(`Vendedor: ${userName || 'No especificado'}`, 14, 40);
+      if (filters.selectedAccount) {
+        doc.text(`Cuenta: ${filters.selectedAccount}`, 14, 50);
+      }
+
+      // Listar datos como texto
+      let y = filters.selectedAccount ? 60 : 50;
+      filteredData.forEach((cert, index) => {
+        const nombreCompleto = `${cert.nombre?.trim() || ''} ${cert.apellido?.trim() || ''}`.trim() || 'Sin nombre';
+        const numeroDeDocumento = cert.numeroDeDocumento || 'No especificado';
+        doc.text(`${index + 1}. ${nombreCompleto} - ${numeroDeDocumento}`, 14, y);
+        y += 10;
+      });
+
+      console.log('Texto generado, intentando guardar PDF...');
+      doc.save(`Certificados_${filters.selectedMonth.format('YYYY-MM')}${filters.selectedAccount ? `_${filters.selectedAccount}` : ''}.pdf`);
+      message.success('PDF descargado correctamente');
+    } catch (error) {
+      console.error('Error al generar el PDF:', error);
+      message.error('Error al generar el PDF. Por favor, intenta de nuevo.');
+    }
+  };
 
   const handleDeleteCertificado = async (id) => {
     try {
@@ -52,32 +112,42 @@ const CertificadosTable = ({ data, loading, onRefresh, userName }) => {
   };
 
   const handleMonthChange = (date) => {
-    setFilters({
-      selectedMonth: date, // Almacenar el mes seleccionado (o null si se limpia)
-    });
+    console.log('Mes seleccionado:', date ? date.format('YYYY-MM') : moment().format('YYYY-MM'));
+    setFilters((prev) => ({
+      ...prev,
+      selectedMonth: date || moment(),
+    }));
+  };
+
+  const handleAccountChange = (value) => {
+    console.log('Cuenta seleccionada:', value || 'Ninguna');
+    setFilters((prev) => ({
+      ...prev,
+      selectedAccount: value || null,
+    }));
   };
 
   const columns = [
     {
       title: 'Nombre Completo',
       dataIndex: 'nombre',
-      render: (text, record) => <span>{`${record.nombre.trim()} ${record.apellido.trim()}`}</span>,
-      sorter: (a, b) => a.nombre.localeCompare(b.nombre),
+      render: (text, record) => <span>{`${record.nombre?.trim() || ''} ${record.apellido?.trim() || ''}`}</span>,
+      sorter: (a, b) => (a.nombre || '').localeCompare(b.nombre || ''),
     },
     {
       title: 'Documento',
       dataIndex: 'numeroDeDocumento',
-      sorter: (a, b) => a.numeroDeDocumento.localeCompare(b.numeroDeDocumento),
+      sorter: (a, b) => (a.numeroDeDocumento || '').localeCompare(b.numeroDeDocumento || ''),
     },
     {
       title: 'Tipo de Certificado',
       dataIndex: 'tipo',
-      render: (tipo) => (Array.isArray(tipo) ? tipo.join(', ') : tipo),
+      render: (tipo) => (Array.isArray(tipo) ? tipo.join(', ') : tipo || 'No especificado'),
     },
     {
       title: 'Vendedor',
       dataIndex: 'vendedor',
-      sorter: (a, b) => a.vendedor.localeCompare(b.vendedor),
+      sorter: (a, b) => (a.vendedor || '').localeCompare(b.vendedor || ''),
     },
     {
       title: 'Valor',
@@ -159,63 +229,107 @@ const CertificadosTable = ({ data, loading, onRefresh, userName }) => {
       <Space direction="vertical" size="middle" className="mb-4 w-full">
         <Space className="flex items-center justify-between w-full">
           <Space>
+           
+            <Select
+              style={{ width: 150 }}
+              placeholder="Seleccionar cuenta"
+              allowClear
+              onChange={handleAccountChange}
+              value={filters.selectedAccount}
+            >
+              <Option value="Nequi">Nequi</Option>
+              <Option value="Daviplata">Daviplata</Option>
+              <Option value="Bancolombia">Bancolombia</Option>
+            </Select>
+
+
             <DatePicker
               picker="month"
               onChange={handleMonthChange}
               format="MMMM YYYY"
               allowClear
               placeholder="Seleccionar mes"
+              value={filters.selectedMonth}
             />
             {filters.selectedMonth && (
               <Text>
                 Mostrando certificados de{' '}
                 <strong>{filters.selectedMonth.format('MMMM YYYY')}</strong>
+                {filters.selectedAccount && (
+                  <span> para <strong>{filters.selectedAccount}</strong></span>
+                )}
               </Text>
             )}
+            <Button
+              type="primary"
+              icon={<DownloadOutlined />}
+              onClick={handleDownloadPDF}
+            >
+              Descargar PDF
+            </Button>
           </Space>
           <Text>
             Mostrando certificados para: <strong>{userName}</strong>
           </Text>
         </Space>
 
-        {/* Contenedor destacado para el total de ventas y certificados */}
-        <Card
-          size="small"
-          className="shadow-sm"
-          style={{
-            backgroundColor: '#f6ffed',
-            borderColor: '#b7eb8f',
-          }}
-        >
-          <Space align="center" size="large">
-            <Space align="center">
-              <DollarOutlined style={{ fontSize: '24px', color: '#52c41a' }} />
-              <Title
-                level={4}
-                style={{
-                  margin: 0,
-                  color: '#52c41a',
-                  fontWeight: 'bold',
-                }}
-              >
-                Total Ventas: {currencyFormatter.format(totalVentas)}
-              </Title>
+        {/* Cards de balance */}
+        <Space size="middle" style={{ width: '100%', justifyContent: 'center' }}>
+          <Card
+            style={{
+              width: 300,
+              borderRadius: 8,
+              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #d9f7be',
+              backgroundColor: '#f6ffed',
+            }}
+            bodyStyle={{ padding: 16 }}
+          >
+            <Space align="center" size="middle">
+              <DollarOutlined style={{ fontSize: '32px', color: '#52c41a' }} />
+              <div>
+                <Text style={{ fontSize: 14, color: '#595959' }}>Total Ventas</Text>
+                <Title
+                  level={4}
+                  style={{
+                    margin: 0,
+                    color: '#52c41a',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {currencyFormatter.format(totalVentas)}
+                </Title>
+              </div>
             </Space>
-            <Space align="center">
-              <FileProtectOutlined style={{ fontSize: '24px', color: '#52c41a' }} />
-              <Title
-                level={4}
-                style={{
-                  margin: 0,
-                  color: '#52c41a',
-                  fontWeight: 'bold',
-                }}
-              >
-                Certificados: {totalCertificados}
-              </Title>
+          </Card>
+          <Card
+            style={{
+              width: 300,
+              borderRadius: 8,
+              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #d9f7be',
+              backgroundColor: '#f6ffed',
+            }}
+            bodyStyle={{ padding: 16 }}
+          >
+            <Space align="center" size="middle">
+              <FileProtectOutlined style={{ fontSize: '32px', color: '#52c41a' }} />
+              <div>
+                <Text style={{ fontSize: 14, color: '#595959' }}>Certificados Vendidos</Text>
+                <Title
+                  level={4}
+                  style={{
+                    margin: 0,
+                    color: '#52c41a',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {totalCertificados}
+                </Title>
+              </div>
             </Space>
-          </Space>
-        </Card>
+          </Card>
+        </Space>
       </Space>
 
       <Spin spinning={loading}>
