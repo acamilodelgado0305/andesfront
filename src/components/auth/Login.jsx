@@ -47,26 +47,18 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+    <div className="min-h-screen grid ">
       {/* Columna de imagen con overlay */}
-      <div className="hidden lg:block relative">
-        <img
-          src={loginimage}
-          alt="Login"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-500 opacity-80"></div>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <h1 className="text-white text-4xl font-bold drop-shadow-lg">
-            Bienvenido a SixNyx
-          </h1>
-        </div>
-      </div>
+    
 
       {/* Columna de formulario */}
-      <div className="flex items-center justify-center px-4">
-        <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-xl">
-          <h2 className="text-3xl font-bold mb-6 text-center text-purple-800">
+      <div className="flex items-center justify-center p">
+        <div className="w-full max-w-md p-4 bg-white rounded-lg shadow-xl">
+        <h2 className="text-xl font-semibold mb-2 text-start text-gray-300">
+            Classuite
+          </h2>
+
+          <h2 className="text-3xl font-bold mb-6 text-start text-purple-800">
             Iniciar Sesión
           </h2>
           
