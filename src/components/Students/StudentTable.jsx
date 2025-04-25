@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Input, Button, Typography, message, Space, Spin, Card, Select, Tag, Popconfirm } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
-import { DeleteOutlined, WhatsAppOutlined, EditOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { DeleteOutlined, WhatsAppOutlined, EditOutlined, ExclamationCircleOutlined, FilePdfOutlined } from '@ant-design/icons';
 import moment from 'moment';
+import axios from 'axios';
+import { getStudentById } from '../../services/studentService';
+import { generateGradeReportPDF } from '../Utilidades/generateGradeReportPDF.js';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -12,17 +15,16 @@ const StudentTable = ({
   onEdit,
   students = [],
   loading = false,
-  getCoordinatorStyle, // Asumimos que esta función define estilos para coordinadores
+  getCoordinatorStyle,
   fetchStudents,
 }) => {
   const [filters, setFilters] = useState({
     searchText: {},
-    selectedStatus: null, // Filtro por estado (activo/inactivo)
-    selectedCoordinator: null, // Filtro por coordinador
+    selectedStatus: null,
+    selectedCoordinator: null,
   });
   const navigate = useNavigate();
 
-  // Memoizar filteredData para optimizar el filtrado
   const filteredData = useMemo(() => {
     if (!Array.isArray(students)) return [];
 
@@ -30,19 +32,16 @@ const StudentTable = ({
       .filter((student) => {
         const { searchText, selectedStatus, selectedCoordinator } = filters;
 
-        // Filtro por búsqueda
         const searchMatch = Object.keys(searchText).every((key) =>
           student && student[key]
             ? student[key].toString().toLowerCase().includes(searchText[key] || '')
             : true
         );
 
-        // Filtro por estado (activo/inactivo)
         const statusMatch = selectedStatus
           ? student.activo === (selectedStatus === 'activo')
           : true;
 
-        // Filtro por coordinador
         const coordinatorMatch = selectedCoordinator
           ? student.coordinador === selectedCoordinator
           : true;
@@ -52,7 +51,6 @@ const StudentTable = ({
       .sort((a, b) => moment(b.fecha_inscripcion || 0).unix() - moment(a.fecha_inscripcion || 0).unix());
   }, [students, filters]);
 
-  // Calcular estadísticas para las tarjetas
   const totalStudents = filteredData.length;
   const activeStudents = filteredData.filter((s) => s.activo).length;
 
@@ -88,6 +86,21 @@ const StudentTable = ({
     } catch (error) {
       console.error('Error al eliminar estudiante:', error);
       message.error('Error al eliminar el estudiante');
+    }
+  };
+
+  // Nueva función para descargar el boletín
+  const handleDownloadGrades = async (studentId, student) => {
+    try {
+      const [studentData, gradesResponse] = await Promise.all([
+        getStudentById(studentId),
+        axios.get(`https://back.app.validaciondebachillerato.com.co/api/grades/students/${studentId}`),
+      ]);
+      const grades = gradesResponse.data;
+      generateGradeReportPDF(studentData, grades, studentId);
+    } catch (err) {
+      console.error('Error downloading grades:', err);
+      message.error('Error al descargar el boletín');
     }
   };
 
@@ -243,7 +256,7 @@ const StudentTable = ({
     {
       title: 'Acciones',
       key: 'acciones',
-      width: 150,
+      width: 200, // Aumentamos el ancho para acomodar el nuevo botón
       fixed: 'right',
       render: (_, record) => (
         <Space size="middle">
@@ -286,12 +299,19 @@ const StudentTable = ({
               window.open(`https://wa.me/${phoneNumber}`, '_blank');
             }}
           />
+          <Button
+            type="link"
+            icon={<FilePdfOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDownloadGrades(record.id, record);
+            }}
+          />
         </Space>
       ),
     },
   ];
 
-  // Obtener lista única de coordinadores para el filtro
   const coordinators = [...new Set(students.map((s) => s.coordinador).filter(Boolean))];
 
   return (
@@ -334,7 +354,6 @@ const StudentTable = ({
           </Space>
         </Space>
 
-        {/* Cards de balance */}
         <Space size="middle" style={{ width: '100%', justifyContent: 'center' }}>
           <Card
             style={{
