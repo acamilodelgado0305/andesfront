@@ -5,20 +5,19 @@ import axios from 'axios';
 const { Title } = Typography;
 const { Search } = Input;
 
-// Lista de materias (debe coincidir con las usadas en el backend)
+// Lista de materias
 const materias = [
   'Matemáticas',
   'Español',
-  'Bioquimica',
-  'Inglés', 
-  'Informatica',
- 
+  'Bioquímica',
+  'Inglés',
+  'Informática',
 ];
 
 function Bachillerato() {
   const [students, setStudents] = useState([]);
-  const [filteredStudents, setFilteredStudents] = useState([]); // Estudiantes filtrados por búsqueda
-  const [grades, setGrades] = useState({}); // Almacena las notas por estudiante y materia
+  const [filteredStudents, setFilteredStudents] = useState([]);
+  const [grades, setGrades] = useState({});
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
 
@@ -37,7 +36,7 @@ function Bachillerato() {
         const gradesResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/grades');
         const gradesData = gradesResponse.data;
 
-        // Inicializar el estado de las notas
+        // Inicializar estado de notas
         const initialGrades = {};
         studentsData.forEach((student) => {
           initialGrades[student.id] = {};
@@ -72,8 +71,12 @@ function Bachillerato() {
 
   // Manejar cambio de nota
   const handleGradeChange = (studentId, materia, value) => {
-    // Redondear a 1 decimal
-    const roundedValue = value !== null && value !== undefined ? Math.round(value * 10) / 10 : null;
+    // Validar y redondear a 1 decimal
+    let roundedValue = value !== null && value !== undefined ? Math.round(value * 10) / 10 : null;
+    // Asegurar que la nota esté en el rango 0-5
+    if (roundedValue !== null && (roundedValue < 0 || roundedValue > 5)) {
+      roundedValue = null; // Resetear si está fuera de rango
+    }
     setGrades((prevGrades) => ({
       ...prevGrades,
       [studentId]: {
@@ -99,6 +102,16 @@ function Bachillerato() {
     }
   };
 
+  // Determinar el color del campo según la nota
+  const getInputStyle = (value) => {
+    if (value === null || value === undefined) return { width: 80 };
+    return {
+      width: 80,
+      backgroundColor: value >= 3.0 ? '#e6f4ea' : '#fff1f0', // Verde claro para ≥3.0, rojo claro para <3.0
+      borderColor: value >= 3.0 ? '#52c41a' : '#ff4d4f',
+    };
+  };
+
   // Columnas de la tabla
   const columns = [
     {
@@ -112,18 +125,18 @@ function Bachillerato() {
     ...materias.map((materia) => ({
       title: materia,
       key: materia,
-      width: 100, // Reducir ancho de la columna
+      width: 100,
       render: (_, record) => (
         <InputNumber
           min={0}
-          max={100}
-          step={0.1} // Permitir un solo decimal
+          max={5}
+          step={0.1}
           value={grades[record.id]?.[materia] || null}
           onChange={(value) => handleGradeChange(record.id, materia, value)}
-          placeholder="Nota"
-          style={{ width: 80 }} // Hacer el campo más pequeño
-          formatter={(value) => (value !== null ? Number(value).toFixed(1) : '')} // Mostrar 1 decimal
-          parser={(value) => (value ? parseFloat(value) : null)} // Parsear entrada
+          placeholder="0.0-5.0"
+          style={getInputStyle(grades[record.id]?.[materia])}
+          formatter={(value) => (value !== null ? Number(value).toFixed(1) : '')}
+          parser={(value) => (value ? parseFloat(value) : null)}
         />
       ),
     })),

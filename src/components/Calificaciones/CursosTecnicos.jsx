@@ -7,11 +7,11 @@ const { Search } = Input;
 
 // Lista de materias para cursos técnicos
 const materias = [
-  'Ingles',
+  'Inglés',
   'Cloud Computing',
   'Costos y Presupuestos',
   'Salud Ocupacional',
-  'Salud Mental y desarrollo ludico',
+  'Salud Mental y Desarrollo Lúdico',
   'Bases de Datos',
 ];
 
@@ -72,8 +72,12 @@ function CursosTecnicos() {
 
   // Manejar cambio de nota
   const handleGradeChange = (studentId, materia, value) => {
-    // Redondear a 1 decimal
-    const roundedValue = value !== null && value !== undefined ? Math.round(value * 10) / 10 : null;
+    // Validar y redondear a 1 decimal
+    let roundedValue = value !== null && value !== undefined ? Math.round(value * 10) / 10 : null;
+    // Asegurar que la nota esté en el rango 0-5
+    if (roundedValue !== null && (roundedValue < 0 || roundedValue > 5)) {
+      roundedValue = null; // Resetear si está fuera de rango
+    }
     setGrades((prevGrades) => ({
       ...prevGrades,
       [studentId]: {
@@ -99,6 +103,16 @@ function CursosTecnicos() {
     }
   };
 
+  // Determinar el color del campo según la nota
+  const getInputStyle = (value) => {
+    if (value === null || value === undefined) return { width: 80 };
+    return {
+      width: 80,
+      backgroundColor: value >= 3.0 ? '#e6f4ea' : '#fff1f0', // Verde claro para ≥3.0, rojo claro para <3.0
+      borderColor: value >= 3.0 ? '#52c41a' : '#ff4d4f',
+    };
+  };
+
   // Columnas de la tabla
   const columns = [
     {
@@ -120,12 +134,12 @@ function CursosTecnicos() {
       render: (_, record) => (
         <InputNumber
           min={0}
-          max={100}
+          max={5}
           step={0.1}
           value={grades[record.id]?.[materia] || null}
           onChange={(value) => handleGradeChange(record.id, materia, value)}
-          placeholder="Nota"
-          style={{ width: 80 }}
+          placeholder="0.0-5.0"
+          style={getInputStyle(grades[record.id]?.[materia])}
           formatter={(value) => (value !== null ? Number(value).toFixed(1) : '')}
           parser={(value) => (value ? parseFloat(value) : null)}
         />
