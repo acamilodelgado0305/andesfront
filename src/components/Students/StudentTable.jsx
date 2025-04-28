@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Table, Input, Button, Typography, message, Space, Spin, Card, Select, Tag, Popconfirm } from 'antd';
+import { Table, Input, Button, Typography, message, Space, Spin, Card, Select, Tag, Popconfirm, DatePicker } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import { DeleteOutlined, WhatsAppOutlined, EditOutlined, ExclamationCircleOutlined, FilePdfOutlined } from '@ant-design/icons';
 import moment from 'moment';
@@ -9,6 +9,7 @@ import { generateGradeReportPDF } from '../Utilidades/generateGradeReportPDF.js'
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const { RangePicker } = DatePicker;
 
 const StudentTable = ({
   onDelete,
@@ -22,31 +23,66 @@ const StudentTable = ({
     searchText: {},
     selectedStatus: null,
     selectedCoordinator: null,
+    dateRange: null, // Rango de fechas personalizado
+    predefinedDate: null, // Opción predefinida (ej. "Última semana")
   });
   const navigate = useNavigate();
 
+  // Calcular datos filtrados
   const filteredData = useMemo(() => {
     if (!Array.isArray(students)) return [];
 
     return students
       .filter((student) => {
-        const { searchText, selectedStatus, selectedCoordinator } = filters;
+        const { searchText, selectedStatus, selectedCoordinator, dateRange, predefinedDate } = filters;
 
+        // Filtro por texto
         const searchMatch = Object.keys(searchText).every((key) =>
           student && student[key]
             ? student[key].toString().toLowerCase().includes(searchText[key] || '')
             : true
         );
 
+        // Filtro por estado
         const statusMatch = selectedStatus
           ? student.activo === (selectedStatus === 'activo')
           : true;
 
+        // Filtro por coordinador
         const coordinatorMatch = selectedCoordinator
           ? student.coordinador === selectedCoordinator
           : true;
 
-        return searchMatch && statusMatch && coordinatorMatch;
+        // Filtro por fecha de inscripción
+        let dateMatch = true;
+        if (student.fecha_inscripcion) {
+          const inscriptionDate = moment(student.fecha_inscripcion);
+          if (dateRange) {
+            const [start, end] = dateRange;
+            dateMatch = inscriptionDate.isBetween(start, end, 'day', '[]');
+          } else if (predefinedDate) {
+            const now = moment();
+            let startDate;
+            switch (predefinedDate) {
+              case 'week':
+                startDate = now.clone().subtract(7, 'days');
+                dateMatch = inscriptionDate.isAfter(startDate);
+                break;
+              case 'month':
+                startDate = now.clone().subtract(1, 'month');
+                dateMatch = inscriptionDate.isAfter(startDate);
+                break;
+              case 'quarter':
+                startDate = now.clone().subtract(3, 'months');
+                dateMatch = inscriptionDate.isAfter(startDate);
+                break;
+              default:
+                dateMatch = true;
+            }
+          }
+        }
+
+        return searchMatch && statusMatch && coordinatorMatch && dateMatch;
       })
       .sort((a, b) => moment(b.fecha_inscripcion || 0).unix() - moment(a.fecha_inscripcion || 0).unix());
   }, [students, filters]);
@@ -54,6 +90,7 @@ const StudentTable = ({
   const totalStudents = filteredData.length;
   const activeStudents = filteredData.filter((s) => s.activo).length;
 
+  // Manejar búsqueda por texto
   const handleSearch = (value, dataIndex) => {
     setFilters((prev) => ({
       ...prev,
@@ -64,6 +101,7 @@ const StudentTable = ({
     }));
   };
 
+  // Manejar cambio de estado
   const handleStatusChange = (value) => {
     setFilters((prev) => ({
       ...prev,
@@ -71,6 +109,7 @@ const StudentTable = ({
     }));
   };
 
+  // Manejar cambio de coordinador
   const handleCoordinatorChange = (value) => {
     setFilters((prev) => ({
       ...prev,
@@ -78,6 +117,25 @@ const StudentTable = ({
     }));
   };
 
+  // Manejar cambio de rango de fechas
+  const handleDateRangeChange = (dates) => {
+    setFilters((prev) => ({
+      ...prev,
+      dateRange: dates,
+      predefinedDate: null, // Resetear opción predefinida si se selecciona un rango personalizado
+    }));
+  };
+
+  // Manejar cambio de opción predefinida
+  const handlePredefinedDateChange = (value) => {
+    setFilters((prev) => ({
+      ...prev,
+      predefinedDate: value || null,
+      dateRange: null, // Resetear rango personalizado si se selecciona una opción predefinida
+    }));
+  };
+
+  // Eliminar estudiante
   const handleDeleteStudent = async (id) => {
     try {
       await onDelete(id);
@@ -89,7 +147,7 @@ const StudentTable = ({
     }
   };
 
-  // Nueva función para descargar el boletín
+  // Descargar boletín
   const handleDownloadGrades = async (studentId, student) => {
     try {
       const [studentData, gradesResponse] = await Promise.all([
@@ -104,6 +162,7 @@ const StudentTable = ({
     }
   };
 
+  // Columnas de la tabla
   const columns = [
     {
       title: 'Documento',
@@ -170,6 +229,7 @@ const StudentTable = ({
     },
     {
       title: 'Estado',
+   
       key: 'estados',
       render: (_, record) => (
         <Space direction="vertical">
@@ -187,7 +247,7 @@ const StudentTable = ({
       key: 'email',
       render: (_, record) => <span>{record.email}</span>,
       filterDropdown: () => (
-        <div style={{ padding: 8 }}>
+        <div style={ { padding: 8}}>
           <Input
             placeholder="Buscar correo"
             onChange={(e) => handleSearch(e.target.value, 'email')}
@@ -256,7 +316,7 @@ const StudentTable = ({
     {
       title: 'Acciones',
       key: 'acciones',
-      width: 200, // Aumentamos el ancho para acomodar el nuevo botón
+      width: 200,
       fixed: 'right',
       render: (_, record) => (
         <Space size="middle">
@@ -342,6 +402,25 @@ const StudentTable = ({
                 </Option>
               ))}
             </Select>
+            <Select
+              style={{ width: 200 }}
+              placeholder="Filtrar por fecha"
+              allowClear
+              onChange={handlePredefinedDateChange}
+              value={filters.predefinedDate}
+            >
+              <Option value="week">Última semana</Option>
+              <Option value="month">Último mes</Option>
+              <Option value="quarter">Últimos 3 meses</Option>
+              <Option value="all">Todo</Option>
+            </Select>
+            <RangePicker
+              style={{ width: 300 }}
+              onChange={handleDateRangeChange}
+              value={filters.dateRange}
+              format="DD/MM/YYYY"
+              placeholder={['Fecha inicio', 'Fecha fin']}
+            />
             <Text>
               Mostrando <strong>{totalStudents}</strong> estudiantes
               {filters.selectedStatus && (
@@ -349,6 +428,9 @@ const StudentTable = ({
               )}
               {filters.selectedCoordinator && (
                 <span> para <strong>{filters.selectedCoordinator}</strong></span>
+              )}
+              {filters.predefinedDate && (
+                <span> ({filters.predefinedDate === 'week' ? 'Última semana' : filters.predefinedDate === 'month' ? 'Último mes' : filters.predefinedDate === 'quarter' ? 'Últimos 3 meses' : 'Todo'})</span>
               )}
             </Text>
           </Space>

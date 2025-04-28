@@ -12,6 +12,7 @@ import {
   LogoutOutlined,
   SettingOutlined,
   UserOutlined,
+  BankOutlined
 } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
 import axios from 'axios';
@@ -37,12 +38,12 @@ const MENU_CONFIG = {
   ],
   certificaciones: [
     { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
-    { key: '/inicio/certificados', icon: <FileTextOutlined />, label: 'Certificados', path: '/inicio/certificados' },
+    { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
   ],
   all: [
     { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
     { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
-    { key: '/inicio/certificados', icon: <FileTextOutlined />, label: 'Certificados', path: '/inicio/certificados' },
+    { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
     {
       key: '/academic-management',
       icon: <ReadOutlined />,
