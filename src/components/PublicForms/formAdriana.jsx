@@ -14,6 +14,7 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
     const fetchProgramsData = async () => {
       try {
         const data = await getPrograms();
+        console.log("Programas cargados:", data);
         setProgramas(data);
       } catch (err) {
         console.error("Error fetching Programs:", err);
@@ -36,13 +37,12 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
       const formattedValues = {
         ...values,
         fechaNacimiento: values.fechaNacimiento.format("YYYY-MM-DD"),
-        // Add default values here
         coordinador: "Adriana Benitez",
         simat: "Inactivo",
-        pagoMatricula: false
+        pagoMatricula: false,
       };
 
-      console.log('Sending data:', formattedValues);
+      console.log("Sending data:", formattedValues);
 
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -52,15 +52,16 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
         body: JSON.stringify(formattedValues),
       });
 
-      console.log('Response status:', response.status);
+      console.log("Response status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
+        console.error("Error response from server:", errorData);
         throw new Error(errorData?.message || `Error del servidor: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('Success response:', data);
+      console.log("Success response:", data);
 
       message.success("Estudiante registrado exitosamente");
       onStudentAdded?.();
@@ -69,10 +70,9 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
       console.error("Error detallado al registrar el estudiante:", {
         message: error.message,
         stack: error.stack,
-        values: values
+        values,
       });
-
-      message.error(`Error al registrar el estudiante: ${error.message || 'Por favor intente nuevamente'}`);
+      message.error(`Error al registrar el estudiante: ${error.message || "Por favor intente nuevamente"}`);
     } finally {
       setLoading(false);
     }
@@ -108,7 +108,7 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             <Form.Item
               name="email"
               label="Correo Electrónico"
-              rules={[{ required: true }, { type: 'email' }]}
+              rules={[{ required: true }, { type: "email" }]}
             >
               <Input className="h-10" />
             </Form.Item>
@@ -119,14 +119,6 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
               rules={[{ required: true }]}
             >
               <DatePicker className="w-full h-10" />
-            </Form.Item>
-
-            <Form.Item name="eps" label="EPS" rules={[{ required: true }]}>
-              <Input className="h-10" />
-            </Form.Item>
-
-            <Form.Item name="rh" label="RH" rules={[{ required: true }]}>
-              <Input className="h-10" />
             </Form.Item>
           </div>
         </div>
@@ -151,11 +143,11 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
               label="Número de Documento (sin puntos ni decimales)"
               rules={[{ required: true }]}
             >
-              <Input 
-    prefix={<IdcardOutlined />} 
-    className="h-10" 
-    placeholder="Ejemplo: 1234567890"
-  />
+              <Input
+                prefix={<IdcardOutlined />}
+                className="h-10"
+                placeholder="Ejemplo: 1234567890"
+              />
             </Form.Item>
 
             <Form.Item
@@ -199,8 +191,8 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
           </h2>
           <div className="space-y-4">
             <Form.Item name="programa_nombre" label="Programa" rules={[{ required: true }]}>
-              <Select style={{ width: '100%' }}>
-                {programas.map(program => (
+              <Select style={{ width: "100%" }}>
+                {programas.map((program) => (
                   <Select.Option key={program.id} value={program.nombre}>
                     {program.nombre}
                   </Select.Option>
@@ -211,15 +203,15 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
             <Form.Item
               name="ultimo_curso_visto"
               label="Último Curso Aprobado"
-              rules={[{ required: true, message: 'Por favor seleccione el último curso aprobado!' }]}
+              rules={[{ required: true, message: "Por favor seleccione el último curso aprobado!" }]}
             >
               <Select
                 placeholder="Seleccione un curso"
                 className="h-10"
-                style={{ width: '100%' }}
+                style={{ width: "100%" }}
               >
                 {Array.from({ length: 11 }, (_, index) => {
-                  const curso = (index + 1).toString(); // Convertimos el número a string
+                  const curso = (index + 1).toString();
                   return (
                     <Option key={curso} value={curso}>
                       {curso}°
@@ -228,7 +220,6 @@ const StudentRegistrationForm = ({ onStudentAdded }) => {
                 })}
               </Select>
             </Form.Item>
-
 
             <Form.Item name="modalidad_estudio" label="Modalidad de estudio" rules={[{ required: true }]}>
               <Select>
