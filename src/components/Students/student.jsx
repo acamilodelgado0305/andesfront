@@ -251,22 +251,28 @@ const Students = () => {
           Coordinador seleccionado: {filters.coordinador} ({filteredStudents.length} estudiantes)
         </div>
       )}
-      <div className="my-3 mb-4 flex space-x-2">
-        <Input
-          placeholder="Buscar por nombre o WhatsApp..."
-          prefix={<FaSearch />}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ width: 300 }}
-          allowClear
-        />
-        <Dropdown overlay={getFilterMenu()} trigger={["click"]}>
-          <Button icon={<FaFilter />}>Filtrar</Button>
-        </Dropdown>
-        <Button type="primary" onClick={() => setIsModalOpen(true)}>
-          Agregar Estudiante
-        </Button>
-      </div>
+      <div className="my-3 mb-4 flex justify-between items-center">
+  {/* Grupo de búsqueda y filtro */}
+  <div className="flex space-x-2">
+    <Input
+      placeholder="Buscar por nombre o WhatsApp..."
+      prefix={<FaSearch />}
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      style={{ width: 300 }}
+      allowClear
+    />
+    <Dropdown overlay={getFilterMenu()} trigger={["click"]}>
+      <Button icon={<FaFilter />}>Filtrar</Button>
+    </Dropdown>
+  </div>
+
+  {/* Botón a la derecha */}
+  <Button type="primary" onClick={() => setIsModalOpen(true)}>
+    Agregar Estudiante
+  </Button>
+</div>
+
       <StudentTable
         students={filteredStudents}
         loading={loading}
