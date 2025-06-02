@@ -25,6 +25,7 @@ import StudentInformacion from "./components/Students/StudentInformacion"; // As
 import Calificaciones from "./components/Calificaciones/Calificaciones";
 import Bachillerato from "./components/Calificaciones/Bachillerato";
 import CursosTecnicos from "./components/Calificaciones/CursosTecnicos";
+import StudentReportPortal from "./components/PublicForms/StudentReportPortal";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -43,6 +44,7 @@ const App = () => (
           {/* Rutas públicas */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/Reporte" element={<StudentReportPortal />} />
           <Route path="/Camilodelgado" element={<StudentRegistrationForm1 />} />
           <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
           <Route path="/Blancasanchez" element={<StudentRegistrationFormBlanca />} />
