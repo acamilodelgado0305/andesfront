@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Table, InputNumber, Button, message, Input, Modal, Space } from 'antd'; // Agregado Modal y Space
+import { Card, Typography, Table, InputNumber, Button, message, Input, Modal, Space } from 'antd';
 import axios from 'axios';
 
 const { Title } = Typography;
@@ -20,24 +20,20 @@ function Bachillerato() {
   const [grades, setGrades] = useState({});
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [initialGradesBackup, setInitialGradesBackup] = useState({}); // Para restablecer a los valores originales cargados
+  const [initialGradesBackup, setInitialGradesBackup] = useState({});
 
-  // Cargar estudiantes y notas desde la API
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Obtener estudiantes
         const studentsResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/students/bachillerato');
         const studentsData = studentsResponse.data;
         setStudents(studentsData);
         setFilteredStudents(studentsData);
 
-        // Obtener notas
         const gradesResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/grades');
         const gradesData = gradesResponse.data;
 
-        // Inicializar estado de notas
         const initialGrades = {};
         studentsData.forEach((student) => {
           initialGrades[student.id] = {};
@@ -49,8 +45,7 @@ function Bachillerato() {
           });
         });
         setGrades(initialGrades);
-        setInitialGradesBackup(JSON.parse(JSON.stringify(initialGrades))); // Copia profunda para el backup
-
+        setInitialGradesBackup(JSON.parse(JSON.stringify(initialGrades)));
       } catch (error) {
         message.error('Error al cargar los datos');
         console.error("Error en fetchData:", error);
@@ -61,7 +56,6 @@ function Bachillerato() {
     fetchData();
   }, []);
 
-  // Manejar búsqueda
   const handleSearch = (value) => {
     setSearchText(value);
     const filtered = students.filter((student) =>
@@ -72,19 +66,16 @@ function Bachillerato() {
     setFilteredStudents(filtered);
   };
 
-  // Manejar cambio de nota
   const handleGradeChange = (studentId, materia, value) => {
     let numericValue = value === '' || value === null || value === undefined ? null : parseFloat(value);
     let roundedValue = null;
 
     if (numericValue !== null) {
-        // Redondear a 1 decimal
-        roundedValue = Math.round(numericValue * 10) / 10;
-        // Asegurar que la nota esté en el rango 0-5
-        if (roundedValue < 0 || roundedValue > 5) {
-            message.warn('La nota debe estar entre 0.0 y 5.0. Se ha restablecido.', 2);
-            roundedValue = grades[studentId]?.[materia] || null; // Volver al valor anterior o null
-        }
+      roundedValue = Math.round(numericValue * 10) / 10;
+      if (roundedValue < 0 || roundedValue > 5) {
+        message.warn('La nota debe estar entre 0.0 y 5.0. Se ha restablecido.', 2);
+        roundedValue = grades[studentId]?.[materia] || null;
+      }
     }
 
     setGrades((prevGrades) => ({
@@ -96,56 +87,19 @@ function Bachillerato() {
     }));
   };
 
-  // Guardar notas
   const handleSaveGrades = async () => {
     setLoading(true);
     try {
-      const gradesToSave = [];
-      Object.keys(grades).forEach(studentId => {
-        materias.forEach(materia => {
-          const nota = grades[studentId][materia];
-          // Solo enviar notas que no son null o que han cambiado respecto al backup (opcional, pero bueno para optimizar)
-          // O simplemente enviar todas las que no son null si la API maneja la creación/actualización
-          if (nota !== null) { // Opcionalmente podrías añadir: && nota !== initialGradesBackup[studentId]?.[materia]
-            gradesToSave.push({
-              student_id: parseInt(studentId),
-              materia: materia,
-              nota: nota,
-            });
-          } else if (nota === null && initialGradesBackup[studentId]?.[materia] !== null) {
-            // Si la nota se borró (era X y ahora es null), también hay que enviarla para que se actualice/borre en el backend
-            // Esto depende de cómo tu API maneje el borrado (e.g., enviar null o un endpoint DELETE específico)
-            // Asumiendo que enviar null actualiza la nota a null o la borra.
-             gradesToSave.push({
-              student_id: parseInt(studentId),
-              materia: materia,
-              nota: null, // o un valor que tu API entienda como "borrar"
-            });
-          }
-        });
-      });
-
-      // Lógica de guardado: Deberías hacer un POST para nuevas notas y PUT para actualizar existentes.
-      // O si tu API maneja un "upsert" (actualizar o insertar) con POST, está bien.
-      // El formato actual `gradesToSave` es una lista de objetos individuales.
-      // Si tu API espera `{ studentId: ..., grades: {materia: nota} }`, necesitas ajustar el formato.
-      // Basado en tu código original, la API `/api/grades` parece esperar un array de objetos
-      // donde cada objeto es una nota individual o un conjunto de notas por estudiante.
-      // Tu POST original era: axios.post('.../api/grades', gradesToSaveConFormatoOriginal);
-      // El formato de `gradesToSave` que generé arriba es más granular.
-      // Ajustemos al formato que tu API probablemente espera (basado en el POST original):
+      // El payload ya se construye correctamente con los valores actuales en 'grades'
+      // Si 'grades' tiene 0.0, eso es lo que se enviará.
       const payload = Object.keys(grades).map((studentId) => ({
-          studentId: parseInt(studentId), // Asegúrate que la API espere studentId y no student_id aquí
-          grades: grades[studentId], // Esto envía todas las notas del estudiante, {materia1: nota1, materia2: nota2 ...}
+        studentId: parseInt(studentId),
+        grades: grades[studentId], // Esto enviará las notas {materia1: 0.0, materia2: 0.0 ...}
       }));
-
 
       await axios.post('https://back.app.validaciondebachillerato.com.co/api/grades', payload);
       message.success('Notas guardadas exitosamente');
-      
-      // Actualizar el backup después de guardar exitosamente
       setInitialGradesBackup(JSON.parse(JSON.stringify(grades)));
-
     } catch (error) {
       message.error('Error al guardar las notas');
       console.error("Error en handleSaveGrades:", error.response ? error.response.data : error.message);
@@ -154,37 +108,35 @@ function Bachillerato() {
     }
   };
 
-  // Restablecer todas las notas a null (en la vista)
+  // MODIFICADO: Restablecer todas las notas a 0.0 (en la vista)
   const handleResetAllGradesView = () => {
     Modal.confirm({
-      title: 'Restablecer todas las notas',
-      content: '¿Está seguro de que desea borrar todas las notas ingresadas en la vista? Los cambios no se guardarán en el servidor hasta que presione "Guardar Notas".',
-      okText: 'Sí, restablecer vista',
+      title: 'Establecer todas las notas a 0.0',
+      content: '¿Está seguro de que desea establecer todas las notas a 0.0 en la vista? Los cambios no se guardarán en el servidor hasta que presione "Guardar Notas".',
+      okText: 'Sí, poner en 0.0',
       okType: 'danger',
       cancelText: 'Cancelar',
       onOk: () => {
         setGrades(prevGrades => {
           const newGrades = { ...prevGrades };
           students.forEach(student => {
-            newGrades[student.id] = {};
+            newGrades[student.id] = { ...prevGrades[student.id] }; // Copiar notas existentes del estudiante o inicializar si no existe
             materias.forEach(materia => {
-              newGrades[student.id][materia] = null;
+              newGrades[student.id][materia] = 0.0; // Establecer a 0.0
             });
           });
           return newGrades;
         });
-        message.info('Todas las notas en la vista han sido borradas. Guarde los cambios para aplicarlos.');
+        message.info('Todas las notas en la vista han sido establecidas a 0.0. Guarde los cambios para aplicarlos.');
       },
     });
   };
   
-  // Restablecer las notas a los valores originales cargados desde la API
   const handleRevertToOriginalGrades = () => {
     Modal.confirm({
       title: 'Revertir a notas originales',
       content: '¿Está seguro de que desea revertir todas las notas a los valores cargados originalmente desde el servidor? Se perderán los cambios no guardados.',
       okText: 'Sí, revertir',
-      okType: 'default', // O 'warning'
       cancelText: 'Cancelar',
       onOk: () => {
         setGrades(JSON.parse(JSON.stringify(initialGradesBackup)));
@@ -193,20 +145,17 @@ function Bachillerato() {
     });
   };
 
-
-  // Determinar el color del campo según la nota
   const getInputStyle = (value) => {
     if (value === null || value === undefined || value === '') return { width: 80, textAlign: 'right' };
     const numericValue = parseFloat(value);
     return {
       width: 80,
       textAlign: 'right',
-      backgroundColor: numericValue >= 3.0 ? '#e6f4ea' : '#fff1f0',
-      borderColor: numericValue >= 3.0 ? '#52c41a' : '#ff4d4f',
+      backgroundColor: numericValue >= 3.0 ? '#e6f4ea' : (numericValue < 0 ? '#fff1f0' : (numericValue === 0.0 ? '#fafafa' : '#fff1f0')), // Color diferente para 0.0 si se desea, o mantener el de reprobado
+      borderColor: numericValue >= 3.0 ? '#52c41a' : (numericValue < 0 ? '#ff4d4f' : (numericValue === 0.0 ? '#d9d9d9' : '#ff4d4f')),
     };
   };
 
-  // Columnas de la tabla
   const columns = [
     {
       title: 'Estudiante',
@@ -219,7 +168,7 @@ function Bachillerato() {
     ...materias.map((materia) => ({
       title: materia,
       key: materia,
-      width: 110, // Un poco más de ancho para el input
+      width: 110,
       align: 'center',
       render: (_, record) => {
         const studentGrade = grades[record.id]?.[materia];
@@ -228,31 +177,29 @@ function Bachillerato() {
             min={0}
             max={5}
             step={0.1}
-            value={studentGrade === null || studentGrade === undefined ? '' : studentGrade} // Mostrar vacío si es null
+            value={studentGrade === null || studentGrade === undefined ? '' : studentGrade}
             onChange={(value) => handleGradeChange(record.id, materia, value)}
             placeholder="0.0-5.0"
             style={getInputStyle(studentGrade)}
             formatter={(value) => {
-                // Solo formatea si es un número válido
-                if (value === '' || value === null || value === undefined) return '';
-                const num = parseFloat(value);
-                return isNaN(num) ? '' : num.toFixed(1);
+              if (value === '' || value === null || value === undefined) return '';
+              const num = parseFloat(value);
+              return isNaN(num) ? '' : num.toFixed(1);
             }}
             parser={(value) => {
-                // Permite borrar el contenido y que se interprete como null
-                if (value === '') return null;
-                const parsedValue = parseFloat(value);
-                // Solo permite un decimal
-                return isNaN(parsedValue) ? null : Math.round(parsedValue * 10) / 10;
+              if (value === '') return null; // Si se borra el campo, se interpreta como null
+              const parsedValue = parseFloat(value);
+               // Validar que solo tenga un decimal y redondear si es necesario, o permitir más y que handleGradeChange lo maneje
+              // Para este parser, es mejor solo convertir a número o null.
+              return isNaN(parsedValue) ? null : parsedValue; // Dejar que handleGradeChange haga el redondeo final y validación
             }}
-            onFocus={(e) => e.target.select()} // Seleccionar todo el texto al enfocar
+            onFocus={(e) => e.target.select()}
           />
         );
       },
     })),
   ];
 
-  // Configuración de paginación
   const paginationConfig = {
     pageSize: 100,
     showSizeChanger: false,
@@ -263,24 +210,25 @@ function Bachillerato() {
     <div className="flex justify-start items-start min-h-screen bg-gray-100 p-4">
       <Card className="w-full shadow-lg">
         <Title level={2}>Boletín - Validación de Bachillerato</Title>
-        <div className="flex flex-wrap justify-between items-center mb-4 gap-4"> {/* flex-wrap y gap para responsiveness */}
+        <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
           <Search
             placeholder="Buscar por nombre o apellido"
             allowClear
-            onSearch={handleSearch} // Idealmente, la búsqueda se activa al presionar Enter o el ícono
-            onChange={(e) => { // Búsqueda en tiempo real mientras se escribe
-              setSearchText(e.target.value); // Actualizar searchText para control
+            onSearch={handleSearch}
+            onChange={(e) => {
+              setSearchText(e.target.value);
               handleSearch(e.target.value);
             }}
-            value={searchText} // Controlar el valor del input
+            value={searchText}
             style={{ width: 300 }}
           />
-          <Space wrap> {/* Space para agrupar botones y wrap para responsiveness */}
+          <Space wrap>
             <Button onClick={handleRevertToOriginalGrades} size="large">
               Revertir Cambios
             </Button>
+            {/* El botón sigue llamando a handleResetAllGradesView, que ahora pone 0.0 */}
             <Button type="dashed" danger onClick={handleResetAllGradesView} size="large">
-              Borrar Notas (Vista)
+              Borrar Notas (a 0.0) 
             </Button>
             <Button type="primary" onClick={handleSaveGrades} size="large" loading={loading}>
               Guardar Notas
@@ -293,10 +241,10 @@ function Bachillerato() {
           rowKey="id"
           loading={loading}
           pagination={paginationConfig}
-          scroll={{ x: materias.length * 110 + 200 }} // Ajustar scroll dinámicamente
-          bordered // Añade bordes para mejor separación visual
+          scroll={{ x: materias.length * 110 + 200 }}
+          bordered
           className="mt-4"
-          size="small" // Hace la tabla un poco más compacta
+          size="small"
         />
       </Card>
     </div>
