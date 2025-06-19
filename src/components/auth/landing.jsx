@@ -6,7 +6,7 @@ import {
   Book, Calendar, Clock, Users, Monitor, Star,
   MessageSquare, Mail, Facebook, Instagram, Linkedin,
   Check, Award, GraduationCap, ArrowRight, Phone,
-  MapPin, Shield, Trophy, Target, Zap
+  MapPin, Shield, Trophy, Target, Zap, FileText // Usaremos FileText o BookOpen para las notas
 } from 'lucide-react';
 import Modal from './modallogin';
 import Header from './header';
@@ -86,7 +86,7 @@ const Landing = () => {
             style={{ backgroundImage: `url(${bgLanding})` }}
           />
 
-          <div className="relative max-w-6xl mx-auto px-4  sm:px-6 lg:px-8">
+          <div className="relative max-w-6xl mx-auto px-4  sm:px-6 lg:px-8">
             <motion.div
               initial="hidden"
               animate="visible"
@@ -649,6 +649,21 @@ const Landing = () => {
           </form>
         </div>
       </Modal>
+
+      {/* Botón flotante para consultar notas (ajustado) */}
+      <motion.a
+        href="https://validaciondebachillerato.com.co/reporte"
+        target="_blank" // Abre en una nueva pestaña
+        rel="noopener noreferrer" // Seguridad recomendada para target="_blank"
+        className="fixed top-1/2 right-6 -translate-y-1/2 bg-red-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-red-700 transition duration-300 flex items-center justify-center space-x-2 z-50"
+        initial={{ x: 100, opacity: 0 }} // Empieza fuera de la pantalla y transparente
+        animate={{ x: 0, opacity: 1 }} // Se mueve a su posición final y se vuelve visible
+        transition={{ type: "spring", stiffness: 120, damping: 15, delay: 0.5 }} // Animación más pronunciada al aparecer
+        title="Consultar mis Notas"
+      >
+        <FileText className="h-5 w-5" /> {/* Ícono a la izquierda del texto */}
+        <span>Consultar Notas</span>
+      </motion.a>
     </div>
   );
 };
