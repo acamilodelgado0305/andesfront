@@ -9,8 +9,7 @@ import StudentGrades from './StudentGrades';
 const { TabPane } = Tabs;
 
 function StudentInformation() {
-  const { id } = useParams(); // Extrae el parámetro 'id' de la ruta
-
+  const { id } = useParams(); 
   return (
     <div style={{ padding: '20px' }}>
       <h1>Detalles del Estudiante</h1>

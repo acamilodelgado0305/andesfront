@@ -5,7 +5,7 @@ import axios from "axios";
 import CreateStudentModal from "./addStudent";
 import { getStudents, deleteStudent } from "../../services/studentService";
 import { Input, Button, Dropdown, Menu, Modal, message } from "antd";
-import StudentDetailModal from './StudentDetailModal';
+
 import StudentTable from "./StudentTable";
 
 const Students = () => {
@@ -286,13 +286,7 @@ const Students = () => {
         onClose={() => setIsModalOpen(false)}
         onStudentAdded={handleStudentAdded}
       />
-      <StudentDetailModal
-        student={selectedStudent}
-        visible={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        fetchStudents={fetchStudents}
-        getCoordinatorStyle={getCoordinatorStyle}
-      />
+      
     </div>
   );
 };

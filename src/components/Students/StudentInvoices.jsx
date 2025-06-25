@@ -1,5 +1,5 @@
 // src/components/Students/StudentInvoices.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Importar useCallback
 import {
   Table,
   Button,
@@ -11,6 +11,7 @@ import {
   Col,
   Space,
   Tag,
+  Spin, // Importar Spin para mejor feedback de carga
 } from 'antd';
 import {
   FaTrashAlt,
@@ -24,7 +25,7 @@ import {
   payInvoice,
   getTotalPaymentInvoicebyStudent,
   deleteInvoice,
-} from '../../services/studentService';
+} from '../../services/studentService'; // Asume que estas funciones son correctas en tu servicio
 
 const { Title, Text } = Typography;
 
@@ -34,104 +35,69 @@ const StudentInvoices = ({ studentId }) => {
   const [totalPagado, setTotalPagado] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const fetchPaymentInvoicebyStudent = async (id) => {
-    try {
-      const result = await getTotalPaymentInvoicebyStudent(id);
-      const totalFacturas = parseFloat(result.total_pagado || 0);
-
-      if (!student) {
-        const studentData = await getStudentById(id);
-        setStudent(studentData);
-
-        if (studentData.estado_matricula) {
-          setTotalPagado(totalFacturas + parseFloat(studentData.matricula || 0));
-        } else {
-          setTotalPagado(totalFacturas);
-        }
-      } else {
-        if (student.estado_matricula) {
-          setTotalPagado(totalFacturas + parseFloat(student.matricula || 0));
-        } else {
-          setTotalPagado(totalFacturas);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching total pagado:', err);
-      message.error('Error al cargar el total pagado');
-    }
-  };
-
-  const fetchInvoicebyStudent = async (id) => {
-    try {
-      const data = await getInvoicebyStudent(id);
-      const currentYear = new Date().getFullYear();
-
-      const facturasAñoActual = [];
-      const facturasAñosAnteriores = [];
-
-      data.forEach((factura) => {
-        const facturaYear = new Date(factura.fecha).getFullYear();
-        if (facturaYear === currentYear) {
-          facturasAñoActual.push(factura);
-        } else {
-          facturasAñosAnteriores.push(factura);
-        }
-      });
-
-      const sortFacturas = (a, b) => new Date(a.fecha) - new Date(b.fecha);
-
-      facturasAñoActual.sort(sortFacturas);
-      facturasAñosAnteriores.sort(sortFacturas);
-
-      const facturasOrdenadas = [
-        ...facturasAñoActual,
-        ...facturasAñosAnteriores,
-      ];
-
-      setFacturas(facturasOrdenadas);
-    } catch (err) {
-      console.error('Error fetching facturas:', err);
-      message.error('Error al cargar las facturas');
-    }
-  };
-
-  const fetchStudentById = async (id) => {
-    try {
-      const data = await getStudentById(id);
-      setStudent(data);
-    } catch (err) {
-      console.error('Error fetching student:', err);
-      message.error('Error al cargar los datos del estudiante');
-    }
-  };
-
-  const formatDateToMonth = (fecha) => {
-    const meses = [
-      'Enero',
-      'Febrero',
-      'Marzo',
-      'Abril',
-      'Mayo',
-      'Junio',
-      'Julio',
-      'Agosto',
-      'Septiembre',
-      'Octubre',
-      'Noviembre',
-      'Diciembre',
-    ];
-    const date = new Date(fecha);
-    return `${meses[date.getMonth()]} ${date.getFullYear()}`;
-  };
-
-  const formatCurrency = (value) => {
+  // Utilizar useCallback para memorizar funciones y evitar re-renders innecesarios
+  const formatCurrency = useCallback((value) => {
     const numericValue = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
     return numericValue.toLocaleString('es-CO', {
       style: 'currency',
       currency: 'COP',
     });
-  };
+  }, []);
 
+  const formatDateToMonth = useCallback((fecha) => {
+    const meses = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+    ];
+    const date = new Date(fecha);
+    // Asegurarse de que la fecha sea válida antes de intentar acceder a getMonth
+    if (isNaN(date.getTime())) {
+      return 'Fecha inválida';
+    }
+    return `${meses[date.getMonth()]} ${date.getFullYear()}`;
+  }, []);
+
+  // Función unificada para cargar todos los datos iniciales y manejar el estado de carga
+  const loadInitialData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Usar Promise.all para cargar todos los datos en paralelo
+      const [studentData, invoicesData, totalPaymentResult] = await Promise.all([
+        getStudentById(studentId),
+        getInvoicebyStudent(studentId),
+        getTotalPaymentInvoicebyStudent(studentId),
+      ]);
+
+      setStudent(studentData);
+      setFacturas(invoicesData);
+
+      const totalFacturas = parseFloat(totalPaymentResult.total_pagado || 0);
+
+      // Calcular el total pagado incluyendo la matrícula si está paga
+      let calculatedTotalPagado = totalFacturas;
+      // Asegúrate de que 'matricula' y 'estado_matricula' existen en studentData
+      if (studentData && studentData.estado_matricula && studentData.matricula !== undefined && studentData.matricula !== null) {
+        calculatedTotalPagado += parseFloat(studentData.matricula);
+      }
+      setTotalPagado(calculatedTotalPagado);
+
+    } catch (err) {
+      console.error('Error al cargar los datos iniciales:', err);
+      message.error('Error al cargar la información de pagos y facturas.');
+      setStudent(null); // Asegurar que student sea null en caso de error
+      setFacturas([]);
+      setTotalPagado(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [studentId]); // Dependencias para useCallback
+
+  // Efecto para cargar los datos iniciales cuando studentId cambia
+  useEffect(() => {
+    loadInitialData();
+  }, [studentId, loadInitialData]); // 'loadInitialData' es una dependencia del useEffect
+
+  // Funciones de manejo de acciones (pagar factura, pagar matrícula, eliminar factura)
   const handlePayment = async (facturaId) => {
     Modal.confirm({
       title: '¿Desea realizar el pago de esta factura?',
@@ -141,15 +107,9 @@ const StudentInvoices = ({ studentId }) => {
       onOk: async () => {
         try {
           await payInvoice(facturaId);
-
-          setFacturas((prevFacturas) =>
-            prevFacturas.map((factura) =>
-              factura.id === facturaId ? { ...factura, estado: true } : factura
-            )
-          );
-
           message.success('La factura ha sido pagada');
-          await fetchPaymentInvoicebyStudent(studentId);
+          // Volver a cargar todos los datos para asegurar la consistencia
+          await loadInitialData();
         } catch (error) {
           console.error('Error al procesar el pago:', error);
           message.error('Hubo un problema al procesar el pago');
@@ -166,12 +126,11 @@ const StudentInvoices = ({ studentId }) => {
       cancelText: 'Cancelar',
       onOk: async () => {
         try {
-          if (!student || !student.matricula) {
-            throw new Error('Datos del estudiante no disponibles');
+          if (!student || student.matricula === undefined || student.matricula === null) {
+            throw new Error('Valor de matrícula no disponible.');
           }
 
-          const matriculaValue = parseFloat(student.matricula);
-
+          // La URL de la API debe ser correcta: /api/students/status_matricula/:id
           const response = await axios.put(
             `https://back.app.validaciondebachillerato.com.co/api/students/status_matricula/${studentId}`,
             { estado_matricula: true },
@@ -179,19 +138,9 @@ const StudentInvoices = ({ studentId }) => {
           );
 
           if (response.status === 200) {
-            setStudent((prevStudent) => ({
-              ...prevStudent,
-              estado_matricula: true,
-            }));
-
-            setTotalPagado((prevTotal) => prevTotal + matriculaValue);
-
             message.success('La matrícula ha sido pagada exitosamente');
-
-            await Promise.all([
-              fetchStudentById(studentId),
-              fetchPaymentInvoicebyStudent(studentId),
-            ]);
+            // Volver a cargar todos los datos para reflejar los cambios
+            await loadInitialData();
           }
         } catch (error) {
           console.error('Error al procesar el pago de matrícula:', error);
@@ -214,10 +163,9 @@ const StudentInvoices = ({ studentId }) => {
       onOk: async () => {
         try {
           await deleteInvoice(id);
-          setFacturas((prevFacturas) =>
-            prevFacturas.filter((factura) => factura.id !== id)
-          );
           message.success('Factura eliminada con éxito');
+          // Volver a cargar todos los datos para asegurar la consistencia
+          await loadInitialData();
         } catch (error) {
           console.error('Error al eliminar la factura:', error);
           message.error('Error al eliminar la factura');
@@ -226,20 +174,7 @@ const StudentInvoices = ({ studentId }) => {
     });
   };
 
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setLoading(true);
-      await Promise.all([
-        fetchStudentById(studentId),
-        fetchInvoicebyStudent(studentId),
-        fetchPaymentInvoicebyStudent(studentId),
-      ]);
-      setLoading(false);
-    };
-
-    loadInitialData();
-  }, [studentId]);
-
+  // Definición de columnas de la tabla (no necesitan cambios a menos que quieras más detalle)
   const columns = [
     {
       title: 'Fecha',
@@ -257,6 +192,8 @@ const StudentInvoices = ({ studentId }) => {
       title: 'Descripción',
       dataIndex: 'descripcion',
       key: 'descripcion',
+      // Añadir ellipsis para descripciones largas
+      ellipsis: true,
     },
     {
       title: 'Estado',
@@ -265,9 +202,11 @@ const StudentInvoices = ({ studentId }) => {
       render: (estado) => (
         <Tag
           color={estado ? 'green' : 'red'}
-          style={{ fontSize: '24px', lineHeight: '24px', padding: '4px' }}
+          // Ajustar estilo para que el ícono se vea bien
+          style={{ fontSize: '16px', padding: '4px 8px' }}
+          icon={estado ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
         >
-          {estado ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+          {estado ? 'Pagada' : 'Pendiente'} {/* Mostrar texto también */}
         </Tag>
       ),
     },
@@ -275,7 +214,7 @@ const StudentInvoices = ({ studentId }) => {
       title: 'Acciones',
       key: 'acciones',
       render: (_, record) => (
-        <Space>
+        <Space size="small">
           {record.estado ? (
             <Button disabled>Pagado</Button>
           ) : (
@@ -300,10 +239,21 @@ const StudentInvoices = ({ studentId }) => {
     },
   ];
 
+  // Componente de carga o sin datos
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Text>Cargando...</Text>
+        <Spin size="large" tip="Cargando facturas y datos del estudiante..." />
+      </div>
+    );
+  }
+
+  // Si no se pudo cargar el estudiante, mostrar un mensaje de error
+  if (!student) {
+    return (
+      <div style={{ textAlign: 'center', padding: '50px' }}>
+        <Text type="danger">Error: No se pudo cargar los datos del estudiante.</Text>
+        <Button onClick={loadInitialData} style={{ marginTop: '20px' }}>Reintentar</Button>
       </div>
     );
   }
@@ -321,10 +271,10 @@ const StudentInvoices = ({ studentId }) => {
         <Row align="middle">
           <Col flex="auto">
             <Title level={3} style={{ margin: 0 }}>
-              Facturas de {student ? student.nombre : 'Cargando...'}
+              Facturas de {student.nombre} {student.apellido || ''} {/* Acceder a apellido */}
             </Title>
             <Text type="secondary">
-              Coordinador: {student ? student.coordinador : 'Cargando...'}
+              Coordinador: {student.coordinador || 'No especificado'}
             </Text>
           </Col>
           <Col>
@@ -337,57 +287,52 @@ const StudentInvoices = ({ studentId }) => {
       </Card>
 
       {/* Información de Matrícula */}
-      {student && (
-        <Card
-          title="Información de Matrícula"
-          style={{
-            marginBottom: '24px',
-            borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          }}
-        >
-          <Row gutter={[16, 16]} align="middle">
-            <Col xs={24} sm={8}>
-              <Text strong>Valor de Matrícula</Text>
-              <div style={{ marginTop: '8px' }}>
-                <Text>{formatCurrency(student.matricula)}</Text>
-              </div>
-            </Col>
-            <Col xs={24} sm={8}>
-              <Text strong>Estado</Text>
-              <div style={{ marginTop: '8px' }}>
-                <Tag
-                  color={student.estado_matricula ? 'green' : 'red'}
-                  style={{ fontSize: '24px', lineHeight: '24px', padding: '4px' }}
+      <Card
+        title="Información de Matrícula"
+        style={{
+          marginBottom: '24px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        }}
+      >
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} sm={8}>
+            <Text strong>Valor de Matrícula</Text>
+            <div style={{ marginTop: '8px' }}>
+              <Text>{formatCurrency(student.matricula || 0)}</Text> {/* Manejar valor nulo/indefinido */}
+            </div>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Text strong>Estado</Text>
+            <div style={{ marginTop: '8px' }}>
+              <Tag
+                color={student.estado_matricula ? 'green' : 'red'}
+                style={{ fontSize: '16px', padding: '4px 8px' }}
+                icon={student.estado_matricula ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+              >
+                {student.estado_matricula ? 'Matrícula Paga' : 'Matrícula Pendiente'}
+              </Tag>
+            </div>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Text strong>Acción</Text>
+            <div style={{ marginTop: '8px' }}>
+              {student.estado_matricula ? (
+                <Button disabled>Pagado</Button>
+              ) : (
+                <Button
+                  type="primary"
+                  icon={<FaMoneyCheckAlt />}
+                  onClick={handlePaymentMatricula}
+                  style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
                 >
-                  {student.estado_matricula ? (
-                    <CheckCircleOutlined />
-                  ) : (
-                    <CloseCircleOutlined />
-                  )}
-                </Tag>
-              </div>
-            </Col>
-            <Col xs={24} sm={8}>
-              <Text strong>Acción</Text>
-              <div style={{ marginTop: '8px' }}>
-                {student.estado_matricula ? (
-                  <Button disabled>Pagado</Button>
-                ) : (
-                  <Button
-                    type="primary"
-                    icon={<FaMoneyCheckAlt />}
-                    onClick={handlePaymentMatricula}
-                    style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
-                  >
-                    Pagar Matrícula
-                  </Button>
-                )}
-              </div>
-            </Col>
-          </Row>
-        </Card>
-      )}
+                  Pagar Matrícula
+                </Button>
+              )}
+            </div>
+          </Col>
+        </Row>
+      </Card>
 
       {/* Lista de Facturas */}
       <Card
@@ -401,8 +346,9 @@ const StudentInvoices = ({ studentId }) => {
           columns={columns}
           dataSource={facturas}
           rowKey="id"
-          pagination={false}
+          pagination={false} // Mantener paginación en false si quieres ver todas
           bordered
+          locale={{ emptyText: 'No hay facturas disponibles para este estudiante.' }}
           style={{ background: '#fff', borderRadius: '8px' }}
         />
       </Card>

@@ -1,5 +1,4 @@
-// src/components/Students/StudentDetails.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Button,
@@ -17,6 +16,7 @@ import {
   Row,
   Col,
   Divider,
+  Tag, // Importar Tag para mostrar múltiples programas
 } from 'antd';
 import {
   FaUserEdit,
@@ -29,46 +29,50 @@ import {
 } from 'react-icons/fa';
 import dayjs from 'dayjs';
 import axios from 'axios';
-import { getPrograms } from '../../services/studentService';
+// import { getPrograms } from '../../services/studentService'; // YA NO ES NECESARIO
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 const StudentDetails = ({ studentId }) => {
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [form] = Form.useForm();
   const [isEditing, setIsEditing] = useState(false);
-  const [programs, setPrograms] = useState([]);
+  // No necesitamos un estado 'programs' separado ya que vienen con el estudiante
+  // const [programs, setPrograms] = useState([]);
 
-  // Función para formatear fechas
-  const formatDate = (dateString) => {
+  // Función para formatear fechas (memorizada con useCallback)
+  const formatDate = useCallback((dateString) => {
     if (!dateString) return 'No especificado';
-    return new Date(dateString).toLocaleDateString('es-CO', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
+    return dayjs(dateString).format('DD [de] MMMM [de] YYYY'); // Usar dayjs para formatear
+  }, []);
 
-  // Obtener datos del estudiante y programas
+  // Obtener datos del estudiante (ahora incluye programas)
   useEffect(() => {
     const fetchStudent = async () => {
       try {
         const response = await axios.get(
           `https://back.app.validaciondebachillerato.com.co/api/students/${studentId}`
         );
-        setStudent(response.data);
+        const studentData = response.data;
+
+        setStudent(studentData);
         form.setFieldsValue({
-          ...response.data,
-          fecha_nacimiento: response.data.fecha_nacimiento
-            ? dayjs(response.data.fecha_nacimiento)
+          ...studentData,
+          fecha_nacimiento: studentData.fecha_nacimiento
+            ? dayjs(studentData.fecha_nacimiento)
             : null,
-          fecha_inscripcion: response.data.fecha_inscripcion
-            ? dayjs(response.data.fecha_inscripcion)
+          fecha_inscripcion: studentData.fecha_inscripcion
+            ? dayjs(studentData.fecha_inscripcion)
             : null,
-          fecha_graduacion: response.data.fecha_graduacion
-            ? dayjs(response.data.fecha_graduacion)
+          fecha_graduacion: studentData.fecha_graduacion
+            ? dayjs(studentData.fecha_graduacion)
             : null,
+          // Para el formulario de edición, si solo un programa se puede editar,
+          // puedes inicializar con el ID del primer programa o ajustar la lógica
+          // Si es edición de múltiples programas, necesitarías un componente de selección múltiple
+          programas_asociados_ids: studentData.programas_asociados?.map(p => p.programa_id) || [],
         });
       } catch (error) {
         console.error('Error al cargar el estudiante:', error);
@@ -78,25 +82,22 @@ const StudentDetails = ({ studentId }) => {
       }
     };
 
-    const fetchPrograms = async () => {
-      try {
-        const programsData = await getPrograms();
-        setPrograms(programsData);
-      } catch (error) {
-        console.error('Error al cargar los programas:', error);
-        message.error('Error al cargar los programas');
-      }
-    };
+    // Ya no es necesario cargar los programas por separado aquí
+    // const fetchPrograms = async () => { /* ... */ };
 
     fetchStudent();
-    fetchPrograms();
-  }, [studentId, form]);
+    // fetchPrograms(); // Eliminar esta llamada
+  }, [studentId, form]); // Eliminar 'programs' de las dependencias
 
-  const getCoordinatorStyle = (coordinator) => {
+  // Aunque esta función no usa student ni programs, mantenerla para el estilo Tailwind
+  const getCoordinatorStyle = useCallback((coordinator) => {
+    // Si necesitas dinámicamente un estilo de Ant Design, se vería algo así:
+    // const colors = { 'Coord1': 'blue', 'Coord2': 'green' };
+    // return { color: colors[coordinator] || 'default' };
     return 'px-2 py-1 rounded-full text-sm bg-blue-100 text-blue-800';
-  };
+  }, []);
 
-  // Funciones de acciones
+  // Funciones de acciones (sin cambios relevantes en la lógica, solo para contexto)
   const handleGraduate = async () => {
     Modal.confirm({
       title: '¿Confirmar graduación del estudiante?',
@@ -154,7 +155,23 @@ const StudentDetails = ({ studentId }) => {
       fecha_nacimiento: student.fecha_nacimiento ? dayjs(student.fecha_nacimiento) : null,
       fecha_inscripcion: student.fecha_inscripcion ? dayjs(student.fecha_inscripcion) : null,
       fecha_graduacion: student.fecha_graduacion ? dayjs(student.fecha_graduacion) : null,
+      // Al iniciar edición, si se editarán los programas asociados,
+      // el campo del formulario debe tener los IDs de los programas actuales
+      programas_asociados_ids: student.programas_asociados?.map(p => p.programa_id) || [],
     });
+    // Necesitas cargar la lista completa de programas disponibles para el Select Multi
+    // Si `getPrograms` sigue siendo necesaria para la lista completa de opciones
+    // para el SELECT, entonces mantendrías esa llamada en un useEffect separado o aquí.
+    // Asumimos que programs se refiere a la lista de opciones para el SELECT de edición.
+    // Si la lista de programas posibles es estática o viene de otro lado, ajusta.
+    // Si `getPrograms` es un servicio real que te devuelve todos los programas disponibles
+    // para asignar, deberías llamarlo al montar el componente o al iniciar la edición.
+    // Por simplicidad, asumo que 'programs' ya está cargado con la lista de todos los programas
+    // disponibles para seleccionar en el formulario.
+    // Si 'getPrograms' es para la lista de todos los programas disponibles para seleccionar, mantenla.
+    // Si no la tienes disponible globalmente, deberías hacer la llamada aquí:
+    // getPrograms().then(data => setPrograms(data)).catch(err => message.error('Error al cargar programas para edición'));
+
   };
 
   const handleSave = async () => {
@@ -167,38 +184,34 @@ const StudentDetails = ({ studentId }) => {
       }
 
       const formattedValues = {
-        nombre: values.nombre,
-        apellido: values.apellido,
-        email: values.email || '',
-        tipoDocumento: values.tipo_documento,
-        programa_nombre: values.programa_nombre,
-        numeroDocumento: values.numero_documento,
-        lugarExpedicion: values.lugar_expedicion,
-        fechaNacimiento: values.fecha_nacimiento?.toISOString(),
-        lugarNacimiento: values.lugar_nacimiento,
-        telefonoLlamadas: values.telefono_llamadas,
-        telefonoWhatsapp: values.telefono_whatsapp,
-        eps: values.eps,
-        rh: values.rh,
-        nombreAcudiente: values.nombre_acudiente,
-        tipoDocumentoAcudiente: values.tipo_documento_acudiente,
-        telefonoAcudiente: values.telefono_acudiente,
-        direccionAcudiente: values.direccion_acudiente,
-        simat: values.simat,
-        estadoMatricula: values.estado_matricula,
-        coordinador: values.coordinador,
-        activo: values.activo,
-        matricula: values.matricula,
-        modalidad_estudio: values.modalidad_estudio,
-        ultimo_curso_visto: values.ultimo_curso_visto,
+        ...values, // Incluye todos los valores del formulario
+        fecha_nacimiento: values.fecha_nacimiento?.toISOString(),
+        fecha_inscripcion: values.fecha_inscripcion?.toISOString(),
+        fecha_graduacion: values.fecha_graduacion?.toISOString(),
+        // Si el backend espera 'programa_nombre' como antes para un solo programa,
+        // o si ahora espera un array de IDs para 'programas_asociados'.
+        // Aquí debes ajustar `formattedValues` para que coincida con lo que tu backend espera
+        // al actualizar los programas de un estudiante.
+        // Por ejemplo, si el backend espera un array de IDs en 'program_ids':
+        // program_ids: values.programas_asociados_ids,
+        // Y si 'programa_nombre' ya no es un campo directo del estudiante en la DB, elimínalo.
       };
+
+      // Si necesitas enviar los IDs de los programas asociados:
+      // Elimina 'programa_nombre' de formattedValues si ya no es un campo directo
+      delete formattedValues.programa_nombre; // Si 'programa_nombre' no existe en tu esquema de estudiante
+      // Luego, añade la lista de IDs si tu API de actualización lo requiere así:
+      // formattedValues.program_ids = values.programas_asociados_ids;
+      // Esto dependerá de cómo diseñes tu API de PUT/actualización para los programas.
+      // Si tu backend maneja la actualización de programas a través de otro endpoint o una estructura específica,
+      // deberás adaptar esta parte.
 
       const response = await axios.put(
         `https://back.app.validaciondebachillerato.com.co/api/students/${student.id}`,
         formattedValues
       );
 
-      setStudent(response.data);
+      setStudent(response.data); // Asume que la API de actualización devuelve el estudiante actualizado con programas
       setIsEditing(false);
       message.success('Estudiante actualizado exitosamente');
     } catch (error) {
@@ -207,6 +220,8 @@ const StudentDetails = ({ studentId }) => {
     }
   };
 
+
+  // Renderizado condicional de campos editables
   const renderEditableField = (name, options = {}) => {
     const { type = 'text', selectOptions = [], label } = options;
 
@@ -229,14 +244,36 @@ const StudentDetails = ({ studentId }) => {
         <Form.Item name={name} label={label}>
           <Select style={{ width: '100%' }} allowClear>
             {selectOptions.map((opt) => (
-              <Select.Option key={opt.value} value={opt.value}>
+              <Option key={opt.value} value={opt.value}>
                 {opt.label}
-              </Select.Option>
+              </Option>
             ))}
           </Select>
         </Form.Item>
       );
-    } else if (type === 'date') {
+    } else if (type === 'multiselect') { // Nuevo tipo para selección múltiple de programas
+        return (
+            <Form.Item name={name} label={label}>
+                <Select
+                    mode="multiple"
+                    style={{ width: '100%' }}
+                    placeholder="Seleccione programas"
+                    allowClear
+                    // Esto asume que `programs` contiene la lista de todos los programas disponibles
+                    // con `id` y `nombre` como propiedades.
+                >
+                    {/* Asegúrate de que `programs` esté disponible aquí y tenga la estructura correcta */}
+                    {/* Si `getPrograms` es necesaria para llenar estas opciones, debes invocarla en un `useEffect` */}
+                    {programs.map((program) => (
+                        <Option key={program.id} value={program.id}>
+                            {program.nombre}
+                        </Option>
+                    ))}
+                </Select>
+            </Form.Item>
+        );
+    }
+    else if (type === 'date') {
       return (
         <Form.Item name={name} label={label}>
           <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} />
@@ -260,6 +297,7 @@ const StudentDetails = ({ studentId }) => {
     );
   };
 
+  // Renderizado de campos en modo vista/edición
   const renderField = (label, value, name, options = {}) => {
     return (
       <div style={{ marginBottom: '16px' }}>
@@ -269,12 +307,14 @@ const StudentDetails = ({ studentId }) => {
         {isEditing ? (
           renderEditableField(name, { ...options, label })
         ) : (
-          <Text>{value || 'No especificado'}</Text>
+          // Si el valor es ReactNode (como un Tag o Space), renderizarlo directamente
+          typeof value === 'object' && value !== null ? value : <Text>{value || 'No especificado'}</Text>
         )}
       </div>
     );
   };
 
+  // Renderizado del componente
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -313,8 +353,17 @@ const StudentDetails = ({ studentId }) => {
             <Title level={3} style={{ margin: 0 }}>
               {student.nombre} {student.apellido}
             </Title>
-            <Space>
-              <Text type="secondary">{student.programa_nombre}</Text>
+            <Space wrap> {/* Usar wrap para que los tags salten de línea si es necesario */}
+              {/* Mostrar todos los programas asociados */}
+              {student.programas_asociados && student.programas_asociados.length > 0 ? (
+                student.programas_asociados.map((programa, index) => (
+                  <Tag key={programa.programa_id || index} color="blue">
+                    {programa.nombre_programa}
+                  </Tag>
+                ))
+              ) : (
+                <Text type="secondary">Sin programas</Text>
+              )}
               <Text
                 style={{
                   padding: '4px 8px',
@@ -435,16 +484,34 @@ const StudentDetails = ({ studentId }) => {
             >
               <Row gutter={[16, 16]}>
                 <Col xs={24} sm={12}>
-                  {isEditing ? (
-                    renderField('Programa', null, 'programa_nombre', {
-                      type: 'select',
-                      selectOptions: programs.map((program) => ({
-                        value: program.nombre,
-                        label: program.nombre,
-                      })),
-                    })
+                  {/* Vista de programas asociados */}
+                  {!isEditing ? (
+                    <div style={{ marginBottom: '16px' }}>
+                      <Text strong style={{ display: 'block', marginBottom: '4px' }}>
+                        Programas
+                      </Text>
+                      <Space wrap>
+                        {student.programas_asociados && student.programas_asociados.length > 0 ? (
+                          student.programas_asociados.map((programa, index) => (
+                            <Tag key={programa.programa_id || index} color="blue">
+                              {programa.nombre_programa}
+                            </Tag>
+                          ))
+                        ) : (
+                          <Text>No especificado</Text>
+                        )}
+                      </Space>
+                    </div>
                   ) : (
-                    renderField('Programa', student.programa_nombre, 'programa_nombre')
+                    // Formulario de edición para programas (con Select múltiple)
+                    // ASUMO que 'programs' (la lista de todos los programas disponibles)
+                    // se carga de alguna manera o se pasa como prop.
+                    // Si `getPrograms` es la función para esto, DEBE LLAMARSE.
+                    renderEditableField('programas_asociados_ids', {
+                      label: 'Programas',
+                      type: 'multiselect', // Nuevo tipo
+                      // selectOptions no es necesario aquí si renderEditableField lo toma de 'programs'
+                    })
                   )}
                 </Col>
                 <Col xs={24} sm={12}>

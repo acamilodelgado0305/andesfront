@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Table, Input, Button, Typography, message, Space, Spin, Card, Select, Tag, Popconfirm, DatePicker } from 'antd';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Table, Input, Button, Typography, message, Space, Spin, Card, Select, Tag, Popconfirm, DatePicker, Tooltip } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
-import { DeleteOutlined, WhatsAppOutlined, EditOutlined, ExclamationCircleOutlined, FilePdfOutlined } from '@ant-design/icons';
+import { DeleteOutlined, WhatsAppOutlined, EditOutlined, ExclamationCircleOutlined, UserOutlined, FilePdfOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import axios from 'axios';
 import { getStudentById } from '../../services/studentService';
-import { generateGradeReportPDF } from '../Utilidades/generateGradeReportPDF.js';
+import { generateGradeReportPDF } from '../Utilidades/generateGradeReportPDF.js'; // Asegúrate de que esta ruta sea correcta
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -16,17 +16,50 @@ const StudentTable = ({
   onEdit,
   students = [],
   loading = false,
-  getCoordinatorStyle,
+  getCoordinatorStyle, // Esta función debe estar definida en el componente padre o ser una utilidad global
   fetchStudents,
 }) => {
   const [filters, setFilters] = useState({
     searchText: {},
     selectedStatus: null,
     selectedCoordinator: null,
-    dateRange: null, // Rango de fechas personalizado
-    predefinedDate: null, // Opción predefinida (ej. "Última semana")
+    dateRange: null,
+    predefinedDate: null,
   });
   const navigate = useNavigate();
+
+  // Función para obtener los valores únicos de coordinadores para el filtro
+  const coordinators = useMemo(() => {
+    return [...new Set(students.map((s) => s.coordinador).filter(Boolean))];
+  }, [students]);
+
+  // Manejar búsqueda por texto
+  const handleSearch = useCallback((value, dataIndex) => {
+    setFilters((prev) => ({
+      ...prev,
+      searchText: {
+        ...prev.searchText,
+        [dataIndex]: value.toLowerCase(),
+      },
+    }));
+  }, []);
+
+  // Manejar cambio de filtros generales
+  const handleFilterChange = useCallback((value, filterType) => {
+    setFilters((prev) => {
+      const newState = { ...prev };
+      if (filterType === 'predefinedDate') {
+        newState.predefinedDate = value;
+        newState.dateRange = null; // Resetear rango personalizado
+      } else if (filterType === 'dateRange') {
+        newState.dateRange = value;
+        newState.predefinedDate = null; // Resetear opción predefinida
+      } else {
+        newState[filterType] = value;
+      }
+      return newState;
+    });
+  }, []);
 
   // Calcular datos filtrados
   const filteredData = useMemo(() => {
@@ -37,11 +70,17 @@ const StudentTable = ({
         const { searchText, selectedStatus, selectedCoordinator, dateRange, predefinedDate } = filters;
 
         // Filtro por texto
-        const searchMatch = Object.keys(searchText).every((key) =>
-          student && student[key]
+        const searchMatch = Object.keys(searchText).every((key) => {
+          // Manejo específico para programas_asociados
+          if (key === 'nombre_programa') {
+            return student.programas_asociados && student.programas_asociados.some(
+              (p) => p.nombre_programa.toLowerCase().includes(searchText[key] || '')
+            );
+          }
+          return student && student[key]
             ? student[key].toString().toLowerCase().includes(searchText[key] || '')
-            : true
-        );
+            : true;
+        });
 
         // Filtro por estado
         const statusMatch = selectedStatus
@@ -76,12 +115,13 @@ const StudentTable = ({
                 startDate = now.clone().subtract(3, 'months');
                 dateMatch = inscriptionDate.isAfter(startDate);
                 break;
+              case 'all':
               default:
-                dateMatch = true;
+                dateMatch = true; // Mostrar todos los resultados si "Todo" o ningún filtro predefinido
+                break;
             }
           }
         }
-
         return searchMatch && statusMatch && coordinatorMatch && dateMatch;
       })
       .sort((a, b) => moment(b.fecha_inscripcion || 0).unix() - moment(a.fecha_inscripcion || 0).unix());
@@ -89,51 +129,6 @@ const StudentTable = ({
 
   const totalStudents = filteredData.length;
   const activeStudents = filteredData.filter((s) => s.activo).length;
-
-  // Manejar búsqueda por texto
-  const handleSearch = (value, dataIndex) => {
-    setFilters((prev) => ({
-      ...prev,
-      searchText: {
-        ...prev.searchText,
-        [dataIndex]: value.toLowerCase(),
-      },
-    }));
-  };
-
-  // Manejar cambio de estado
-  const handleStatusChange = (value) => {
-    setFilters((prev) => ({
-      ...prev,
-      selectedStatus: value || null,
-    }));
-  };
-
-  // Manejar cambio de coordinador
-  const handleCoordinatorChange = (value) => {
-    setFilters((prev) => ({
-      ...prev,
-      selectedCoordinator: value || null,
-    }));
-  };
-
-  // Manejar cambio de rango de fechas
-  const handleDateRangeChange = (dates) => {
-    setFilters((prev) => ({
-      ...prev,
-      dateRange: dates,
-      predefinedDate: null, // Resetear opción predefinida si se selecciona un rango personalizado
-    }));
-  };
-
-  // Manejar cambio de opción predefinida
-  const handlePredefinedDateChange = (value) => {
-    setFilters((prev) => ({
-      ...prev,
-      predefinedDate: value || null,
-      dateRange: null, // Resetear rango personalizado si se selecciona una opción predefinida
-    }));
-  };
 
   // Eliminar estudiante
   const handleDeleteStudent = async (id) => {
@@ -168,19 +163,86 @@ const StudentTable = ({
       title: 'Documento',
       key: 'documento',
       render: (_, record) => (
-        <span>
+        <span className="truncate-text" title={`${record.tipo_documento} ${record.numero_documento || 'No especificado'}`}>
           {record.tipo_documento} {record.numero_documento || 'No especificado'}
         </span>
       ),
-      filterDropdown: () => (
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
         <div style={{ padding: 8 }}>
           <Input
             placeholder="Buscar documento"
-            onChange={(e) => handleSearch(e.target.value, 'numero_documento')}
+            value={selectedKeys[0]}
+            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => handleSearch(selectedKeys[0], 'numero_documento')}
             style={{ width: 188, marginBottom: 8, display: 'block' }}
           />
+          <Space>
+            <Button
+              type="primary"
+              onClick={() => {
+                handleSearch(selectedKeys[0], 'numero_documento');
+                confirm();
+              }}
+              icon={<SearchOutlined />} // Asumo que tienes SearchOutlined importado
+              size="small"
+              style={{ width: 90 }}
+            >
+              Buscar
+            </Button>
+            <Button onClick={() => {
+              clearFilters();
+              handleSearch('', 'numero_documento');
+            }} size="small" style={{ width: 90 }}>
+              Resetear
+            </Button>
+          </Space>
         </div>
       ),
+      onFilter: (value, record) =>
+        record.numero_documento?.toString().toLowerCase().includes(value.toLowerCase()),
+    },
+    {
+      title: 'Nombre Completo',
+      key: 'nombre_completo',
+      render: (_, record) => (
+        <span className="truncate-text" title={`${record.nombre} ${record.apellido}`}>
+          {record.nombre} {record.apellido}
+        </span>
+      ),
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+        <div style={{ padding: 8 }}>
+          <Input
+            placeholder="Buscar nombre"
+            value={selectedKeys[0]}
+            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => handleSearch(selectedKeys[0], 'nombre')}
+            style={{ width: 188, marginBottom: 8, display: 'block' }}
+          />
+          <Space>
+            <Button
+              type="primary"
+              onClick={() => {
+                handleSearch(selectedKeys[0], 'nombre');
+                confirm();
+              }}
+              icon={<SearchOutlined />}
+              size="small"
+              style={{ width: 90 }}
+            >
+              Buscar
+            </Button>
+            <Button onClick={() => {
+              clearFilters();
+              handleSearch('', 'nombre');
+            }} size="small" style={{ width: 90 }}>
+              Resetear
+            </Button>
+          </Space>
+        </div>
+      ),
+      onFilter: (value, record) =>
+        record.nombre?.toString().toLowerCase().includes(value.toLowerCase()) ||
+        record.apellido?.toString().toLowerCase().includes(value.toLowerCase()),
     },
     {
       title: 'Coordinador',
@@ -189,50 +251,66 @@ const StudentTable = ({
       render: (text) => (
         <Tag color={getCoordinatorStyle(text)?.color || 'default'}>{text}</Tag>
       ),
-      filterDropdown: () => (
-        <div style={{ padding: 8 }}>
-          <Input
-            placeholder="Buscar coordinador"
-            onChange={(e) => handleSearch(e.target.value, 'coordinador')}
-            style={{ width: 188, marginBottom: 8, display: 'block' }}
-          />
-        </div>
-      ),
+      // Usar el filtro de Ant Design para el coordinador, ya que tenemos una lista finita
+      filters: coordinators.map(coord => ({ text: coord, value: coord })),
+      onFilter: (value, record) => record.coordinador === value,
+      filterSearch: true, // Habilitar búsqueda en el dropdown de filtro
     },
     {
-      title: 'Nombre Completo',
-      key: 'nombre_completo',
-      render: (_, record) => <span>{record.nombre}</span>,
-      filterDropdown: () => (
-        <div style={{ padding: 8 }}>
-          <Input
-            placeholder="Buscar nombre"
-            onChange={(e) => handleSearch(e.target.value, 'nombre')}
-            style={{ width: 188, marginBottom: 8, display: 'block' }}
-          />
-        </div>
+      title: 'Programas',
+      key: 'programas_asociados',
+      render: (_, record) => (
+        <Space wrap size={[0, 'small']}> {/* Utiliza wrap para que las etiquetas salten de línea si no caben */}
+          {record.programas_asociados && record.programas_asociados.length > 0 ? (
+            record.programas_asociados.map((programa, index) => (
+              <Tag key={index} color="blue">
+                {programa.nombre_programa}
+              </Tag>
+            ))
+          ) : (
+            <Tag color="volcano">Sin programas</Tag>
+          )}
+        </Space>
       ),
-    },
-    {
-      title: 'Programa',
-      key: 'programa_nombre',
-      render: (_, record) => <span>{record.programa_nombre}</span>,
-      filterDropdown: () => (
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
         <div style={{ padding: 8 }}>
           <Input
             placeholder="Buscar programa"
-            onChange={(e) => handleSearch(e.target.value, 'programa_nombre')}
+            value={selectedKeys[0]}
+            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => handleSearch(selectedKeys[0], 'nombre_programa')}
             style={{ width: 188, marginBottom: 8, display: 'block' }}
           />
+          <Space>
+            <Button
+              type="primary"
+              onClick={() => {
+                handleSearch(selectedKeys[0], 'nombre_programa');
+                confirm();
+              }}
+              icon={<SearchOutlined />}
+              size="small"
+              style={{ width: 90 }}
+            >
+              Buscar
+            </Button>
+            <Button onClick={() => {
+              clearFilters();
+              handleSearch('', 'nombre_programa');
+            }} size="small" style={{ width: 90 }}>
+              Resetear
+            </Button>
+          </Space>
         </div>
       ),
+      onFilter: (value, record) =>
+        record.programas_asociados?.some(p => p.nombre_programa.toLowerCase().includes(value.toLowerCase())),
     },
     {
       title: 'Estado',
-   
       key: 'estados',
       render: (_, record) => (
-        <Space direction="vertical">
+        <Space direction="vertical" size={2}>
           <Tag color={record.activo ? 'green' : 'red'}>
             {record.activo ? 'Activo' : 'Inactivo'}
           </Tag>
@@ -241,65 +319,93 @@ const StudentTable = ({
           </Tag>
         </Space>
       ),
+      filters: [
+        { text: 'Activo', value: 'activo' },
+        { text: 'Inactivo', value: 'inactivo' },
+      ],
+      onFilter: (value, record) => record.activo === (value === 'activo'),
     },
     {
-      title: 'Correo',
-      key: 'email',
-      render: (_, record) => <span>{record.email}</span>,
-      filterDropdown: () => (
-        <div style={ { padding: 8}}>
-          <Input
-            placeholder="Buscar correo"
-            onChange={(e) => handleSearch(e.target.value, 'email')}
-            style={{ width: 188, marginBottom: 8, display: 'block' }}
-          />
-        </div>
+      title: 'Contacto',
+      key: 'contacto',
+      render: (_, record) => (
+        <Space direction="vertical" size={2}>
+          {record.email && (
+            <Tooltip title={record.email}>
+              <Text className="truncate-text" style={{ maxWidth: '150px' }}>{record.email}</Text>
+            </Tooltip>
+          )}
+          {record.telefono_whatsapp && (
+            <Tooltip title={`WhatsApp: ${record.telefono_whatsapp}`}>
+              <Text className="truncate-text">{record.telefono_whatsapp}</Text>
+            </Tooltip>
+          )}
+          {record.telefono_llamadas && record.telefono_llamadas !== record.telefono_whatsapp && (
+            <Tooltip title={`Llamadas: ${record.telefono_llamadas}`}>
+              <Text className="truncate-text">{record.telefono_llamadas}</Text>
+            </Tooltip>
+          )}
+          {!record.email && !record.telefono_whatsapp && !record.telefono_llamadas && (
+            <Text type="secondary">Sin contacto</Text>
+          )}
+        </Space>
       ),
-    },
-    {
-      title: 'WhatsApp',
-      key: 'telefono_whatsapp',
-      render: (_, record) => <span>{record.telefono_whatsapp}</span>,
-      filterDropdown: () => (
+      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
         <div style={{ padding: 8 }}>
           <Input
-            placeholder="Buscar WhatsApp"
-            onChange={(e) => handleSearch(e.target.value, 'telefono_whatsapp')}
+            placeholder="Buscar email/teléfono"
+            value={selectedKeys[0]}
+            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => handleSearch(selectedKeys[0], 'email') || handleSearch(selectedKeys[0], 'telefono_whatsapp') || handleSearch(selectedKeys[0], 'telefono_llamadas')}
             style={{ width: 188, marginBottom: 8, display: 'block' }}
           />
+          <Space>
+            <Button
+              type="primary"
+              onClick={() => {
+                handleSearch(selectedKeys[0], 'email');
+                handleSearch(selectedKeys[0], 'telefono_whatsapp');
+                handleSearch(selectedKeys[0], 'telefono_llamadas');
+                confirm();
+              }}
+              icon={<SearchOutlined />}
+              size="small"
+              style={{ width: 90 }}
+            >
+              Buscar
+            </Button>
+            <Button onClick={() => {
+              clearFilters();
+              handleSearch('', 'email');
+              handleSearch('', 'telefono_whatsapp');
+              handleSearch('', 'telefono_llamadas');
+            }} size="small" style={{ width: 90 }}>
+              Resetear
+            </Button>
+          </Space>
         </div>
       ),
-    },
-    {
-      title: 'Llamadas',
-      key: 'telefono_llamadas',
-      render: (_, record) => <span>{record.telefono_llamadas}</span>,
-      filterDropdown: () => (
-        <div style={{ padding: 8 }}>
-          <Input
-            placeholder="Buscar teléfono"
-            onChange={(e) => handleSearch(e.target.value, 'telefono_llamadas')}
-            style={{ width: 188, marginBottom: 8, display: 'block' }}
-          />
-        </div>
-      ),
+      onFilter: (value, record) =>
+        record.email?.toString().toLowerCase().includes(value.toLowerCase()) ||
+        record.telefono_whatsapp?.toString().toLowerCase().includes(value.toLowerCase()) ||
+        record.telefono_llamadas?.toString().toLowerCase().includes(value.toLowerCase()),
     },
     {
       title: 'Fechas',
       key: 'fechas',
       render: (_, record) => (
-        <Space direction="vertical">
-          <Text>
-            <strong>Inscripción:</strong>{' '}
-            {record.fecha_inscripcion
-              ? moment(record.fecha_inscripcion).format('DD/MM/YYYY')
-              : 'No especificado'}
-          </Text>
-          {record.fecha_graduacion && (
+        <Space direction="vertical" size={2}>
+          <Tooltip title={`Inscripción: ${record.fecha_inscripcion ? moment(record.fecha_inscripcion).format('DD/MM/YYYY') : 'No especificado'}`}>
             <Text>
-              <strong>Graduación:</strong>{' '}
-              {moment(record.fecha_graduacion).format('DD/MM/YYYY')}
+              Insc.: {record.fecha_inscripcion ? moment(record.fecha_inscripcion).format('DD/MM/YY') : 'N/A'}
             </Text>
+          </Tooltip>
+          {record.fecha_graduacion && (
+            <Tooltip title={`Graduación: ${moment(record.fecha_graduacion).format('DD/MM/YYYY')}`}>
+              <Text>
+                Grad.: {moment(record.fecha_graduacion).format('DD/MM/YY')}
+              </Text>
+            </Tooltip>
           )}
         </Space>
       ),
@@ -309,137 +415,136 @@ const StudentTable = ({
       key: 'facturas',
       render: (_, record) => (
         <Link to={`/inicio/students/facturas/${record.id}`} className="text-blue-500 hover:text-blue-700">
-          Ver Pagos
+          <Button type="link" icon={<EyeOutlined />} size="small">Ver</Button>
         </Link>
       ),
     },
     {
       title: 'Acciones',
       key: 'acciones',
-      width: 200,
+      width: 150, // Ajusta el ancho para que los botones no se salgan
       fixed: 'right',
       render: (_, record) => (
-        <Space size="middle">
+        <Space size="small">
           <Popconfirm
             title="Eliminar estudiante"
             description="¿Está seguro de eliminar este estudiante? Esta acción no se puede deshacer."
             onConfirm={() => handleDeleteStudent(record.id)}
-            okText="Sí, eliminar"
+            okText="Sí"
             cancelText="No"
             icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
           >
-            <Button danger type="link" icon={<DeleteOutlined />} />
+            <Tooltip title="Eliminar">
+              <Button danger type="text" icon={<DeleteOutlined />} />
+            </Tooltip>
           </Popconfirm>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit?.(record);
-            }}
-          />
-          <Button
-            type="link"
-            icon={<WhatsAppOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              let phoneNumber =
-                record.telefono_whatsapp?.replace(/\D/g, '') ||
-                record.telefono_llamadas?.replace(/\D/g, '');
+          <Tooltip title="Editar">
+            <Button
+              type="text"
+              icon={<EditOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit?.(record);
+              }}
+            />
+          </Tooltip>
+          <Tooltip title="Enviar WhatsApp">
+            <Button
+              type="text"
+              icon={<WhatsAppOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                let phoneNumber =
+                  record.telefono_whatsapp?.replace(/\D/g, '') ||
+                  record.telefono_llamadas?.replace(/\D/g, '');
 
-              if (!phoneNumber) {
-                message.error('No hay número de teléfono disponible');
-                return;
-              }
+                if (!phoneNumber) {
+                  message.error('No hay número de teléfono disponible para WhatsApp');
+                  return;
+                }
 
-              if (!phoneNumber.startsWith('57')) {
-                phoneNumber = `57${phoneNumber}`;
-              }
+                if (!phoneNumber.startsWith('57')) {
+                  phoneNumber = `57${phoneNumber}`;
+                }
 
-              window.open(`https://wa.me/${phoneNumber}`, '_blank');
-            }}
-          />
-          <Button
-            type="link"
-            icon={<FilePdfOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDownloadGrades(record.id, record);
-            }}
-          />
+                window.open(`https://wa.me/${phoneNumber}`, '_blank');
+              }}
+            />
+          </Tooltip>
+          <Tooltip title="Descargar Boletín">
+            <Button
+              type="text"
+              icon={<FilePdfOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownloadGrades(record.id, record);
+              }}
+            />
+          </Tooltip>
         </Space>
       ),
     },
   ];
-
-  const coordinators = [...new Set(students.map((s) => s.coordinador).filter(Boolean))];
-
   return (
     <div className="p-4">
-      <Space direction="vertical" size="middle" className="mb-4 w-full">
-        <Space className="flex items-center justify-between w-full">
-          <Space>
-            <Select
-              style={{ width: 150 }}
-              placeholder="Filtrar por estado"
-              allowClear
-              onChange={handleStatusChange}
-              value={filters.selectedStatus}
-            >
-              <Option value="activo">Activo</Option>
-              <Option value="inactivo">Inactivo</Option>
-            </Select>
-            <Select
-              style={{ width: 200 }}
-              placeholder="Filtrar por coordinador"
-              allowClear
-              onChange={handleCoordinatorChange}
-              value={filters.selectedCoordinator}
-            >
-              {coordinators.map((coord) => (
-                <Option key={coord} value={coord}>
-                  {coord}
-                </Option>
-              ))}
-            </Select>
-            <Select
-              style={{ width: 200 }}
-              placeholder="Filtrar por fecha"
-              allowClear
-              onChange={handlePredefinedDateChange}
-              value={filters.predefinedDate}
-            >
-              <Option value="week">Última semana</Option>
-              <Option value="month">Último mes</Option>
-              <Option value="quarter">Últimos 3 meses</Option>
-              <Option value="all">Todo</Option>
-            </Select>
-            <RangePicker
-              style={{ width: 300 }}
-              onChange={handleDateRangeChange}
-              value={filters.dateRange}
-              format="DD/MM/YYYY"
-              placeholder={['Fecha inicio', 'Fecha fin']}
-            />
-            <Text>
-              Mostrando <strong>{totalStudents}</strong> estudiantes
-              {filters.selectedStatus && (
-                <span> ({filters.selectedStatus})</span>
-              )}
-              {filters.selectedCoordinator && (
-                <span> para <strong>{filters.selectedCoordinator}</strong></span>
-              )}
-              {filters.predefinedDate && (
-                <span> ({filters.predefinedDate === 'week' ? 'Última semana' : filters.predefinedDate === 'month' ? 'Último mes' : filters.predefinedDate === 'quarter' ? 'Últimos 3 meses' : 'Todo'})</span>
-              )}
-            </Text>
-          </Space>
+      <Space direction="vertical" size="large" className="mb-6 w-full">
+        {/* Sección de Filtros */}
+        <Space wrap className="w-full justify-start items-center">
+          <Select
+            style={{ width: 150 }}
+            placeholder="Filtrar por estado"
+            allowClear
+            onChange={(value) => handleFilterChange(value, 'selectedStatus')}
+            value={filters.selectedStatus}
+          >
+            <Option value="activo">Activo</Option>
+            <Option value="inactivo">Inactivo</Option>
+          </Select>
+          <Select
+            style={{ width: 200 }}
+            placeholder="Filtrar por coordinador"
+            allowClear
+            onChange={(value) => handleFilterChange(value, 'selectedCoordinator')}
+            value={filters.selectedCoordinator}
+            showSearch // Habilita la búsqueda dentro del select
+            optionFilterProp="children"
+            filterOption={(input, option) =>
+              (option?.children || '').toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            {coordinators.map((coord) => (
+              <Option key={coord} value={coord}>
+                {coord}
+              </Option>
+            ))}
+          </Select>
+          <Select
+            style={{ width: 200 }}
+            placeholder="Filtrar por fecha predefinida"
+            allowClear
+            onChange={(value) => handleFilterChange(value, 'predefinedDate')}
+            value={filters.predefinedDate}
+          >
+            <Option value="week">Última semana</Option>
+            <Option value="month">Último mes</Option>
+            <Option value="quarter">Últimos 3 meses</Option>
+            <Option value="all">Todo</Option>
+          </Select>
+          <RangePicker
+            style={{ width: 300 }}
+            onChange={(dates) => handleFilterChange(dates, 'dateRange')}
+            value={filters.dateRange}
+            format="DD/MM/YYYY"
+            placeholder={['Fecha inicio', 'Fecha fin']}
+            disabled={filters.predefinedDate !== null && filters.predefinedDate !== 'all'} // Deshabilita si hay un filtro predefinido activo
+          />
         </Space>
 
+        {/* Sección de Resumen y Métricas */}
         <Space size="middle" style={{ width: '100%', justifyContent: 'center' }}>
           <Card
             style={{
-              width: 300,
+              width: 280, // Ajustado el ancho
               borderRadius: 8,
               boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
               border: '1px solid #d9f7be',
@@ -466,7 +571,7 @@ const StudentTable = ({
           </Card>
           <Card
             style={{
-              width: 300,
+              width: 280, // Ajustado el ancho
               borderRadius: 8,
               boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
               border: '1px solid #d9f7be',
@@ -475,7 +580,7 @@ const StudentTable = ({
             bodyStyle={{ padding: 16 }}
           >
             <Space align="center" size="middle">
-              <EditOutlined style={{ fontSize: '32px', color: '#52c41a' }} />
+              <UserOutlined style={{ fontSize: '32px', color: '#52c41a' }} /> {/* Icono más apropiado */}
               <div>
                 <Text style={{ fontSize: 14, color: '#595959' }}>Estudiantes Activos</Text>
                 <Title
@@ -494,7 +599,7 @@ const StudentTable = ({
         </Space>
       </Space>
 
-      <Spin spinning={loading}>
+      <Spin spinning={loading} tip="Cargando estudiantes..."> {/* Mejorar el texto del tip */}
         <Table
           columns={columns}
           dataSource={filteredData}
@@ -502,21 +607,34 @@ const StudentTable = ({
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50'],
+            pageSizeOptions: ['10', '20', '50', '100'], // Más opciones de paginación
+            showTotal: (total, range) => `Mostrando ${range[0]}-${range[1]} de ${total} estudiantes`, // Texto informativo
           }}
-          scroll={{ x: 1200 }}
-          locale={{ emptyText: 'No hay estudiantes disponibles' }}
+          scroll={{ x: 'max-content' }} // Usa 'max-content' para que la tabla sea tan ancha como su contenido
+          locale={{ emptyText: 'No hay estudiantes disponibles que coincidan con los filtros.' }}
           onRow={(record) => ({
             onClick: () => navigate(`/inicio/students/view/${record.id}`),
           })}
           rowClassName="cursor-pointer"
+          bordered // Añade bordes a la tabla para una mejor separación visual
+          size="middle" // Tamaño de la tabla más compacto
         />
       </Spin>
 
       <style jsx>{`
         .ant-table-cell {
-          padding: 8px !important;
-          font-size: 14px;
+          padding: 10px 8px !important; /* Ajustar padding para más espacio */
+          font-size: 13px; /* Fuente ligeramente más pequeña para compactar */
+          white-space: nowrap; /* Evita que el texto se envuelva por defecto */
+          overflow: hidden; /* Oculta el texto que se desborda */
+          text-overflow: ellipsis; /* Añade puntos suspensivos al texto desbordado */
+        }
+        .truncate-text {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: block; /* Asegura que el span se comporte como un bloque para el truncado */
+          max-width: 100%; /* Asegura que el truncado funcione dentro de la columna */
         }
         .cursor-pointer {
           cursor: pointer;
