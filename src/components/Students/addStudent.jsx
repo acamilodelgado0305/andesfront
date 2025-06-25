@@ -42,7 +42,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
 
         const apiUrl = import.meta.env.VITE_API_BACKEND
           ? `${import.meta.env.VITE_API_BACKEND}/api/inventario/user/${userId}`
-          : `http://localhost:3002/api/inventario/user/${userId}`;
+          : `https://back.app.validaciondebachillerato.com.co/api/inventario/user/${userId}`;
 
         const response = await fetch(apiUrl, {
           method: "GET",
