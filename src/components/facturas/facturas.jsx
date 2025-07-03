@@ -1,402 +1,535 @@
+// src/components/Payments.js (o Pagos.js)
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import {
-  getInvoicebyStudent,
-  getStudentById,
-  payInvoice,
-  getTotalPaymentInvoicebyStudent,
-  deleteInvoice,
-} from "../../services/studentService";
-import axios from 'axios';
-import { Table, Input, Button, Dropdown, Menu, Modal, message } from "antd";
+    Table,
+    Input,
+    Button,
+    Modal,
+    message,
+    Form,
+    Select,
+    DatePicker,
+    InputNumber,
+    Spin,
+    Tag,
+    Space,
+    Typography,
+} from "antd";
 import {
-  FaTrashAlt,
-  FaUserEdit,
-  FaSearch,
-  FaFilter,
-  FaDownload,
-  FaWhatsapp
-
+    FaTrashAlt,
+    FaPlus,
+    FaDownload,
+    FaFilter,
+    FaSearch,
 } from "react-icons/fa";
+import axios from "axios";
+import dayjs from "dayjs";
 
-const Facturas = () => {
-  const { id } = useParams();
-  const [facturas, setFacturas] = useState([]);
-  const [student, setStudent] = useState(null);
-  const [totalPagado, setTotalPagado] = useState(0);
+const { Title, Text } = Typography;
+const { Option } = Select;
 
-  const fetchPaymentInvoicebyStudent = async (id) => {
-    try {
-      const result = await getTotalPaymentInvoicebyStudent(id);
-      const totalFacturas = parseFloat(result.total_pagado || 0);
-      
-      // Obtenemos los datos del estudiante si no los tenemos
-      if (!student) {
-        const studentData = await getStudentById(id);
-        setStudent(studentData);
-        
-        // Si la matrícula está pagada, la sumamos al total
-        if (studentData.estado_matricula) {
-          setTotalPagado(totalFacturas + parseFloat(studentData.matricula || 0));
-        } else {
-          setTotalPagado(totalFacturas);
-        }
-      } else {
-        // Si ya tenemos los datos del estudiante
-        if (student.estado_matricula) {
-          setTotalPagado(totalFacturas + parseFloat(student.matricula || 0));
-        } else {
-          setTotalPagado(totalFacturas);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching total pagado:", err);
-    }
-  };
+// URL base de tu backend
+const BASE_URL = "http://localhost:3002/api"; // O 'http://localhost:3000/api' en desarrollo
 
-  const fetchInvoicebyStudent = async (id) => {
-    try {
-      const data = await getInvoicebyStudent(id);
-      const currentYear = new Date().getFullYear();
+const Payments = () => {
+    const { id: studentId } = useParams();
+    const [payments, setPayments] = useState([]);
+    const [student, setStudent] = useState(null);
+    const [totalPaid, setTotalPaid] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [form] = Form.useForm();
+    const [paymentTypes, setPaymentTypes] = useState([]);
+    const [studentPrograms, setStudentPrograms] = useState([]);
+    const [selectedPaymentType, setSelectedPaymentType] = useState(null);
+    const [montoEsperadoMensualidad, setMontoEsperadoMensualidad] = useState(null);
 
-      // Separar facturas del año actual y años anteriores
-      const facturasAñoActual = [];
-      const facturasAñosAnteriores = [];
-
-      data.forEach((factura) => {
-        const facturaYear = new Date(factura.fecha).getFullYear();
-        if (facturaYear === currentYear) {
-          facturasAñoActual.push(factura);
-        } else {
-          facturasAñosAnteriores.push(factura);
-        }
-      });
-
-      // Ordenar facturas por fecha
-      const sortFacturas = (a, b) => new Date(a.fecha) - new Date(b.fecha);
-
-      facturasAñoActual.sort(sortFacturas);
-      facturasAñosAnteriores.sort(sortFacturas);
-
-      // Combinar facturas del año actual y años anteriores
-      const facturasOrdenadas = [
-        ...facturasAñoActual,
-        ...facturasAñosAnteriores,
-      ];
-
-      setFacturas(facturasOrdenadas);
-    } catch (err) {
-      console.error("Error fetching facturas:", err);
-    }
-  };
-
-  const fetchStudentById = async (id) => {
-    try {
-      const data = await getStudentById(id);
-      setStudent(data);
-      console.log(data);
-    } catch (err) {
-      console.error("Error fetching student:", err);
-    }
-  };
-
-  const calcularTotalPagado = (facturas) => {
-    const total = facturas
-      .filter((factura) => factura.estado)
-      .reduce((acc, factura) => acc + factura.monto, 0);
-    setTotalPagado(total);
-  };
-
-  
-
-  const formatDateToMonth = (fecha) => {
-    const meses = [
-      "Enero",
-      "Febrero",
-      "Marzo",
-      "Abril",
-      "Mayo",
-      "Junio",
-      "Julio",
-      "Agosto",
-      "Septiembre",
-      "Octubre",
-      "Noviembre",
-      "Diciembre",
-    ];
-    const date = new Date(fecha);
-    return `${meses[date.getMonth()]} ${date.getFullYear()}`;
-  };
-
-  const formatCurrency = (value) => {
-    // Si value es null, undefined o no es un número, usamos 0 como fallback
-    const numericValue = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
-    return numericValue.toLocaleString("es-CO", {
-      style: "currency",
-      currency: "COP",
-    });
-  };
-
-  const handlePayment = async (facturaId) => {
-    Modal.confirm({
-      title: "¿Desea realizar el pago?",
-      content: "Esta acción no se puede deshacer",
-      okText: "Sí, pagar",
-      cancelText: "Cancelar",
-      onOk: async () => {
-        try {
-          await payInvoice(facturaId);
-
-          setFacturas((prevFacturas) =>
-            prevFacturas.map((factura) =>
-              factura.id === facturaId ? { ...factura, estado: true } : factura
-            )
-          );
-
-          calcularTotalPagado(
-            facturas.map((factura) =>
-              factura.id === facturaId ? { ...factura, estado: true } : factura
-            )
-          );
-
-          message.success("La factura ha sido pagada");
-          fetchPaymentInvoicebyStudent(id);
-        } catch (error) {
-          message.error("Hubo un problema al procesar el pago");
-        }
-      },
-    });
-  };
-
-  const handlePaymentMatricula = async (studentId) => {
-    Modal.confirm({
-      title: "¿Desea realizar el pago?",
-      content: "Esta acción no se puede deshacer",
-      okText: "Sí, pagar",
-      cancelText: "Cancelar",
-      onOk: async () => {
-        try {
-          if (!student || !student.matricula) {
-            throw new Error('Datos del estudiante no disponibles');
-          }
-
-          const matriculaValue = parseFloat(student.matricula);
-
-          const response = await axios({
-            method: 'PUT',
-            url: `https://back.app.validaciondebachillerato.com.co/api/students/status_matricula/${studentId}`,
-            data: {
-              estado_matricula: true
-            },
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
-
-          if (response.data && response.status === 200) {
-            // Actualizar el estado del estudiante
-            setStudent(prevStudent => ({
-              ...prevStudent,
-              estado_matricula: true
-            }));
-
-            // Actualizar el total pagado incluyendo la matrícula
-            setTotalPagado(prevTotal => prevTotal + matriculaValue);
-
-            message.success("La Matrícula ha sido pagada exitosamente");
-
-            // Refrescar datos
-            await Promise.all([
-              fetchStudentById(studentId),
-              fetchPaymentInvoicebyStudent(studentId)
-            ]);
-          }
-        } catch (error) {
-          console.error("Error al procesar el pago de matrícula:", error);
-          message.error(`Error al procesar el pago: ${error.response?.data?.message || 'Error al conectar con el servidor'}`);
-        }
-      }
-    });
-  };
-
-  const handleDelete = async (id) => {
-    Modal.confirm({
-      title: "¿Está seguro de que desea eliminar esta Factura?",
-      content: "Esta acción no se puede deshacer.",
-      onOk: async () => {
-        try {
-          await deleteInvoice(id);
-          setFacturas(facturas.filter((factura) => factura.id !== id));
-          message.success("Factura eliminado con éxito");
-        } catch (error) {
-          console.error("Error al eliminar la Factura:", error);
-          message.error("Error al eliminar el Factura");
-        }
-      },
-    });
-  };
-
-
-  useEffect(() => {
-    const loadInitialData = async () => {
-      await fetchStudentById(id);
-      await fetchInvoicebyStudent(id);
-      await fetchPaymentInvoicebyStudent(id);
+    // --- UTILITIES ---
+    const formatDateToMonth = (dateString) => {
+        if (!dateString) return "N/A";
+        const date = dayjs(dateString);
+        return date.format("MMMM [de] YYYY"); // Formato "Julio de 2025"
     };
 
-    loadInitialData();
-  }, [id]);
+    const formatCurrency = (value) => {
+        const numericValue = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+        return numericValue.toLocaleString("es-CO", {
+            style: "currency",
+            currency: "COP",
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+        });
+    };
 
+    // --- FETCH DATA FUNCTIONS ---
+    const fetchStudentData = async () => {
+        try {
+            const { data } = await axios.get(`${BASE_URL}/students/${studentId}`);
+            setStudent(data);
+        } catch (err) {
+            console.error("Error fetching student data:", err);
+            message.error("Error al cargar los datos del estudiante.");
+        }
+    };
 
-  return (
-    <div className="mx-auto mt-8 p-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">
-          Facturas de {student ? student.nombre : "Cargando..."}
-        </h1>
-        <p className="text-gray-600">
-          Coordinador: {student ? student.coordinador : "Cargando..."}
-        </p>
-      </div>
+    const fetchPaymentTypes = async () => {
+        try {
+            // Asegúrate de que esta ruta exista en tu backend y devuelva los nombres y IDs de los tipos de pago
+            // (e.g., { id: 1, nombre: 'Mensualidad' })
+            const { data } = await axios.get(`${BASE_URL}/types_pago`);
+            setPaymentTypes(data);
+        } catch (err) {
+            console.error("Error fetching payment types:", err);
+            message.error("Error al cargar los tipos de pago.");
+        }
+    };
 
-      {student && (
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
-          <div className="px-4 py-5 sm:px-6">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
-              Información de Matrícula
-            </h3>
-          </div>
-          <div className="border-t border-gray-200">
-            <dl className="sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-2 sm:gap-4">
-                <dt className="text-sm font-medium text-gray-500">Matrícula</dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:mt-0">
-                  {formatCurrency(student.matricula)}
-                </dd>
-              </div>
-              <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-2 sm:gap-4">
-                <dt className="text-sm font-medium text-gray-500">
-                  {student.estado_matricula ? (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      Pagada
-                    </span>
-                  ) : (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                      Pendiente
-                    </span>
-                  )}
-                </dt>
-                <dd className="mt-1 text-sm text-gray-900 sm:mt-0">
-                  {student.estado_matricula ? (
-                    <button className="bg-gray-500 text-white px-4 py-2 rounded-lg cursor-not-allowed">
-                      Pagado
-                    </button>
-                  ) : (
-                    <button
-                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-300 ease-in-out"
-                      onClick={() => handlePaymentMatricula(student.id)}
+    const fetchStudentPrograms = async (sId) => {
+        try {
+            // Esta ruta devuelve un array de programas a los que el estudiante está inscrito
+            const { data } = await axios.get(`${BASE_URL}/students/${sId}/program-info`);
+            setStudentPrograms(data);
+        } catch (err) {
+            console.error("Error fetching student programs:", err);
+            message.error("Error al cargar los programas asociados al estudiante.");
+        }
+    };
+
+    const fetchPaymentsByStudentId = async (sId) => {
+        try {
+            // Esta ruta devuelve todos los pagos del estudiante desde la tabla `pagos`
+            const { data } = await axios.get(`${BASE_URL}/payments/student/${sId}`);
+            setPayments(data);
+        } catch (err) {
+            console.error("Error fetching payments:", err);
+            message.error("Error al cargar el historial de pagos del estudiante.");
+        }
+    };
+
+    const fetchTotalPaid = async (sId) => {
+        try {
+            // Esta ruta devuelve la suma de todos los pagos con estado 'Pagado'
+            const { data } = await axios.get(`${BASE_URL}/payments/student/${sId}/total-paid`);
+            setTotalPaid(parseFloat(data.total_pagado || 0));
+        } catch (err) {
+            console.error("Error fetching total paid:", err);
+            message.error("Error al cargar el total de pagos del estudiante.");
+        }
+    };
+
+    // --- EFFECT HOOKS ---
+    useEffect(() => {
+        const loadAllData = async () => {
+            setLoading(true);
+            await Promise.all([
+                fetchStudentData(),
+                fetchPaymentTypes(),
+                fetchStudentPrograms(studentId),
+                fetchPaymentsByStudentId(studentId),
+                fetchTotalPaid(studentId),
+            ]);
+            setLoading(false);
+        };
+        loadAllData();
+    }, [studentId]);
+
+    // Lógica para actualizar el monto esperado en el formulario de pago cuando se cambia el tipo o programa
+    useEffect(() => {
+        if (selectedPaymentType === 'Mensualidad' && form.getFieldValue('program_id')) {
+            const selectedProgram = studentPrograms.find(
+                (p) => p.programa_id === form.getFieldValue('program_id')
+            );
+            if (selectedProgram) {
+                const monto = parseFloat(selectedProgram.costo_mensual_esperado);
+                setMontoEsperadoMensualidad(monto);
+                form.setFieldsValue({ monto: monto }); // Rellenar con el monto esperado
+            } else {
+                setMontoEsperadoMensualidad(null);
+                form.setFieldsValue({ monto: null });
+            }
+        } else {
+            setMontoEsperadoMensualidad(null);
+            // Si el tipo de pago cambia y no es mensualidad, el campo monto no se prerrellena
+            // La validación `required` se encarga de que el usuario lo ingrese.
+        }
+    }, [selectedPaymentType, form, studentPrograms]);
+
+    // --- EVENT HANDLERS ---
+    const handleCreatePayment = async (values) => {
+        try {
+            // Ajustar el `periodo_pagado` si es una mensualidad
+            const periodo = values.tipo_pago_nombre === 'Mensualidad' && values.periodo_pagado
+                ? dayjs(values.periodo_pagado).format("YYYY-MM")
+                : null;
+
+            // Ajustar `program_id` si no es mensualidad para no enviarlo
+            const programIdToSend = values.tipo_pago_nombre === 'Mensualidad' && values.program_id
+                ? parseInt(values.program_id)
+                : null;
+
+            await axios.post(`${BASE_URL}/payments`, {
+                student_id: parseInt(studentId),
+                tipo_pago_nombre: values.tipo_pago_nombre,
+                monto: parseFloat(values.monto),
+                periodo_pagado: periodo,
+                metodo_pago: values.metodo_pago,
+                referencia_transaccion: values.referencia_transaccion || null,
+                observaciones: values.observaciones || null,
+                program_id: programIdToSend,
+            });
+            message.success("Pago registrado exitosamente.");
+            setIsModalVisible(false);
+            form.resetFields();
+
+            // Refrescar todos los datos relevantes
+            await Promise.all([
+                fetchPaymentsByStudentId(studentId),
+                fetchTotalPaid(studentId),
+                fetchStudentData(), // Para actualizar `estado_matricula` si aplica
+            ]);
+        } catch (error) {
+            console.error(`[${dayjs().format('DD/MM/YYYY HH:mm:ss')}] Error al crear pago:`, error.response?.data || error.message);
+            message.error("Error al registrar pago: " + (error.response?.data?.error || "Verifica la consola para más detalles."));
+        }
+    };
+
+    const handleDeletePayment = async (paymentId) => {
+        Modal.confirm({
+            title: "¿Está seguro de que desea eliminar este pago?",
+            content: "Esta acción no se puede deshacer.",
+            okText: "Sí, eliminar",
+            cancelText: "Cancelar",
+            onOk: async () => {
+                try {
+                    await axios.delete(`${BASE_URL}/payments/${paymentId}`);
+                    message.success("Pago eliminado con éxito.");
+                    await Promise.all([
+                        fetchPaymentsByStudentId(studentId),
+                        fetchTotalPaid(studentId),
+                        fetchStudentData(), // Para recalcular total y estado matrícula
+                    ]);
+                } catch (error) {
+                    console.error(`[${dayjs().format('DD/MM/YYYY HH:mm:ss')}] Error al eliminar pago:`, error.response?.data || error.message);
+                    message.error("Error al eliminar pago: " + (error.response?.data?.error || "Verifica la consola."));
+                }
+            },
+        });
+    };
+
+    const handleMarkAsPaid = async (paymentId) => {
+        Modal.confirm({
+            title: "¿Desea marcar este pago como Pagado?",
+            content: "Esto actualizará el estado del pago y lo incluirá en el total pagado.",
+            okText: "Sí, marcar como pagado",
+            cancelText: "Cancelar",
+            onOk: async () => {
+                try {
+                    await axios.patch(`${BASE_URL}/payments/${paymentId}/status`, { estado: 'Pagado' });
+                    message.success("Pago marcado como Pagado exitosamente.");
+                    await Promise.all([
+                        fetchPaymentsByStudentId(studentId),
+                        fetchTotalPaid(studentId),
+                        fetchStudentData(),
+                    ]);
+                } catch (error) {
+                    console.error(`[${dayjs().format('DD/MM/YYYY HH:mm:ss')}] Error al marcar pago como pagado:`, error.response?.data || error.message);
+                    message.error("Error al marcar pago como pagado: " + (error.response?.data?.error || "Verifica la consola."));
+                }
+            },
+        });
+    };
+
+    // Función para emitir y descargar un recibo
+    const handleDownloadReceipt = (paymentId) => {
+        const receiptUrl = `${BASE_URL}/receipts/${paymentId}/download`; // Necesitarás implementar esta ruta
+        window.open(receiptUrl, '_blank');
+        message.info("Generando recibo. Si la descarga no inicia, verifique las ventanas emergentes.");
+    };
+
+    // --- TABLE COLUMNS ---
+    const columns = [
+        {
+            title: "Tipo de Pago",
+            dataIndex: "tipo_pago_nombre",
+            key: "tipo_pago_nombre",
+            render: (text) => <Tag color="blue">{text}</Tag>
+        },
+        {
+            title: "Período",
+            dataIndex: "periodo_pagado",
+            key: "periodo_pagado",
+            render: (text) => text || "N/A", // '2025-07' o 'N/A'
+        },
+        {
+            title: "Monto",
+            dataIndex: "monto",
+            key: "monto",
+            render: (text) => formatCurrency(text),
+        },
+        {
+            title: "Fecha Pago",
+            dataIndex: "fecha_pago",
+            key: "fecha_pago",
+            render: (text) => dayjs(text).format("DD/MM/YYYY"),
+        },
+        {
+            title: "Método",
+            dataIndex: "metodo_pago",
+            key: "metodo_pago",
+        },
+        {
+            title: "Referencia",
+            dataIndex: "referencia_transaccion",
+            key: "referencia_transaccion",
+            render: (text) => text || "N/A",
+        },
+        {
+            title: "Estado",
+            dataIndex: "estado",
+            key: "estado",
+            render: (text) => (
+                <Tag color={text === "Pagado" ? "green" : text === "Pendiente" ? "orange" : "red"}>
+                    {text}
+                </Tag>
+            ),
+        },
+        {
+            title: "Acciones",
+            key: "actions",
+            render: (_, record) => (
+                <Space size="middle">
+                    {record.estado !== "Pagado" && (
+                        <Button
+                            onClick={() => handleMarkAsPaid(record.id)}
+                            type="primary"
+                            size="small"
+                            className="bg-green-500 hover:bg-green-600 border-green-500"
+                        >
+                            Marcar como Pagado
+                        </Button>
+                    )}
+                    <Button
+                        icon={<FaDownload />}
+                        onClick={() => handleDownloadReceipt(record.id)}
+                        size="small"
+                        disabled={record.estado !== "Pagado"}
                     >
-                      Pagar
-                    </button>
-                  )}
-                </dd>
-              </div>
-            </dl>
-          </div>
+                        Recibo
+                    </Button>
+                    <Button
+                        icon={<FaTrashAlt />}
+                        onClick={() => handleDeletePayment(record.id)}
+                        danger
+                        size="small"
+                    />
+                </Space>
+            ),
+        },
+    ];
+
+    // --- Render Component ---
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <Spin size="large" tip="Cargando información de pagos..." />
+            </div>
+        );
+    }
+
+    return (
+        <div className="mx-auto mt-8 p-4 bg-gray-100 min-h-screen">
+            <Title level={3} className="text-gray-800 mb-6">
+                Pagos de {student ? `${student.nombre} ${student.apellido}` : ""}
+            </Title>
+            <Text className="text-gray-600 mb-4 block">
+                Coordinador: {student ? student.coordinador_nombre : ""}
+            </Text>
+
+            {/* Sección de Matrícula (ahora como un pago más) */}
+            {student && (
+                <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8 p-6">
+                    <Title level={4} className="text-gray-900 mb-4">
+                        Estado de Matrícula
+                    </Title>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <Text strong className="text-sm font-medium text-gray-500">Valor de Matrícula (referencia):</Text>
+                            <p className="mt-1 text-lg text-gray-900">{formatCurrency(student.matricula)}</p>
+                        </div>
+                        <div>
+                            <Text strong className="text-sm font-medium text-gray-500">Estado de Matrícula:</Text>
+                            <Tag color={student.estado_matricula ? "green" : "red"} className="mt-1 text-lg">
+                                {student.estado_matricula ? "Pagada" : "Pendiente"}
+                            </Tag>
+                            {!student.estado_matricula && (
+                                <Button
+                                    type="default" // Cambiado a default para indicar que se usa el modal principal
+                                    className="ml-4"
+                                    onClick={() => {
+                                        setIsModalVisible(true);
+                                        form.resetFields();
+                                        setSelectedPaymentType('Matrícula'); // Preseleccionar Matrícula
+                                        form.setFieldsValue({ tipo_pago_nombre: 'Matrícula', monto: student.matricula }); // Y el monto
+                                    }}
+                                >
+                                    Pagar Matrícula
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Botón para Registrar Nuevo Pago */}
+            <div className="flex justify-end mb-4">
+                <Button
+                    type="primary"
+                    icon={<FaPlus />}
+                    onClick={() => {
+                        setIsModalVisible(true);
+                        form.resetFields();
+                        setSelectedPaymentType(null);
+                        setMontoEsperadoMensualidad(null);
+                    }}
+                >
+                    Registrar Nuevo Pago
+                </Button>
+            </div>
+
+            {/* Tabla de Pagos */}
+            <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
+                <Table
+                    dataSource={payments}
+                    columns={columns}
+                    rowKey="id"
+                    pagination={{ pageSize: 10 }}
+                    loading={loading}
+                    className="w-full"
+                    locale={{ emptyText: "No hay pagos registrados." }}
+                />
+            </div>
+
+            {/* Total Pagado */}
+            <div className="text-right p-4 bg-white shadow sm:rounded-lg">
+                <Title level={4} className="text-gray-800">
+                    Total de Pagos Registrados: {formatCurrency(totalPaid)}{" "}
+                </Title>
+                <Text className="text-sm text-gray-500 mt-1 block">
+                    (Este total incluye todos los pagos marcados como 'Pagado'.)
+                </Text>
+            </div>
+
+            {/* Modal para Registrar Nuevo Pago */}
+            <Modal
+                title="Registrar Nuevo Pago"
+                open={isModalVisible}
+                onCancel={() => setIsModalVisible(false)}
+                footer={null}
+            >
+                <Form form={form} layout="vertical" onFinish={handleCreatePayment}>
+                    <Form.Item
+                        name="tipo_pago_nombre"
+                        label="Tipo de Pago"
+                        rules={[{ required: true, message: "Seleccione el tipo de pago" }]}
+                    >
+                        <Select
+                            placeholder="Seleccione un tipo de pago"
+                            onChange={(value) => {
+                                setSelectedPaymentType(value);
+                                // Resetear campos condicionales al cambiar el tipo de pago
+                                form.setFieldsValue({ monto: null, periodo_pagado: null, program_id: null });
+                            }}
+                        >
+                            {paymentTypes.map((type) => (
+                                <Option key={type.id} value={type.nombre}>
+                                    {type.nombre}
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
+                    {selectedPaymentType === 'Mensualidad' && (
+                        <Form.Item
+                            name="program_id"
+                            label="Programa"
+                            rules={[{ required: true, message: "Seleccione el programa" }]}
+                        >
+                            <Select
+                                placeholder="Seleccione el programa para la mensualidad"
+                                onChange={(value) => {
+                                    const selectedProgram = studentPrograms.find(p => p.programa_id === value);
+                                    if (selectedProgram) {
+                                        const monto = parseFloat(selectedProgram.costo_mensual_esperado);
+                                        setMontoEsperadoMensualidad(monto);
+                                        form.setFieldsValue({ monto: monto });
+                                    } else {
+                                        setMontoEsperadoMensualidad(null);
+                                        form.setFieldsValue({ monto: null });
+                                    }
+                                }}
+                            >
+                                {studentPrograms.map((program) => (
+                                    <Option key={program.programa_id} value={program.programa_id}>
+                                        {program.programa_nombre} ({formatCurrency(program.costo_mensual_esperado)})
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    )}
+
+                    {selectedPaymentType === 'Mensualidad' && montoEsperadoMensualidad !== null && (
+                         <p className="text-gray-600 mb-2">Monto esperado para este programa: <strong>{formatCurrency(montoEsperadoMensualidad)}</strong></p>
+                    )}
+
+                    {selectedPaymentType === 'Mensualidad' && (
+                        <Form.Item
+                            name="periodo_pagado"
+                            label="Período Pagado (Mes y Año)"
+                            rules={[{ required: true, message: "Seleccione el período" }]}
+                        >
+                            <DatePicker picker="month" format="YYYY-MM" style={{ width: '100%' }} />
+                        </Form.Item>
+                    )}
+
+                    <Form.Item
+                        name="monto"
+                        label="Monto Pagado"
+                        rules={[{ required: true, message: "Ingrese el monto" }]}
+                    >
+                        <InputNumber
+                            style={{ width: '100%' }}
+                            formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={(value) => value.replace(/\$\s?|(,*)/g, '')}
+                            min={0}
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="metodo_pago"
+                        label="Método de Pago"
+                        rules={[{ required: true, message: "Ingrese el método de pago" }]}
+                    >
+                        <Input />
+                    </Form.Item>
+
+                    <Form.Item name="referencia_transaccion" label="Referencia de Transacción">
+                        <Input />
+                    </Form.Item>
+
+                    <Form.Item name="observaciones" label="Observaciones">
+                        <Input.TextArea rows={3} />
+                    </Form.Item>
+
+                    <Form.Item>
+                        <Button type="primary" htmlType="submit" className="w-full">
+                            Registrar Pago
+                        </Button>
+                    </Form.Item>
+                </Form>
+            </Modal>
         </div>
-      )}
-
-      <div className="flex justify-between mb-8">
-        <h2 className="text-2xl font-bold text-gray-800">
-          Lista de Facturas Mensuales
-        </h2>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fecha
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Monto
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Descripción
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Pagar
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {facturas.map((factura) => (
-              <tr key={factura.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {formatDateToMonth(factura.fecha)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {formatCurrency(factura.monto)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {factura.descripcion}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {factura.estado ? (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      Pagada
-                    </span>
-                  ) : (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                      Pendiente
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {factura.estado ? (
-                    <button className="bg-gray-500 text-white px-4 py-2 rounded-lg cursor-not-allowed">
-                      Pagado
-                    </button>
-                  ) : (
-                    <button
-                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition duration-300 ease-in-out"
-                      onClick={() => handlePayment(factura.id)}
-                    >
-                      Pagar
-                    </button>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <Button
-                    icon={<FaTrashAlt />}
-                    onClick={() => handleDelete(factura.id)}
-                    danger
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold text-gray-800">
-          Total pagado: {formatCurrency(totalPagado)} 
-          {student?.estado_matricula && (
-            <span className="text-sm text-gray-500 ml-2">
-              (Incluye matrícula: {formatCurrency(parseFloat(student?.matricula || 0))})
-            </span>
-          )}
-        </h2>
-      </div>
-    </div>
-  );
+    );
 };
-export default Facturas;
+
+export default Payments;

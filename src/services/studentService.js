@@ -88,15 +88,7 @@ export const deleteStudent = async (studentId) => {
 
 //-------------------------------INVOICES-------------------------------
 
-export const getInvoicebyStudent = async (id) => {
-  try {
-    const response = await backApi.get(`/api/invoices/student/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error al obtener las facturas por estudiante:", error);
-    throw error;
-  }
-};
+
 
 
 export const getTotalPaymentInvoicebyStudent = async (id) => {
