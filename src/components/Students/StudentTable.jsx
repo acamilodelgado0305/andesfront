@@ -30,7 +30,7 @@ const StudentTable = ({
 
   // Función para obtener los valores únicos de coordinadores para el filtro
   const coordinators = useMemo(() => {
-    return [...new Set(students.map((s) => s.coordinador).filter(Boolean))];
+    return [...new Set(students.map((s) => s.coordinador_nombre).filter(Boolean))];
   }, [students]);
 
   // Manejar búsqueda por texto
@@ -89,7 +89,7 @@ const StudentTable = ({
 
         // Filtro por coordinador
         const coordinatorMatch = selectedCoordinator
-          ? student.coordinador === selectedCoordinator
+          ? student.coordinador_nombre === selectedCoordinator
           : true;
 
         // Filtro por fecha de inscripción
@@ -246,8 +246,8 @@ const StudentTable = ({
     },
     {
       title: 'Coordinador',
-      dataIndex: 'coordinador',
-      key: 'coordinador',
+      dataIndex: 'coordinador_nombre',
+      key: 'coordinador_nombre',
       render: (text) => (
         <Tag color={getCoordinatorStyle(text)?.color || 'default'}>{text}</Tag>
       ),

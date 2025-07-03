@@ -3,7 +3,7 @@ import { Modal, Form, Input, Select, DatePicker, Button, message, Tabs, Tooltip,
 import {
   UserOutlined, PhoneOutlined, IdcardOutlined, MailOutlined,
   CalendarOutlined, EnvironmentOutlined, BookOutlined,
-  LaptopOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined,
+  LaptopOutlined, FileTextOutlined, CheckCircleOutlined, ClockCircleOutlined, InfoCircleOutlined
 } from "@ant-design/icons";
 import moment from "moment";
 
@@ -11,15 +11,15 @@ const { Option } = Select;
 const { TabPane } = Tabs;
 
 const UploadStudentsButton = () => (
-    <div className="p-6 text-center text-gray-600 bg-gray-50 rounded-lg">
-        <p className="mb-4">Aquí puedes cargar un archivo (ej. Excel) con la información de múltiples estudiantes.</p>
-        <Button type="primary" disabled>
-            Subir Archivo (Funcionalidad Pendiente)
-        </Button>
-        <p className="mt-2 text-sm text-gray-500">
-            Esta funcionalidad se integraría aquí para cargar estudiantes masivamente.
-        </p>
-    </div>
+  <div className="p-6 text-center text-gray-600 bg-gray-50 rounded-lg">
+    <p className="mb-4">Aquí puedes cargar un archivo (ej. Excel) con la información de múltiples estudiantes.</p>
+    <Button type="primary" disabled>
+      Subir Archivo (Funcionalidad Pendiente)
+    </Button>
+    <p className="mt-2 text-sm text-gray-500">
+      Esta funcionalidad se integraría aquí para cargar estudiantes masivamente.
+    </p>
+  </div>
 );
 
 const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
@@ -27,29 +27,37 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
   const [inventarioItems, setInventarioItems] = useState([]);
   const [loadingForm, setLoadingForm] = useState(false);
   const [loadingInventario, setLoadingInventario] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState(null); // Estado para almacenar el userId
 
   useEffect(() => {
+    // Obtener userId de localStorage al montar el componente o cuando isOpen cambia
+    const storedUserId = localStorage.getItem('userId');
+    if (storedUserId) {
+      setCurrentUserId(Number(storedUserId)); // Asegurarse de que sea un número
+    } else {
+      message.error("No se pudo obtener el ID de usuario del almacenamiento local. Asegúrese de iniciar sesión.");
+    }
+
     const fetchUserInventario = async () => {
       setLoadingInventario(true);
       try {
-        const userId = localStorage.getItem('userId');
-        if (!userId) {
-          console.warn("No se encontró userId en localStorage. No se puede cargar el inventario del usuario.");
-          message.error("No se pudo obtener el ID de usuario. Asegúrese de iniciar sesión.");
+        // Usar el userId obtenido del estado para la API
+        if (currentUserId === null) { // Esperar a que currentUserId se haya establecido
+          console.warn("currentUserId aún no está disponible. No se puede cargar el inventario.");
           setLoadingInventario(false);
           return;
         }
 
         const apiUrl = import.meta.env.VITE_API_BACKEND
-          ? `${import.meta.env.VITE_API_BACKEND}/api/inventario/user/${userId}`
-          : `https://back.app.validaciondebachillerato.com.co/api/inventario/user/${userId}`;
+          ? `${import.meta.env.VITE_API_BACKEND}/api/inventario/user/${currentUserId}`
+          : `https://back.app.validaciondebachillerato.com.co/api/inventario/user/${currentUserId}`;
 
         const response = await fetch(apiUrl, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            // Se asume que el backend NO requiere autenticación para esta ruta de prueba.
-            // Si la autenticación es necesaria, re-incluya el token JWT aquí.
+            // Si tu API requiere un token JWT para /api/inventario/user/:userId, inclúyelo aquí
+            // 'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`,
           },
         });
 
@@ -69,10 +77,11 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
       }
     };
 
-    if (isOpen) {
+    // Este efecto se ejecutará cuando isOpen cambie O cuando currentUserId se establezca
+    if (isOpen && currentUserId !== null) {
       fetchUserInventario();
     }
-  }, [isOpen]);
+  }, [isOpen, currentUserId]); // Dependencias: isOpen y currentUserId
 
   const handleSubmit = async (values) => {
     setLoadingForm(true);
@@ -80,36 +89,44 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
       ? `${import.meta.env.VITE_API_BACKEND}/api/students`
       : "https://back.app.validaciondebachillerato.com.co/api/students";
 
+    // Validar que el userId esté disponible antes de enviar
+    if (currentUserId === null || typeof currentUserId !== 'number' || isNaN(currentUserId)) {
+      message.error("No se pudo identificar al coordinador. Por favor, asegúrese de iniciar sesión.");
+      setLoadingForm(false);
+      return;
+    }
+
     try {
-      // Ahora enviamos directamente el array de IDs
+      // Prepara los valores a enviar al backend
       const formattedValues = {
         ...values,
         fechaNacimiento: values.fechaNacimiento ? values.fechaNacimiento.format("YYYY-MM-DD") : null,
-        // Eliminamos programa_nombre si ya no está en la tabla students o si se maneja por la tabla de unión
-        // programa_nombre: programaNombreToSend,
-        // Los IDs se envían con el nombre de campo que el backend espera, que hemos nombrado `programasIds`
-        programasIds: values.programasIds.map(id => parseInt(id, 10)) // Asegurarse de que sean enteros
+        programasIds: values.programasIds.map(id => parseInt(id, 10)), // Asegurarse de que sean enteros
+        coordinador_id: currentUserId, // ¡Aquí inyectamos el ID del usuario logueado!
       };
 
-      // Eliminar el campo 'programasIds' si no se quiere enviar con ese nombre exacto o ya no es necesario
-      // Si el backend espera un campo como `inventario_items` o `associated_inventario`, cambie `programasIds` por el nombre correcto.
-      // delete formattedValues.programasIds; // No eliminar si el backend espera este nombre
-
-      // Campos que ya se eliminaban:
+      // *** CAMPOS ELIMINADOS DEL PAYLOAD SEGÚN TU REQUERIMIENTO ***
+      // Estos campos ya no están en la UI, pero es buena práctica asegurarse de que no se envíen
+      // si por alguna razón persisten en 'values' (ej. por initialValues).
+      // 'coordinador' es el que se removió del Select.
+      delete formattedValues.coordinador;
       delete formattedValues.eps;
       delete formattedValues.rh;
       delete formattedValues.nombreAcudiente;
+      delete formattedValues.tipoDocumentoAcudiente;
       delete formattedValues.telefonoAcudiente;
       delete formattedValues.direccionAcudiente;
-      // Ya no es necesario eliminar `programa_nombre` si no lo estamos asignando aquí.
+      // **********************************************************
 
-      console.log("Datos a enviar para crear estudiante (con IDs de programas):", formattedValues);
+      console.log("Datos a enviar para crear estudiante:", formattedValues);
       console.log("URL de la API utilizada:", apiUrl);
 
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          // Si tu API requiere un token JWT para la creación de estudiantes, inclúyelo aquí
+          // 'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`,
         },
         body: JSON.stringify(formattedValues),
       });
@@ -118,7 +135,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
         message.success("Estudiante creado exitosamente");
         onStudentAdded();
         onClose();
-        form.resetFields();
+        form.resetFields(); // Limpiar el formulario después del éxito
       } else {
         const errorData = await response.json();
         console.error("Error de respuesta de la API al crear estudiante:", errorData);
@@ -151,6 +168,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
           ) : (
             <Form form={form} layout="vertical" onFinish={handleSubmit} className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Columna 1: Información Personal */}
                 <div className="space-y-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                   <h3 className="font-bold text-lg text-blue-700 mb-4 flex items-center">
                     <UserOutlined className="mr-2 text-blue-500" /> Información Personal
@@ -206,6 +224,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
                   </Form.Item>
                 </div>
 
+                {/* Columna 2: Contacto y Documentación */}
                 <div className="space-y-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                   <h3 className="font-bold text-lg text-blue-700 mb-4 flex items-center">
                     <IdcardOutlined className="mr-2 text-blue-500" /> Contacto y Documentación
@@ -257,6 +276,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
                   </Form.Item>
                 </div>
 
+                {/* Columna 3: Información Académica y Matrícula */}
                 <div className="space-y-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                   <h3 className="font-bold text-lg text-blue-700 mb-4 flex items-center">
                     <BookOutlined className="mr-2 text-blue-500" /> Información Académica
@@ -281,19 +301,8 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
                     </Select>
                   </Form.Item>
 
-                  <Form.Item
-                    name="coordinador"
-                    label="Coordinador Asignado"
-                    rules={[{ required: true, message: "Por favor, seleccione un coordinador" }]}
-                  >
-                    <Select placeholder="Seleccione coordinador" className="rounded-md">
-                      <Option value="Adriana Benitez">Adriana Benitez</Option>
-                      <Option value="Camilo Delgado">Camilo Delgado</Option>
-                      <Option value="Blanca Sanchez">Blanca Sanchez</Option>
-                      <Option value="Mauricio Pulido">Mauricio Pulido</Option>
-                      <Option value="Marily Gordillo">Marily Gordillo</Option>
-                    </Select>
-                  </Form.Item>
+                  {/* El campo 'Coordinador Asignado' se ha ELIMINADO completamente de la UI */}
+                  {/* Se asigna automáticamente desde localStorage en el backend */}
 
                   <Form.Item
                     name="modalidad_estudio"
@@ -335,6 +344,8 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
                       <Option value="Pendiente">Pendiente</Option>
                     </Select>
                   </Form.Item>
+
+                  {/* La sección de Acudiente, EPS y RH también se ha ELIMINADO completamente de la UI */}
                 </div>
               </div>
 

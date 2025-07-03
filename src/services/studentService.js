@@ -45,6 +45,17 @@ export const getStudents = async () => {
   }
 };
 
+export const getStudentsByCoordinator = async (coordinatorId) => {
+    try {
+        // *** CAMBIO CRUCIAL AQUÍ: Usar backApi.get en lugar de axios.get ***
+        const response = await backApi.get(`/api/students/coordinator/${coordinatorId}`);
+        return Array.isArray(response.data) ? response.data : []; // Siempre devuelve un array
+    } catch (error) {
+        console.error(`Error fetching students for coordinator ID ${coordinatorId}:`, error);
+        return []; // Siempre devuelve un array en caso de error
+    }
+};
+
 export const addStudent = async (studentData) => {
   try {
     const response = await backApi.post("/api/students", studentData);
