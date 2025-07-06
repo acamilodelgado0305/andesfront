@@ -26,7 +26,7 @@ function Bachillerato() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const studentsResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/students/bachillerato');
+        const studentsResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/students/type/bachillerato');
         const studentsData = studentsResponse.data;
         setStudents(studentsData);
         setFilteredStudents(studentsData);

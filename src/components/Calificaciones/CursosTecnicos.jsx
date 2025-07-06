@@ -29,7 +29,7 @@ function CursosTecnicos() {
       setLoading(true);
       try {
         // Obtener estudiantes de cursos técnicos
-        const studentsResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/students/cursos-tecnicos');
+        const studentsResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/students/type/tecnicos');
         const studentsData = studentsResponse.data;
         setStudents(studentsData);
         setFilteredStudents(studentsData);
