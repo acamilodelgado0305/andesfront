@@ -10,6 +10,13 @@ COPY package*.json ./
 # Instala las dependencias
 RUN npm install
 
+
+ARG VITE_API_BACKEND
+
+
+# Variables para el entorno de Vite en tiempo de build
+ENV VITE_API_BACKEND=$VITE_API_BACKEND
+
 # Copia el resto del código de la aplicación
 COPY . .
 
