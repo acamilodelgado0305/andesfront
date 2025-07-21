@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BACK_URL = 'https://back.app.validaciondebachillerato.com.co';
+const BACK_URL = 'https://clasit-backend-api-570877385695.us-central1.run.app';
 
 // Instancia de axios personalizada
 const backApi = axios.create({

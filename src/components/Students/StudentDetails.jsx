@@ -60,7 +60,7 @@ const StudentDetails = ({ studentId }) => {
             setLoading(true);
             try {
                 const response = await axios.get(
-                    `https://back.app.validaciondebachillerato.com.co/api/students/${studentId}`
+                    `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${studentId}`
                 );
                 const studentData = response.data;
                 setStudent(studentData);
@@ -102,7 +102,7 @@ const StudentDetails = ({ studentId }) => {
             onOk: async () => {
                 try {
                     await axios.put(
-                        `https://back.app.validaciondebachillerato.com.co/api/students/${student.id}/graduate`
+                        `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${student.id}/graduate`
                     );
                     message.success('Estudiante graduado exitosamente');
                     setStudent({ ...student, fecha_graduacion: new Date().toISOString() });
@@ -121,7 +121,7 @@ const StudentDetails = ({ studentId }) => {
             onOk: async () => {
                 try {
                     await axios.delete(
-                        `https://back.app.validaciondebachillerato.com.co/api/students/${student.id}`
+                        `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${student.id}`
                     );
                     message.success('Estudiante eliminado con éxito');
                     window.location.href = '/inicio/students';
@@ -182,7 +182,7 @@ const StudentDetails = ({ studentId }) => {
             delete formattedValues.monto_programa; // Es una propiedad de los programas, no del estudiante
 
             const response = await axios.put(
-                `https://back.app.validaciondebachillerato.com.co/api/students/${student.id}`,
+                `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${student.id}`,
                 formattedValues
             );
 
@@ -190,7 +190,7 @@ const StudentDetails = ({ studentId }) => {
             // para reflejar los cambios en `programas_asociados`
             // (asumiendo que tu API de `getStudent` devuelve `programas_asociados` actualizados)
             const updatedStudentResponse = await axios.get(
-                `https://back.app.validaciondebachillerato.com.co/api/students/${studentId}`
+                `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${studentId}`
             );
             setStudent(updatedStudentResponse.data);
 

@@ -147,7 +147,7 @@ const StudentTable = ({
     try {
       const [studentData, gradesResponse] = await Promise.all([
         getStudentById(studentId),
-        axios.get(`https://back.app.validaciondebachillerato.com.co/api/grades/students/${studentId}`),
+        axios.get(`https://clasit-backend-api-570877385695.us-central1.run.app/api/grades/students/${studentId}`),
       ]);
       const grades = gradesResponse.data;
       generateGradeReportPDF(studentData, grades, studentId);

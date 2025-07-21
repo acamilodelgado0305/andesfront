@@ -240,7 +240,7 @@ const StudentRegistrationFormMarily = ({ onStudentRegistered }) => {
         setLoadingSubmit(true);
         const apiUrl = import.meta.env.VITE_API_BACKEND
             ? `${import.meta.env.VITE_API_BACKEND}/api/students`
-            : "https://back.app.validaciondebachillerato.com.co/api/students";
+            : "https://clasit-backend-api-570877385695.us-central1.run.app/api/students";
 
         try {
             // Asegurarse de que `values.fechaNacimiento` es un objeto Moment y formatearlo

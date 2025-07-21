@@ -50,7 +50,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
 
         const apiUrl = import.meta.env.VITE_API_BACKEND
           ? `${import.meta.env.VITE_API_BACKEND}/api/inventario/user/${currentUserId}`
-          : `https://back.app.validaciondebachillerato.com.co/api/inventario/user/${currentUserId}`;
+          : `https://clasit-backend-api-570877385695.us-central1.run.app/api/inventario/user/${currentUserId}`;
 
         const response = await fetch(apiUrl, {
           method: "GET",
@@ -87,7 +87,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
     setLoadingForm(true);
     const apiUrl = import.meta.env.VITE_API_BACKEND
       ? `${import.meta.env.VITE_API_BACKEND}/api/students`
-      : "https://back.app.validaciondebachillerato.com.co/api/students";
+      : "https://clasit-backend-api-570877385695.us-central1.run.app/api/students";
 
     // Validar que el userId esté disponible antes de enviar
     if (currentUserId === null || typeof currentUserId !== 'number' || isNaN(currentUserId)) {

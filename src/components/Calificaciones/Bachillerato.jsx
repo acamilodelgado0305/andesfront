@@ -26,12 +26,12 @@ function Bachillerato() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const studentsResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/students/type/bachillerato');
+        const studentsResponse = await axios.get('https://clasit-backend-api-570877385695.us-central1.run.app/api/students/type/bachillerato');
         const studentsData = studentsResponse.data;
         setStudents(studentsData);
         setFilteredStudents(studentsData);
 
-        const gradesResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/grades');
+        const gradesResponse = await axios.get('https://clasit-backend-api-570877385695.us-central1.run.app/api/grades');
         const gradesData = gradesResponse.data;
 
         const initialGrades = {};
@@ -97,7 +97,7 @@ function Bachillerato() {
         grades: grades[studentId], // Esto enviará las notas {materia1: 0.0, materia2: 0.0 ...}
       }));
 
-      await axios.post('https://back.app.validaciondebachillerato.com.co/api/grades', payload);
+      await axios.post('https://clasit-backend-api-570877385695.us-central1.run.app/api/grades', payload);
       message.success('Notas guardadas exitosamente');
       setInitialGradesBackup(JSON.parse(JSON.stringify(grades)));
     } catch (error) {

@@ -33,7 +33,7 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 // URL base de tu backend (¡ajusta si estás en desarrollo local!)
-const BASE_URL = "https://back.app.validaciondebachillerato.com.co/api"; // O 'http://localhost:3000/api' para desarrollo
+const BASE_URL = "https://clasit-backend-api-570877385695.us-central1.run.app/api"; // O 'http://localhost:3000/api' para desarrollo
 
 const StudentPayments = () => { // Renombrado de Facturas a StudentPayments
     const { id: studentId } = useParams(); // Obtener el ID del estudiante de la URL

@@ -24,7 +24,7 @@ const StudentGrades = ({ studentId }) => {
 
   const fetchGradesByStudentId = async (id) => {
     try {
-      const response = await axios.get(`https://back.app.validaciondebachillerato.com.co/api/grades/students/${id}`);
+      const response = await axios.get(`https://clasit-backend-api-570877385695.us-central1.run.app/api/grades/students/${id}`);
       setGrades(response.data);
     } catch (err) {
       console.error('Error fetching grades:', err);

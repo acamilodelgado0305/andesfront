@@ -48,7 +48,7 @@ function Certificados() {
           return;
         }
         const response = await axios.get(
-          `https://back.app.validaciondebachillerato.com.co/auth/users/${userId}`
+          `https://clasit-backend-api-570877385695.us-central1.run.app/auth/users/${userId}`
         );
         setUserName(response.data.name || '');
       } catch (err) {

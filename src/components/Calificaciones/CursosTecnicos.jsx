@@ -29,13 +29,13 @@ function CursosTecnicos() {
       setLoading(true);
       try {
         // Obtener estudiantes de cursos técnicos
-        const studentsResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/students/type/tecnicos');
+        const studentsResponse = await axios.get('https://clasit-backend-api-570877385695.us-central1.run.app/api/students/type/tecnicos');
         const studentsData = studentsResponse.data;
         setStudents(studentsData);
         setFilteredStudents(studentsData);
 
         // Obtener notas
-        const gradesResponse = await axios.get('https://back.app.validaciondebachillerato.com.co/api/grades');
+        const gradesResponse = await axios.get('https://clasit-backend-api-570877385695.us-central1.run.app/api/grades');
         const gradesData = gradesResponse.data;
 
         // Inicializar el estado de las notas
@@ -111,7 +111,7 @@ function CursosTecnicos() {
         grades: grades[studentId],
       }));
 
-      await axios.post('https://back.app.validaciondebachillerato.com.co/api/grades', payload);
+      await axios.post('https://clasit-backend-api-570877385695.us-central1.run.app/api/grades', payload);
       message.success('Notas guardadas exitosamente');
       
       // Actualizar el backup después de guardar exitosamente

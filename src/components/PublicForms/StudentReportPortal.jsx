@@ -39,7 +39,7 @@ function StudentDocumentReport() {
     setCurrentStudentId(null);
 
     try {
-      const response = await axios.get(`https://back.app.validaciondebachillerato.com.co/api/grades/student/${documentNumber}`);
+      const response = await axios.get(`https://clasit-backend-api-570877385695.us-central1.run.app/api/grades/student/${documentNumber}`);
       // La data que llega es: { student: {...}, grades: [...], studentId: ... }
       const { student, grades, studentId } = response.data;
 
