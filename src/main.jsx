@@ -26,6 +26,8 @@ import Calificaciones from "./components/Calificaciones/Calificaciones";
 import Bachillerato from "./components/Calificaciones/Bachillerato";
 import CursosTecnicos from "./components/Calificaciones/CursosTecnicos";
 import StudentReportPortal from "./components/PublicForms/StudentReportPortal";
+import Sales from "./sales/Sales";
+import Generacion from "./components/Certificados/Generacion";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -51,6 +53,7 @@ const App = () => (
           <Route path="/Mauriciopulido" element={<StudentRegistrationFormMauricio />} />
           <Route path="/Jesusbenitez" element={<StudentRegistrationFormJesus />} />
           <Route path="/incase" element={<StudentRegistrationFormMarily />} />
+                <Route path="/sales" element={<Sales />} />
           {/* Rutas principales */}
           <Route path="/inicio" element={<Root />}>
             <Route index element={<Home />} />
@@ -58,10 +61,12 @@ const App = () => (
             <Route path="students" element={<Students />} />
             <Route path="programas" element={<Programs />} />
             <Route path="materias" element={<Materias />} />
+            
             <Route path="calificaciones" element={<Calificaciones />} />
             <Route path="calificaciones/bachillerato" element={<Bachillerato />} />
             <Route path="calificaciones/cursos-tecnicos" element={<CursosTecnicos />} />
             <Route path="certificados" element={<Certificados />} />
+            <Route path="generacion" element={<Generacion />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
             <Route path="students/view/:id" element={<StudentInformacion />} /> {/* Nueva ruta */}
           </Route>
