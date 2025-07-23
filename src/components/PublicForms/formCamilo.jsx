@@ -18,8 +18,8 @@ const DEFAULT_COORDINATOR_ID = 1;
 const getInventarioByUser = async (userId) => {
     const API_BASE_URL = import.meta.env.VITE_API_BACKEND || "https://back.app.validaciondebachillerato.com.co";
     try {
-        console.log(`Intentando cargar inventario para user ID: ${userId} desde ${API_BASE_URL}/api/inventario/user/${userId}`);
-        const response = await fetch(`${API_BASE_URL}/api/inventario/user/${userId}`, {
+        console.log(`Intentando cargar inventario para user ID: ${userId} desde ${API_BASE_URL}/inventario/user/${userId}`);
+        const response = await fetch(`${API_BASE_URL}/inventario/user/${userId}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
@@ -239,7 +239,7 @@ const StudentRegistrationForm1 = ({ onStudentRegistered }) => {
     const handleSubmit = async (values) => {
         setLoadingSubmit(true);
         const apiUrl = import.meta.env.VITE_API_BACKEND
-            ? `${import.meta.env.VITE_API_BACKEND}/api/students`
+            ? `${import.meta.env.VITE_API_BACKEND}/students`
             : "https://back.app.validaciondebachillerato.com.co/api/students";
 
         try {
