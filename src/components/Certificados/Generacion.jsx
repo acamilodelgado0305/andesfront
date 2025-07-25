@@ -156,6 +156,8 @@ function Generacion() {
                         <Option value="T.I">T.I. (Tarjeta de Identidad)</Option>
                         <Option value="Pasaporte">Pasaporte</Option>
                         <Option value="C.E">C.E. (Cédula de Extranjería)</Option>
+                        {/* --- LÍNEA AÑADIDA --- */}
+                        <Option value="PPT">PPT (Permiso por Protección Temporal)</Option> 
                     </Select>
                 </Form.Item>
 
