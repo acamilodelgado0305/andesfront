@@ -201,7 +201,7 @@ function Sales() {
         const isApproved = score >= 2; // Aprueba con 2 o más respuestas correctas
         const whatsappNumber = '573001234567'; // <-- REEMPLAZA CON TU NÚMERO (código país + número)
         const whatsappMessage = encodeURIComponent('Hola, he aprobado el curso de manipulación de alimentos. Mis datos son: ');
-        const whatsappLink = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
+
 
         return isApproved ? (
             <Result
@@ -209,15 +209,7 @@ function Sales() {
               title="¡Felicidades, has APROBADO!"
               subTitle={`Tu puntaje: ${score} de ${quizQuestions.length}. Has completado el curso exitosamente.`}
               extra={[
-                <Button 
-                    type="primary" 
-                    key="whatsapp"
-                    href={whatsappLink}
-                    target="_blank"
-                    style={{ backgroundColor: '#25D366', borderColor: '#25D366' }}
-                >
-                  📱 Enviar datos por WhatsApp
-                </Button>,
+                
                 <Button key="restart" onClick={restartCourse}>Realizar de Nuevo</Button>
               ]}
             />
