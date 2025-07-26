@@ -20,6 +20,7 @@
     "fetch": "^1.1.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.0.6",
+    "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "keep-react": "^1.1.2",

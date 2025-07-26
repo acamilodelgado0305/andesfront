@@ -1,409 +1,270 @@
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Button, message, Card, Divider, Modal, Select } from 'antd';
-import axios from 'axios';
-import { PDFDocument, rgb } from 'pdf-lib';
-import { saveAs } from 'file-saver';
+import { Button, Card, Radio, Space, Result, Steps, message } from 'antd';
+import { DownloadOutlined } from '@ant-design/icons';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
-const { Option } = Select;
-
-const paymentMethods = [
-  { label: 'Link de PSE (Cualquier banco)', value: 'PSE', link: 'https://linkdepagospse.rappipay.co/U7pafq' },
-  { label: 'Nequi (3223267797)', value: 'Nequi' },
-  { label: 'Daviplata (3223267797)', value: 'Daviplata' },
-  { label: 'Ahorros Bancolombia (816-589697-49)', value: 'Bancolombia' },
+// --- CONTENIDO DEL CURSO DETALLADO ---
+const courseContent = [
+  {
+    title: '1. Introducción',
+    details: [
+      'La manipulación segura de alimentos es esencial para prevenir enfermedades transmitidas por alimentos (ETA) y garantizar la calidad de los productos. Este curso te enseñará las prácticas básicas para manejar alimentos de forma higiénica y segura.'
+    ]
+  },
+  {
+    title: '2. Higiene Personal',
+    details: [
+      '<strong>Lávate las manos:</strong> Lava tus manos con agua y jabón durante al menos 20 segundos antes y después de manipular alimentos, especialmente carnes crudas, pescados o vegetales sin lavar.',
+      '<strong>Usa indumentaria adecuada:</strong> Utiliza delantales limpios, gorros para cubrir el cabello y evita joyas o accesorios que puedan contaminar los alimentos.',
+      '<strong>Evita trabajar si estás enfermo:</strong> No manipules alimentos si tienes síntomas como fiebre, diarrea o heridas abiertas.'
+    ]
+  },
+  {
+    title: '3. Almacenamiento Seguro',
+    details: [
+      '<strong>Control de temperatura:</strong> Mantén los alimentos refrigerados a 4°C o menos y los congelados a -18°C. Los alimentos calientes deben mantenerse a más de 60°C.',
+      '<strong>Separación de alimentos:</strong> Almacena carnes crudas, pescados y vegetales en recipientes separados para evitar la contaminación cruzada.',
+      '<strong>Primero en entrar, primero en salir (PEPS):</strong> Usa primero los alimentos con fechas de caducidad más cercanas.'
+    ]
+  },
+  {
+    title: '4. Preparación de Alimentos',
+    details: [
+      '<strong>Limpieza de superficies:</strong> Desinfecta mesas, cuchillos y tablas de cortar antes y después de usarlos. Usa tablas diferentes para carnes crudas y alimentos listos para consumir.',
+      '<strong>Cocción adecuada:</strong> Asegúrate de que los alimentos alcancen las temperaturas internas seguras (ej: 74°C para aves, 71°C para carnes molidas).',
+      '<strong>Evita la contaminación cruzada:</strong> No uses los mismos utensilios para alimentos crudos y cocidos sin lavarlos.'
+    ]
+  },
+  {
+    title: '5. Mantenimiento de la Cadena de Frío',
+    details: [
+      'Nunca dejes alimentos perecederos a temperatura ambiente por más de 2 horas (1 hora si la temperatura ambiente es superior a 32°C).',
+      'Descongela los alimentos en el refrigerador, en agua fría o en el microondas, nunca a temperatura ambiente.'
+    ]
+  },
+  {
+    title: '6. Gestión de Residuos',
+    details: [
+      'Elimina los desperdicios de alimentos de manera regular y mantén los contenedores de basura limpios y cerrados para evitar plagas.',
+      'Lava los utensilios y superficies que hayan estado en contacto con residuos.'
+    ]
+  }
 ];
 
-const Sales = () => {
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm();
-  const [loading, setLoading] = useState(false);
-  const [previewVisible, setPreviewVisible] = useState(false);
-  const [previewUrls, setPreviewUrls] = useState({ certificate: null, card: null });
-  const [formData, setFormData] = useState(null);
-  const [saleId, setSaleId] = useState(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+// --- PREGUNTAS DEL CUESTIONARIO ---
+const quizQuestions = [
+  {
+    question: '¿Cuál es la regla más importante de la higiene personal?',
+    options: ['Usar un delantal bonito', 'Lavarse las manos correctamente', 'Probar la comida constantemente'],
+    correctAnswer: 1
+  },
+  {
+    question: 'Para evitar la contaminación cruzada, debes:',
+    options: ['Lavar el pollo en el lavaplatos', 'Usar la misma tabla para cortar carne y vegetales', 'Usar utensilios separados para alimentos crudos y cocidos'],
+    correctAnswer: 2
+  },
+  {
+    question: '¿Cuál es la temperatura segura para mantener los alimentos refrigerados?',
+    options: ['10°C o menos', '4°C o menos', '0°C o menos'],
+    correctAnswer: 1
+  }
+];
 
-  const generateCertificatePDF = async (data, isPreview = true) => {
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([600, 400]);
-    const { width, height } = page.getSize();
-    const fontSize = 16;
 
-    page.drawText('CERTIFICADO DE MANIPULACIÓN DE ALIMENTOS', {
-      x: 50,
-      y: height - 50,
-      size: 20,
-      color: rgb(0, 0.53, 0.71),
+// --- COMPONENTE PRINCIPAL CON ANT DESIGN Y TAILWIND ---
+
+function Sales() {
+  const [currentStep, setCurrentStep] = useState(0); // 0: Intro, 1: Curso, 2: Examen, 3: Resultados
+  const [answers, setAnswers] = useState({});
+  const [score, setScore] = useState(0);
+
+  const handleDownloadPDF = () => {
+    const pdfContent = document.getElementById('pdf-content');
+    message.loading({ content: 'Generando PDF...', key: 'pdf', duration: 0 });
+
+    html2canvas(pdfContent, { scale: 2 }).then(canvas => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save('guia-manipulacion-alimentos.pdf');
+      message.success({ content: '¡PDF descargado!', key: 'pdf', duration: 3 });
     });
-
-    page.drawText(`Nombre: ${data.nombre} ${data.apellido}`, { x: 50, y: height - 100, size: fontSize });
-    page.drawText(`Documento: ${data.numeroDeDocumento}`, { x: 50, y: height - 120, size: fontSize });
-    page.drawText(`Tipo: Buenas Prácticas de Manipulación (BPM)`, { x: 50, y: height - 140, size: fontSize });
-    page.drawText(`Fecha de Expedición: 17 de julio de 2025`, { x: 50, y: height - 160, size: fontSize });
-    page.drawText(`Fecha de Vencimiento: 17 de julio de 2026`, { x: 50, y: height - 180, size: fontSize });
-    page.drawText(`Avalado por: Seccional de Salud de Antioquia (CSO-2018)`, { x: 50, y: height - 200, size: fontSize });
-    page.drawText(`Certificador: William Alzate - NIT 712.121.85-2`, { x: 50, y: height - 220, size: fontSize });
-    page.drawText(`Cumple con: Decreto 3075 de 1997, Resolución 2674 de 2013`, { x: 50, y: height - 240, size: fontSize });
-    page.drawText(`Alimentos Inocuos - NIT 712.121.85-2`, { x: 50, y: height - 260, size: fontSize });
-
-    if (isPreview) {
-      page.drawText('PENDIENTE DE PAGO', {
-        x: width / 4,
-        y: height / 2,
-        size: 50,
-        color: rgb(1, 0, 0),
-        opacity: 0.5,
-        rotate: { type: 'degrees', angle: 45 },
-      });
-    }
-
-    const pdfBytes = await pdfDoc.save();
-    return pdfBytes;
   };
 
-  const generateCardPDF = async (data, isPreview = true) => {
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([200, 300]);
-    const { width, height } = page.getSize();
-    const fontSize = 12;
-
-    page.drawText('CARNÉ DE MANIPULACIÓN DE ALIMENTOS', {
-      x: 20,
-      y: height - 30,
-      size: 14,
-      color: rgb(0, 0.53, 0.71),
+  const handleAnswerChange = (questionIndex, event) => {
+    setAnswers({
+      ...answers,
+      [questionIndex]: event.target.value
     });
-
-    page.drawText(`Nombre: ${data.nombre} ${data.apellido}`, { x: 20, y: height - 60, size: fontSize });
-    page.drawText(`Documento: ${data.numeroDeDocumento}`, { x: 20, y: height - 80, size: fontSize });
-    page.drawText(`Vence: 17 de julio de 2026`, { x: 20, y: height - 100, size: fontSize });
-    page.drawText(`Alimentos Inocuos`, { x: 20, y: height - 120, size: fontSize });
-
-    if (isPreview) {
-      page.drawText('PENDIENTE DE PAGO', {
-        x: width / 4,
-        y: height / 2,
-        size: 30,
-        color: rgb(1, 0, 0),
-        opacity: 0.5,
-        rotate: { type: 'degrees', angle: 45 },
-      });
-    }
-
-    const pdfBytes = await pdfDoc.save();
-    return pdfBytes;
   };
 
-  const onSubmit = async (data) => {
-    setLoading(true);
-    setFormData(data);
-
-    try {
-      // Generar PDFs para vista previa
-      const certificateBytes = await generateCertificatePDF(data);
-      const cardBytes = await generateCardPDF(data);
-      const certificateBlob = new Blob([certificateBytes], { type: 'application/pdf' });
-      const cardBlob = new Blob([cardBytes], { type: 'application/pdf' });
-      setPreviewUrls({
-        certificate: URL.createObjectURL(certificateBlob),
-        card: URL.createObjectURL(cardBlob),
-      });
-      setPreviewVisible(true);
-    } catch (error) {
-      console.error('Error al generar la vista previa:', error);
-      message.error('Error al generar los documentos. Intenta de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const proceedToPayment = async () => {
-    if (!formData || !selectedPaymentMethod) {
-      message.warning('Por favor, selecciona un método de pago.');
+  const handleSubmitQuiz = () => {
+    if (Object.keys(answers).length !== quizQuestions.length) {
+      message.error('Por favor, responde todas las preguntas.');
       return;
     }
-    setLoading(true);
+    let finalScore = 0;
+    quizQuestions.forEach((q, index) => {
+      if (answers[index] === q.correctAnswer) {
+        finalScore++;
+      }
+    });
+    setScore(finalScore);
+    setCurrentStep(3);
+  };
+  
+  const restartCourse = () => {
+    setAnswers({});
+    setScore(0);
+    setCurrentStep(0);
+  };
 
-    try {
-      // Crear registro temporal
-      const tempSaleData = {
-        ...formData,
-        tipo: ['Manipulación de alimentos'],
-        valor: 20000,
-        vendedor: 'Web',
-        cuenta: selectedPaymentMethod,
-        paymentStatus: 'pending',
-      };
-      const response = await axios.post('https://backendcoalianza.vercel.app/api/v1/clients/temp', tempSaleData);
-      setSaleId(response.data._id);
-      message.success('¡Vista previa lista! Completa el pago para validar tu certificado.');
+  // Función para renderizar el contenido del curso (para la vista y el PDF)
+  const renderCourseContent = (isForPDF = false) => (
+    <div className={isForPDF ? 'p-8' : ''}>
+      <h1 className="text-3xl font-bold text-center mb-6">Curso Corto: Manipulación Segura de Alimentos</h1>
+      <Space direction="vertical" size="large" className="w-full">
+        {courseContent.map((item, index) => (
+          <Card key={index} type={isForPDF ? 'inner' : 'default'} title={item.title} headStyle={!isForPDF ? { backgroundColor: '#f0faff', borderBottom: '1px solid #91d5ff' } : {}}>
+            <ul className="space-y-2 list-disc pl-5 text-gray-700">
+              {item.details.map((text, i) => (
+                <li key={i} dangerouslySetInnerHTML={{ __html: text }}></li>
+              ))}
+            </ul>
+          </Card>
+        ))}
+         <Card type={isForPDF ? 'inner' : 'default'} title="7. Conclusión">
+            <p className="text-gray-700">La manipulación segura de alimentos protege la salud de los consumidores y garantiza la calidad de los productos. Practica estas medidas en todo momento y mantente atento a las normas locales de seguridad alimentaria.</p>
+        </Card>
+      </Space>
+    </div>
+  );
 
-      // Redirigir según el método de pago
-      if (selectedPaymentMethod === 'PSE') {
-        window.location.href = 'https://linkdepagospse.rappipay.co/U7pafq';
-      } else {
-        const whatsappMessage = encodeURIComponent(
-          `Hola, he realizado el pago de 20,000 COP por el Certificado de Manipulación de Alimentos. Mi número de documento es ${formData.numeroDeDocumento}. Por favor, confirma la recepción del comprobante.`
+  // Función principal para renderizar el paso actual
+  const renderContent = () => {
+    switch (currentStep) {
+      case 0: // --- VISTA DE INTRODUCCIÓN ---
+        return (
+          <div className="text-center p-4">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Curso Rápido de Manipulación de Alimentos 👨‍🍳</h1>
+            <p className="text-lg text-gray-600 mb-6">Aprende los conceptos básicos en menos de 10 minutos. ¡Comencemos!</p>
+            <Button type="primary" size="large" onClick={() => setCurrentStep(1)}>
+              Iniciar Curso
+            </Button>
+          </div>
         );
-        window.location.href = `https://wa.me/+573107941580?text=${whatsappMessage}`;
-      }
-    } catch (error) {
-      console.error('Error al iniciar el proceso de pago:', error);
-      message.error('Error al procesar. Intenta de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
+      
+      case 1: // --- VISTA DEL CURSO ---
+        return (
+          <div>
+            {renderCourseContent()}
+            <div className="text-center mt-8 flex flex-wrap justify-center gap-4">
+              <Button icon={<DownloadOutlined />} size="large" onClick={handleDownloadPDF}>
+                Descargar Guía en PDF
+              </Button>
+              <Button type="primary" size="large" onClick={() => setCurrentStep(2)}>
+                He leído todo, ¡ir al examen!
+              </Button>
+            </div>
+          </div>
+        );
 
-  const checkPaymentStatus = async () => {
-    if (!saleId) {
-      message.warning('Primero debes completar el pago.');
-      return;
-    }
-    try {
-      const response = await axios.get(`https://backendcoalianza.vercel.app/api/v1/clients/${saleId}`);
-      if (response.data.paymentStatus === 'completed') {
-        // Registrar la venta oficialmente
-        const saleData = {
-          nombre: formData.nombre,
-          apellido: formData.apellido,
-          numeroDeDocumento: formData.numeroDeDocumento,
-          tipo: ['Manipulación de alimentos'],
-          valor: 20000,
-          vendedor: 'Web',
-          cuenta: selectedPaymentMethod,
-          paymentStatus: 'completed',
-        };
-        await axios.post('https://backendcoalianza.vercel.app/api/v1/clients', saleData);
+      case 2: // --- VISTA DEL EXAMEN ---
+        return (
+           <div>
+            <h2 className="text-2xl font-semibold text-center mb-6">Comprueba lo que Aprendiste</h2>
+            <div className="space-y-6">
+              {quizQuestions.map((q, qIndex) => (
+                <Card key={qIndex} type="inner" title={`${qIndex + 1}. ${q.question}`}>
+                   <Radio.Group onChange={(e) => handleAnswerChange(qIndex, e)} value={answers[qIndex]}>
+                    <Space direction="vertical">
+                      {q.options.map((option, oIndex) => (
+                        <Radio key={oIndex} value={oIndex}>{option}</Radio>
+                      ))}
+                    </Space>
+                  </Radio.Group>
+                </Card>
+              ))}
+            </div>
+             <div className="text-center mt-8">
+                <Button type="primary" size="large" onClick={handleSubmitQuiz}>
+                  Finalizar y Ver Resultado
+                </Button>
+            </div>
+          </div>
+        );
 
-        // Descargar PDFs sin marca de agua
-        const certificateBytes = await generateCertificatePDF(formData, false);
-        const cardBytes = await generateCardPDF(formData, false);
-        saveAs(new Blob([certificateBytes], { type: 'application/pdf' }), 'Certificado_Manipulacion_Alimentos.pdf');
-        saveAs(new Blob([cardBytes], { type: 'application/pdf' }), 'Carne_Manipulacion_Alimentos.pdf');
-        message.success('¡Pago confirmado! Tu certificado está validado en SixNyx y los documentos han sido descargados.');
-        setPreviewVisible(false);
-      } else {
-        message.warning('El pago aún no ha sido confirmado. Verifica con el administrador o intenta de nuevo.');
-      }
-    } catch (error) {
-      console.error('Error al verificar el pago:', error);
-      message.error('Error al verificar el estado del pago.');
+      case 3: // --- VISTA DE RESULTADOS ---
+        const isApproved = score >= 2; // Aprueba con 2 o más respuestas correctas
+        const whatsappNumber = '573001234567'; // <-- REEMPLAZA CON TU NÚMERO (código país + número)
+        const whatsappMessage = encodeURIComponent('Hola, he aprobado el curso de manipulación de alimentos. Mis datos son: ');
+        const whatsappLink = `https://wa.me/${whatsappNumber}?text=${whatsappMessage}`;
+
+        return isApproved ? (
+            <Result
+              status="success"
+              title="¡Felicidades, has APROBADO!"
+              subTitle={`Tu puntaje: ${score} de ${quizQuestions.length}. Has completado el curso exitosamente.`}
+              extra={[
+                <Button 
+                    type="primary" 
+                    key="whatsapp"
+                    href={whatsappLink}
+                    target="_blank"
+                    style={{ backgroundColor: '#25D366', borderColor: '#25D366' }}
+                >
+                  📱 Enviar datos por WhatsApp
+                </Button>,
+                <Button key="restart" onClick={restartCourse}>Realizar de Nuevo</Button>
+              ]}
+            />
+          ) : (
+            <Result
+              status="error"
+              title="Lo sentimos, no has aprobado"
+              subTitle={`Tu puntaje: ${score} de ${quizQuestions.length}. Necesitas al menos 2 respuestas correctas.`}
+              extra={[
+                <Button type="primary" key="retry" onClick={restartCourse}>
+                  Reintentar Curso
+                </Button>
+              ]}
+            />
+          );
+
+      default:
+        return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-700 via-blue-400 to-white flex flex-col items-center justify-center p-6">
-      {/* Encabezado */}
-      <div className="text-center mb-8 max-w-2xl">
-        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-md">
-          ¡Certificado de Manipulación de Alimentos por Solo $20,000!
-        </h1>
-        <p className="text-lg md:text-xl text-gray-100 mb-6 drop-shadow-sm">
-          Obtén tu certificación oficial en 24 horas y verifica tu certificado en línea con nuestro sistema seguro <strong>SixNyx</strong>.
-        </p>
-        <div className="bg-orange-200 p-4 rounded-lg inline-block shadow-md">
-          <p className="text-orange-900 font-semibold">
-            ¡Oferta limitada! Completa tu compra hoy y asegura tu certificación.
-          </p>
-        </div>
+    <div className="bg-gray-50 min-h-screen p-4 sm:p-8 flex items-center justify-center">
+      {/* --- Div oculto que se usará para generar el PDF --- */}
+      <div id="pdf-content" className="absolute -left-full w-[210mm] bg-white text-black">
+        {renderCourseContent(true)}
       </div>
 
-      {/* Formulario */}
-      <Card className="w-full max-w-md shadow-xl border border-blue-300 bg-white/90" bordered={false}>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">Nombre *</label>
-            <input
-              type="text"
-              {...register('nombre', { required: 'El nombre es obligatorio' })}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-600 hover:border-blue-600 transition-colors"
-              placeholder="Ingresa tu nombre"
-            />
-            {errors.nombre && <p className="text-red-500 text-sm mt-1">{errors.nombre.message}</p>}
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">Apellido *</label>
-            <input
-              type="text"
-              {...register('apellido', { required: 'El apellido es obligatorio' })}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-600 hover:border-blue-600 transition-colors"
-              placeholder="Ingresa tu apellido"
-            />
-            {errors.apellido && <p className="text чувство-red-500 text-sm mt-1">{errors.apellido.message}</p>}
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">Número de Documento *</label>
-            <input
-              type="text"
-              {...register('numeroDeDocumento', {
-                required: 'El número de documento es obligatorio',
-                pattern: {
-                  value: /^[0-9]+$/,
-                  message: 'Solo se permiten números',
-                },
-              })}
-              className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-600 hover:border-blue-600 transition-colors"
-              placeholder="Ingresa tu número de documento"
-            />
-            {errors.numeroDeDocumento && (
-              <p className="text-red-500 text-sm mt-1">{errors.numeroDeDocumento.message}</p>
-            )}
-          </div>
-
-          <div className="text-center">
-            <p className="text-lg font-semibold text-blue-900">
-              Total: {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(20000)}
-            </p>
-          </div>
-
-          <Button
-            type="primary"
-            htmlType="submit"
-            loading={loading}
-            className="w-full bg-orange-500 hover:bg-orange-600 border-0 h-12 text-lg"
-          >
-            Ver Certificados
-          </Button>
-        </form>
-      </Card>
-
-      {/* Modal para vista previa */}
-      <Modal
-        title="Vista Previa de Documentos"
-        open={previewVisible}
-        onCancel={() => setPreviewVisible(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setPreviewVisible(false)}>
-            Cancelar
-          </Button>,
-          <Button
-            key="pay"
-            type="primary"
-            onClick={proceedToPayment}
-            loading={loading}
-            className="bg-orange-500 hover:bg-orange-600 border-0"
-            disabled={!selectedPaymentMethod}
-          >
-            {selectedPaymentMethod === 'PSE' ? 'Pagar con PSE' : 'Continuar y Enviar Comprobante'}
-          </Button>,
-          <Button key="check" type="primary" onClick={checkPaymentStatus}>
-            Verificar Pago y Descargar
-          </Button>,
-        ]}
-      >
-        <p className="text-gray-700 mb-4">
-          Los documentos están bloqueados hasta que se confirme el pago. Para validar tu certificado en el sistema <strong>SixNyx</strong> y descargar los documentos, selecciona un método de pago y completa la transacción. El pago debe ser verificado.
-        </p>
-        <div className="mb-4">
-          <label className="block text-gray-700 font-medium mb-2">Método de Pago *</label>
-          <Select
-            placeholder="Selecciona un método de pago"
-            onChange={(value) => setSelectedPaymentMethod(value)}
-            className="w-full"
-          >
-            {paymentMethods.map((method) => (
-              <Option key={method.value} value={method.value}>
-                {method.label}
-              </Option>
-            ))}
-          </Select>
-          {selectedPaymentMethod && selectedPaymentMethod !== 'PSE' && (
-            <p className="text-orange-600 text-sm mt-2">
-              Deberás enviar el comprobante de pago al WhatsApp +57 310 7941580.
-            </p>
-          )}
-        </div>
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold">Certificado</h3>
-            <div style={{ position: 'relative' }}>
-              <iframe
-                src={previewUrls.certificate}
-                width="100%"
-                height="300px"
-                style={{ filter: 'blur(5px)' }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  fontSize: '24px',
-                  color: 'red',
-                  fontWeight: 'bold',
-                }}
-              >
-                PENDIENTE DE PAGO
-              </div>
-            </div>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold">Carné</h3>
-            <div style={{ position: 'relative' }}>
-              <iframe
-                src={previewUrls.card}
-                width="100%"
-                height="200px"
-                style={{ filter: 'blur(5px)' }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  fontSize: '24px',
-                  color: 'red',
-                  fontWeight: 'bold',
-                }}
-              >
-                PENDIENTE DE PAGO
-              </div>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Sección de confianza */}
-      <Divider className="my-8" />
-      <div className="text-center max-w-2xl">
-        <h2 className="text-2xl font-semibold text-blue-900 mb-4">Certificación Oficial y Segura</h2>
-        <p className="text-gray-700 text-lg mb-4">
-          Nuestros certificados cumplen con el <strong>Decreto 3075 de 1997</strong> y la <strong>Resolución 2674 de 2013</strong>, actualizados para 2025, y están avalados por la <strong>Seccional de Salud de Antioquia (CSO-2018)</strong>.
-        </p>
-        <p className="text-gray-700 text-lg mb-4">
-          Verifica tu certificado en línea con nuestro sistema <strong>SixNyx</strong>:
-        </p>
-        <a
-          href="https://consulta-cliente-sixnyx.vercel.app/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          Verificar Certificado
-        </a>
-        <div className="flex justify-center gap-4 mt-6">
-          <img
-            src="https://via.placeholder.com/100?text=Sello+Calidad"
-            alt="Sello de Calidad"
-            className="w-24 h-24 object-cover rounded-lg"
+      <div className="w-full max-w-4xl">
+        <Card className="shadow-2xl rounded-lg">
+          <Steps
+            current={currentStep}
+            className="mb-8"
+            items={[
+              { title: 'Introducción' },
+              { title: 'Contenido' },
+              { title: 'Examen' },
+              { title: 'Resultados' },
+            ]}
           />
-          <img
-            src="https://via.placeholder.com/100?text=Certificado"
-            alt="Certificado"
-            className="w-24 h-24 object-cover rounded-lg"
-          />
-        </div>
-        <p className="text-gray-600 text-sm mt-4">
-          <strong>Alimentos Inocuos - NIT 712.121.85-2</strong> | Sistema seguro de validación © 2025
-        </p>
+          <div className="p-2 md:p-4">
+            {renderContent()}
+          </div>
+        </Card>
       </div>
     </div>
   );
-};
+}
 
 export default Sales;
