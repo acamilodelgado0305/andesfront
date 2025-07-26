@@ -4,7 +4,7 @@ import { DownloadOutlined } from '@ant-design/icons';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-// --- CONTENIDO DEL CURSO DETALLADO ---
+// --- CONTENIDO DEL CURSO DETALLADO (sin cambios) ---
 const courseContent = [
   {
     title: '1. Introducción',
@@ -52,21 +52,31 @@ const courseContent = [
   }
 ];
 
-// --- PREGUNTAS DEL CUESTIONARIO ---
+// --- PREGUNTAS DEL CUESTIONARIO (ACTUALIZADO A 5 PREGUNTAS) ---
 const quizQuestions = [
   {
     question: '¿Cuál es la regla más importante de la higiene personal?',
-    options: ['Usar un delantal bonito', 'Lavarse las manos correctamente', 'Probar la comida constantemente'],
+    options: ['Usar un delantal bonito', 'Lavarse las manos correctamente por 20 segundos', 'Probar la comida constantemente'],
     correctAnswer: 1
   },
   {
     question: 'Para evitar la contaminación cruzada, debes:',
-    options: ['Lavar el pollo en el lavaplatos', 'Usar la misma tabla para cortar carne y vegetales', 'Usar utensilios separados para alimentos crudos y cocidos'],
+    options: ['Lavar el pollo en el lavaplatos', 'Usar la misma tabla para cortar carne y vegetales', 'Usar utensilios y tablas separadas para alimentos crudos y cocidos'],
     correctAnswer: 2
   },
   {
     question: '¿Cuál es la temperatura segura para mantener los alimentos refrigerados?',
     options: ['10°C o menos', '4°C o menos', '0°C o menos'],
+    correctAnswer: 1
+  },
+  {
+    question: 'Según la guía, ¿cuál es la temperatura interna segura para cocinar aves?',
+    options: ['60°C', '71°C', '74°C'],
+    correctAnswer: 2
+  },
+  {
+    question: 'El método PEPS (Primero en Entrar, Primero en Salir) se utiliza para:',
+    options: ['Enfriar alimentos rápidamente', 'Gestionar el inventario y usar los alimentos más antiguos primero', 'Limpiar la cocina al final del día'],
     correctAnswer: 1
   }
 ];
@@ -79,16 +89,48 @@ function Sales() {
   const [answers, setAnswers] = useState({});
   const [score, setScore] = useState(0);
 
+  // --- FUNCIÓN DE DESCARGA PDF CORREGIDA PARA MÚLTIPLES PÁGINAS ---
   const handleDownloadPDF = () => {
     const pdfContent = document.getElementById('pdf-content');
     message.loading({ content: 'Generando PDF...', key: 'pdf', duration: 0 });
 
-    html2canvas(pdfContent, { scale: 2 }).then(canvas => {
+    html2canvas(pdfContent, {
+      scale: 2, // Mejora la resolución de la imagen
+      useCORS: true
+    }).then(canvas => {
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
+
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      
+      const canvasAspectRatio = canvasWidth / canvasHeight;
+      const pdfAspectRatio = pdfWidth / pdfHeight;
+
+      let finalCanvasWidth, finalCanvasHeight;
+
+      if (canvasAspectRatio > pdfAspectRatio) {
+        finalCanvasWidth = pdfWidth;
+        finalCanvasHeight = pdfWidth / canvasAspectRatio;
+      } else {
+        finalCanvasHeight = pdfHeight;
+        finalCanvasWidth = pdfHeight * canvasAspectRatio;
+      }
+
+      const totalPDFPages = Math.ceil(canvasHeight / (canvasWidth * (pdfHeight / pdfWidth)));
+      let position = 0;
+
+      for (let i = 0; i < totalPDFPages; i++) {
+        if (i > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(imgData, 'PNG', 0, -position, pdfWidth, canvasHeight * pdfWidth / canvasWidth);
+        position += pdfHeight;
+      }
+
       pdf.save('guia-manipulacion-alimentos.pdf');
       message.success({ content: '¡PDF descargado!', key: 'pdf', duration: 3 });
     });
@@ -122,7 +164,7 @@ function Sales() {
     setCurrentStep(0);
   };
 
-  // Función para renderizar el contenido del curso (para la vista y el PDF)
+  // Función para renderizar el contenido del curso (sin cambios)
   const renderCourseContent = (isForPDF = false) => (
     <div className={isForPDF ? 'p-8' : ''}>
       <h1 className="text-3xl font-bold text-center mb-6">Curso Corto: Manipulación Segura de Alimentos</h1>
@@ -197,11 +239,8 @@ function Sales() {
           </div>
         );
 
-      case 3: // --- VISTA DE RESULTADOS ---
-        const isApproved = score >= 2; // Aprueba con 2 o más respuestas correctas
-        const whatsappNumber = '573001234567'; // <-- REEMPLAZA CON TU NÚMERO (código país + número)
-        const whatsappMessage = encodeURIComponent('Hola, he aprobado el curso de manipulación de alimentos. Mis datos son: ');
-
+      case 3: // --- VISTA DE RESULTADOS (ACTUALIZADA) ---
+        const isApproved = score >= 4; // Aprueba con 4 o más respuestas correctas
 
         return isApproved ? (
             <Result
@@ -209,7 +248,6 @@ function Sales() {
               title="¡Felicidades, has APROBADO!"
               subTitle={`Tu puntaje: ${score} de ${quizQuestions.length}. Has completado el curso exitosamente.`}
               extra={[
-                
                 <Button key="restart" onClick={restartCourse}>Realizar de Nuevo</Button>
               ]}
             />
@@ -217,7 +255,7 @@ function Sales() {
             <Result
               status="error"
               title="Lo sentimos, no has aprobado"
-              subTitle={`Tu puntaje: ${score} de ${quizQuestions.length}. Necesitas al menos 2 respuestas correctas.`}
+              subTitle={`Tu puntaje: ${score} de ${quizQuestions.length}. Necesitas al menos 4 respuestas correctas para aprobar.`}
               extra={[
                 <Button type="primary" key="retry" onClick={restartCourse}>
                   Reintentar Curso
