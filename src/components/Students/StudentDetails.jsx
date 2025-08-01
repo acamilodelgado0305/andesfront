@@ -1,42 +1,78 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import {
-    Button,
-    Card,
-    Form,
-    Input,
-    Select,
-    DatePicker,
-    message,
-    InputNumber,
-    Modal,
-    Avatar,
-    Space,
-    Typography,
-    Row,
-    Col,
-    Divider,
-    Tag,
-    Spin, // Importar Spin para el loading
-} from 'antd';
-import {
-    FaUserEdit,
-    FaGraduationCap,
-    FaFileInvoiceDollar,
-    FaWhatsapp,
-    FaTrashAlt,
-    FaSave,
-    FaUserGraduate,
-} from 'react-icons/fa';
+import { Button, Form, Input, Select, DatePicker, message, InputNumber, Modal, Avatar, Typography, Spin, Tag } from 'antd';
+import { FaUserEdit, FaSave, FaTrashAlt, FaWhatsapp, FaGraduationCap, FaFileInvoiceDollar, FaUserGraduate } from 'react-icons/fa';
 import dayjs from 'dayjs';
 import axios from 'axios';
 // Asumo que tienes una forma de obtener todos los programas disponibles para el multiselect
 // Si no, necesitarás una ruta en tu backend para esto, por ejemplo: GET /api/programs
 // Por ahora, lo dejaré comentado, pero si lo necesitas, avisame y lo implementamos.
 // import { getAllProgramsAvailable } from '../../services/programService'; // <- Necesitarías crear esto
+const API_URL = import.meta.env.VITE_API_BACKEND;
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+
+
+const InfoSection = ({ title, children }) => (
+    <div className="bg-white border border-slate-200 rounded-md shadow-sm">
+        <h3 className="text-sm font-semibold text-slate-800 bg-slate-50 px-4 py-2 border-b border-slate-200 rounded-t-md">
+            {title}
+        </h3>
+        <div className="p-4 space-y-3">
+            {children}
+        </div>
+    </div>
+);
+
+
+const EditableField = ({ label, value, isEditing, name, type = 'text', options = [] }) => {
+    let displayValue = value || <span className="text-slate-400">No especificado</span>;
+    if (type === 'date' && value) {
+        displayValue = dayjs(value).format('DD/MM/YYYY');
+    }
+    if (type === 'money' && value) {
+        displayValue = `$${Number(value).toLocaleString()}`;
+    }
+
+    const renderInput = () => {
+        switch (type) {
+            case 'select':
+                return (
+                    <Select placeholder={`Seleccionar ${label}`} allowClear>
+                        {options.map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
+                    </Select>
+                );
+            case 'multiselect':
+                 return (
+                    <Select mode="multiple" placeholder="Seleccione programas" allowClear>
+                         {options.map(opt => <Option key={opt.id} value={opt.id}>{opt.nombre}</Option>)}
+                    </Select>
+                 );
+            case 'date':
+                return <DatePicker format="YYYY-MM-DD" className="w-full" />;
+            case 'money':
+                return <InputNumber formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={value => value.replace(/\$\s?|(,*)/g, '')} className="w-full" />;
+            default:
+                return <Input placeholder={label} allowClear />;
+        }
+    };
+
+    return (
+        <div className="grid grid-cols-3 gap-2 items-center">
+            <Text className="text-xs text-slate-500 font-semibold col-span-1">{label}</Text>
+            <div className="col-span-2">
+                {isEditing ? (
+                    <Form.Item name={name} className="!mb-0">
+                        {renderInput()}
+                    </Form.Item>
+                ) : (
+                    <Text className="text-sm text-slate-800">{displayValue}</Text>
+                )}
+            </div>
+        </div>
+    );
+};
 
 const StudentDetails = ({ studentId }) => {
     const [student, setStudent] = useState(null);
@@ -53,43 +89,44 @@ const StudentDetails = ({ studentId }) => {
 
     // Función para obtener todos los programas disponibles (para el multiselect de edición)
 
-
+const fetchStudentData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await axios.get(`${API_URL}/students/${studentId}`);
+            const studentData = response.data;
+            setStudent(studentData);
+            form.setFieldsValue({
+                ...studentData,
+                fecha_nacimiento: studentData.fecha_nacimiento ? dayjs(studentData.fecha_nacimiento) : null,
+                fecha_inscripcion: studentData.fecha_inscripcion ? dayjs(studentData.fecha_inscripcion) : null,
+                fecha_graduacion: studentData.fecha_graduacion ? dayjs(studentData.fecha_graduacion) : null,
+                programasIds: studentData.programas_asociados?.map(p => p.programa_id) || [],
+            });
+        } catch (error) {
+            message.error('Error al cargar los datos del estudiante');
+        } finally {
+            setLoading(false);
+        }
+    }, [studentId, form]);
     // Obtener datos del estudiante y, si estamos editando, también todos los programas
     useEffect(() => {
-        const fetchStudentData = async () => {
-            setLoading(true);
-            try {
-                const response = await axios.get(
-                    `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${studentId}`
-                );
-                const studentData = response.data;
-                setStudent(studentData);
-
-                form.setFieldsValue({
-                    ...studentData,
-                    fecha_nacimiento: studentData.fecha_nacimiento ? dayjs(studentData.fecha_nacimiento) : null,
-                    fecha_inscripcion: studentData.fecha_inscripcion ? dayjs(studentData.fecha_inscripcion) : null,
-                    fecha_graduacion: studentData.fecha_graduacion ? dayjs(studentData.fecha_graduacion) : null,
-                    // Inicializar el campo de programas asociados para el formulario de edición
-                    programas_asociados_ids: studentData.programas_asociados?.map(p => p.programa_id) || [],
-                });
-
-                // Cargar todos los programas si estamos en modo edición o si vamos a necesitarlo para el componente de pagos
-                // Mejor cargar allPrograms una vez al inicio del componente o al iniciar la edición
-                // if (isEditing) { // O puedes cargarlo siempre si es un componente de gestión de estudiantes
-           
-                // }
-
-            } catch (error) {
-                console.error('Error al cargar el estudiante:', error);
-                message.error('Error al cargar los datos del estudiante');
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchStudentData();
-    }, [studentId, form]); // Añadida `form` a las dependencias de `useEffect`
+    }, [fetchStudentData]); 
+
+
+   const fetchUserAssignablePrograms = async () => {
+        const userId = localStorage.getItem('userId');
+        if (!userId) {
+            message.error("No se pudo encontrar el ID de usuario.");
+            return;
+        }
+        try {
+            const response = await axios.get(`${API_URL}/inventario/user/${userId}`);
+            setAllPrograms(response.data);
+        } catch (error) {
+            message.error('No se pudo cargar la lista de programas.');
+        }
+    };
 
     const getCoordinatorStyle = useCallback((coordinator) => {
         return 'px-2 py-1 rounded-full text-sm bg-blue-100 text-blue-800';
@@ -101,8 +138,8 @@ const StudentDetails = ({ studentId }) => {
             content: 'Esta acción marcará al estudiante como graduado.',
             onOk: async () => {
                 try {
-                    await axios.put(
-                        `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${student.id}/graduate`
+                    await axios.put
+                        (`${API_URL}/students/${student.id}/graduate`
                     );
                     message.success('Estudiante graduado exitosamente');
                     setStudent({ ...student, fecha_graduacion: new Date().toISOString() });
@@ -120,8 +157,7 @@ const StudentDetails = ({ studentId }) => {
             content: 'Esta acción no se puede deshacer.',
             onOk: async () => {
                 try {
-                    await axios.delete(
-                        `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${student.id}`
+                    await axios.delete(`${API_URL}/students/${student.id}`
                     );
                     message.success('Estudiante eliminado con éxito');
                     window.location.href = '/inicio/students';
@@ -145,11 +181,9 @@ const StudentDetails = ({ studentId }) => {
         window.open(`https://wa.me/${phoneNumber}`, '_blank');
     };
 
-    const handleStartEditing = () => {
+   const handleStartEditing = () => {
+        fetchUserAssignablePrograms();
         setIsEditing(true);
-        // El `form.setFieldsValue` ya se hace en el `useEffect` cuando se carga el estudiante,
-        // asegurando que `programas_asociados_ids` esté inicializado.
-        // Asegúrate de que `allPrograms` ya esté cargado para el multiselect.
     };
 
     const handleSave = async () => {
@@ -172,7 +206,7 @@ const StudentDetails = ({ studentId }) => {
                 // Por ejemplo, podrías enviar un array de IDs de programas, y el backend
                 // se encargaría de sincronizar `estudiante_programas`.
                 // Este `program_ids` es solo un ejemplo de cómo podrías nombrarlo.
-                program_ids: values.programas_asociados_ids, // Enviar los IDs seleccionados
+              programasIds: values.programas_asociados_ids,  // Enviar los IDs seleccionados
             };
 
             // Eliminar campos que no van directamente en la tabla students o que se manejan aparte
@@ -181,14 +215,11 @@ const StudentDetails = ({ studentId }) => {
             delete formattedValues.coordinador_nombre; // Es un join, no un campo directo
             delete formattedValues.monto_programa; // Es una propiedad de los programas, no del estudiante
 
-            const response = await axios.put(
-                `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${student.id}`,
+            const response = await axios.put(`${API_URL}/students/${student.id}`,
                 formattedValues
             );
 
-            // IMPORTANTE: Después de guardar, vuelve a cargar el estudiante
-            // para reflejar los cambios en `programas_asociados`
-            // (asumiendo que tu API de `getStudent` devuelve `programas_asociados` actualizados)
+            
             const updatedStudentResponse = await axios.get(
                 `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${studentId}`
             );
@@ -310,310 +341,104 @@ const StudentDetails = ({ studentId }) => {
         );
     }
 
-    return (
-        <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100%' }}>
-            {/* Encabezado del perfil */}
-            <Card
-                style={{
-                    marginBottom: '24px',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                }}
-            >
-                <Row align="middle" gutter={[16, 16]}>
-                    <Col>
-                        <Avatar
-                            size={80}
-                            icon={<FaUserGraduate />}
-                            style={{ backgroundColor: '#1890ff' }}
-                        />
-                    </Col>
-                    <Col flex="auto">
-                        <Title level={3} style={{ margin: 0 }}>
-                            {student.nombre} {student.apellido}
-                        </Title>
-                        <Space wrap>
-                            {/* Mostrar todos los programas asociados */}
-                            {student.programas_asociados && student.programas_asociados.length > 0 ? (
-                                student.programas_asociados.map((programa, index) => (
-                                    <Tag key={programa.programa_id || index} color="blue">
-                                        {programa.nombre_programa}
-                                    </Tag>
-                                ))
-                            ) : (
-                                <Text type="secondary">Sin programas</Text>
-                            )}
-                            <Tag
-                                color={student.activo ? 'green' : 'red'}
-                            >
-                                {student.activo ? 'Activo' : 'Inactivo'}
-                            </Tag>
-                        </Space>
-                    </Col>
-                    <Col>
-                        <Space wrap>
-                            {!isEditing && (
-                                <Button
-                                    type="primary"
-                                    icon={<FaUserEdit />}
-                                    onClick={handleStartEditing}
-                                >
-                                    Editar
-                                </Button>
-                            )}
-                            {isEditing && (
-                                <Button
-                                    type="primary"
-                                    icon={<FaSave />}
-                                    onClick={handleSave}
-                                    style={{ background: '#52c41a', borderColor: '#52c41a' }}
-                                >
-                                    Guardar
-                                </Button>
-                            )}
-                            <Button
-                                icon={<FaGraduationCap />}
-                                onClick={handleGraduate}
-                                disabled={student.fecha_graduacion || isEditing}
-                            >
-                                Graduar
-                            </Button>
-                            {/* Ruta de pagos actualizada para ser coherente con el nuevo router */}
-                            <Link to={`/inicio/payments/student/${student.id}`}>
-                                <Button icon={<FaFileInvoiceDollar />} disabled={isEditing}>
-                                    Ver Pagos
-                                </Button>
-                            </Link>
-                            <Button
-                                icon={<FaWhatsapp />}
-                                onClick={handleWhatsAppClick}
-                                disabled={isEditing}
-                                style={{ background: '#25D366', borderColor: '#25D366', color: '#fff' }}
-                            >
-                                WhatsApp
-                            </Button>
-                            <Button
-                                icon={<FaTrashAlt />}
-                                onClick={handleDelete}
-                                danger
-                                disabled={isEditing}
-                            >
-                                Eliminar
-                            </Button>
-                        </Space>
-                    </Col>
-                </Row>
-            </Card>
-
-            {/* Contenido del perfil */}
+  return (
+        <div className="bg-slate-50 min-h-screen p-4 sm:p-6">
             <Form form={form} layout="vertical">
-                <Row gutter={[24, 24]}>
-                    {/* Información Personal */}
-                    <Col xs={24} md={12}>
-                        <Card
-                            title="Información Personal"
-                            style={{ borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                        >
-                            {renderField(
-                                'Tipo de Documento',
-                                student.tipo_documento,
-                                'tipo_documento',
-                                {
-                                    type: 'select',
-                                    selectOptions: [
-                                        { value: 'CC', label: 'Cédula de Ciudadanía' },
-                                        { value: 'TI', label: 'Tarjeta de Identidad' },
-                                        { value: 'CE', label: 'Cédula de Extranjería' },
-                                    ],
-                                }
+                {/* --- ENCABEZADO --- */}
+                <header className="bg-white p-4 rounded-md border border-slate-200 mb-6 shadow-sm">
+                    <div className="flex flex-wrap justify-between items-center gap-4">
+                        <div className="flex items-center gap-4">
+                            <Avatar size={64} icon={<FaUserGraduate />} className="!bg-blue-500" />
+                            <div>
+                                <h1 className="text-xl font-bold text-slate-800 m-0">{student.nombre} {student.apellido}</h1>
+                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                    <Tag color={student.activo ? 'green' : 'red'}>{student.activo ? 'Activo' : 'Inactivo'}</Tag>
+                                    <Tag color={student.estado_matricula ? 'cyan' : 'orange'}>{student.estado_matricula ? 'Matrícula Paga' : 'Matrícula Pendiente'}</Tag>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {isEditing ? (
+                                <>
+                                    <Button onClick={() => setIsEditing(false)}>Cancelar</Button>
+                                    <Button type="primary" icon={<FaSave />} onClick={handleSave}>Guardar</Button>
+                                </>
+                            ) : (
+                                <>
+                                    <Button type="primary" icon={<FaUserEdit />} onClick={handleStartEditing}>Editar</Button>
+                                    <Button icon={<FaWhatsapp />} onClick={handleWhatsAppClick} className="!bg-green-500 !border-green-500 hover:!bg-green-600 !text-white">WhatsApp</Button>
+                                    <Button icon={<FaTrashAlt />} danger onClick={handleDelete}>Eliminar</Button>
+                                </>
                             )}
-                            {renderField('Número de Documento', student.numero_documento, 'numero_documento')}
-                            {renderField('Nombre', student.nombre, 'nombre')}
-                            {renderField('Apellido', student.apellido, 'apellido')}
-                            {renderField('Lugar de Expedición', student.lugar_expedicion, 'lugar_expedicion')}
-                            {renderField('Lugar de Nacimiento', student.lugar_nacimiento, 'lugar_nacimiento')}
-                            {renderField('Fecha de Nacimiento', formatDate(student.fecha_nacimiento), 'fecha_nacimiento', { type: 'date' })}
-                            {renderField('EPS', student.eps, 'eps')}
-                            {renderField('RH', student.rh, 'rh')}
-                            {renderField('SIMAT', student.simat, 'simat', { type: 'select', selectOptions: [{ value: true, label: 'Sí' }, { value: false, label: 'No' }] })}
-                        </Card>
-                    </Col>
+                        </div>
+                    </div>
+                </header>
 
-                    {/* Información de Contacto */}
-                    <Col xs={24} md={12}>
-                        <Card
-                            title="Información de Contacto"
-                            style={{ borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                        >
-                            {renderField('Email', student.email, 'email')}
-                            {renderField('Teléfono Llamadas', student.telefono_llamadas, 'telefono_llamadas')}
-                            {renderField('Teléfono WhatsApp', student.telefono_whatsapp, 'telefono_whatsapp')}
-                        </Card>
-                    </Col>
+                {/* --- CUERPO PRINCIPAL (GRID) --- */}
+                <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* --- COLUMNA 1 --- */}
+                    <div className="space-y-6">
+                        <InfoSection title="Información Personal">
+                            <EditableField label="Nombre" value={student.nombre} name="nombre" isEditing={isEditing} />
+                            <EditableField label="Apellido" value={student.apellido} name="apellido" isEditing={isEditing} />
+                            <EditableField label="Tipo Doc." value={student.tipo_documento} name="tipo_documento" isEditing={isEditing} type="select" options={[{value: 'CC', label: 'Cédula'}, {value: 'TI', label: 'Tarjeta de Identidad'}, {value: 'CE', label: 'Cédula Extranjería'}]} />
+                            <EditableField label="Num. Doc." value={student.numero_documento} name="numero_documento" isEditing={isEditing} />
+                            <EditableField label="Fecha de Nac." value={student.fecha_nacimiento} name="fecha_nacimiento" isEditing={isEditing} type="date" />
+                            <EditableField label="Lugar de Nac." value={student.lugar_nacimiento} name="lugar_nacimiento" isEditing={isEditing} />
+                            <EditableField label="Lugar de Exp." value={student.lugar_expedicion} name="lugar_expedicion" isEditing={isEditing} />
+                        </InfoSection>
 
-                    {/* Información Académica */}
-                    <Col xs={24}>
-                        <Card
-                            title="Información Académica"
-                            style={{ borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                        >
-                            <Row gutter={[16, 16]}>
-                                <Col xs={24} sm={12}>
-                                    {/* Vista de programas asociados */}
-                                    {!isEditing ? (
-                                        <div style={{ marginBottom: '16px' }}>
-                                            <Text strong style={{ display: 'block', marginBottom: '4px' }}>
-                                                Programas
-                                            </Text>
-                                            <Space wrap>
-                                                {student.programas_asociados && student.programas_asociados.length > 0 ? (
-                                                    student.programas_asociados.map((programa, index) => (
-                                                        <Tag key={programa.programa_id || index} color="blue">
-                                                            {programa.nombre_programa}
-                                                        </Tag>
-                                                    ))
-                                                ) : (
-                                                    <Text>No especificado</Text>
-                                                )}
-                                            </Space>
-                                        </div>
-                                    ) : (
-                                        // Formulario de edición para programas (con Select múltiple)
-                                        renderEditableField('programas_asociados_ids', {
-                                            label: 'Programas Asociados',
-                                            type: 'multiselect',
-                                            // allPrograms se pasa implícitamente a renderEditableField
-                                        })
-                                    )}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField(
-                                        'Coordinador',
-                                        // CAMBIO AQUÍ: Usar student.coordinador_nombre
-                                        <span className={getCoordinatorStyle(student.coordinador_nombre)}>
-                                            {student.coordinador_nombre}
-                                        </span>,
-                                        'coordinador_nombre', // Asegúrate de que este sea el nombre del campo si es editable
-                                        // Si 'coordinador_nombre' fuera editable y quisieras un select,
-                                        // necesitarías cargar las opciones de coordinadores y pasarlas aquí:
-                                        // { type: 'select', selectOptions: /* Tus opciones de coordinadores */ }
-                                    )}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField(
-                                        'Estado',
-                                        <Tag color={student.activo ? 'green' : 'red'}>
-                                            {student.activo ? 'Activo' : 'Inactivo'}
-                                        </Tag>,
-                                        'activo',
-                                        {
-                                            type: 'select',
-                                            selectOptions: [
-                                                { value: true, label: 'Activo' },
-                                                { value: false, label: 'Inactivo' },
-                                            ],
-                                        }
-                                    )}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField(
-                                        'Estado Matrícula',
-                                        <Tag color={student.estado_matricula ? 'green' : 'orange'}>
-                                            {student.estado_matricula ? 'Pago' : 'Pendiente'}
-                                        </Tag>,
-                                        'estado_matricula',
-                                        {
-                                            type: 'select',
-                                            selectOptions: [
-                                                { value: true, label: 'Pago' },
-                                                { value: false, label: 'Pendiente' },
-                                            ],
-                                        }
-                                    )}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField(
-                                        'Valor Matrícula',
-                                        `$${student.matricula?.toLocaleString() || 'No especificado'}`,
-                                        'matricula',
-                                        { type: 'number' }
-                                    )}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField(
-                                        'Modalidad',
-                                        student.modalidad_estudio,
-                                        'modalidad_estudio',
-                                        {
-                                            type: 'select',
-                                            selectOptions: [
-                                                { value: 'Clases en Linea', label: 'Clases en Linea' },
-                                                { value: 'Modulos por WhastApp', label: 'Modulos por WhastApp' },
-                                            ],
-                                        }
-                                    )}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField(
-                                        'Fecha de Inscripción',
-                                        formatDate(student.fecha_inscripcion),
-                                        'fecha_inscripcion',
-                                        { type: 'date' }
-                                    )}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField(
-                                        'Fecha de Graduación',
-                                        formatDate(student.fecha_graduacion),
-                                        'fecha_graduacion',
-                                        { type: 'date' }
-                                    )}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField('Último Curso Visto', student.ultimo_curso_visto, 'ultimo_curso_visto')}
-                                </Col>
-                            </Row>
-                        </Card>
-                    </Col>
+                        <InfoSection title="Información de Contacto">
+                            <EditableField label="Email" value={student.email} name="email" isEditing={isEditing} />
+                            <EditableField label="Tel. Llamadas" value={student.telefono_llamadas} name="telefono_llamadas" isEditing={isEditing} />
+                            <EditableField label="Tel. WhatsApp" value={student.telefono_whatsapp} name="telefono_whatsapp" isEditing={isEditing} />
+                        </InfoSection>
+                    </div>
 
-                    {/* Información del Acudiente */}
-                    <Col xs={24}>
-                        <Card
-                            title="Información del Acudiente"
-                            style={{ borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                        >
-                            <Row gutter={[16, 16]}>
-                                <Col xs={24} sm={12}>
-                                    {renderField('Nombre', student.nombre_acudiente, 'nombre_acudiente')}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField(
-                                        'Tipo de Documento',
-                                        student.tipo_documento_acudiente,
-                                        'tipo_documento_acudiente',
-                                        {
-                                            type: 'select',
-                                            selectOptions: [
-                                                { value: 'CC', label: 'Cédula de Ciudadanía' },
-                                                { value: 'CE', label: 'Cédula de Extranjería' },
-                                                { value: 'PASAPORTE', label: 'Pasaporte' },
-                                            ],
-                                        }
-                                    )}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField('Teléfono', student.telefono_acudiente, 'telefono_acudiente')}
-                                </Col>
-                                <Col xs={24} sm={12}>
-                                    {renderField('Dirección', student.direccion_acudiente, 'direccion_acudiente')}
-                                </Col>
-                            </Row>
-                        </Card>
-                    </Col>
-                </Row>
+                    {/* --- COLUMNA 2 --- */}
+                    <div className="space-y-6">
+                         <InfoSection title="Información Académica y Administrativa">
+                            <EditableField label="Programas" value={
+                                <div className="flex flex-wrap gap-1">
+                                    {student.programas_asociados?.map(p => <Tag color="blue" key={p.programa_id}>{p.nombre_programa}</Tag>)}
+                                </div>
+                            } name="programasIds" isEditing={isEditing} type="multiselect" options={allPrograms} />
+                            <EditableField label="Modalidad" value={student.modalidad_estudio} name="modalidad_estudio" isEditing={isEditing} type="select" options={[{ value: 'Clases en Linea', label: 'En Línea' }, { value: 'Modulos por WhastApp', label: 'Módulos por WhatsApp' }]}/>
+                            <EditableField label="Coordinador" value={student.coordinador_nombre} name="coordinador_id" isEditing={isEditing} type="select" options={[] /* Aquí deberías cargar la lista de coordinadores */} />
+                             <EditableField label="Último Curso Visto" value={student.ultimo_curso_visto} name="ultimo_curso_visto" isEditing={isEditing} />
+                             <EditableField label="Valor Matrícula" value={student.matricula} name="matricula" isEditing={isEditing} type="money" />
+                             <EditableField label="SIMAT" value={student.simat ? 'Sí' : 'No'} name="simat" isEditing={isEditing} type="select" options={[{value: true, label: 'Sí'}, {value: false, label: 'No'}]} />
+                        </InfoSection>
+
+                        <InfoSection title="Información de Acudiente">
+                            <EditableField label="Nombre Acudiente" value={student.nombre_acudiente} name="nombre_acudiente" isEditing={isEditing} />
+                            <EditableField label="Tel. Acudiente" value={student.telefono_acudiente} name="telefono_acudiente" isEditing={isEditing} />
+                            <EditableField label="Dirección Acudiente" value={student.direccion_acudiente} name="direccion_acudiente" isEditing={isEditing} />
+                        </InfoSection>
+                    </div>
+                    
+                    {/* --- COLUMNA 3 (Acciones y Fechas) --- */}
+                    <div className="space-y-6">
+                        <InfoSection title="Estado y Fechas Clave">
+                             <EditableField label="Fecha Inscripción" value={student.fecha_inscripcion} name="fecha_inscripcion" type="date" isEditing={isEditing} />
+                             <EditableField label="Fecha Graduación" value={student.fecha_graduacion} name="fecha_graduacion" type="date" isEditing={isEditing} />
+                        </InfoSection>
+
+                        <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm">
+                             <h3 className="text-sm font-semibold text-slate-800 mb-4">Acciones Rápidas</h3>
+                             <div className="space-y-2">
+                                <Link to={`/inicio/payments/student/${student.id}`} className="w-full">
+                                    <Button icon={<FaFileInvoiceDollar />} disabled={isEditing} className="w-full">Ver Pagos del Estudiante</Button>
+                                </Link>
+                                <Button icon={<FaGraduationCap />} onClick={handleGraduate} disabled={student.fecha_graduacion || isEditing} className="w-full">Marcar como Graduado</Button>
+                             </div>
+                        </div>
+                    </div>
+                </main>
             </Form>
         </div>
     );
 };
+
 
 export default StudentDetails;

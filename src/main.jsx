@@ -28,6 +28,7 @@ import CursosTecnicos from "./components/Calificaciones/CursosTecnicos";
 import StudentReportPortal from "./components/PublicForms/StudentReportPortal";
 import Sales from "./sales/Sales";
 import Generacion from "./components/Certificados/Generacion";
+import DashboardClients from "./components/admin/DashboardClients";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="students" element={<Students />} />
             <Route path="programas" element={<Programs />} />
             <Route path="materias" element={<Materias />} />
+            <Route path="adminclients" element={<DashboardClients />} />
             
             <Route path="calificaciones" element={<Calificaciones />} />
             <Route path="calificaciones/bachillerato" element={<Bachillerato />} />

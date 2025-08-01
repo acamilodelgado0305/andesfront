@@ -58,7 +58,7 @@ const MENU_CONFIG = {
     },
     { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
     
-    { key: '/inicio/admin', icon: <SettingOutlined />, label: 'Administración', path: '/inicio/admin' },
+    { key: '/inicio/adminclients', icon: <SettingOutlined />, label: 'Administración', path: '/inicio/adminclients' },
   ],
   docente: [
     { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
