@@ -410,44 +410,16 @@ const StudentTable = ({
         </Space>
       ),
     },
+    
     {
-      title: 'Pagos',
-      key: 'facturas',
-      render: (_, record) => (
-        <Link to={`/inicio/students/facturas/${record.id}`} className="text-blue-500 hover:text-blue-700">
-          <Button type="link" icon={<EyeOutlined />} size="small">Ver</Button>
-        </Link>
-      ),
-    },
-    {
-      title: 'Acciones',
+      title: 'Acciones Rapidas',
       key: 'acciones',
       width: 150, // Ajusta el ancho para que los botones no se salgan
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
-          <Popconfirm
-            title="Eliminar estudiante"
-            description="¿Está seguro de eliminar este estudiante? Esta acción no se puede deshacer."
-            onConfirm={() => handleDeleteStudent(record.id)}
-            okText="Sí"
-            cancelText="No"
-            icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
-          >
-            <Tooltip title="Eliminar">
-              <Button danger type="text" icon={<DeleteOutlined />} />
-            </Tooltip>
-          </Popconfirm>
-          <Tooltip title="Editar">
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit?.(record);
-              }}
-            />
-          </Tooltip>
+          
+          
           <Tooltip title="Enviar WhatsApp">
             <Button
               type="text"
