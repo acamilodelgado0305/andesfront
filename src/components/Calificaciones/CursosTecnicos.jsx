@@ -173,7 +173,7 @@ function CursosTecnicos() {
       minWidth: 70,
       textAlign: 'right',
       backgroundColor: numericValue >= 3.0 ? '#e6f4ea' : '#fff1f0',
-      borderColor: numericValue >= 3.0 ? '#52c41a' : '#ff4d4f',
+      borderColor: numericValue >= 3.0 ? '#155153' : '#ff4d4f',
     };
   };
 

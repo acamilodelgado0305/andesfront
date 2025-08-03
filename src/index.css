@@ -3,3 +3,12 @@
 @tailwind utilities;
 
 
+/* --- Estilo para Drawer personalizado --- */
+.top-right-drawer .ant-drawer-content-wrapper {
+  /* Define un ancho fijo en lugar de 100% */
+  width: 500px !important; 
+
+  /* Anula la posición izquierda y lo alinea a la derecha */
+  left: auto !important;
+  right: 0 !important;
+}

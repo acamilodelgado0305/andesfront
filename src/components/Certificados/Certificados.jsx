@@ -184,7 +184,7 @@ function Certificados() {
       <Card className="shadow-md rounded-lg overflow-hidden" bordered={false}>
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
-            <FileProtectOutlined className="text-green-500 text-2xl mr-3" />
+            <FileProtectOutlined className="text-green-900 text-2xl mr-3" />
             <Title level={3} className="m-0 text-gray-800">Gestión de Movimientos</Title>
           </div>
           <div className="flex gap-3">
@@ -204,7 +204,7 @@ function Certificados() {
               icon={<PlusOutlined />}
               onClick={showDrawer}
               loading={loading}
-              className="bg-green-600 hover:bg-green-700 border-0"
+              className="bg-{#155153} hover:bg-green-700 border-0"
             >
               Nueva Venta
             </Button>
@@ -234,7 +234,7 @@ function Certificados() {
         </div>
 
         <Tabs activeKey={activeTab} onChange={handleTabChange}>
-          <TabPane tab="Ventas" key="ventas" />
+          <TabPane tab="Ingresos" key="ventas" />
           <TabPane tab="Egresos" key="egresos" />
         </Tabs>
 
@@ -261,10 +261,15 @@ function Certificados() {
       <Drawer
         title={
           <div className="flex items-center">
-            <FileProtectOutlined className="text-green-500 mr-2" />
+            <FileProtectOutlined className="text-{#155153} mr-2" />
             <span>Registrar Nueva Venta</span>
           </div>
         }
+         placement="top"
+          classNames={{ 
+          wrapper: '!w-[500px] !right-0 !left-auto !h-[calc(100%-0px)] top-16 !rounded-tl-lg !rounded-tr-lg !border-0 !shadow-lg',
+        }}
+      
         width={420}
         onClose={closeDrawer}
         open={isDrawerOpen}
@@ -279,7 +284,7 @@ function Certificados() {
               type="primary"
               loading={loading}
               onClick={() => form.submit()}
-              className="bg-green-600 hover:bg-green-700 border-0"
+              className="bg-{#155153} hover:bg-green-700 border-0"
             >
               Guardar Venta
             </Button>
@@ -402,6 +407,10 @@ function Certificados() {
           </div>
         }
         width={420}
+         placement="top"
+          classNames={{ 
+          wrapper: '!w-[500px] !right-0 !left-auto !h-[calc(100%-0px)] top-16 !rounded-tl-lg !rounded-tr-lg !border-0 !shadow-lg',
+        }}
         onClose={() => {
           setIsEgresoDrawerOpen(false);
           egresoForm.resetFields();

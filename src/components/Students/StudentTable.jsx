@@ -525,14 +525,14 @@ const StudentTable = ({
             bodyStyle={{ padding: 16 }}
           >
             <Space align="center" size="middle">
-              <EditOutlined style={{ fontSize: '32px', color: '#52c41a' }} />
+              <EditOutlined style={{ fontSize: '32px', color: '#155153' }} />
               <div>
                 <Text style={{ fontSize: 14, color: '#595959' }}>Total Estudiantes</Text>
                 <Title
                   level={4}
                   style={{
                     margin: 0,
-                    color: '#52c41a',
+                    color: '#155153',
                     fontWeight: 'bold',
                   }}
                 >
@@ -552,14 +552,14 @@ const StudentTable = ({
             bodyStyle={{ padding: 16 }}
           >
             <Space align="center" size="middle">
-              <UserOutlined style={{ fontSize: '32px', color: '#52c41a' }} /> {/* Icono más apropiado */}
+              <UserOutlined style={{ fontSize: '32px', color: '#155153' }} /> {/* Icono más apropiado */}
               <div>
                 <Text style={{ fontSize: 14, color: '#595959' }}>Estudiantes Activos</Text>
                 <Title
                   level={4}
                   style={{
                     margin: 0,
-                    color: '#52c41a',
+                    color: '#155153',
                     fontWeight: 'bold',
                   }}
                 >

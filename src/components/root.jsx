@@ -1,27 +1,19 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, message, Typography } from 'antd';
-import {
-  DashboardOutlined,
-  TeamOutlined,
-  ReadOutlined,
-  BookOutlined,
-  FileTextOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  LogoutOutlined,
-  SettingOutlined,
-  UserOutlined,
-  BankOutlined,
-  PaperClipOutlined 
-} from '@ant-design/icons';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Layout, Menu, Button, Avatar, message, Typography, Dropdown, ConfigProvider, Spin } from 'antd';
+import { DashboardOutlined, TeamOutlined, ReadOutlined, BookOutlined, FileTextOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined, SettingOutlined, UserOutlined, BankOutlined, PaperClipOutlined } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
 import axios from 'axios';
+import dayjs from 'dayjs';
 
 const { Header, Sider, Content } = Layout;
-const { Text } = Typography;
+const { Title } = Typography;
 
-// Configuración de menús por rol y aplicación
+const API_URL = import.meta.env.VITE_API_BACKEND;
+const API_AUTH = import.meta.env.VITE_API_AUTH;
+
+const PRIMARY_COLOR = '#155153';
+
 const MENU_CONFIG = {
   feva: [
     { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
@@ -46,7 +38,7 @@ const MENU_CONFIG = {
     { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
     { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
     { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
-      { key: '/inicio/generacion', icon: <PaperClipOutlined />, label: 'Generación de Documentos', path: '/inicio/generacion' },
+    { key: '/inicio/generacion', icon: <PaperClipOutlined />, label: 'Generación de Documentos', path: '/inicio/generacion' },
     {
       key: '/academic-management',
       icon: <ReadOutlined />,
@@ -57,7 +49,6 @@ const MENU_CONFIG = {
       ],
     },
     { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
-    
     { key: '/inicio/adminclients', icon: <SettingOutlined />, label: 'Administración', path: '/inicio/adminclients' },
   ],
   docente: [
@@ -70,10 +61,11 @@ const RootLayout = () => {
   const [isSiderCollapsed, setIsSiderCollapsed] = useState(false);
   const [userProfile, setUserProfile] = useState({ name: '', role: '', app: 'feva' });
   const [isLoading, setIsLoading] = useState(true);
+  const [subscriptionData, setSubscriptionData] = useState({ endDate: null, amountPaid: null });
   const location = useLocation();
   const { logout } = useContext(AuthContext);
+  const navigate = useNavigate();
 
-  // Fetch user data
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -81,15 +73,22 @@ const RootLayout = () => {
         const userId = localStorage.getItem('userId');
         if (!userId) return;
 
-        const response = await axios.get(
-          `https://clasit-backend-api-570877385695.us-central1.run.app/auth/users/${userId}`
-        );
-
+        const response = await axios.get(`${API_AUTH}/users/${userId}`);
         if (response.data) {
           setUserProfile({
             name: response.data.name || 'Usuario',
             role: response.data.role || '',
             app: response.data.app || 'feva',
+          });
+        }
+
+        // Dentro de useEffect -> fetchUserProfile
+        const subscriptionResponse = await axios.get(`${API_URL}/subscriptions/expiration/${userId}`);
+        if (subscriptionResponse.data) {
+          // Transformamos los datos de snake_case a camelCase aquí
+          setSubscriptionData({
+            endDate: subscriptionResponse.data.end_date,
+            amountPaid: subscriptionResponse.data.amount_paid
           });
         }
       } catch (error) {
@@ -103,31 +102,56 @@ const RootLayout = () => {
     fetchUserProfile();
   }, []);
 
-  // Determinar los ítems del menú según el rol y la aplicación
-  const getMenuItems = () => {
-    // Si el usuario es docente, mostrar solo el menú de docente
-    if (userProfile.role === 'docente') {
-      return MENU_CONFIG.docente;
-    }
+  const showExpirationWarning = () => {
+    // Usamos las propiedades camelCase que ya corregimos en el estado
+    if (!subscriptionData.endDate) return null;
 
-    // Si no hay userApp o es vacío, mostrar menú por defecto
-    if (!userProfile.app || userProfile.app === '') {
-      return MENU_CONFIG.feva;
-    }
+    // Creamos objetos dayjs para hoy y la fecha de vencimiento,
+    // ajustados al inicio del día para un cálculo más intuitivo.
+    const today = dayjs().startOf('day');
+    const expirationDate = dayjs(subscriptionData.endDate).startOf('day');
 
-    // Si el tipo de app existe en MENU_CONFIG, usar ese menú
-    if (MENU_CONFIG[userProfile.app]) {
-      return MENU_CONFIG[userProfile.app];
-    }
+    const daysLeft = expirationDate.diff(today, 'day');
 
-    // Si no hay coincidencia, usar menú por defecto
-    return MENU_CONFIG.feva;
+    // La condición sigue siendo la misma: mostrar si quedan 30 días o menos.
+    const isNearExpiration = daysLeft <= 5 && daysLeft >= 0;
+
+    if (isNearExpiration) {
+      const formattedAmount = new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0,
+      }).format(subscriptionData.amountPaid);
+
+      return (
+        <div style={{ padding: '16px', background: '#fff1f0', border: '1px solid #ffa39e', margin: '16px', borderRadius: '8px' }}>
+          <p style={{ margin: '0 0 10px 0' }}>
+            ⚠️ **Atención:** Tu plan está próximo a vencer. Renueva para continuar sin interrupciones. <br />
+            Vence en <strong>{daysLeft} día(s)</strong> (el {dayjs(subscriptionData.endDate).format('DD/MM/YYYY')}). Monto a cancelar: <strong>{formattedAmount}</strong>.
+          </p>
+          <Button
+            type="primary"
+            danger
+            href="https://linkdepagospse.rappipay.co/U7pafq"
+            target="_blank" // <-- Abre el enlace en una nueva pestaña
+            rel="noopener noreferrer" // <-- Buena práctica de seguridad para enlaces externos
+          >
+            Renovar mi Plan Ahora
+          </Button>
+        </div>
+      );
+    }
+    return null;
   };
 
-  // Toggle del sidebar
+  const getMenuItems = () => {
+    if (userProfile.role === 'docente') return MENU_CONFIG.docente;
+    if (!userProfile.app || userProfile.app === '') return MENU_CONFIG.feva;
+    return MENU_CONFIG[userProfile.app] || MENU_CONFIG.feva;
+  };
+
   const toggleSider = () => setIsSiderCollapsed((prev) => !prev);
 
-  // Generar ítems del menú para Ant Design
   const menuItems = getMenuItems().map((item) => ({
     key: item.key,
     icon: item.icon,
@@ -139,91 +163,53 @@ const RootLayout = () => {
     })),
   }));
 
+  const profileMenu = (
+    <Menu
+      items={[
+        { key: '1', icon: <UserOutlined />, label: <Link to="/inicio/perfil">Mi Perfil</Link> },
+        { key: '2', icon: <SettingOutlined />, label: <Link to="/inicio/configuracion">Configuración</Link> },
+        { type: 'divider' },
+        { key: '3', icon: <LogoutOutlined />, label: 'Cerrar Sesión', onClick: logout, danger: true },
+      ]}
+    />
+  );
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-screen"><Spin size="large" /></div>;
+  }
+
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
-      <Sider
-        width={260}
-        collapsible
-        collapsed={isSiderCollapsed}
-        trigger={null}
-        breakpoint="lg"
-        collapsedWidth={80}
-        style={{ background: '#fff', boxShadow: '2px 0 8px rgba(0, 0, 0, 0.1)' }}
-      >
-        <div className="p-4 flex items-center justify-between h-16 border-b">
-          {!isSiderCollapsed && (
-            <Text strong style={{ fontSize: 20, color: '#1a73e8' }}>
-              Classuite
-            </Text>
-          )}
-          {isSiderCollapsed && (
-            <Avatar size={32} icon={<UserOutlined />} style={{ backgroundColor: '#1a73e8' }} />
-          )}
-        </div>
-
-        {isLoading ? (
-          <div className="text-center p-4">
-            <Text>Cargando...</Text>
+    <ConfigProvider
+      theme={{ token: { colorPrimary: PRIMARY_COLOR }, components: { Menu: { itemHoverBg: '#e6f4f4', itemSelectedBg: PRIMARY_COLOR, itemSelectedColor: '#ffffff' }, Layout: { headerBg: '#ffffff', siderBg: '#ffffff' } } }}
+    >
+      <Layout style={{ minHeight: '100vh' }}>
+        <Sider collapsible collapsed={isSiderCollapsed} onCollapse={(value) => setIsSiderCollapsed(value)} trigger={null} width={240} breakpoint="lg" style={{ boxShadow: '2px 0 8px rgba(0, 0, 0, 0.05)', borderRight: '1px solid #f0f0f0' }}>
+          <div className="flex items-center justify-start h-16 p-4">
+            <Link to="/inicio" className="flex items-start gap-2">
+              {!isSiderCollapsed && <Title level={4} className="!m-0 whitespace-nowrap" style={{ color: PRIMARY_COLOR }}>Controla</Title>}
+            </Link>
           </div>
-        ) : (
-          <Menu
-            theme="light"
-            mode="inline"
-            selectedKeys={[location.pathname]}
-            items={menuItems}
-            style={{ borderRight: 'none' }}
-          />
-        )}
-      </Sider>
-
-      <Layout>
-        <Header
-          style={{
-            background: '#fff',
-            padding: '0 16px',
-            borderBottom: '1px solid #e8e8e8',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Button
-            type="text"
-            icon={isSiderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={toggleSider}
-            style={{ fontSize: 18, width: 64, height: 64, color: '#1a73e8' }}
-          />
-
-          <div className="flex items-center space-x-4">
-            <Avatar size={32} icon={<UserOutlined />} style={{ backgroundColor: '#1a73e8' }} />
-            <Text strong style={{ color: '#1a73e8' }}>
-              {userProfile.name}
-            </Text>
-            <Button
-              type="link"
-              icon={<LogoutOutlined style={{ color: '#ff4d4f' }} />}
-              onClick={logout}
-              style={{ color: '#ff4d4f' }}
-            >
-              Cerrar Sesión
-            </Button>
-          </div>
-        </Header>
-
-        <Content
-          style={{
-            margin: '16px',
-            padding: '24px',
-            background: '#fff',
-            borderRadius: 8,
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-            overflow: 'auto',
-          }}
-        >
-          <Outlet />
-        </Content>
+          <Menu mode="inline" selectedKeys={[location.pathname]} items={menuItems} style={{ borderRight: 'none' }} />
+        </Sider>
+        <Layout className="site-layout">
+          <Header style={{ padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0' }}>
+            <Button type="text" icon={isSiderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={toggleSider} style={{ fontSize: '18px' }} />
+            <Dropdown overlay={profileMenu} trigger={['click']}>
+              <div className="flex items-center gap-2 cursor-pointer">
+                <Avatar style={{ backgroundColor: PRIMARY_COLOR }}>{userProfile.name.charAt(0).toUpperCase()}</Avatar>
+                <span className="font-semibold hidden md:inline">{userProfile.name}</span>
+              </div>
+            </Dropdown>
+          </Header>
+          <Content style={{ overflow: 'initial' }}>
+            <div style={{ minHeight: 360, background: '#fff' }}>
+              {showExpirationWarning()}
+              <Outlet />
+            </div>
+          </Content>
+        </Layout>
       </Layout>
-    </Layout>
+    </ConfigProvider>
   );
 };
 

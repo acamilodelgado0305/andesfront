@@ -21,26 +21,26 @@ const Home = () => {
   // Configuración de accesos directos según el tipo de app (igual que en Root)
   const menuConfig = {
     feva: [
-      { key: '/inicio/dashboard', icon: <BarChartOutlined className="text-purple-500" />, label: 'Tu trabajo', description: 'Revisa tus estadísticas y progreso' },
-      { key: '/inicio/students', icon: <UserOutlined className="text-purple-500" />, label: 'Estudiantes', description: 'Gestiona la información de los estudiantes' },
-      { key: '/inicio/programas', icon: <BookOutlined className="text-purple-500" />, label: 'Programas', description: 'Administra los programas académicos' },
-      { key: '/inicio/materias', icon: <BookOutlined className="text-purple-500" />, label: 'Materias', description: 'Configura las materias disponibles' },
+      { key: '/inicio/dashboard', icon: <BarChartOutlined className="text-green" />, label: 'Tu trabajo', description: 'Revisa tus estadísticas y progreso' },
+      { key: '/inicio/students', icon: <UserOutlined className="text-green" />, label: 'Estudiantes', description: 'Gestiona la información de los estudiantes' },
+      { key: '/inicio/programas', icon: <BookOutlined className="text-green" />, label: 'Programas', description: 'Administra los programas académicos' },
+      { key: '/inicio/materias', icon: <BookOutlined className="text-green" />, label: 'Materias', description: 'Configura las materias disponibles' },
     ],
     certificaciones: [
-      { key: '/inicio/dashboard', icon: <BarChartOutlined className="text-purple-500" />, label: 'Tu trabajo', description: 'Revisa tus estadísticas y progreso' },
-      { key: '/inicio/certificados', icon: <FileProtectOutlined className="text-purple-500" />, label: 'Certificados', description: 'Gestiona los certificados emitidos' },
+      { key: '/inicio/dashboard', icon: <BarChartOutlined className="text-green" />, label: 'Tu trabajo', description: 'Revisa tus estadísticas y progreso' },
+      { key: '/inicio/certificados', icon: <FileProtectOutlined className="text-green" />, label: 'Certificados', description: 'Gestiona los certificados emitidos' },
     ],
     all: [
-      { key: '/inicio/dashboard', icon: <BarChartOutlined className="text-purple-500" />, label: 'Tu trabajo', description: 'Revisa tus estadísticas y progreso' },
-      { key: '/inicio/students', icon: <UserOutlined className="text-purple-500" />, label: 'Estudiantes', description: 'Gestiona la información de los estudiantes' },
-      { key: '/inicio/programas', icon: <BookOutlined className="text-purple-500" />, label: 'Programas', description: 'Administra los programas académicos' },
-      { key: '/inicio/materias', icon: <BookOutlined className="text-purple-500" />, label: 'Materias', description: 'Configura las materias disponibles' },
-      { key: '/inicio/certificados', icon: <FileProtectOutlined className="text-purple-500" />, label: 'Certificados', description: 'Gestiona los certificados emitidos' },
-      { key: '/inicio/admin', icon: <SettingOutlined className="text-purple-500" />, label: 'Administración', description: 'Configura el sistema' },
+      { key: '/inicio/dashboard', icon: <BarChartOutlined className="text-green" />, label: 'Tu trabajo', description: 'Revisa tus estadísticas y progreso' },
+      { key: '/inicio/students', icon: <UserOutlined className="text-green" />, label: 'Estudiantes', description: 'Gestiona la información de los estudiantes' },
+      { key: '/inicio/programas', icon: <BookOutlined className="text-green" />, label: 'Programas', description: 'Administra los programas académicos' },
+      { key: '/inicio/materias', icon: <BookOutlined className="text-green" />, label: 'Materias', description: 'Configura las materias disponibles' },
+      { key: '/inicio/certificados', icon: <FileProtectOutlined className="text-green" />, label: 'Certificados', description: 'Gestiona los certificados emitidos' },
+      { key: '/inicio/admin', icon: <SettingOutlined className="text-green" />, label: 'Administración', description: 'Configura el sistema' },
     ],
     docente: [
-      { key: '/inicio/dashboard', icon: <BarChartOutlined className="text-purple-500" />, label: 'Tu trabajo', description: 'Revisa tus estadísticas y progreso' },
-      { key: '/inicio/calificaciones', icon: <BookOutlined className="text-purple-500" />, label: 'Calificaciones', description: 'Registra tus calificaciones' },
+      { key: '/inicio/dashboard', icon: <BarChartOutlined className="text-green" />, label: 'Tu trabajo', description: 'Revisa tus estadísticas y progreso' },
+      { key: '/inicio/calificaciones', icon: <BookOutlined className="text-green" />, label: 'Calificaciones', description: 'Registra tus calificaciones' },
     ],
   };
 
@@ -120,10 +120,10 @@ const Home = () => {
                 style={{ backgroundColor: '#ffffff' }}
               >
                 <div className="flex items-center space-x-4">
-                  <div className="text-3xl text-purple-500">{item.icon}</div>
+                  <div className="text-3xl text-green">{item.icon}</div>
                   <div>
                     <Link to={item.key}>
-                      <Title level={4} className="text-blue-700 mb-1 hover:text-purple-500">
+                      <Title level={4} className="text-blue-700 mb-1 hover:text-green">
                         {item.label}
                       </Title>
                     </Link>
@@ -132,7 +132,7 @@ const Home = () => {
                 </div>
                 <Button
                   type="link"
-                  className="mt-4 text-blue-500 hover:text-purple-500 p-0"
+                  className="mt-4 text-blue-500 hover:text-green p-0"
                 >
                   <Link to={item.key}>Ir ahora</Link>
                 </Button>

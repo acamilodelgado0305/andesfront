@@ -228,12 +228,12 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
       sorter: (a, b) => (a.valor || 0) - (b.valor || 0),
     },
     {
-      title: 'Cuenta',
+      title: 'Medio de Pago',
       dataIndex: 'cuenta',
       render: (cuenta) => {
         let color;
         switch (cuenta) {
-          case 'Nequi': color = 'green'; break;
+          case 'Nequi': color = '#155153'; break;
           case 'Daviplata': color = 'orange'; break;
           case 'Bancolombia': color = 'blue'; break;
           default: color = 'default'; cuenta = 'No especificada';
@@ -386,10 +386,10 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
         <Space size="middle" style={{ width: '100%', justifyContent: 'center', flexWrap: 'wrap' }}>
           <Card style={{ width: 300, minWidth: 280, borderRadius: 8, boxShadow: '0 4px 8px rgba(0,0,0,0.1)', border: '1px solid #d9f7be', backgroundColor: '#f6ffed', margin: '8px 0' }} bodyStyle={{ padding: 16 }}>
             <Space align="center" size="middle">
-              <DollarOutlined style={{ fontSize: '32px', color: '#52c41a' }} />
+              <DollarOutlined style={{ fontSize: '32px', color: '#155153' }} />
               <div>
-                <Text style={{ fontSize: 14, color: '#595959' }}>Total Ventas</Text>
-                <Title level={4} style={{ margin: 0, color: '#52c41a', fontWeight: 'bold' }}>{currencyFormatter.format(totalVentas)}</Title>
+                <Text style={{ fontSize: 14, color: '#595959' }}>Total Ingresos</Text>
+                <Title level={4} style={{ margin: 0, color: '#155153', fontWeight: 'bold' }}>{currencyFormatter.format(totalVentas)}</Title>
               </div>
             </Space>
           </Card>

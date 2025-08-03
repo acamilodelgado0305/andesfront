@@ -152,7 +152,7 @@ function Bachillerato() {
       width: 80,
       textAlign: 'right',
       backgroundColor: numericValue >= 3.0 ? '#e6f4ea' : (numericValue < 0 ? '#fff1f0' : (numericValue === 0.0 ? '#fafafa' : '#fff1f0')), // Color diferente para 0.0 si se desea, o mantener el de reprobado
-      borderColor: numericValue >= 3.0 ? '#52c41a' : (numericValue < 0 ? '#ff4d4f' : (numericValue === 0.0 ? '#d9d9d9' : '#ff4d4f')),
+      borderColor: numericValue >= 3.0 ? '#155153' : (numericValue < 0 ? '#ff4d4f' : (numericValue === 0.0 ? '#d9d9d9' : '#ff4d4f')),
     };
   };
 
