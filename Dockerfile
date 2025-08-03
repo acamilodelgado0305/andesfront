@@ -17,7 +17,7 @@ ARG VITE_API_AUTH
 
 # Variables para el entorno de Vite en tiempo de build
 ENV VITE_API_BACKEND=$VITE_API_BACKEND
-ENV VITE_API_BACKEND=$VITE_API_AUTH
+ENV VITE_API_AUTH=$VITE_API_AUTH
 
 # Copia el resto del código de la aplicación
 COPY . .
