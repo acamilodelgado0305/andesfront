@@ -107,7 +107,7 @@ const StudentPayments = () => { // Renombrado de Facturas a StudentPayments
                 ? parseInt(values.program_id)
                 : null;
 
-            await axios.post(`${BASE_URL}/payments`, {
+            await axios.post(`${API_URL}/payments`, {
                 student_id: parseInt(studentId),
                 tipo_pago_nombre: values.tipo_pago_nombre,
                 monto: parseFloat(values.monto),
@@ -141,7 +141,7 @@ const StudentPayments = () => { // Renombrado de Facturas a StudentPayments
             cancelText: 'Cancelar',
             onOk: async () => {
                 try {
-                    await axios.delete(`${BASE_URL}/payments/${paymentId}`);
+                    await axios.delete(`${API_URL}/payments/${paymentId}`);
                     message.success('Pago eliminado con éxito.');
                     await loadAllStudentPaymentData(); // Recargar todos los datos
                 } catch (error) {
@@ -154,7 +154,7 @@ const StudentPayments = () => { // Renombrado de Facturas a StudentPayments
 
     // Función para emitir y descargar un recibo
     const handleDownloadReceipt = (paymentId) => {
-        const receiptUrl = `${BASE_URL}/receipts/${paymentId}/download`; // Necesitarás implementar esta ruta en tu backend
+        const receiptUrl = `${API_URL}/receipts/${paymentId}/download`; // Necesitarás implementar esta ruta en tu backend
         window.open(receiptUrl, '_blank');
         message.info("Generando recibo. Si la descarga no inicia, verifique las ventanas emergentes.");
     };
