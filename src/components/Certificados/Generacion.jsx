@@ -1,178 +1,192 @@
 import React, { useState } from 'react';
-import { Form, Input, Select, Button, notification, Spin } from 'antd';
-import { DownloadOutlined } from '@ant-design/icons';
+import { Form, Input, Select, Button, notification, Upload, Card } from 'antd';
+import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import ImgCrop from 'antd-img-crop';
 
 const { Option } = Select;
 
-function Generacion() {
-    // Estado para manejar el estado de carga (loading)
-    const [loading, setLoading] = useState(false);
-    // Hook de Ant Design para el formulario
-    const [form] = Form.useForm();
+// Estilos inspirados en la interfaz de Microsoft (Fluent UI)
 
-    // Obtener la URL del backend desde las variables de entorno de Vite
+const headerStyle = {
+    marginBottom: '28px',
+    paddingBottom: '12px',
+    borderBottom: '1px solid #e1e1e1',
+    color: '#005A9E', // Azul corporativo
+    fontSize: '22px',
+    fontWeight: '600',
+};
+
+const buttonStyle = {
+    width: '100%',
+    backgroundColor: '#0078D4', // Azul primario de Microsoft
+    borderColor: '#0078D4',
+};
+
+function Generacion() {
+    const [loading, setLoading] = useState(false);
+    const [form] = Form.useForm();
+    const [fotoFile, setFotoFile] = useState(null);
+
     const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND;
 
-    // Función que se ejecuta al enviar el formulario
-    const onFinish = async (values) => {
-        setLoading(true); // Activar el estado de carga
+    const handleBeforeUpload = (file) => {
+        setFotoFile(file);
+        return false;
+    };
 
+    const onFinish = async (values) => {
+        setLoading(true);
         const { nombre, numeroDocumento, tipoDocumento } = values;
 
-        // Mostrar notificación de procesamiento
         notification.info({
             message: 'Procesando Solicitud',
             description: 'Generando Certificado y Carnet...',
-            duration: 0, // La notificación permanece hasta que se cierre manualmente
+            duration: 0,
             key: 'generatingDocs'
         });
 
         try {
-            // Iniciar ambas solicitudes simultáneamente
-            // Los payloads son idénticos como lo has especificado
-            const [certResponse, carnetResponse] = await Promise.all([
-                fetch(`${API_BACKEND_URL}/generar-certificado`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre, numeroDocumento, tipoDocumento }),
-                }),
-                fetch(`${API_BACKEND_URL}/generar-carnet`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre, numeroDocumento, tipoDocumento }),
-                }),
-            ]);
+            // 1. Payload para el CERTIFICADO (JSON)
+            const certPayload = JSON.stringify({ nombre, numeroDocumento, tipoDocumento });
+            const certPromise = fetch(`${API_BACKEND_URL}/generar-certificado`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: certPayload,
+            });
+
+            // 2. Payload para el CARNET (FormData)
+            const carnetPayload = new FormData();
+            carnetPayload.append('nombre', nombre);
+            carnetPayload.append('numeroDocumento', numeroDocumento);
+            carnetPayload.append('tipoDocumento', tipoDocumento);
+
+            if (fotoFile) {
+                carnetPayload.append('foto', fotoFile);
+            }
+
+            const carnetPromise = fetch(`${API_BACKEND_URL}/generar-carnet`, {
+                method: 'POST',
+                body: carnetPayload,
+            });
+
+            const [certResponse, carnetResponse] = await Promise.all([certPromise, carnetPromise]);
 
             let allSuccess = true;
-            let downloadedDocuments = []; // Para almacenar los nombres de los documentos descargados
+            let downloadedDocuments = [];
 
-            // --- Procesar respuesta del Certificado ---
-            if (!certResponse.ok) {
-                const errorData = await certResponse.json();
-                notification.error({
-                    message: 'Error Certificado',
-                    description: errorData.error || 'Error desconocido al generar el certificado.',
-                });
-                allSuccess = false;
-            } else {
+            // Procesar respuesta del Certificado
+            if (certResponse.ok) {
                 const certBlob = await certResponse.blob();
-                const certFileName = `Certificado_${nombre.replace(/\s/g, '_')}_${numeroDocumento}.pdf`;
+                const certFileName = `Certificado_${nombre.replace(/\s/g, '_')}.pdf`;
                 const certUrl = window.URL.createObjectURL(certBlob);
-                const certLink = document.createElement('a');
-                certLink.href = certUrl;
-                certLink.setAttribute('download', certFileName);
-                document.body.appendChild(certLink);
-                certLink.click();
-                document.body.removeChild(certLink);
-                window.URL.revokeObjectURL(certUrl); // Libera la URL del objeto
+                const link = document.createElement('a');
+                link.href = certUrl;
+                link.setAttribute('download', certFileName);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(certUrl);
                 downloadedDocuments.push("Certificado");
-            }
-
-            // --- Procesar respuesta del Carnet ---
-            if (!carnetResponse.ok) {
-                const errorData = await carnetResponse.json();
-                notification.error({
-                    message: 'Error Carnet',
-                    description: errorData.error || 'Error desconocido al generar el carnet.',
-                });
-                allSuccess = false;
             } else {
-                const carnetBlob = await carnetResponse.blob();
-                const carnetFileName = `Carnet_${nombre.replace(/\s/g, '_')}_${numeroDocumento}.pdf`;
-                const carnetUrl = window.URL.createObjectURL(carnetBlob);
-                const carnetLink = document.createElement('a');
-                carnetLink.href = carnetUrl;
-                carnetLink.setAttribute('download', carnetFileName);
-                document.body.appendChild(carnetLink);
-                carnetLink.click();
-                document.body.removeChild(carnetLink);
-                window.URL.revokeObjectURL(carnetUrl); // Libera la URL del objeto
-                downloadedDocuments.push("Carnet");
+                allSuccess = false;
+                const errorData = await certResponse.json();
+                notification.error({ message: 'Error Certificado', description: errorData.error });
             }
 
-            notification.destroy('generatingDocs'); // Cerrar la notificación de "Procesando"
+            // Procesar respuesta del Carnet
+            if (carnetResponse.ok) {
+                const carnetBlob = await carnetResponse.blob();
+                const carnetFileName = `Carnet_${nombre.replace(/\s/g, '_')}.pdf`;
+                const carnetUrl = window.URL.createObjectURL(carnetBlob);
+                const link = document.createElement('a');
+                link.href = carnetUrl;
+                link.setAttribute('download', carnetFileName);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(carnetUrl);
+                downloadedDocuments.push("Carnet");
+            } else {
+                allSuccess = false;
+                const errorData = await carnetResponse.json();
+                notification.error({ message: 'Error Carnet', description: errorData.error });
+            }
+
+            notification.destroy('generatingDocs');
 
             if (allSuccess) {
                 notification.success({
                     message: 'Éxito',
-                    description: `Se han generado y descargado exitosamente: ${downloadedDocuments.join(' y ')}.`,
+                    description: `Se han generado y descargado: ${downloadedDocuments.join(' y ')}.`,
                 });
-                form.resetFields(); // Limpiar el formulario después de la generación exitosa
-            } else {
-                notification.error({
-                    message: 'Generación Incompleta',
-                    description: `Hubo problemas al generar algunos documentos. Se descargaron: ${downloadedDocuments.length > 0 ? downloadedDocuments.join(' y ') : 'ninguno'}. Revisa los detalles de los errores.`,
-                });
+                form.resetFields();
+                setFotoFile(null);
             }
 
         } catch (error) {
-            console.error('Error general al generar documentos:', error);
-            notification.destroy('generatingDocs'); // Asegúrate de cerrar la notificación de "Procesando"
-            notification.error({
-                message: 'Error de Conexión',
-                description: error.message || 'No se pudo conectar con el servidor. Inténtalo de nuevo.',
-            });
+            notification.destroy('generatingDocs');
+            notification.error({ message: 'Error de Conexión', description: 'No se pudo conectar con el servidor.' });
+            console.error('Error general:', error);
         } finally {
-            setLoading(false); // Desactivar el estado de carga
+            setLoading(false);
         }
     };
 
+    const normFile = (e) => (Array.isArray(e) ? e : e && e.fileList);
+
     return (
-        <div style={{ padding: '40px', maxWidth: '600px', margin: '50px auto', border: '1px solid #e8e8e8', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}>
-            <h2 style={{ textAlign: 'center', marginBottom: '30px', color: '#333' }}>Generar Certificado y Carnet</h2>
-            <Form
-                form={form}
-                layout="vertical"
-                onFinish={onFinish}
-                initialValues={{
-                    tipoDocumento: 'C.C', // Valor por defecto para tipo de documento
-                }}
-            >
-                {/* Se eliminó el Select para elegir tipo de documento a generar */}
-                
-                <Form.Item
-                    label="Nombre Completo"
-                    name="nombre"
-                    rules={[{ required: true, message: 'Por favor, ingresa el nombre completo.' }]}
-                >
-                    <Input placeholder="Ej: Andres Camilo Delgado Gamboa" />
-                </Form.Item>
+        <div className='bg-gray-50 min-h-screen p-6'>
+            <Card>
+                <h2 style={headerStyle}>Generador de Documentos</h2>
+                <Form form={form} layout="vertical" onFinish={onFinish}>
 
-                <Form.Item
-                    label="Número de Documento"
-                    name="numeroDocumento"
-                    rules={[{ required: true, message: 'Por favor, ingresa el número de documento.' }]}
-                >
-                    <Input placeholder="Ej: 123456789" />
-                </Form.Item>
+                    {/* --- Campos de texto sin cambios --- */}
+                    <Form.Item label="Nombre Completo" name="nombre" rules={[{ required: true, message: 'Por favor, ingresa el nombre.' }]}>
+                        <Input placeholder="Ej: Ana Sofía Rincón" />
+                    </Form.Item>
+                    <Form.Item label="Número de Documento" name="numeroDocumento" rules={[{ required: true, message: 'Por favor, ingresa el documento.' }]}>
+                        <Input placeholder="Ej: 1098765432" />
+                    </Form.Item>
+                    <Form.Item label="Tipo de Documento" name="tipoDocumento" initialValue="C.C" rules={[{ required: true, message: 'Por favor, selecciona el tipo.' }]}>
+                        <Select>
+                            <Option value="C.C">C.C. (Cédula de Ciudadanía)</Option>
+                            <Option value="T.I">T.I. (Tarjeta de Identidad)</Option>
+                            <Option value="Pasaporte">Pasaporte</Option>
+                            <Option value="C.E">C.E. (Cédula de Extranjería)</Option>
+                            <Option value="PPT">PPT (Permiso por Protección Temporal)</Option>
+                        </Select>
+                    </Form.Item>
 
-                <Form.Item
-                    label="Tipo de Documento"
-                    name="tipoDocumento"
-                    rules={[{ required: true, message: 'Por favor, selecciona el tipo de documento.' }]}
-                >
-                    <Select placeholder="Selecciona el tipo de documento">
-                        <Option value="C.C">C.C. (Cédula de Ciudadanía)</Option>
-                        <Option value="T.I">T.I. (Tarjeta de Identidad)</Option>
-                        <Option value="Pasaporte">Pasaporte</Option>
-                        <Option value="C.E">C.E. (Cédula de Extranjería)</Option>
-                        {/* --- LÍNEA AÑADIDA --- */}
-                        <Option value="PPT">PPT (Permiso por Protección Temporal)</Option> 
-                    </Select>
-                </Form.Item>
+                    {/* ================================================================= */}
+                    {/* MODIFICADO: Campo de fotografía ahora con editor de recorte */}
+                    {/* ================================================================= */}
+                    <Form.Item label="Fotografía para el Carnet (Opcional)" name="foto" valuePropName="fileList" getValueFromEvent={normFile}>
+                        <ImgCrop
+                            rotationSlider // Permite al usuario rotar la imagen
+                            aspect={3 / 4} // Fuerza un recorte con aspecto de foto de carnet (3 de ancho por 4 de alto)
+                            modalTitle="Editar Fotografía"
+                            modalOk="Aceptar"
+                            modalCancel="Cancelar"
+                        >
+                            <Upload
+                                beforeUpload={handleBeforeUpload}
+                                onRemove={() => setFotoFile(null)}
+                                maxCount={1}
+                                listType="picture"
+                                accept="image/png, image/jpeg"
+                            >
+                                <Button icon={<UploadOutlined />}>Seleccionar Archivo</Button>
+                            </Upload>
+                        </ImgCrop>
+                    </Form.Item>
 
-                <Form.Item>
-                    <Button
-                        type="primary"
-                        htmlType="submit"
-                        loading={loading}
-                        icon={<DownloadOutlined />}
-                        style={{ width: '100%', marginTop: '20px', backgroundColor: '#007bff', borderColor: '#007bff' }}
-                    >
-                        {loading ? 'Generando Documentos...' : 'Generar Certificado y Carnet'}
-                    </Button>
-                </Form.Item>
-            </Form>
+                    <Form.Item>
+                        <Button type="primary" htmlType="submit" loading={loading} icon={<DownloadOutlined />} style={buttonStyle}>
+                            {loading ? 'Generando...' : 'Generar Documentos'}
+                        </Button>
+                    </Form.Item>
+                </Form>
+            </Card>
         </div>
     );
 }
