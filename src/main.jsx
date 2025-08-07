@@ -29,6 +29,7 @@ import StudentReportPortal from "./components/PublicForms/StudentReportPortal";
 import Sales from "./sales/Sales";
 import Generacion from "./components/Certificados/Generacion";
 import DashboardClients from "./components/admin/DashboardClients";
+import Inventario from "./components/inventario/Inventario";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -69,6 +70,7 @@ const App = () => (
             <Route path="calificaciones/cursos-tecnicos" element={<CursosTecnicos />} />
             <Route path="certificados" element={<Certificados />} />
             <Route path="generacion" element={<Generacion />} />
+            <Route path="inventario" element={<Inventario />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
             <Route path="students/view/:id" element={<StudentInformacion />} /> {/* Nueva ruta */}
           </Route>
