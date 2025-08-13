@@ -14,6 +14,8 @@ const materias = [
   'Informática',
 ];
 
+const API_URL = import.meta.env.VITE_API_BACKEND;
+
 function Bachillerato() {
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
@@ -26,12 +28,12 @@ function Bachillerato() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const studentsResponse = await axios.get('https://clasit-backend-api-570877385695.us-central1.run.app/api/students/type/bachillerato');
+        const studentsResponse = await axios.get(`${API_URL}/students/type/bachillerato`);
         const studentsData = studentsResponse.data;
         setStudents(studentsData);
         setFilteredStudents(studentsData);
 
-        const gradesResponse = await axios.get('https://clasit-backend-api-570877385695.us-central1.run.app/api/grades');
+        const gradesResponse = await axios.get(`${API_URL}/grades`);
         const gradesData = gradesResponse.data;
 
         const initialGrades = {};
