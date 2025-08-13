@@ -4,10 +4,6 @@ import { Button, Form, Input, Select, DatePicker, message, InputNumber, Modal, A
 import { FaUserEdit, FaSave, FaTrashAlt, FaWhatsapp, FaGraduationCap, FaFileInvoiceDollar, FaUserGraduate } from 'react-icons/fa';
 import dayjs from 'dayjs';
 import axios from 'axios';
-// Asumo que tienes una forma de obtener todos los programas disponibles para el multiselect
-// Si no, necesitarás una ruta en tu backend para esto, por ejemplo: GET /api/programs
-// Por ahora, lo dejaré comentado, pero si lo necesitas, avisame y lo implementamos.
-// import { getAllProgramsAvailable } from '../../services/programService'; // <- Necesitarías crear esto
 const API_URL = import.meta.env.VITE_API_BACKEND;
 
 const { Title, Text } = Typography;
@@ -44,11 +40,11 @@ const EditableField = ({ label, value, isEditing, name, type = 'text', options =
                     </Select>
                 );
             case 'multiselect':
-                 return (
+                return (
                     <Select mode="multiple" placeholder="Seleccione programas" allowClear>
-                         {options.map(opt => <Option key={opt.id} value={opt.id}>{opt.nombre}</Option>)}
+                        {options.map(opt => <Option key={opt.id} value={opt.id}>{opt.nombre}</Option>)}
                     </Select>
-                 );
+                );
             case 'date':
                 return <DatePicker format="YYYY-MM-DD" className="w-full" />;
             case 'money':
@@ -89,7 +85,7 @@ const StudentDetails = ({ studentId }) => {
 
     // Función para obtener todos los programas disponibles (para el multiselect de edición)
 
-const fetchStudentData = useCallback(async () => {
+    const fetchStudentData = useCallback(async () => {
         setLoading(true);
         try {
             const response = await axios.get(`${API_URL}/students/${studentId}`);
@@ -111,10 +107,10 @@ const fetchStudentData = useCallback(async () => {
     // Obtener datos del estudiante y, si estamos editando, también todos los programas
     useEffect(() => {
         fetchStudentData();
-    }, [fetchStudentData]); 
+    }, [fetchStudentData]);
 
 
-   const fetchUserAssignablePrograms = async () => {
+    const fetchUserAssignablePrograms = async () => {
         const userId = localStorage.getItem('userId');
         if (!userId) {
             message.error("No se pudo encontrar el ID de usuario.");
@@ -140,7 +136,7 @@ const fetchStudentData = useCallback(async () => {
                 try {
                     await axios.put
                         (`${API_URL}/students/${student.id}/graduate`
-                    );
+                        );
                     message.success('Estudiante graduado exitosamente');
                     setStudent({ ...student, fecha_graduacion: new Date().toISOString() });
                 } catch (error) {
@@ -181,55 +177,50 @@ const fetchStudentData = useCallback(async () => {
         window.open(`https://wa.me/${phoneNumber}`, '_blank');
     };
 
-   const handleStartEditing = () => {
+    const handleStartEditing = () => {
         fetchUserAssignablePrograms();
         setIsEditing(true);
     };
 
     const handleSave = async () => {
         try {
+            // 1. Obtenemos los valores del formulario. 'values' ya contiene 'programasIds' con el array de IDs.
             const values = await form.validateFields();
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (values.email && !emailRegex.test(values.email)) {
-                message.error('El formato de email es inválido');
-                return;
-            }
 
+            // 2. Creamos el objeto para enviar al backend.
+            // Usamos el spread operator (...) para copiar todos los valores del formulario.
+            // 'programasIds' ya está incluido aquí correctamente.
             const formattedValues = {
                 ...values,
+                // Formateamos las fechas como antes
                 fecha_nacimiento: values.fecha_nacimiento?.toISOString(),
                 fecha_inscripcion: values.fecha_inscripcion?.toISOString(),
                 fecha_graduacion: values.fecha_graduacion?.toISOString(),
-                // Aquí es CLAVE cómo manejas `programas_asociados_ids`
-                // Tu backend deberá tener un endpoint o lógica específica para actualizar
-                // los programas asociados a un estudiante en la tabla `estudiante_programas`.
-                // Por ejemplo, podrías enviar un array de IDs de programas, y el backend
-                // se encargaría de sincronizar `estudiante_programas`.
-                // Este `program_ids` es solo un ejemplo de cómo podrías nombrarlo.
-              programasIds: values.programas_asociados_ids,  // Enviar los IDs seleccionados
             };
 
-            // Eliminar campos que no van directamente en la tabla students o que se manejan aparte
-            delete formattedValues.programas_asociados_ids; // Esto se envía como `program_ids`
-            delete formattedValues.programas_asociados; // Esta es solo una propiedad de visualización
-            delete formattedValues.coordinador_nombre; // Es un join, no un campo directo
-            delete formattedValues.monto_programa; // Es una propiedad de los programas, no del estudiante
+            // 3. (Opcional pero recomendado) Eliminamos campos que no deben ser actualizados en la tabla 'students'.
+            //    Tu backend podría ignorarlos, pero es más limpio no enviarlos.
+            delete formattedValues.programas_asociados; // Este es un objeto de visualización
+            delete formattedValues.coordinador_nombre;   // Este viene de un JOIN
+            delete formattedValues.monto_programa;      // Propiedad del programa, no del estudiante
 
-            const response = await axios.put(`${API_URL}/students/${student.id}`,
-                formattedValues
-            );
+            // Para depurar, puedes verificar aquí lo que estás enviando:
+            console.log('Enviando al backend:', formattedValues);
 
-            
-            const updatedStudentResponse = await axios.get(
-                `https://clasit-backend-api-570877385695.us-central1.run.app/api/students/${studentId}`
-            );
-            setStudent(updatedStudentResponse.data);
+            // 4. Enviamos la petición PUT con los datos correctos.
+            await axios.put(`${API_URL}/students/${student.id}`, formattedValues);
+
+            // Refrescamos los datos del estudiante para mostrar la información actualizada
+            await fetchStudentData();
 
             setIsEditing(false);
             message.success('Estudiante actualizado exitosamente');
+
         } catch (error) {
-            console.error('Error al actualizar el estudiante:', error.response?.data || error.message);
-            message.error('Error al actualizar el estudiante: ' + (error.response?.data?.error || 'Verifica la consola para más detalles.'));
+            // Manejo de errores mejorado para dar más contexto
+            const errorMessage = error.response?.data?.error || 'Ocurrió un error inesperado.';
+            console.error('Error al actualizar el estudiante:', error.response || error);
+            message.error(`Error al actualizar: ${errorMessage}`);
         }
     };
 
@@ -341,7 +332,7 @@ const fetchStudentData = useCallback(async () => {
         );
     }
 
-  return (
+    return (
         <div className="bg-slate-50 min-h-screen p-4 sm:p-6">
             <Form form={form} layout="vertical">
                 {/* --- ENCABEZADO --- */}
@@ -381,7 +372,7 @@ const fetchStudentData = useCallback(async () => {
                         <InfoSection title="Información Personal">
                             <EditableField label="Nombre" value={student.nombre} name="nombre" isEditing={isEditing} />
                             <EditableField label="Apellido" value={student.apellido} name="apellido" isEditing={isEditing} />
-                            <EditableField label="Tipo Doc." value={student.tipo_documento} name="tipo_documento" isEditing={isEditing} type="select" options={[{value: 'CC', label: 'Cédula'}, {value: 'TI', label: 'Tarjeta de Identidad'}, {value: 'CE', label: 'Cédula Extranjería'}]} />
+                            <EditableField label="Tipo Doc." value={student.tipo_documento} name="tipo_documento" isEditing={isEditing} type="select" options={[{ value: 'CC', label: 'Cédula' }, { value: 'TI', label: 'Tarjeta de Identidad' }, { value: 'CE', label: 'Cédula Extranjería' }]} />
                             <EditableField label="Num. Doc." value={student.numero_documento} name="numero_documento" isEditing={isEditing} />
                             <EditableField label="Fecha de Nac." value={student.fecha_nacimiento} name="fecha_nacimiento" isEditing={isEditing} type="date" />
                             <EditableField label="Lugar de Nac." value={student.lugar_nacimiento} name="lugar_nacimiento" isEditing={isEditing} />
@@ -397,17 +388,17 @@ const fetchStudentData = useCallback(async () => {
 
                     {/* --- COLUMNA 2 --- */}
                     <div className="space-y-6">
-                         <InfoSection title="Información Académica y Administrativa">
+                        <InfoSection title="Información Académica y Administrativa">
                             <EditableField label="Programas" value={
                                 <div className="flex flex-wrap gap-1">
                                     {student.programas_asociados?.map(p => <Tag color="blue" key={p.programa_id}>{p.nombre_programa}</Tag>)}
                                 </div>
                             } name="programasIds" isEditing={isEditing} type="multiselect" options={allPrograms} />
-                            <EditableField label="Modalidad" value={student.modalidad_estudio} name="modalidad_estudio" isEditing={isEditing} type="select" options={[{ value: 'Clases en Linea', label: 'En Línea' }, { value: 'Modulos por WhastApp', label: 'Módulos por WhatsApp' }]}/>
+                            <EditableField label="Modalidad" value={student.modalidad_estudio} name="modalidad_estudio" isEditing={isEditing} type="select" options={[{ value: 'Clases en Linea', label: 'En Línea' }, { value: 'Modulos por WhastApp', label: 'Módulos por WhatsApp' }]} />
                             <EditableField label="Coordinador" value={student.coordinador_nombre} name="coordinador_id" isEditing={isEditing} type="select" options={[] /* Aquí deberías cargar la lista de coordinadores */} />
-                             <EditableField label="Último Curso Visto" value={student.ultimo_curso_visto} name="ultimo_curso_visto" isEditing={isEditing} />
-                             <EditableField label="Valor Matrícula" value={student.matricula} name="matricula" isEditing={isEditing} type="money" />
-                             <EditableField label="SIMAT" value={student.simat ? 'Sí' : 'No'} name="simat" isEditing={isEditing} type="select" options={[{value: true, label: 'Sí'}, {value: false, label: 'No'}]} />
+                            <EditableField label="Último Curso Visto" value={student.ultimo_curso_visto} name="ultimo_curso_visto" isEditing={isEditing} />
+                            <EditableField label="Valor Matrícula" value={student.matricula} name="matricula" isEditing={isEditing} type="money" />
+                            <EditableField label="SIMAT" value={student.simat ? 'Sí' : 'No'} name="simat" isEditing={isEditing} type="select" options={[{ value: true, label: 'Sí' }, { value: false, label: 'No' }]} />
                         </InfoSection>
 
                         <InfoSection title="Información de Acudiente">
@@ -416,22 +407,22 @@ const fetchStudentData = useCallback(async () => {
                             <EditableField label="Dirección Acudiente" value={student.direccion_acudiente} name="direccion_acudiente" isEditing={isEditing} />
                         </InfoSection>
                     </div>
-                    
+
                     {/* --- COLUMNA 3 (Acciones y Fechas) --- */}
                     <div className="space-y-6">
                         <InfoSection title="Estado y Fechas Clave">
-                             <EditableField label="Fecha Inscripción" value={student.fecha_inscripcion} name="fecha_inscripcion" type="date" isEditing={isEditing} />
-                             <EditableField label="Fecha Graduación" value={student.fecha_graduacion} name="fecha_graduacion" type="date" isEditing={isEditing} />
+                            <EditableField label="Fecha Inscripción" value={student.fecha_inscripcion} name="fecha_inscripcion" type="date" isEditing={isEditing} />
+                            <EditableField label="Fecha Graduación" value={student.fecha_graduacion} name="fecha_graduacion" type="date" isEditing={isEditing} />
                         </InfoSection>
 
                         <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm">
-                             <h3 className="text-sm font-semibold text-slate-800 mb-4">Acciones Rápidas</h3>
-                             <div className="space-y-2">
+                            <h3 className="text-sm font-semibold text-slate-800 mb-4">Acciones Rápidas</h3>
+                            <div className="space-y-2">
                                 <Link to={`/inicio/payments/student/${student.id}`} className="w-full">
                                     <Button icon={<FaFileInvoiceDollar />} disabled={isEditing} className="w-full">Ver Pagos del Estudiante</Button>
                                 </Link>
                                 <Button icon={<FaGraduationCap />} onClick={handleGraduate} disabled={student.fecha_graduacion || isEditing} className="w-full">Marcar como Graduado</Button>
-                             </div>
+                            </div>
                         </div>
                     </div>
                 </main>
