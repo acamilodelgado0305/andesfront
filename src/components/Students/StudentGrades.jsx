@@ -7,6 +7,9 @@ import { generateGradeReportPDF } from '../Utilidades/generateGradeReportPDF.js'
 
 const { Title, Text } = Typography;
 
+const API_URL = import.meta.env.VITE_API_BACKEND;
+
+
 const StudentGrades = ({ studentId }) => {
   const [grades, setGrades] = useState([]);
   const [student, setStudent] = useState(null);
@@ -24,7 +27,7 @@ const StudentGrades = ({ studentId }) => {
 
   const fetchGradesByStudentId = async (id) => {
     try {
-      const response = await axios.get(`https://clasit-backend-api-570877385695.us-central1.run.app/api/grades/students/${id}`);
+      const response = await axios.get(`${API_URL}/grades/students/${id}`);
       setGrades(response.data);
     } catch (err) {
       console.error('Error fetching grades:', err);
@@ -32,11 +35,12 @@ const StudentGrades = ({ studentId }) => {
     }
   };
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     try {
-      generateGradeReportPDF(student, grades, studentId);
+      await generateGradeReportPDF(student, grades);
     } catch (err) {
-      message.error('Error al generar el PDF');
+      console.error('Error al generar PDF:', err);
+      message.error('Error al generar el PDF. Revisa la consola para más detalles.');
     }
   };
 
@@ -96,7 +100,7 @@ const StudentGrades = ({ studentId }) => {
               Calificaciones de {student ? `${student.nombre} ${student.apellido}` : 'Cargando...'}
             </Title>
             <Text type="secondary">
-              Coordinador: {student ? student.coordinador : 'Cargando...'}
+              Coordinador: {student && student.coordinador ? student.coordinador.nombre : 'Cargando...'}
             </Text>
           </Col>
           <Col>
