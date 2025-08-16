@@ -421,7 +421,7 @@ const StudentDetails = ({ studentId }) => {
                                 <Link to={`/inicio/payments/student/${student.id}`} className="w-full">
                                     <Button icon={<FaFileInvoiceDollar />} disabled={isEditing} className="w-full">Ver Pagos del Estudiante</Button>
                                 </Link>
-                                <Button icon={<FaGraduationCap />} onClick={handleGraduate} disabled={student.fecha_graduacion || isEditing} className="w-full">Marcar como Graduado</Button>
+                                <Button icon={<FaGraduationCap />} onClick={handleDelete} disabled={student.fecha_graduacion || isEditing} className="w-full">Marcar como Graduado</Button>
                             </div>
                         </div>
                     </div>
