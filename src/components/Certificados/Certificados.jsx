@@ -3,6 +3,8 @@ import CertificadosTable from './CertificadosTable';
 import { Button, Input, Drawer, Form, Select, message, Spin, Card, Divider, Tag, Typography, DatePicker, Tabs } from 'antd';
 import { PlusOutlined, ReloadOutlined, FileProtectOutlined } from '@ant-design/icons';
 import axios from 'axios';
+import IngresoDrawer from './components/Ingresodrawer';
+import EgresoDrawer from './components/EgresoDrawer';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -16,8 +18,10 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 });
 
 function Certificados() {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isIngresoDrawerOpen, setIsIngresoDrawerOpen] = useState(false);
   const [isEgresoDrawerOpen, setIsEgresoDrawerOpen] = useState(false);
+
+
   const [certificados, setCertificados] = useState([]);
   const [egresos, setEgresos] = useState([]);
   const [filteredCertificados, setFilteredCertificados] = useState([]);
@@ -113,11 +117,11 @@ function Certificados() {
 
   const showDrawer = () => {
     form.setFieldsValue({ vendedor: userName });
-    setIsDrawerOpen(true);
+    setIsIngresoDrawerOpen(true);
   };
 
   const closeDrawer = () => {
-    setIsDrawerOpen(false);
+    setIsIngresoDrawerOpen(false);
     form.resetFields();
   };
 
@@ -202,9 +206,9 @@ function Certificados() {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={showDrawer}
+              onClick={() => setIsIngresoDrawerOpen(true)} // <-- ¡Corregido!
               loading={loading}
-              className="bg-{#155153} hover:bg-green-700 border-0"
+              className="bg-[#155153] hover:bg-green-700 border-0"
             >
               Nueva Venta
             </Button>
@@ -258,258 +262,23 @@ function Certificados() {
       </Card>
 
       {/* Drawer for Ventas */}
-      <Drawer
-        title={
-          <div className="flex items-center">
-            <FileProtectOutlined className="text-{#155153} mr-2" />
-            <span>Registrar Nueva Venta</span>
-          </div>
-        }
-         placement="top"
-          classNames={{ 
-          wrapper: '!w-[500px] !right-0 !left-auto !h-[calc(100%-0px)] top-16 !rounded-tl-lg !rounded-tr-lg !border-0 !shadow-lg',
-        }}
-      
-        width={420}
-        onClose={closeDrawer}
-        open={isDrawerOpen}
-        bodyStyle={{ paddingBottom: 80 }}
-        headerStyle={{ borderBottom: '1px solid #f0f0f0' }}
-        footer={
-          <div className="flex justify-end">
-            <Button onClick={closeDrawer} className="mr-3 border border-gray-300" style={{ marginRight: 8 }}>
-              Cancelar
-            </Button>
-            <Button
-              type="primary"
-              loading={loading}
-              onClick={() => form.submit()}
-              className="bg-{#155153} hover:bg-green-700 border-0"
-            >
-              Guardar Venta
-            </Button>
-          </div>
-        }
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          className="px-1"
-          initialValues={{ vendedor: userName }}
-        >
-          <div className="bg-green-50 p-4 rounded-lg mb-6">
-            <Text className="text-green-700 text-sm">
-              Complete todos los campos para registrar una nueva venta. Los campos marcados con (*) son obligatorios.
-            </Text>
-          </div>
-          <Form.Item
-            name="nombre"
-            label="Nombre"
-            rules={[{ required: true, message: 'Por favor ingrese el nombre' }]}
-          >
-            <Input
-              placeholder="Ingrese el nombre"
-              className="hover:border-green-500 focus:border-green-500"
-              prefix={<span className="text-gray-400">👤</span>}
-            />
-          </Form.Item>
-          <Form.Item
-            name="apellido"
-            label="Apellido"
-            rules={[{ required: true, message: 'Por favor ingrese el apellido' }]}
-          >
-            <Input
-              placeholder="Ingrese el apellido"
-              className="hover:border-green-500 focus:border-green-500"
-            />
-          </Form.Item>
-          <Form.Item
-            name="numeroDeDocumento"
-            label="Número de Documento"
-            rules={[{ required: true, message: 'Por favor ingrese el número de documento' }]}
-          >
-            <Input
-              placeholder="Ingrese el número de documento"
-              className="hover:border-green-500 focus:border-green-500"
-              prefix={<span className="text-gray-400">🆔</span>}
-            />
-          </Form.Item>
-          <Form.Item name="vendedor" label="Vendedor" hidden={true}>
-            <Input disabled />
-          </Form.Item>
-          <Divider className="my-4" />
-          <Form.Item
-            name="tipo"
-            label="Tipo de Certificado"
-            rules={[{ required: true, message: 'Por favor seleccione al menos un tipo de certificado' }]}
-          >
-            <Select
-              mode="multiple"
-              placeholder="Seleccione el tipo de certificado"
-              options={tipoOptions}
-              className="w-full hover:border-green-500 focus:border-green-500"
-              tagRender={(props) => (
-                <Tag
-                  color="green"
-                  closable={props.closable}
-                  onClose={props.onClose}
-                  style={{ marginRight: 3 }}
-                >
-                  {props.label}
-                </Tag>
-              )}
-            />
-          </Form.Item>
-          <Form.Item
-            name="valor"
-            label="Valor"
-            rules={[
-              { required: true, message: 'Por favor ingrese el valor' },
-              {
-                validator: (_, value) =>
-                  value && parseFloat(value) >= 0
-                    ? Promise.resolve()
-                    : Promise.reject('El valor debe ser un número positivo'),
-              },
-            ]}
-          >
-            <Input
-              placeholder="Ingrese el valor"
-              type="number"
-              step="0.01"
-              className="hover:border-green-500 focus:border-green-500"
-              prefix={<span className="text-gray-400">$</span>}
-              formatter={(value) => (value ? currencyFormatter.format(value) : '')}
-              parser={(value) => value.replace(/[^\d.]/g, '')}
-            />
-          </Form.Item>
-          <Form.Item
-            name="cuenta"
-            label="Cuenta"
-            rules={[{ required: true, message: 'Por favor seleccione una cuenta' }]}
-          >
-            <Select
-              placeholder="Seleccione una cuenta"
-              options={cuentaOptions}
-              className="w-full hover:border-green-500 focus:border-green-500"
-            />
-          </Form.Item>
-        </Form>
-      </Drawer>
+      <IngresoDrawer
+        open={isIngresoDrawerOpen}
+        onClose={() => setIsIngresoDrawerOpen(false)}
+        onSubmit={handleSubmit}
+        loading={loading}
+        userName={userName}
+      />
+
+      <EgresoDrawer
+        open={isEgresoDrawerOpen}
+        onClose={() => setIsEgresoDrawerOpen(false)}
+        onSubmit={handleEgresoSubmit}
+        loading={loading}
+      />
 
       {/* Drawer for Egresos */}
-      <Drawer
-        title={
-          <div className="flex items-center">
-            <FileProtectOutlined className="text-red-500 mr-2" />
-            <span>Registrar Nuevo Egreso</span>
-          </div>
-        }
-        width={420}
-         placement="top"
-          classNames={{ 
-          wrapper: '!w-[500px] !right-0 !left-auto !h-[calc(100%-0px)] top-16 !rounded-tl-lg !rounded-tr-lg !border-0 !shadow-lg',
-        }}
-        onClose={() => {
-          setIsEgresoDrawerOpen(false);
-          egresoForm.resetFields();
-        }}
-        open={isEgresoDrawerOpen}
-        bodyStyle={{ paddingBottom: 80 }}
-        headerStyle={{ borderBottom: '1px solid #f0f0f0' }}
-        footer={
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                setIsEgresoDrawerOpen(false);
-                egresoForm.resetFields();
-              }}
-              className="mr-3 border border-gray-300"
-              style={{ marginRight: 8 }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="primary"
-              loading={loading}
-              onClick={() => egresoForm.submit()}
-              className="bg-red-600 hover:bg-red-700 border-0"
-            >
-              Guardar Egreso
-            </Button>
-          </div>
-        }
-      >
-        <Form
-          form={egresoForm}
-          layout="vertical"
-          onFinish={handleEgresoSubmit}
-          className="px-1"
-        >
-          <div className="bg-red-50 p-4 rounded-lg mb-6">
-            <Text className="text-red-700 text-sm">
-              Complete todos los campos para registrar un nuevo egreso. Los campos marcados con (*) son obligatorios.
-            </Text>
-          </div>
-          <Form.Item
-            name="fecha"
-            label="Fecha"
-            rules={[{ required: true, message: 'Por favor seleccione la fecha' }]}
-          >
-            <DatePicker
-              format="YYYY-MM-DD"
-              placeholder="Seleccione la fecha"
-              className="w-full hover:border-red-500 focus:border-red-500"
-            />
-          </Form.Item>
-          <Form.Item
-            name="valor"
-            label="Valor"
-            rules={[
-              { required: true, message: 'Por favor ingrese el valor' },
-              {
-                validator: (_, value) =>
-                  value && parseFloat(value) >= 0
-                    ? Promise.resolve()
-                    : Promise.reject('El valor debe ser un número positivo'),
-              },
-            ]}
-          >
-            <Input
-              placeholder="Ingrese el valor"
-              type="number"
-              step="0.01"
-              className="hover:border-red-500 focus:border-red-500"
-              prefix={<span className="text-gray-400">$</span>}
-              formatter={(value) => (value ? currencyFormatter.format(value) : '')}
-              parser={(value) => value.replace(/[^\d.]/g, '')}
-            />
-          </Form.Item>
-          <Form.Item
-            name="cuenta"
-            label="Cuenta"
-            rules={[{ required: true, message: 'Por favor seleccione una cuenta' }]}
-          >
-            <Select
-              placeholder="Seleccione una cuenta"
-              options={cuentaOptions}
-              className="w-full hover:border-red-500 focus:border-red-500"
-            />
-          </Form.Item>
-          <Form.Item
-            name="descripcion"
-            label="Descripción"
-            rules={[{ required: true, message: 'Por favor ingrese una descripción' }]}
-          >
-            <Input.TextArea
-              placeholder="Ingrese la descripción del egreso"
-              rows={4}
-              className="hover:border-red-500 focus:border-red-500"
-            />
-          </Form.Item>
-        </Form>
-      </Drawer>
+
     </div>
   );
 }
