@@ -212,7 +212,7 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
       sorter: (a, b) => (a.numeroDeDocumento || '').localeCompare(b.numeroDeDocumento || ''),
     },
     {
-      title: 'Tipo de Certificado',
+      title: 'Producto',
       dataIndex: 'tipo',
       render: (tipo) => (Array.isArray(tipo) ? tipo.join(', ') : tipo || 'No especificado'),
     },
@@ -247,18 +247,7 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
       ],
       onFilter: (value, record) => record.cuenta === value,
     },
-    {
-      title: 'Fecha Vencimiento',
-      dataIndex: 'fechaVencimiento',
-      render: (date) => (date ? moment(date).format('DD/MM/YYYY') : 'No especificada'),
-      sorter: (a, b) => new Date(a.fechaVencimiento || 0) - new Date(b.fechaVencimiento || 0),
-    },
-    {
-      title: 'Fecha Creación',
-      dataIndex: 'createdAt',
-      render: (date) => moment(date).format('DD/MM/YYYY HH:mm'),
-      sorter: (a, b) => moment(b.createdAt).unix() - moment(a.createdAt).unix(),
-    },
+    
     {
       title: 'Acciones',
       key: 'acciones',

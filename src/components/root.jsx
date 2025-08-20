@@ -27,6 +27,7 @@ const MENU_CONFIG = {
         { key: '/inicio/materias', icon: <BookOutlined />, label: 'Asignaturas', path: '/inicio/materias' },
       ],
     },
+    { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
      { key: '/inicio/inventario', icon: <BuildOutlined />, label: 'Inventario', path: '/inicio/inventario' },
     { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
   ],

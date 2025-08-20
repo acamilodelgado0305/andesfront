@@ -13,8 +13,10 @@ export const tipoOptions = [
  * Opciones para la cuenta bancaria, usadas tanto en ingresos como en egresos.
  */
 export const cuentaOptions = [
+   { label: 'Efectivo', value: 'Efectivo' },
   { label: 'Nequi', value: 'Nequi' },
   { label: 'Daviplata', value: 'Daviplata' },
   { label: 'Bancolombia', value: 'Bancolombia' },
+  { label: 'Otra', value: 'Otra' },
   // Puedes agregar más cuentas aquí
 ];
