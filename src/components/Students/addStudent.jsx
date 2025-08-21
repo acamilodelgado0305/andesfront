@@ -86,7 +86,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
   const handleSubmit = async (values) => {
     setLoadingForm(true);
     const apiUrl = import.meta.env.VITE_API_BACKEND
-      ? `${import.meta.env.VITE_API_BACKEND}/api/students`
+      ? `${import.meta.env.VITE_API_BACKEND}/students`
       : "https://clasit-backend-api-570877385695.us-central1.run.app/api/students";
 
     // Validar que el userId esté disponible antes de enviar
