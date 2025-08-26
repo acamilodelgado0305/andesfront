@@ -20,7 +20,8 @@ const currencyFormatter = new Intl.NumberFormat('es-CO', {
 function Certificados() {
   const [isIngresoDrawerOpen, setIsIngresoDrawerOpen] = useState(false);
   const [isEgresoDrawerOpen, setIsEgresoDrawerOpen] = useState(false);
-
+  const [editingRecord, setEditingRecord] = useState(null);
+   const [editingEgresoRecord, setEditingEgresoRecord] = useState(null);
 
   const [certificados, setCertificados] = useState([]);
   const [egresos, setEgresos] = useState([]);
@@ -32,16 +33,7 @@ function Certificados() {
   const [form] = Form.useForm();
   const [egresoForm] = Form.useForm();
 
-  const tipoOptions = [
-    { label: 'Manipulación de alimentos', value: 'Manipulación de alimentos' },
-    { label: 'Aseo Hospitalario', value: 'Aseo Hospitalario' },
-  ];
 
-  const cuentaOptions = [
-    { label: 'Nequi', value: 'Nequi' },
-    { label: 'Daviplata', value: 'Daviplata' },
-    { label: 'Bancolombia', value: 'Bancolombia' },
-  ];
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -115,65 +107,123 @@ function Certificados() {
     }
   };
 
-  const showDrawer = () => {
-    form.setFieldsValue({ vendedor: userName });
+  const handleShowCreateDrawer = () => {
+    setEditingRecord(null); // Nos aseguramos que no haya ningún registro de edición
     setIsIngresoDrawerOpen(true);
   };
 
-  const closeDrawer = () => {
-    setIsIngresoDrawerOpen(false);
-    form.resetFields();
+  // --- NUEVO: Función para abrir el drawer en modo EDICIÓN ---
+  const handleShowEditDrawer = (record) => {
+    setEditingRecord(record); // Guardamos el registro a editar
+    setIsIngresoDrawerOpen(true);
   };
 
-  const handleSubmit = async (values) => {
+  const handleCloseIngresoDrawer = () => {
+    setIsIngresoDrawerOpen(false);
+    setEditingRecord(null); // Limpiamos el registro al cerrar
+  };
+
+    const handleShowCreateEgresoDrawer = () => {
+    setEditingEgresoRecord(null); // Limpiamos el estado de edición
+    setIsEgresoDrawerOpen(true);
+  };
+
+  const handleShowEditEgresoDrawer = (record) => {
+    setEditingEgresoRecord(record); // Guardamos el egreso a editar
+    setIsEgresoDrawerOpen(true);
+  };
+
+  const handleCloseEgresoDrawer = () => {
+    setIsEgresoDrawerOpen(false);
+    setEditingEgresoRecord(null); // Limpiamos el estado al cerrar
+  };
+
+ 
+
+  const handleIngresoSubmit = async (values) => {
+    setLoading(true);
     try {
-      setLoading(true);
       const dataToSubmit = {
         ...values,
         vendedor: userName || values.vendedor,
         valor: parseFloat(values.valor),
       };
-      const response = await fetch('https://backendcoalianza.vercel.app/api/v1/clients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataToSubmit),
-      });
 
-      if (!response.ok) throw new Error('Error al registrar la venta');
-      message.success('Venta registrada correctamente');
-      closeDrawer();
+      let response;
+      if (editingRecord) {
+        // --- LÓGICA DE ACTUALIZACIÓN (PUT) ---
+        console.log(`Actualizando registro ID: ${editingRecord._id}`);
+        response = await fetch(`https://backendcoalianza.vercel.app/api/v1/clients/${editingRecord._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dataToSubmit),
+        });
+        if (!response.ok) throw new Error('Error al actualizar la venta');
+        message.success('Venta actualizada correctamente');
+      } else {
+        // --- LÓGICA DE CREACIÓN (POST) ---
+        console.log('Creando nuevo registro');
+        response = await fetch('https://backendcoalianza.vercel.app/api/v1/clients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dataToSubmit),
+        });
+        if (!response.ok) throw new Error('Error al registrar la venta');
+        message.success('Venta registrada correctamente');
+      }
+
+      handleCloseIngresoDrawer();
       fetchCertificados();
     } catch (error) {
       console.error('Error:', error);
-      message.error('Error al registrar la venta');
+      message.error(editingRecord ? 'Error al actualizar la venta' : 'Error al registrar la venta');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEgresoSubmit = async (values) => {
+   const handleEgresoSubmit = async (values) => {
+    setLoading(true);
     try {
-      setLoading(true);
       const dataToSubmit = {
         ...values,
         valor: parseFloat(values.valor),
         vendedor: userName || values.vendedor,
-        fecha: values.fecha.format('YYYY-MM-DD'),
+         fecha: values.fecha,
       };
-      const response = await fetch('https://backendcoalianza.vercel.app/api/v1/egresos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataToSubmit),
-      });
-
-      if (!response.ok) throw new Error('Error al registrar el egreso');
-      message.success('Egreso registrado correctamente');
-      setIsEgresoDrawerOpen(false);
-      egresoForm.resetFields();
+      
+      let response;
+      if (editingEgresoRecord) {
+        // --- LÓGICA DE ACTUALIZACIÓN (PUT) PARA EGRESOS ---
+        response = await fetch(`https://backendcoalianza.vercel.app/api/v1/egresos/${editingEgresoRecord._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dataToSubmit),
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Error al actualizar el egreso');
+        }
+        message.success('Egreso actualizado correctamente');
+      } else {
+        // --- LÓGICA DE CREACIÓN (POST) PARA EGRESOS ---
+        response = await fetch('https://backendcoalianza.vercel.app/api/v1/egresos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dataToSubmit),
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Error al registrar el egreso');
+        }
+        message.success('Egreso registrado correctamente');
+      }
+      
+      handleCloseEgresoDrawer();
       fetchEgresos();
     } catch (error) {
-      console.error('Error:', error);
-      message.error('Error al registrar el egreso');
+      console.error('Error en el envío del egreso:', error);
+      message.error(error.message || (editingEgresoRecord ? 'Error al actualizar el egreso' : 'Error al registrar el egreso'));
     } finally {
       setLoading(false);
     }
@@ -206,16 +256,16 @@ function Certificados() {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => setIsIngresoDrawerOpen(true)} // <-- ¡Corregido!
+              onClick={handleShowCreateDrawer} // --- MODIFICADO ---
               loading={loading}
               className="bg-[#155153] hover:bg-green-700 border-0"
             >
               Nueva Venta
             </Button>
-            <Button
+           <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => setIsEgresoDrawerOpen(true)}
+              onClick={handleShowCreateEgresoDrawer} // --- MODIFICADO ---
               loading={loading}
               className="bg-red-600 hover:bg-red-700 border-0"
             >
@@ -256,25 +306,29 @@ function Certificados() {
               onRefresh={activeTab === 'ventas' ? fetchCertificados : fetchEgresos}
               userName={userName}
               type={activeTab}
+             onEdit={activeTab === 'ventas' ? handleShowEditDrawer : handleShowEditEgresoDrawer}
             />
           )}
         </div>
       </Card>
 
       {/* Drawer for Ventas */}
-      <IngresoDrawer
+       <IngresoDrawer
         open={isIngresoDrawerOpen}
-        onClose={() => setIsIngresoDrawerOpen(false)}
-        onSubmit={handleSubmit}
+        onClose={handleCloseIngresoDrawer} // --- MODIFICADO ---
+        onSubmit={handleIngresoSubmit} // --- MODIFICADO ---
         loading={loading}
         userName={userName}
+        initialValues={editingRecord} // --- NUEVO: Pasamos los datos del registro a editar ---
       />
 
       <EgresoDrawer
-        open={isEgresoDrawerOpen}
-        onClose={() => setIsEgresoDrawerOpen(false)}
-        onSubmit={handleEgresoSubmit}
+       open={isEgresoDrawerOpen}
+        onClose={handleCloseEgresoDrawer} // Usamos la nueva función de cierre
+        onSubmit={handleEgresoSubmit}    // La función de submit ahora es más potente
         loading={loading}
+        userName={userName} // Pasamos el userName por si es necesario
+        initialValues={editingEgresoRecord} 
       />
 
       {/* Drawer for Egresos */}

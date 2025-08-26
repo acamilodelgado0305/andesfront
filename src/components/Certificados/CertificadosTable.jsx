@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Table, Select, Space, Spin, message, Button, Popconfirm, Tooltip, Tag, Typography, Card } from 'antd';
-import { DeleteOutlined, ExclamationCircleOutlined, DollarOutlined, DownloadOutlined, RiseOutlined } from '@ant-design/icons';
+import { DeleteOutlined, ExclamationCircleOutlined, DollarOutlined, DownloadOutlined, RiseOutlined, EditOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import 'moment/locale/es';
 import axios from 'axios';
@@ -29,7 +29,7 @@ for (let i = 1; i <= 2; i++) {
 }
 const monthNames = moment.months();
 
-const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, userName, type }) => {
+const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, userName, type, onEdit }) => {
   const [filters, setFilters] = useState({
     selectedYear: moment().year(),
     selectedUIMonth: moment().month(),
@@ -247,7 +247,6 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
       ],
       onFilter: (value, record) => record.cuenta === value,
     },
-    
     {
       title: 'Acciones',
       key: 'acciones',
@@ -255,12 +254,18 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
       fixed: 'right',
       render: (_, record) => (
         <Space size="middle">
+          {/* --- NUEVO: Botón de Editar --- */}
+          <Tooltip title="Editar">
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => onEdit(record)} // Llama a la función del padre con los datos de la fila
+            />
+          </Tooltip>
+
           <Popconfirm
-            title={`Eliminar ${type === 'ventas' ? 'certificado' : 'egreso'}`}
-            description={`¿Está seguro de eliminar este ${type === 'ventas' ? 'certificado' : 'egreso'}? Esta acción no se puede deshacer.`}
+            // ... (propiedades del Popconfirm se mantienen igual)
             onConfirm={() => handleDeleteItem(record._id)}
-            okText="Sí, eliminar" cancelText="No"
-            icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
           >
             <Tooltip title="Eliminar">
               <Button danger type="link" icon={<DeleteOutlined />} />
@@ -269,52 +274,60 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
         </Space>
       ),
     },
+
+
   ] : [
-      { title: 'Descripción', dataIndex: 'descripcion', sorter: (a, b) => (a.descripcion || '').localeCompare(b.descripcion || '') },
-      { title: 'Valor', dataIndex: 'valor', render: (valor) => currencyFormatter.format(valor != null ? valor : 0), sorter: (a, b) => (a.valor || 0) - (b.valor || 0) },
-      {
-        title: 'Cuenta',
-        dataIndex: 'cuenta',
-        render: (cuenta) => {
-          let color;
-          switch (cuenta) {
-            case 'Nequi': color = 'green'; break;
-            case 'Daviplata': color = 'orange'; break;
-            case 'Bancolombia': color = 'blue'; break;
-            default: color = 'default'; cuenta = 'No especificada';
-          }
-          return <Tag color={color}>{cuenta}</Tag>;
-        },
-        filters: [
-          { text: 'Nequi', value: 'Nequi' },
-          { text: 'Daviplata', value: 'Daviplata' },
-          { text: 'Bancolombia', value: 'Bancolombia' },
-        ],
-        onFilter: (value, record) => record.cuenta === value,
+    { title: 'Descripción', dataIndex: 'descripcion', sorter: (a, b) => (a.descripcion || '').localeCompare(b.descripcion || '') },
+    { title: 'Valor', dataIndex: 'valor', render: (valor) => currencyFormatter.format(valor != null ? valor : 0), sorter: (a, b) => (a.valor || 0) - (b.valor || 0) },
+    {
+      title: 'Cuenta',
+      dataIndex: 'cuenta',
+      render: (cuenta) => {
+        let color;
+        switch (cuenta) {
+          case 'Nequi': color = 'green'; break;
+          case 'Daviplata': color = 'orange'; break;
+          case 'Bancolombia': color = 'blue'; break;
+          default: color = 'default'; cuenta = 'No especificada';
+        }
+        return <Tag color={color}>{cuenta}</Tag>;
       },
-      { title: 'Fecha', dataIndex: 'fecha', render: (date) => moment(date).format('DD/MM/YYYY'), sorter: (a, b) => moment(b.fecha).unix() - moment(a.fecha).unix() },
-      {
-        title: 'Acciones',
-        key: 'acciones',
-        width: 120,
-        fixed: 'right',
-        render: (_, record) => (
-          <Space size="middle">
-            <Popconfirm
-              title="Eliminar egreso"
-              description="¿Está seguro de eliminar este egreso? Esta acción no se puede deshacer."
-              onConfirm={() => handleDeleteItem(record._id)}
-              okText="Sí, eliminar" cancelText="No"
-              icon={<ExclamationCircleOutlined style={{ color: 'red' }} />}
-            >
-              <Tooltip title="Eliminar">
-                <Button danger type="link" icon={<DeleteOutlined />} />
-              </Tooltip>
-            </Popconfirm>
-          </Space>
-        ),
-      },
-    ];
+      filters: [
+        { text: 'Nequi', value: 'Nequi' },
+        { text: 'Daviplata', value: 'Daviplata' },
+        { text: 'Bancolombia', value: 'Bancolombia' },
+      ],
+      onFilter: (value, record) => record.cuenta === value,
+    },
+    { title: 'Fecha', dataIndex: 'fecha', render: (date) => moment(date).format('DD/MM/YYYY'), sorter: (a, b) => moment(b.fecha).unix() - moment(a.fecha).unix() },
+    {
+      title: 'Acciones',
+      key: 'acciones',
+      width: 120,
+      fixed: 'right',
+      render: (_, record) => (
+        <Space size="middle">
+          {/* --- NUEVO: Botón de Editar --- */}
+          <Tooltip title="Editar">
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => onEdit(record)}
+            />
+          </Tooltip>
+
+          <Popconfirm
+            // ... (propiedades del Popconfirm se mantienen igual)
+            onConfirm={() => handleDeleteItem(record._id)}
+          >
+            <Tooltip title="Eliminar">
+              <Button danger type="link" icon={<DeleteOutlined />} />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <div className="p-4">

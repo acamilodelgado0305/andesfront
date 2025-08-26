@@ -1,51 +1,65 @@
-// src/components/EgresoDrawer.js
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Drawer, Form, Button, Input, Select, DatePicker, Typography } from 'antd';
-import { FileProtectOutlined } from '@ant-design/icons';
-import { cuentaOptions } from '../options'; // Importamos las opciones
+import { EditOutlined, FileProtectOutlined } from '@ant-design/icons';
+import { cuentaOptions } from '../options';
+import dayjs from 'dayjs';
 
 const { Text } = Typography;
 
-// Formateador para pesos colombianos
-const currencyFormatter = new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-});
-
-const EgresoDrawer = ({ open, onClose, onSubmit, loading }) => {
+const EgresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValues }) => {
   const [form] = Form.useForm();
 
-  const handleClose = () => {
-    form.resetFields();
-    onClose();
+  // Función para manejar el cambio de fecha
+  const onChange = (date, dateString) => {
+    console.log('DatePicker onChange:', { date, dateString });
   };
 
+  useEffect(() => {
+    if (open) {
+      if (initialValues) {
+        // MODO EDICIÓN
+        form.setFieldsValue({
+          ...initialValues,
+
+          fecha: initialValues.fecha ? dayjs(initialValues.fecha.substring(0, 10)) : null,
+          // ============================================================================
+        });
+      } else {
+        // MODO CREACIÓN
+        form.resetFields();
+        form.setFieldsValue({
+          vendedor: userName,
+        });
+      }
+    }
+  }, [open, initialValues, form, userName]);
+
   const onFinish = (values) => {
-    onSubmit(values); // La lógica de submit se maneja en el padre
+    const formattedValues = {
+      ...values,
+      // SOLUCIÓN: Usamos la nueva fecha (values.fecha) y la formateamos.
+      fecha: values.fecha ? values.fecha.format('YYYY-MM-DD') : null,
+    };
+    onSubmit(formattedValues);
   };
 
   return (
     <Drawer
       title={
         <div className="flex items-center">
-          <FileProtectOutlined className="text-red-500 mr-2" />
-          <span>Registrar Nuevo Egreso</span>
+          {initialValues ? <EditOutlined className="text-red-500 mr-2" /> : <FileProtectOutlined className="text-red-500 mr-2" />}
+          <span>{initialValues ? 'Editar Egreso' : 'Registrar Nuevo Egreso'}</span>
         </div>
       }
-        placement="top"
-      classNames={{ 
-          wrapper: '!w-[500px] !right-0 !left-auto !h-[calc(100%-0px)] top-16 !rounded-tl-lg !rounded-tr-lg !border-0 !shadow-lg',
-        }}
-      width={420}
-      onClose={handleClose}
+      placement="right"
+      width={480}
+      onClose={onClose}
       open={open}
       bodyStyle={{ paddingBottom: 80 }}
       headerStyle={{ borderBottom: '1px solid #f0f0f0' }}
       footer={
         <div className="flex justify-end">
-          <Button onClick={handleClose} style={{ marginRight: 8 }}>
+          <Button onClick={onClose} style={{ marginRight: 8 }}>
             Cancelar
           </Button>
           <Button
@@ -54,7 +68,7 @@ const EgresoDrawer = ({ open, onClose, onSubmit, loading }) => {
             onClick={() => form.submit()}
             className="bg-red-600 hover:bg-red-700 border-0"
           >
-            Guardar Egreso
+            {initialValues ? 'Guardar Cambios' : 'Guardar Egreso'}
           </Button>
         </div>
       }
@@ -62,33 +76,54 @@ const EgresoDrawer = ({ open, onClose, onSubmit, loading }) => {
       <Form form={form} layout="vertical" onFinish={onFinish}>
         <div className="bg-red-50 p-4 rounded-lg mb-6">
           <Text className="text-red-700 text-sm">
-            Complete todos los campos para registrar un nuevo egreso. Los campos marcados con (*) son obligatorios.
+            Complete los campos para registrar o modificar el egreso.
           </Text>
         </div>
-        <Form.Item name="fecha" label="Fecha" rules={[{ required: true, message: 'Por favor seleccione la fecha' }]}>
-          <DatePicker format="YYYY-MM-DD" placeholder="Seleccione la fecha" className="w-full" />
+
+        <Form.Item
+          name="fecha"
+          label="Fecha del Egreso"
+          rules={[{ required: true, message: 'Por favor seleccione la fecha' }]}
+        >
+          <DatePicker
+            onChange={onChange}
+            className="w-full"
+            format="YYYY-MM-DD"
+            allowClear
+            disabledDate={(current) => current && current > dayjs().endOf('day')}
+          />
         </Form.Item>
+
         <Form.Item
           name="valor"
           label="Valor"
-          rules={[
-            { required: true, message: 'Por favor ingrese el valor' },
-            { validator: (_, value) => (value && parseFloat(value) >= 0 ? Promise.resolve() : Promise.reject('El valor debe ser positivo')) },
-          ]}
+          rules={[{ required: true, message: 'Por favor ingrese el valor' }]}
         >
           <Input
-            placeholder="Ingrese el valor"
+            placeholder="Ingrese el valor del egreso"
             type="number"
             prefix={<span className="text-gray-400">$</span>}
-            formatter={(value) => (value ? currencyFormatter.format(value) : '')}
-            parser={(value) => value.replace(/[^\d.]/g, '')}
           />
         </Form.Item>
-        <Form.Item name="cuenta" label="Cuenta" rules={[{ required: true, message: 'Por favor seleccione una cuenta' }]}>
-          <Select placeholder="Seleccione una cuenta" options={cuentaOptions} />
+
+        <Form.Item
+          name="cuenta"
+          label="Cuenta de Origen"
+          rules={[{ required: true, message: 'Por favor seleccione una cuenta' }]}
+        >
+          <Select placeholder="¿De qué cuenta salió el dinero?" options={cuentaOptions} />
         </Form.Item>
-        <Form.Item name="descripcion" label="Descripción" rules={[{ required: true, message: 'Por favor ingrese una descripción' }]}>
-          <Input.TextArea placeholder="Ingrese la descripción del egreso" rows={4} />
+
+        <Form.Item
+          name="descripcion"
+          label="Descripción"
+          rules={[{ required: true, message: 'Por favor ingrese una descripción' }]}
+        >
+          <Input.TextArea placeholder="Ej: Pago de servicios, compra de insumos, etc." rows={4} />
+        </Form.Item>
+
+        <Form.Item name="vendedor" hidden>
+          <Input />
         </Form.Item>
       </Form>
     </Drawer>

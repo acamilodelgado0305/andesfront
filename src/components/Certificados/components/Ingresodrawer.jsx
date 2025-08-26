@@ -8,7 +8,8 @@ import {
     IdcardOutlined,
     ShoppingOutlined,
     DollarCircleOutlined,
-    WalletOutlined
+    WalletOutlined,
+    EditOutlined
 } from '@ant-design/icons';
 import { cuentaOptions } from '../options'; // Mantenemos las de cuenta si son estáticas
 
@@ -17,12 +18,14 @@ const { Title } = Typography;
 
 
 
-const IngresoDrawer = ({ open, onClose, onSubmit, loading, userName }) => {
+const IngresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValues }) => {
     const [form] = Form.useForm();
 
     // --- LÓGICA DE DATOS INTEGRADA EN EL DRAWER ---
     const [inventario, setInventario] = useState([]);
     const [loadingInventario, setLoadingInventario] = useState(false);
+
+
 
     // useEffect para cargar el inventario cuando se abre el drawer
     useEffect(() => {
@@ -64,27 +67,38 @@ const IngresoDrawer = ({ open, onClose, onSubmit, loading, userName }) => {
         }
     }, [open, userName, form]); // Se ejecuta cada vez que se abre el drawer
 
-    const onFinish = (values) => {
-        const nombreCompleto = (values.nombreCompleto || '').trim();
-        const partesNombre = nombreCompleto.split(' ').filter(p => p); // Filtra espacios extra
-
-        let nombre = '';
-        let apellido = '';
-
-        if (partesNombre.length > 1) {
-           
-            nombre = partesNombre.shift();
-            apellido = partesNombre.join(' ');
-        } else {
-           
-            nombre = partesNombre[0] || '';
-            apellido = '.';
+    useEffect(() => {
+        if (open) {
+            if (initialValues) {
+                // MODO EDICIÓN: Llenamos el form con los datos existentes
+                form.setFieldsValue({
+                    ...initialValues,
+                    // El formulario tiene 'nombreCompleto', pero los datos tienen 'nombre' y 'apellido'
+                    nombreCompleto: `${initialValues.nombre || ''} ${initialValues.apellido || ''}`.trim(),
+                });
+            } else {
+                // MODO CREACIÓN: Reseteamos el form y ponemos el vendedor
+                form.resetFields();
+                form.setFieldsValue({ vendedor: userName });
+            }
+            // La lógica de fetchUserInventario se mantiene aquí también
         }
+    }, [open, initialValues, form, userName]);
+
+    const onFinish = (values) => {
+        // La lógica para separar nombre y apellido ya está aquí y funciona para ambos casos.
+        const nombreCompleto = (values.nombreCompleto || '').trim();
+        const partesNombre = nombreCompleto.split(' ').filter(p => p);
+
+        let nombre = partesNombre.length > 0 ? partesNombre.shift() : '';
+        let apellido = partesNombre.length > 0 ? partesNombre.join(' ') : '.';
 
         const dataToSend = { ...values, nombre, apellido };
         delete dataToSend.nombreCompleto;
         onSubmit(dataToSend);
     };
+
+
 
     const handleValuesChange = (changedValues) => {
         if (changedValues.tipo !== undefined) {
@@ -109,8 +123,10 @@ const IngresoDrawer = ({ open, onClose, onSubmit, loading, userName }) => {
         <Drawer
             title={
                 <div className="flex items-center gap-3">
-                    <FileDoneOutlined className="text-blue-600" />
-                    <span className="font-semibold text-gray-800">Registrar Nuevo Ingreso</span>
+                    {initialValues ? <EditOutlined className="text-blue-600" /> : <FileDoneOutlined className="text-blue-600" />}
+                    <span className="font-semibold text-gray-800">
+                        {initialValues ? 'Editar Ingreso' : 'Registrar Nuevo Ingreso'}
+                    </span>
                 </div>
             }
             placement="right"
@@ -120,13 +136,14 @@ const IngresoDrawer = ({ open, onClose, onSubmit, loading, userName }) => {
             bodyStyle={{ background: '#f9fafb' }}
             headerStyle={{ borderBottom: '1px solid #e5e7eb' }}
             footer={
-                <div className="flex justify-end gap-2">
-                    <Button onClick={onClose}>Cancelar</Button>
-                    <Button type="primary" loading={loading} onClick={() => form.submit()}>
-                        Guardar Ingreso
-                    </Button>
-                </div>
-            }
+        <div className="flex justify-end gap-2">
+          <Button onClick={onClose}>Cancelar</Button>
+          <Button type="primary" loading={loading} onClick={() => form.submit()}>
+            {/* --- MODIFICADO: Texto del botón dinámico --- */}
+            {initialValues ? 'Guardar Cambios' : 'Guardar Ingreso'}
+          </Button>
+        </div>
+      }
         >
             <Form form={form} layout="vertical" onFinish={onFinish} onValuesChange={handleValuesChange}>
                 <div className="p-4 bg-white">
