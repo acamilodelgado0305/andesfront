@@ -30,6 +30,7 @@ import Sales from "./sales/Sales";
 import Generacion from "./components/Certificados/Generacion";
 import DashboardClients from "./components/admin/DashboardClients";
 import Inventario from "./components/inventario/Inventario";
+import Verificacion from "./components/Calificaciones/Verificacion";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -48,6 +49,7 @@ const App = () => (
           {/* Rutas públicas */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/verificacion" element={<Verificacion />} />
           <Route path="/Reporte" element={<StudentReportPortal />} />
           <Route path="/Camilodelgado" element={<StudentRegistrationForm1 />} />
           <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
