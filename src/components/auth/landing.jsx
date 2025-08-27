@@ -7,7 +7,7 @@ import {
   Settings, ShieldCheck, ShoppingCart, Target, Users
 } from 'lucide-react';
 
-import Header from './Header'; // Asegúrate que la ruta sea correcta
+import Header from './header'; // Asegúrate que la ruta sea correcta
 
 // --- ¡IMPORTANTE! Reemplaza estas rutas con tus propias imágenes ---
 
