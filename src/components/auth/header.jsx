@@ -1,127 +1,98 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { MenuOutlined, CloseOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom'; // Se importa Link para la navegación
+import { Menu, X } from 'lucide-react';
 
-const Header = ({ onLoginClick }) => {
+const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate(); 
 
-  // Manejar el scroll para cambiar el estilo del header
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  // Cerrar el menú móvil cuando se cambia de ruta
-  useEffect(() => {
-    setIsMenuOpen(false);
-  }, [location]);
-
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
+  
   const navLinks = [
-    { to: '/programas', label: 'Programas' },
-    { to: '/cursos', label: 'Cursos' },
-    { to: '/about', label: 'Nosotros' },
-    { to: '/contact', label: 'Contacto' }
+    { href: '#benefits', label: 'Beneficios' },
+    { href: '#features', label: 'Funciones' },
+    { href: '#pricing', label: 'Precios' },
+    { href: '#faq', label: 'FAQ' },
   ];
 
-  return (
-    <header 
-      className={`fixed w-full top-0 z-50 transition-all duration-300 ${
-        isScrolled 
-          ? 'bg-white shadow-md py-2' 
-          : 'bg-white/90 backdrop-blur-sm py-4'
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-20 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center">
-          <Link 
-            to="/" 
-            className="text-2xl font-bold text-red-700 hover:text-gray-400 transition-colors duration-300"
-          >
-            IE Villa de los Andes
-          </Link>
+  const linkClasses = (scrolled) => 
+    `font-medium transition-colors ${scrolled ? 'text-gray-600 hover:text-green-700' : 'text-green-100 hover:text-white'}`;
 
-          <div className="flex items-center gap-4">
-            {/* Menú en pantallas grandes */}
-            <nav className="hidden lg:block">
-              <ul className="flex space-x-8">
-                {navLinks.map(({ to, label }) => (
-                  <li key={to}>
-                    <Link
-                      to={to}
-                      className={`font-medium transition-colors duration-300 ${
-                        location.pathname === to
-                          ? 'text-gray-400'
-                          : 'text-gray-600 hover:text-gray-400'
-                      }`}
-                    >
-                      {label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+  return (
+    <header className={`fixed w-full top-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-md py-3' : 'bg-transparent py-4'}`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center">
+          <a href="#hero" className={`text-3xl font-bold transition-colors ${isScrolled ? 'text-green-800' : 'text-white'}`}>
+            QControla
+          </a>
+          
+          <div className="hidden lg:flex items-center gap-8">
+            <nav className="flex items-center space-x-8">
+              {navLinks.map(link => (
+                <a key={link.href} href={link.href} className={linkClasses(isScrolled)}>
+                  {link.label}
+                </a>
+              ))}
             </nav>
 
-            <button
-                  onClick={() => navigate('/login')} // Redirigir a /login
-                  className="w-full bg-red-800 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-400 transition-colors duration-300"
-                >
-                  Iniciar Sesión
-                </button>
+            <div className="flex items-center gap-6">
+                {/* BOTÓN DE INICIAR SESIÓN PARA ESCRITORIO */}
+                <Link to="/login" className={linkClasses(isScrolled)}>
+                    Iniciar Sesión
+                </Link>
 
-            {/* Botón de menú móvil */}
+                <a 
+                  href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20QControla%20y%20me%20gustaría%20solicitar%20una%20demo." 
+                  target="_blank"
+                  className="bg-green-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-green-700 transition-colors duration-300"
+                >
+                  Solicitar Demo
+                </a>
+            </div>
+          </div>
+          
+          {/* Botón de Menú Móvil */}
+          <div className="lg:hidden">
             <button
-              onClick={toggleMenu}
-              className="lg:hidden text-gray-600 hover:text-gray-400 transition-colors duration-300 p-2"
-              aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className={`p-2 rounded-md transition-colors ${isScrolled ? 'text-gray-700 hover:bg-gray-100' : 'text-white hover:bg-white/20'}`}
+              aria-label="Toggle menu"
             >
-              {isMenuOpen ? <CloseOutlined /> : <MenuOutlined />}
+              {isMenuOpen ? <X /> : <Menu />}
             </button>
           </div>
         </div>
+        
+        {/* Menú Móvil */}
+        <div className={`lg:hidden overflow-hidden transition-all duration-300 ${isMenuOpen ? 'max-h-96 mt-4' : 'max-h-0'}`}>
+           <div className={`rounded-lg ${isScrolled ? 'bg-white' : 'bg-green-900 bg-opacity-95'}`}>
+              <nav className="py-4 px-5 space-y-2">
+                {navLinks.map(link => (
+                  <a key={link.href} href={link.href} onClick={() => setIsMenuOpen(false)} className={`block font-medium py-2 rounded-md text-center transition-colors ${isScrolled ? 'text-gray-600 hover:bg-gray-100' : 'text-green-100 hover:bg-white/20'}`}>
+                    {link.label}
+                  </a>
+                ))}
+                
+                {/* BOTÓN DE INICIAR SESIÓN PARA MÓVIL */}
+                <Link to="/login" onClick={() => setIsMenuOpen(false)} className={`block font-medium py-2 rounded-md text-center transition-colors ${isScrolled ? 'text-gray-600 hover:bg-gray-100' : 'text-green-100 hover:bg-white/20'}`}>
+                    Iniciar Sesión
+                </Link>
 
-        {/* Menú móvil */}
-        <div
-          className={`lg:hidden overflow-hidden transition-all duration-300 ${
-            isMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-          }`}
-        >
-          <nav className="py-4">
-            <ul className="space-y-4">
-              {navLinks.map(({ to, label }) => (
-                <li key={to}>
-                  <Link
-                    to={to}
-                    className={`block font-medium py-2 transition-colors duration-300 ${
-                      location.pathname === to
-                        ? 'text-gray-400'
-                        : 'text-gray-600 hover:text-gray-400'
-                    }`}
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-              <li>
-                <button
-                  onClick={onLoginClick}
-                  className="w-full bg-gray-400 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-400 transition-colors duration-300"
-                >
-                  Iniciar Sesión
-                </button>
-              </li>
-            </ul>
-          </nav>
+                <div className="border-t pt-4 mt-2 border-gray-500/50">
+                    <a 
+                        href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20QControla%20y%20me%20gustaría%20solicitar%20una%20demo." 
+                        target="_blank"
+                        className="block w-full text-center bg-green-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-green-700 transition-colors duration-300"
+                    >
+                        Solicitar Demo
+                    </a>
+                </div>
+              </nav>
+           </div>
         </div>
       </div>
     </header>
