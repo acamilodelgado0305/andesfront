@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Table, InputNumber, Button, message, Input, Modal, Space } from 'antd'; // Agregado Modal y Space
+import { Card, Typography, Table, InputNumber, Button, message, Input, Modal, Space } from 'antd';
 import axios from 'axios';
 
 const { Title } = Typography;
@@ -15,30 +15,28 @@ const materias = [
   'Bases de Datos',
 ];
 
+const API_URL = 'https://clasit-backend-api-570877385695.us-central1.run.app/api';
+
 function CursosTecnicos() {
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [grades, setGrades] = useState({});
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [initialGradesBackup, setInitialGradesBackup] = useState({}); // Para restablecer a los valores originales cargados
+  const [initialGradesBackup, setInitialGradesBackup] = useState({});
 
-  // Cargar estudiantes y notas desde la API
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Obtener estudiantes de cursos técnicos
-        const studentsResponse = await axios.get('https://clasit-backend-api-570877385695.us-central1.run.app/api/students/type/tecnicos');
+        const studentsResponse = await axios.get(`${API_URL}/students/type/tecnicos`);
         const studentsData = studentsResponse.data;
         setStudents(studentsData);
         setFilteredStudents(studentsData);
 
-        // Obtener notas
-        const gradesResponse = await axios.get('https://clasit-backend-api-570877385695.us-central1.run.app/api/grades');
+        const gradesResponse = await axios.get(`${API_URL}/grades`);
         const gradesData = gradesResponse.data;
 
-        // Inicializar el estado de las notas
         const initialGrades = {};
         studentsData.forEach((student) => {
           initialGrades[student.id] = {};
@@ -46,12 +44,11 @@ function CursosTecnicos() {
             const existingGrade = gradesData.find(
               (grade) => grade.student_id === student.id && grade.materia === materia
             );
-            // Asegurarse de que la nota sea un número o null
             initialGrades[student.id][materia] = existingGrade ? parseFloat(existingGrade.nota) : null;
           });
         });
         setGrades(initialGrades);
-        setInitialGradesBackup(JSON.parse(JSON.stringify(initialGrades))); // Copia profunda para el backup
+        setInitialGradesBackup(JSON.parse(JSON.stringify(initialGrades)));
 
       } catch (error) {
         message.error('Error al cargar los datos');
@@ -63,7 +60,6 @@ function CursosTecnicos() {
     fetchData();
   }, []);
 
-  // Manejar búsqueda
   const handleSearch = (value) => {
     setSearchText(value);
     const lowercasedValue = value.toLowerCase();
@@ -76,18 +72,14 @@ function CursosTecnicos() {
     setFilteredStudents(filtered);
   };
 
-  // Manejar cambio de nota
   const handleGradeChange = (studentId, materia, value) => {
     let numericValue = value === '' || value === null || value === undefined ? null : parseFloat(value);
     let roundedValue = null;
 
     if (numericValue !== null) {
-        // Redondear a 1 decimal
         roundedValue = Math.round(numericValue * 10) / 10;
-        // Asegurar que la nota esté en el rango 0-5
         if (roundedValue < 0 || roundedValue > 5) {
             message.warn('La nota debe estar entre 0.0 y 5.0. Se ha restablecido al valor anterior.', 2);
-            // Revertir al valor anterior válido o null si no hay valor previo para esa celda específica
             roundedValue = grades[studentId]?.[materia] !== undefined ? grades[studentId][materia] : null;
         }
     }
@@ -101,20 +93,17 @@ function CursosTecnicos() {
     }));
   };
 
-  // Guardar notas
   const handleSaveGrades = async () => {
     setLoading(true);
     try {
-      // Formato esperado por la API: [{ studentId: ..., grades: {materia: nota, ...} }, ...]
       const payload = Object.keys(grades).map((studentId) => ({
         studentId: parseInt(studentId),
         grades: grades[studentId],
       }));
 
-      await axios.post('https://clasit-backend-api-570877385695.us-central1.run.app/api/grades', payload);
+      await axios.post(`${API_URL}/grades`, payload);
       message.success('Notas guardadas exitosamente');
       
-      // Actualizar el backup después de guardar exitosamente
       setInitialGradesBackup(JSON.parse(JSON.stringify(grades)));
 
     } catch (error) {
@@ -125,31 +114,30 @@ function CursosTecnicos() {
     }
   };
 
-  // Restablecer todas las notas a null (en la vista)
+  // Restablecer todas las notas a 0.0 (en la vista)
   const handleResetAllGradesView = () => {
     Modal.confirm({
-      title: 'Restablecer todas las notas en la vista',
-      content: '¿Está seguro de que desea borrar todas las notas ingresadas en la vista? Los cambios no se guardarán en el servidor hasta que presione "Guardar Notas".',
-      okText: 'Sí, borrar en vista',
+      title: 'Establecer todas las notas a 0.0',
+      content: '¿Está seguro de que desea establecer todas las notas a 0.0 en la vista? Los cambios no se guardarán en el servidor hasta que presione "Guardar Notas".',
+      okText: 'Sí, poner en 0.0',
       okType: 'danger',
       cancelText: 'Cancelar',
       onOk: () => {
         setGrades(prevGrades => {
-          const newGrades = { ...prevGrades }; // Copia de la estructura de estudiantes
-          students.forEach(student => { // Iterar sobre todos los estudiantes, no solo los filtrados
-            newGrades[student.id] = {}; // Reiniciar notas para este estudiante
+          const newGrades = { ...prevGrades };
+          students.forEach(student => {
+            newGrades[student.id] = { ...prevGrades[student.id] }; // Copiar notas existentes
             materias.forEach(materia => {
-              newGrades[student.id][materia] = null;
+              newGrades[student.id][materia] = 0.0; // Establecer a 0.0
             });
           });
           return newGrades;
         });
-        message.info('Todas las notas en la vista han sido borradas. Guarde los cambios para aplicarlos en el servidor.');
+        message.info('Todas las notas en la vista han sido establecidas a 0.0. Guarde los cambios para aplicarlos.');
       },
     });
   };
   
-  // Restablecer las notas a los valores originales cargados desde la API o el último guardado
   const handleRevertToOriginalGrades = () => {
     Modal.confirm({
       title: 'Revertir cambios a notas originales',
@@ -164,27 +152,25 @@ function CursosTecnicos() {
     });
   };
 
-  // Determinar el color del campo según la nota
   const getInputStyle = (value) => {
-    if (value === null || value === undefined || value === '') return { width: '100%', minWidth: 70, textAlign: 'right' }; // Ancho completo responsivo
+    if (value === null || value === undefined || value === '') return { width: '100%', minWidth: 70, textAlign: 'right' };
     const numericValue = parseFloat(value);
     return {
       width: '100%',
       minWidth: 70,
       textAlign: 'right',
-      backgroundColor: numericValue >= 3.0 ? '#e6f4ea' : '#fff1f0',
-      borderColor: numericValue >= 3.0 ? '#155153' : '#ff4d4f',
+      backgroundColor: numericValue >= 3.0 ? '#e6f4ea' : (numericValue === 0.0 ? '#fafafa' : '#fff1f0'),
+      borderColor: numericValue >= 3.0 ? '#155153' : (numericValue === 0.0 ? '#d9d9d9' : '#ff4d4f'),
     };
   };
 
-  // Columnas de la tabla
   const columns = [
     {
       title: 'Estudiante (Programa)',
       dataIndex: 'nombre',
       key: 'nombre',
       fixed: 'left',
-      width: 280, // Ajustar si es necesario
+      width: 280,
       render: (_, record) => (
         <span>
           {record.nombre} {record.apellido}<br />
@@ -195,7 +181,7 @@ function CursosTecnicos() {
     ...materias.map((materia) => ({
       title: materia,
       key: materia,
-      width: materia.length > 20 ? 180 : 140, // Ancho dinámico para nombres largos de materia
+      width: materia.length > 20 ? 180 : 140,
       align: 'center',
       render: (_, record) => {
         const studentGrade = grades[record.id]?.[materia];
@@ -214,8 +200,7 @@ function CursosTecnicos() {
                 return isNaN(num) ? '' : num.toFixed(1);
             }}
             parser={(value) => {
-                if (value === '') return null; // Permite borrar para poner null
-                 // Reemplazar coma por punto para parseo correcto
+                if (value === '') return null;
                 const numericString = typeof value === 'string' ? value.replace(',', '.') : value;
                 const parsedValue = parseFloat(numericString);
                 return isNaN(parsedValue) ? null : Math.round(parsedValue * 10) / 10;
@@ -227,40 +212,37 @@ function CursosTecnicos() {
     })),
   ];
 
-  // Configuración de paginación
   const paginationConfig = {
-    pageSize: 100, // Mostrar muchos estudiantes por página
-    showSizeChanger: false, // Opcional: permitir cambiar tamaño de página
-    // pageSizeOptions: ['50', '100', '200'], // Opciones si showSizeChanger es true
+    pageSize: 100,
+    showSizeChanger: false,
     position: ['topRight', 'bottomRight'],
   };
 
   const studentColumnWidth = 280;
   const estimatedMateriasWidth = materias.reduce((acc, materia) => acc + (materia.length > 20 ? 180 : 140), 0);
 
-
   return (
-    <div className="flex justify-start items-start min-h-screen bg-gray-100 p-4"> {/* Padding general */}
+    <div className="flex justify-start items-start min-h-screen bg-gray-100 p-4">
       <Card className="w-full shadow-lg">
         <Title level={2}>Boletín - Cursos Técnicos</Title>
         <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
           <Search
             placeholder="Buscar por estudiante o programa"
             allowClear
-            onSearch={handleSearch} // Búsqueda al presionar Enter o ícono
-            onChange={(e) => { // Búsqueda en tiempo real
+            onSearch={handleSearch}
+            onChange={(e) => {
               setSearchText(e.target.value);
               handleSearch(e.target.value);
             }}
-            value={searchText} // Controlar el input
+            value={searchText}
             style={{ width: 300 }}
           />
-          <Space wrap> {/* `wrap` permite que los botones pasen a la siguiente línea si no hay espacio */}
+          <Space wrap>
             <Button onClick={handleRevertToOriginalGrades} size="large">
               Revertir Cambios
             </Button>
             <Button type="dashed" danger onClick={handleResetAllGradesView} size="large">
-              Borrar Notas (Vista)
+              Borrar Notas (a 0.0)
             </Button>
             <Button type="primary" onClick={handleSaveGrades} size="large" loading={loading}>
               Guardar Notas
@@ -273,10 +255,10 @@ function CursosTecnicos() {
           rowKey="id"
           loading={loading}
           pagination={paginationConfig}
-          scroll={{ x: studentColumnWidth + estimatedMateriasWidth + 50 }} // Ajustar scroll X dinámicamente + un poco de margen
-          bordered // Bordes para mejor separación
+          scroll={{ x: studentColumnWidth + estimatedMateriasWidth + 50 }}
+          bordered
           className="mt-4"
-          size="small" // Tabla más compacta
+          size="small"
         />
       </Card>
     </div>
@@ -284,3 +266,4 @@ function CursosTecnicos() {
 }
 
 export default CursosTecnicos;
+
