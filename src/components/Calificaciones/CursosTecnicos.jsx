@@ -62,13 +62,34 @@ function CursosTecnicos() {
 
   const handleSearch = (value) => {
     setSearchText(value);
-    const lowercasedValue = value.toLowerCase();
-    const filtered = students.filter((student) =>
-        (`${student.programa_nombre} ${student.nombre} ${student.apellido}`
-            .toLowerCase()
-            .includes(lowercasedValue)
-        )
-    );
+
+    // 1. Normalizar el texto de búsqueda: minúsculas y sin tildes.
+    const normalizedSearch = value
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    // Si la búsqueda está vacía, mostramos todos los estudiantes.
+    if (!normalizedSearch.trim()) {
+      setFilteredStudents(students);
+      return;
+    }
+
+    // 2. Dividir la búsqueda en palabras individuales.
+    const searchTerms = normalizedSearch.split(' ').filter(term => term);
+
+    const filtered = students.filter((student) => {
+      // 3. Normalizar el texto del estudiante para una comparación justa.
+      const studentText =
+        `${student.programa_nombre} ${student.nombre} ${student.apellido}`
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+
+      // 4. Verificar que TODOS los términos de búsqueda estén incluidos en el texto del estudiante.
+      return searchTerms.every(term => studentText.includes(term));
+    });
+
     setFilteredStudents(filtered);
   };
 
@@ -77,11 +98,11 @@ function CursosTecnicos() {
     let roundedValue = null;
 
     if (numericValue !== null) {
-        roundedValue = Math.round(numericValue * 10) / 10;
-        if (roundedValue < 0 || roundedValue > 5) {
-            message.warn('La nota debe estar entre 0.0 y 5.0. Se ha restablecido al valor anterior.', 2);
-            roundedValue = grades[studentId]?.[materia] !== undefined ? grades[studentId][materia] : null;
-        }
+      roundedValue = Math.round(numericValue * 10) / 10;
+      if (roundedValue < 0 || roundedValue > 5) {
+        message.warn('La nota debe estar entre 0.0 y 5.0. Se ha restablecido al valor anterior.', 2);
+        roundedValue = grades[studentId]?.[materia] !== undefined ? grades[studentId][materia] : null;
+      }
     }
 
     setGrades((prevGrades) => ({
@@ -103,7 +124,7 @@ function CursosTecnicos() {
 
       await axios.post(`${API_URL}/grades`, payload);
       message.success('Notas guardadas exitosamente');
-      
+
       setInitialGradesBackup(JSON.parse(JSON.stringify(grades)));
 
     } catch (error) {
@@ -137,7 +158,7 @@ function CursosTecnicos() {
       },
     });
   };
-  
+
   const handleRevertToOriginalGrades = () => {
     Modal.confirm({
       title: 'Revertir cambios a notas originales',
@@ -195,15 +216,15 @@ function CursosTecnicos() {
             placeholder="0.0-5.0"
             style={getInputStyle(studentGrade)}
             formatter={(value) => {
-                if (value === '' || value === null || value === undefined) return '';
-                const num = parseFloat(value);
-                return isNaN(num) ? '' : num.toFixed(1);
+              if (value === '' || value === null || value === undefined) return '';
+              const num = parseFloat(value);
+              return isNaN(num) ? '' : num.toFixed(1);
             }}
             parser={(value) => {
-                if (value === '') return null;
-                const numericString = typeof value === 'string' ? value.replace(',', '.') : value;
-                const parsedValue = parseFloat(numericString);
-                return isNaN(parsedValue) ? null : Math.round(parsedValue * 10) / 10;
+              if (value === '') return null;
+              const numericString = typeof value === 'string' ? value.replace(',', '.') : value;
+              const parsedValue = parseFloat(numericString);
+              return isNaN(parsedValue) ? null : Math.round(parsedValue * 10) / 10;
             }}
             onFocus={(e) => e.target.select()}
           />
@@ -229,11 +250,8 @@ function CursosTecnicos() {
           <Search
             placeholder="Buscar por estudiante o programa"
             allowClear
-            onSearch={handleSearch}
-            onChange={(e) => {
-              setSearchText(e.target.value);
-              handleSearch(e.target.value);
-            }}
+            // Eliminamos onSearch, ya que onChange cubre la búsqueda en tiempo real.
+            onChange={(e) => handleSearch(e.target.value)}
             value={searchText}
             style={{ width: 300 }}
           />
