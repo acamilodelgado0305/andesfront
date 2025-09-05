@@ -8,11 +8,11 @@ const { Search } = Input;
 // Lista de materias para cursos técnicos
 const materias = [
   'Inglés',
-  'Cloud Computing',
+  'Ofimatica',
   'Costos y Presupuestos',
   'Salud Ocupacional',
   'Salud Mental y Desarrollo Lúdico',
-  'Bases de Datos',
+  'Diseño',
 ];
 
 const API_URL = 'https://clasit-backend-api-570877385695.us-central1.run.app/api';
