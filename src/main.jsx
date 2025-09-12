@@ -12,7 +12,6 @@ import Landing from "./components/auth/landing";
 import Students from "./components/Students/student";
 import Facturas from "./components/facturas/facturas";
 import Programs from "./components/programas/programas";
-import Materias from "./components/materias/Materias";
 import CamiloForm from "./components/PublicForms/formCamilo";
 import StudentRegistrationForm from "./components/PublicForms/formAdriana";
 import StudentRegistrationForm1 from "./components/PublicForms/formCamilo";
@@ -31,6 +30,9 @@ import Generacion from "./components/Certificados/Generacion";
 import DashboardClients from "./components/admin/DashboardClients";
 import Inventario from "./components/inventario/Inventario";
 import Verificacion from "./components/Calificaciones/Verificacion";
+import Materias from "./GestionAcademica/Materias/Materias";
+import Docentes from "./GestionAcademica/Docentes/Docentes";
+
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -65,6 +67,7 @@ const App = () => (
             <Route path="students" element={<Students />} />
             <Route path="programas" element={<Programs />} />
             <Route path="materias" element={<Materias />} />
+            <Route path="docentes" element={<Docentes />} />
             <Route path="adminclients" element={<DashboardClients />} />
             
             <Route path="calificaciones" element={<Calificaciones />} />

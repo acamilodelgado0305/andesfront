@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Table, InputNumber, Button, message, Input, Modal, Space } from 'antd';
 import axios from 'axios';
+import { getAllMaterias } from '../../GestionAcademica/Materias/serviceMateria';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -17,6 +18,7 @@ const materias = [
 const API_URL = import.meta.env.VITE_API_BACKEND;
 
 function Bachillerato() {
+   const [materias, setMaterias] = useState([]);
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [grades, setGrades] = useState({});
@@ -24,22 +26,33 @@ function Bachillerato() {
   const [searchText, setSearchText] = useState('');
   const [initialGradesBackup, setInitialGradesBackup] = useState({});
 
-  useEffect(() => {
+ useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const studentsResponse = await axios.get(`${API_URL}/students/type/bachillerato`);
+        // -- CAMBIO: Usamos Promise.all para cargar todo en paralelo
+        const [studentsResponse, gradesResponse, allMateriasResponse] = await Promise.all([
+            axios.get(`${API_URL}/students/type/bachillerato`),
+            axios.get(`${API_URL}/grades`),
+            getAllMaterias() // <-- Llamada al servicio de materias
+        ]);
+        
+        // -- CAMBIO: Filtramos las materias y las guardamos en el estado
+        const bachilleratoMaterias = allMateriasResponse
+          .filter(m => m.tipo_programa === 'Validacion de Bachillerato' && m.activa)
+          .map(m => m.nombre); // Extraemos solo los nombres para mantener la lógica existente
+        setMaterias(bachilleratoMaterias);
+
         const studentsData = studentsResponse.data;
         setStudents(studentsData);
         setFilteredStudents(studentsData);
 
-        const gradesResponse = await axios.get(`${API_URL}/grades`);
         const gradesData = gradesResponse.data;
-
         const initialGrades = {};
         studentsData.forEach((student) => {
           initialGrades[student.id] = {};
-          materias.forEach((materia) => {
+          // -- CAMBIO: Usamos la lista de materias recién cargada y filtrada
+          bachilleratoMaterias.forEach((materia) => {
             const existingGrade = gradesData.find(
               (grade) => grade.student_id === student.id && grade.materia === materia
             );
@@ -48,6 +61,7 @@ function Bachillerato() {
         });
         setGrades(initialGrades);
         setInitialGradesBackup(JSON.parse(JSON.stringify(initialGrades)));
+
       } catch (error) {
         message.error('Error al cargar los datos');
         console.error("Error en fetchData:", error);
@@ -58,48 +72,43 @@ function Bachillerato() {
     fetchData();
   }, []);
 
-  const handleSearch = (value) => {
+ const handleSearch = (value) => {
     setSearchText(value);
     const filtered = students.filter((student) =>
-      `${student.nombre} ${student.apellido}`
-        .toLowerCase()
-        .includes(value.toLowerCase())
+      `${student.nombre} ${student.apellido}`.toLowerCase().includes(value.toLowerCase())
     );
     setFilteredStudents(filtered);
   };
 
-  const handleGradeChange = (studentId, materia, value) => {
+ const handleGradeChange = (studentId, materia, value) => {
     let numericValue = value === '' || value === null || value === undefined ? null : parseFloat(value);
     let roundedValue = null;
-
     if (numericValue !== null) {
       roundedValue = Math.round(numericValue * 10) / 10;
       if (roundedValue < 0 || roundedValue > 5) {
-        message.warn('La nota debe estar entre 0.0 y 5.0. Se ha restablecido.', 2);
+        message.warn('La nota debe estar entre 0.0 y 5.0.', 2);
         roundedValue = grades[studentId]?.[materia] || null;
       }
     }
-
     setGrades((prevGrades) => ({
       ...prevGrades,
-      [studentId]: {
-        ...prevGrades[studentId],
-        [materia]: roundedValue,
-      },
+      [studentId]: { ...prevGrades[studentId], [materia]: roundedValue },
     }));
   };
 
-  const handleSaveGrades = async () => {
+const handleSaveGrades = async () => {
     setLoading(true);
     try {
-      // El payload ya se construye correctamente con los valores actuales en 'grades'
-      // Si 'grades' tiene 0.0, eso es lo que se enviará.
+      // -- CAMBIO: Añadimos el campo "programa" con el valor correspondiente
       const payload = Object.keys(grades).map((studentId) => ({
         studentId: parseInt(studentId),
-        grades: grades[studentId], // Esto enviará las notas {materia1: 0.0, materia2: 0.0 ...}
+        programa: "Validacion de Bachillerato", // <-- Valor fijo para esta vista
+        grades: grades[studentId],
       }));
 
-      await axios.post('https://clasit-backend-api-570877385695.us-central1.run.app/api/grades', payload);
+      // La URL de tu API para guardar notas. Asegúrate que sea la correcta.
+      await axios.post(`${API_URL}/grades`, payload); 
+      
       message.success('Notas guardadas exitosamente');
       setInitialGradesBackup(JSON.parse(JSON.stringify(grades)));
     } catch (error) {
@@ -158,7 +167,7 @@ function Bachillerato() {
     };
   };
 
-  const columns = [
+const columns = [
     {
       title: 'Estudiante',
       dataIndex: 'nombre',
@@ -167,6 +176,7 @@ function Bachillerato() {
       width: 200,
       render: (_, record) => `${record.nombre} ${record.apellido}`,
     },
+    // El mapeo de columnas ahora usa el estado 'materias' dinámico
     ...materias.map((materia) => ({
       title: materia,
       key: materia,
@@ -176,31 +186,20 @@ function Bachillerato() {
         const studentGrade = grades[record.id]?.[materia];
         return (
           <InputNumber
-            min={0}
-            max={5}
-            step={0.1}
+            min={0} max={5} step={0.1}
             value={studentGrade === null || studentGrade === undefined ? '' : studentGrade}
             onChange={(value) => handleGradeChange(record.id, materia, value)}
             placeholder="0.0-5.0"
             style={getInputStyle(studentGrade)}
-            formatter={(value) => {
-              if (value === '' || value === null || value === undefined) return '';
-              const num = parseFloat(value);
-              return isNaN(num) ? '' : num.toFixed(1);
-            }}
-            parser={(value) => {
-              if (value === '') return null; // Si se borra el campo, se interpreta como null
-              const parsedValue = parseFloat(value);
-               // Validar que solo tenga un decimal y redondear si es necesario, o permitir más y que handleGradeChange lo maneje
-              // Para este parser, es mejor solo convertir a número o null.
-              return isNaN(parsedValue) ? null : parsedValue; // Dejar que handleGradeChange haga el redondeo final y validación
-            }}
+            formatter={(value) => value === '' || value === null || value === undefined ? '' : parseFloat(value).toFixed(1)}
+            parser={(value) => value === '' ? null : parseFloat(value)}
             onFocus={(e) => e.target.select()}
           />
         );
       },
     })),
   ];
+
 
   const paginationConfig = {
     pageSize: 100,

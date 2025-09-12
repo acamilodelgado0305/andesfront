@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Table, InputNumber, Button, message, Input, Modal, Space } from 'antd';
 import axios from 'axios';
+import { getAllMaterias } from '../../GestionAcademica/Materias/serviceMateria';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -15,9 +16,10 @@ const materias = [
   'Diseño',
 ];
 
-const API_URL = 'https://clasit-backend-api-570877385695.us-central1.run.app/api';
+const API_URL = import.meta.env.VITE_API_BACKEND;
 
 function CursosTecnicos() {
+  const [materias, setMaterias] = useState([]);
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [grades, setGrades] = useState({});
@@ -29,18 +31,29 @@ function CursosTecnicos() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const studentsResponse = await axios.get(`${API_URL}/students/type/tecnicos`);
+        // -- CAMBIO: Usamos Promise.all para cargar todo en paralelo
+        const [studentsResponse, gradesResponse, allMateriasResponse] = await Promise.all([
+          axios.get(`${API_URL}/students/type/tecnicos`),
+          axios.get(`${API_URL}/grades`),
+          getAllMaterias() // <-- Llamada al servicio de materias
+        ]);
+
+        // -- CAMBIO: Filtramos las materias y las guardamos en el estado
+        const tecnicosMaterias = allMateriasResponse
+          .filter(m => m.tipo_programa === 'Tecnicos' && m.activa)
+          .map(m => m.nombre); // Extraemos solo los nombres para mantener la lógica existente
+        setMaterias(tecnicosMaterias);
+
         const studentsData = studentsResponse.data;
         setStudents(studentsData);
         setFilteredStudents(studentsData);
 
-        const gradesResponse = await axios.get(`${API_URL}/grades`);
         const gradesData = gradesResponse.data;
-
         const initialGrades = {};
         studentsData.forEach((student) => {
           initialGrades[student.id] = {};
-          materias.forEach((materia) => {
+          // -- CAMBIO: Usamos la lista de materias recién cargada y filtrada
+          tecnicosMaterias.forEach((materia) => {
             const existingGrade = gradesData.find(
               (grade) => grade.student_id === student.id && grade.materia === materia
             );
@@ -62,34 +75,16 @@ function CursosTecnicos() {
 
   const handleSearch = (value) => {
     setSearchText(value);
-
-    // 1. Normalizar el texto de búsqueda: minúsculas y sin tildes.
-    const normalizedSearch = value
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-
-    // Si la búsqueda está vacía, mostramos todos los estudiantes.
+    const normalizedSearch = value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     if (!normalizedSearch.trim()) {
       setFilteredStudents(students);
       return;
     }
-
-    // 2. Dividir la búsqueda en palabras individuales.
     const searchTerms = normalizedSearch.split(' ').filter(term => term);
-
     const filtered = students.filter((student) => {
-      // 3. Normalizar el texto del estudiante para una comparación justa.
-      const studentText =
-        `${student.programa_nombre} ${student.nombre} ${student.apellido}`
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
-
-      // 4. Verificar que TODOS los términos de búsqueda estén incluidos en el texto del estudiante.
+      const studentText = `${student.programa_nombre} ${student.nombre} ${student.apellido}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return searchTerms.every(term => studentText.includes(term));
     });
-
     setFilteredStudents(filtered);
   };
 
@@ -114,19 +109,21 @@ function CursosTecnicos() {
     }));
   };
 
-  const handleSaveGrades = async () => {
+const handleSaveGrades = async () => {
     setLoading(true);
     try {
+      // -- CAMBIO: Añadimos el campo "programa" con el valor correspondiente
       const payload = Object.keys(grades).map((studentId) => ({
         studentId: parseInt(studentId),
+        programa: "Tecnicos", // <-- Valor fijo para esta vista
         grades: grades[studentId],
       }));
 
+      // La URL de tu API para guardar notas. Asegúrate que sea la correcta.
       await axios.post(`${API_URL}/grades`, payload);
+      
       message.success('Notas guardadas exitosamente');
-
       setInitialGradesBackup(JSON.parse(JSON.stringify(grades)));
-
     } catch (error) {
       message.error('Error al guardar las notas');
       console.error("Error en handleSaveGrades Cursos Técnicos:", error.response ? error.response.data : error.message);
@@ -199,6 +196,7 @@ function CursosTecnicos() {
         </span>
       ),
     },
+    // El mapeo de columnas ahora usa el estado 'materias' dinámico
     ...materias.map((materia) => ({
       title: materia,
       key: materia,
@@ -208,24 +206,13 @@ function CursosTecnicos() {
         const studentGrade = grades[record.id]?.[materia];
         return (
           <InputNumber
-            min={0}
-            max={5}
-            step={0.1}
+            min={0} max={5} step={0.1}
             value={studentGrade === null || studentGrade === undefined ? '' : studentGrade}
             onChange={(value) => handleGradeChange(record.id, materia, value)}
             placeholder="0.0-5.0"
             style={getInputStyle(studentGrade)}
-            formatter={(value) => {
-              if (value === '' || value === null || value === undefined) return '';
-              const num = parseFloat(value);
-              return isNaN(num) ? '' : num.toFixed(1);
-            }}
-            parser={(value) => {
-              if (value === '') return null;
-              const numericString = typeof value === 'string' ? value.replace(',', '.') : value;
-              const parsedValue = parseFloat(numericString);
-              return isNaN(parsedValue) ? null : Math.round(parsedValue * 10) / 10;
-            }}
+            formatter={(value) => value === '' || value === null || value === undefined ? '' : parseFloat(value).toFixed(1)}
+            parser={(value) => value === '' ? null : parseFloat(value.toString().replace(',', '.'))}
             onFocus={(e) => e.target.select()}
           />
         );
@@ -250,21 +237,13 @@ function CursosTecnicos() {
           <Search
             placeholder="Buscar por estudiante o programa"
             allowClear
-            // Eliminamos onSearch, ya que onChange cubre la búsqueda en tiempo real.
             onChange={(e) => handleSearch(e.target.value)}
-            value={searchText}
             style={{ width: 300 }}
           />
           <Space wrap>
-            <Button onClick={handleRevertToOriginalGrades} size="large">
-              Revertir Cambios
-            </Button>
-            <Button type="dashed" danger onClick={handleResetAllGradesView} size="large">
-              Borrar Notas (a 0.0)
-            </Button>
-            <Button type="primary" onClick={handleSaveGrades} size="large" loading={loading}>
-              Guardar Notas
-            </Button>
+            <Button onClick={handleRevertToOriginalGrades} size="large">Revertir Cambios</Button>
+            <Button type="dashed" danger onClick={handleResetAllGradesView} size="large">Poner Notas en 0.0</Button>
+            <Button type="primary" onClick={handleSaveGrades} size="large" loading={loading}>Guardar Notas</Button>
           </Space>
         </div>
         <Table
@@ -282,6 +261,7 @@ function CursosTecnicos() {
     </div>
   );
 }
+
 
 export default CursosTecnicos;
 
