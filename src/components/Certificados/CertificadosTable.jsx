@@ -200,6 +200,25 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
   };
 
   const columns = type === 'ventas' ? [
+
+    {
+      title: 'Fecha',
+      dataIndex: 'createdAt',
+      render: (text, record) => {
+        // Verificamos que createdAt exista antes de intentar formatearlo
+        if (!record.createdAt) {
+          return 'N/A';
+        }
+        const fecha = new Date(record.createdAt);
+        // Opciones de formato: 'es-CO' para Colombia, puedes ajustarlo
+        return <span>{fecha.toLocaleDateString('es-CO', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })}</span>;
+      },
+
+    },
     {
       title: 'Nombre Completo',
       dataIndex: 'nombre',
@@ -228,25 +247,14 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
       sorter: (a, b) => (a.valor || 0) - (b.valor || 0),
     },
     {
-      title: 'Medio de Pago',
-      dataIndex: 'cuenta',
-      render: (cuenta) => {
-        let color;
-        switch (cuenta) {
-          case 'Nequi': color = '#155153'; break;
-          case 'Daviplata': color = 'orange'; break;
-          case 'Bancolombia': color = 'blue'; break;
-          default: color = 'default'; cuenta = 'No especificada';
-        }
-        return <Tag color={color}>{cuenta}</Tag>;
-      },
-      filters: [
-        { text: 'Nequi', value: 'Nequi' },
-        { text: 'Daviplata', value: 'Daviplata' },
-        { text: 'Bancolombia', value: 'Bancolombia' },
-      ],
-      onFilter: (value, record) => record.cuenta === value,
-    },
+  title: 'Medio de Pago',
+  dataIndex: 'cuenta',
+  render: (cuenta) => (
+    <Tag color="green">{cuenta || 'No especificado'}</Tag>
+  ),
+ 
+  onFilter: (value, record) => record.cuenta === value,
+},
     {
       title: 'Acciones',
       key: 'acciones',
@@ -277,19 +285,33 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
 
 
   ] : [
+
+    {
+      title: 'Fecha',
+      dataIndex: 'createdAt',
+      render: (text, record) => {
+        // Verificamos que createdAt exista antes de intentar formatearlo
+        if (!record.createdAt) {
+          return 'N/A';
+        }
+        const fecha = new Date(record.createdAt);
+        // Opciones de formato: 'es-CO' para Colombia, puedes ajustarlo
+        return <span>{fecha.toLocaleDateString('es-CO', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })}</span>;
+      },
+
+    },
     { title: 'Descripción', dataIndex: 'descripcion', sorter: (a, b) => (a.descripcion || '').localeCompare(b.descripcion || '') },
     { title: 'Valor', dataIndex: 'valor', render: (valor) => currencyFormatter.format(valor != null ? valor : 0), sorter: (a, b) => (a.valor || 0) - (b.valor || 0) },
     {
       title: 'Cuenta',
       dataIndex: 'cuenta',
       render: (cuenta) => {
-        let color;
-        switch (cuenta) {
-          case 'Nequi': color = 'green'; break;
-          case 'Daviplata': color = 'orange'; break;
-          case 'Bancolombia': color = 'blue'; break;
-          default: color = 'default'; cuenta = 'No especificada';
-        }
+        let color = 'green';
+     
         return <Tag color={color}>{cuenta}</Tag>;
       },
       filters: [
