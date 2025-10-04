@@ -256,56 +256,59 @@ const StudentTable = ({
       onFilter: (value, record) => record.coordinador === value,
       filterSearch: true, // Habilitar búsqueda en el dropdown de filtro
     },
-    {
-      title: 'Programas',
-      key: 'programas_asociados',
-      render: (_, record) => (
-        <Space wrap size={[0, 'small']}> {/* Utiliza wrap para que las etiquetas salten de línea si no caben */}
-          {record.programas_asociados && record.programas_asociados.length > 0 ? (
-            record.programas_asociados.map((programa, index) => (
-              <Tag key={index} color="blue">
-                {programa.nombre_programa}
-              </Tag>
-            ))
-          ) : (
-            <Tag color="volcano">Sin programas</Tag>
-          )}
-        </Space>
-      ),
-      filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+   {
+    title: 'Programa', // Singular, ya que es uno solo por ahora
+    dataIndex: 'programa_nombre', // Asociamos el dataIndex para el ordenamiento y filtrado de antd
+    key: 'programa_nombre',
+    render: (programaNombre, record) => (
+        // Verificamos si existe un nombre de programa en el registro
+        programaNombre ? (
+            <Tag color="blue" key={record.programa_id}>
+                {programaNombre}
+            </Tag>
+        ) : (
+            <Tag color="volcano">Sin programa</Tag>
+        )
+    ),
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
         <div style={{ padding: 8 }}>
-          <Input
-            placeholder="Buscar programa"
-            value={selectedKeys[0]}
-            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-            onPressEnter={() => handleSearch(selectedKeys[0], 'nombre_programa')}
-            style={{ width: 188, marginBottom: 8, display: 'block' }}
-          />
-          <Space>
-            <Button
-              type="primary"
-              onClick={() => {
-                handleSearch(selectedKeys[0], 'nombre_programa');
-                confirm();
-              }}
-              icon={<SearchOutlined />}
-              size="small"
-              style={{ width: 90 }}
-            >
-              Buscar
-            </Button>
-            <Button onClick={() => {
-              clearFilters();
-              handleSearch('', 'nombre_programa');
-            }} size="small" style={{ width: 90 }}>
-              Resetear
-            </Button>
-          </Space>
+            <Input
+                placeholder="Buscar programa"
+                value={selectedKeys[0]}
+                onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+                onPressEnter={() => {
+                    // Aseguramos que confirm se llame para cerrar el dropdown
+                    confirm();
+                }}
+                style={{ width: 188, marginBottom: 8, display: 'block' }}
+            />
+            <Space>
+                <Button
+                    type="primary"
+                    onClick={() => confirm()}
+                    icon={<SearchOutlined />}
+                    size="small"
+                    style={{ width: 90 }}
+                >
+                    Buscar
+                </Button>
+                <Button 
+                    onClick={() => {
+                        clearFilters(); // Llama a la función para limpiar los filtros
+                        confirm(); // Confirma el estado limpio
+                    }} 
+                    size="small" 
+                    style={{ width: 90 }}
+                >
+                    Resetear
+                </Button>
+            </Space>
         </div>
-      ),
-      onFilter: (value, record) =>
-        record.programas_asociados?.some(p => p.nombre_programa.toLowerCase().includes(value.toLowerCase())),
-    },
+    ),
+    // La lógica de onFilter se simplifica enormemente
+    onFilter: (value, record) =>
+        record.programa_nombre ? record.programa_nombre.toLowerCase().includes(value.toLowerCase()) : false,
+},
     {
       title: 'Estado',
       key: 'estados',
