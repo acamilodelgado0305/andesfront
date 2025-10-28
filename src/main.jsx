@@ -32,6 +32,7 @@ import Inventario from "./components/inventario/Inventario";
 import Verificacion from "./components/Calificaciones/Verificacion";
 import Materias from "./GestionAcademica/Materias/Materias";
 import Docentes from "./GestionAcademica/Docentes/Docentes";
+import ConsultaPreRegistro from "./components/Calificaciones/ConsultaPreRegistro";
 
 
 // Contexto de autenticación
@@ -52,6 +53,7 @@ const App = () => (
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/verificacion" element={<Verificacion />} />
+          <Route path="/consulta" element={<ConsultaPreRegistro />} />
           <Route path="/Reporte" element={<StudentReportPortal />} />
           <Route path="/Camilodelgado" element={<StudentRegistrationForm1 />} />
           <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
