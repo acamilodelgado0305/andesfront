@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Swal from "sweetalert2"; 
-import { addProgram } from "../../services/studentService";
+import { addProgram } from "../../services/programs/programService";
 
 const CreateProgramModal = ({ isOpen, onClose, onProgramAdded }) => {
 

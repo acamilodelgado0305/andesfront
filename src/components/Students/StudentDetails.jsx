@@ -1,180 +1,203 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { Button, Form, Input, Select, DatePicker, message, InputNumber, Modal, Avatar, Typography, Spin, Tag } from 'antd';
-import { FaUserEdit, FaSave, FaTrashAlt, FaWhatsapp, FaGraduationCap, FaFileInvoiceDollar, FaUserGraduate } from 'react-icons/fa';
-import dayjs from 'dayjs';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
+import {
+    Button,
+    Form,
+    Input,
+    Select,
+    DatePicker,
+    message,
+    InputNumber,
+    Modal,
+    Avatar,
+    Typography,
+    Spin,
+    Tag,
+    Switch,
+    Upload,
+} from "antd";
+import {
+    FaUserEdit,
+    FaSave,
+    FaTrashAlt,
+    FaWhatsapp,
+    FaGraduationCap,
+    FaFileInvoiceDollar,
+    FaUserGraduate,
+} from "react-icons/fa";
+import dayjs from "dayjs";
+import axios from "axios";
+import {
+    getStudentById,
+    updateStudent,
+    updateStudentPosibleGraduacion,
+    deleteStudent as deleteStudentService,
+    uploadStudentDocument, getStudentDocuments, deleteStudentDocument
+} from "../../services/student/studentService";
+
 const API_URL = import.meta.env.VITE_API_BACKEND;
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-
+/* ========== Bloque visual para agrupar info ========== */
 const InfoSection = ({ title, children }) => (
     <div className="bg-white border border-slate-200 rounded-md shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800 bg-slate-50 px-4 py-2 border-b border-slate-200 rounded-t-md">
             {title}
         </h3>
-        <div className="p-4 space-y-3">
-            {children}
-        </div>
+        <div className="p-4 space-y-4">{children}</div>
     </div>
 );
 
-
-const EditableField = ({ label, value, isEditing, name, type = 'text', options = [] }) => {
-    let displayValue = value || <span className="text-slate-400">No especificado</span>;
-    if (type === 'date' && value) {
-        displayValue = dayjs(value).format('DD/MM/YYYY');
-    }
-    if (type === 'money' && value) {
-        displayValue = `$${Number(value).toLocaleString()}`;
-    }
-
-    const renderInput = () => {
-        switch (type) {
-            case 'select':
-                return (
-                    <Select placeholder={`Seleccionar ${label}`} allowClear>
-                        {options.map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
-                    </Select>
-                );
-            case 'multiselect':
-                return (
-                    <Select mode="multiple" placeholder="Seleccione programas" allowClear>
-                        {options.map(opt => <Option key={opt.id} value={opt.id}>{opt.nombre}</Option>)}
-                    </Select>
-                );
-            case 'date':
-                return <DatePicker format="YYYY-MM-DD" className="w-full" />;
-            case 'money':
-                return <InputNumber formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={value => value.replace(/\$\s?|(,*)/g, '')} className="w-full" />;
-            default:
-                return <Input placeholder={label} allowClear />;
-        }
-    };
-
-    return (
-        <div className="grid grid-cols-3 gap-2 items-center">
-            <Text className="text-xs text-slate-500 font-semibold col-span-1">{label}</Text>
-            <div className="col-span-2">
-                {isEditing ? (
-                    <Form.Item name={name} className="!mb-0">
-                        {renderInput()}
-                    </Form.Item>
-                ) : (
-                    <Text className="text-sm text-slate-800">{displayValue}</Text>
-                )}
-            </div>
-        </div>
-    );
-};
+/* ========== Campo genérico reutilizable ========== */
+const FieldItem = ({ label, name, value, isEditing, children }) => (
+    <div className="space-y-1">
+        <Text className="text-xs text-slate-500 font-semibold block">
+            {label}
+        </Text>
+        {isEditing ? (
+            <Form.Item name={name} className="!mb-0">
+                {children}
+            </Form.Item>
+        ) : (
+            <Text className="text-sm text-slate-800">
+                {value ?? "No especificado"}
+            </Text>
+        )}
+    </div>
+);
 
 const StudentDetails = ({ studentId }) => {
     const [student, setStudent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [form] = Form.useForm();
     const [isEditing, setIsEditing] = useState(false);
-    const [allPrograms, setAllPrograms] = useState([]); // Nuevo estado para todos los programas disponibles
+    const [allPrograms, setAllPrograms] = useState([]);
 
-    // Función para formatear fechas (memorizada con useCallback)
+    // === Documentos del estudiante ===
+    const [documents, setDocuments] = useState([]);
+    const [docsLoading, setDocsLoading] = useState(false);
+    const [uploadingDoc, setUploadingDoc] = useState(false);
+    const [previewVisible, setPreviewVisible] = useState(false);
+    const [previewDoc, setPreviewDoc] = useState(null);
+
+    // formatear fecha solo para display
     const formatDate = useCallback((dateString) => {
-        if (!dateString) return 'No especificado';
-        return dayjs(dateString).format('DD [de] MMMM [de] YYYY');
+        if (!dateString) return "No especificado";
+        return dayjs(dateString).format("DD [de] MMMM [de] YYYY");
     }, []);
 
-    // Función para obtener todos los programas disponibles (para el multiselect de edición)
-
+    /* ========== Cargar datos del estudiante ========== */
     const fetchStudentData = useCallback(async () => {
+        if (!studentId) return;
         setLoading(true);
         try {
-            const response = await axios.get(`${API_URL}/students/${studentId}`);
-            const studentData = response.data;
+            const studentData = await getStudentById(studentId);
+
             setStudent(studentData);
+
             form.setFieldsValue({
-                ...studentData,
-                fecha_nacimiento: studentData.fecha_nacimiento ? dayjs(studentData.fecha_nacimiento) : null,
-                fecha_inscripcion: studentData.fecha_inscripcion ? dayjs(studentData.fecha_inscripcion) : null,
-                fecha_graduacion: studentData.fecha_graduacion ? dayjs(studentData.fecha_graduacion) : null,
-                programasIds: studentData.programas_asociados?.map(p => p.programa_id) || [],
+                // básicos
+                nombre: studentData.nombre,
+                apellido: studentData.apellido,
+                tipo_documento: studentData.tipo_documento,
+                numero_documento: studentData.numero_documento,
+                lugar_expedicion: studentData.lugar_expedicion,
+                fecha_nacimiento: studentData.fecha_nacimiento
+                    ? dayjs(studentData.fecha_nacimiento)
+                    : null,
+                lugar_nacimiento: studentData.lugar_nacimiento,
+
+                email: studentData.email,
+                telefono_llamadas: studentData.telefono_llamadas,
+                telefono_whatsapp: studentData.telefono_whatsapp,
+
+                modalidad_estudio: studentData.modalidad_estudio,
+                ultimo_curso_visto: studentData.ultimo_curso_visto,
+                matricula: studentData.matricula,
+                simat: studentData.simat,
+                estado_matricula: studentData.estado_matricula,
+                activo: studentData.activo,
+                eps: studentData.eps,
+                rh: studentData.rh,
+
+                fecha_inscripcion: studentData.fecha_inscripcion
+                    ? dayjs(studentData.fecha_inscripcion)
+                    : null,
+                fecha_graduacion: studentData.fecha_graduacion
+                    ? dayjs(studentData.fecha_graduacion)
+                    : null,
+
+                // programa (único) asociado
+                programa_id: studentData.programa_asociado?.programa_id,
+
+                // acudiente (mapeado a columnas reales de la tabla)
+                nombre_acudiente: studentData.acudiente?.nombre,
+                tipo_documento_acudiente: studentData.acudiente?.tipo_documento,
+                telefono_acudiente: studentData.acudiente?.telefono,
+                direccion_acudiente: studentData.acudiente?.direccion,
             });
         } catch (error) {
-            message.error('Error al cargar los datos del estudiante');
+            console.error(error);
+            message.error("Error al cargar los datos del estudiante");
         } finally {
             setLoading(false);
         }
     }, [studentId, form]);
-    // Obtener datos del estudiante y, si estamos editando, también todos los programas
+
+    /* ========== Cargar documentos del estudiante ========== */
+    const fetchStudentDocuments = useCallback(async () => {
+        if (!studentId) return;
+        setDocsLoading(true);
+        try {
+            const docs = await getStudentDocuments(studentId);
+            setDocuments(docs || []);
+        } catch (error) {
+            console.error(error);
+            message.error("Error al cargar los documentos del estudiante");
+        } finally {
+            setDocsLoading(false);
+        }
+    }, [studentId]);
+
+
+
     useEffect(() => {
         fetchStudentData();
-    }, [fetchStudentData]);
+        fetchStudentDocuments();
+    }, [fetchStudentData, fetchStudentDocuments]);
 
-
+    /* ========== Programas asignables por usuario ========== */
     const fetchUserAssignablePrograms = async () => {
-        const userId = localStorage.getItem('userId');
+        const userId = localStorage.getItem("userId");
         if (!userId) {
             message.error("No se pudo encontrar el ID de usuario.");
             return;
         }
         try {
-            const response = await axios.get(`${API_URL}/inventario/user/${userId}`);
-            setAllPrograms(response.data);
+            const response = await axios.get(
+                `${API_URL}/api/inventario/user/${userId}`
+            );
+            setAllPrograms(response.data || []);
         } catch (error) {
-            message.error('No se pudo cargar la lista de programas.');
+            console.error(error);
+            message.error("No se pudo cargar la lista de programas.");
         }
     };
 
-    const getCoordinatorStyle = useCallback((coordinator) => {
-        return 'px-2 py-1 rounded-full text-sm bg-blue-100 text-blue-800';
-    }, []);
-
-    const handleGraduate = async () => {
-        Modal.confirm({
-            title: '¿Confirmar graduación del estudiante?',
-            content: 'Esta acción marcará al estudiante como graduado.',
-            onOk: async () => {
-                try {
-                    await axios.put
-                        (`${API_URL}/students/${student.id}/graduate`
-                        );
-                    message.success('Estudiante graduado exitosamente');
-                    setStudent({ ...student, fecha_graduacion: new Date().toISOString() });
-                } catch (error) {
-                    console.error('Error al graduar el estudiante:', error);
-                    message.error('Error al graduar el estudiante');
-                }
-            },
-        });
-    };
-
-    const handleDelete = async () => {
-        Modal.confirm({
-            title: '¿Está seguro de que desea eliminar este estudiante?',
-            content: 'Esta acción no se puede deshacer.',
-            onOk: async () => {
-                try {
-                    await axios.delete(`${API_URL}/students/${student.id}`
-                    );
-                    message.success('Estudiante eliminado con éxito');
-                    window.location.href = '/inicio/students';
-                } catch (error) {
-                    console.error('Error al eliminar el estudiante:', error);
-                    message.error('Error al eliminar el estudiante');
-                }
-            },
-        });
-    };
+    /* ========== Acciones ========== */
 
     const handleWhatsAppClick = () => {
         let phoneNumber =
-            student?.telefono_whatsapp?.replace(/\D/g, '') ||
-            student?.telefono_llamadas?.replace(/\D/g, '');
+            student?.telefono_whatsapp?.replace(/\D/g, "") ||
+            student?.telefono_llamadas?.replace(/\D/g, "");
         if (!phoneNumber) {
-            message.error('No hay número de teléfono disponible');
+            message.error("No hay número de teléfono disponible");
             return;
         }
-        if (!phoneNumber.startsWith('57')) phoneNumber = `57${phoneNumber}`; // Asumiendo código de país de Colombia
-        window.open(`https://wa.me/${phoneNumber}`, '_blank');
+        if (!phoneNumber.startsWith("57")) phoneNumber = `57${phoneNumber}`;
+        window.open(`https://wa.me/${phoneNumber}`, "_blank");
     };
 
     const handleStartEditing = () => {
@@ -182,254 +205,765 @@ const StudentDetails = ({ studentId }) => {
         setIsEditing(true);
     };
 
+    const handleDeleteDocument = async (doc) => {
+        Modal.confirm({
+            title: "¿Eliminar documento?",
+            content: `¿Deseas eliminar el documento "${doc.nombre_original || doc.nombre}"?`,
+            okText: "Eliminar",
+            cancelText: "Cancelar",
+            okButtonProps: { danger: true },
+            onOk: async () => {
+                try {
+                    await deleteStudentDocument(studentId, doc.id);
+                    message.success("Documento eliminado correctamente");
+                    fetchStudentDocuments(); // refresca lista
+                } catch (error) {
+                    console.error("Error al eliminar documento:", error);
+                    message.error("Error al eliminar el documento");
+                }
+            },
+        });
+    };
+
+
     const handleSave = async () => {
         try {
-            // 1. Obtenemos los valores del formulario. 'values' ya contiene 'programasIds' con el array de IDs.
             const values = await form.validateFields();
 
-            // 2. Creamos el objeto para enviar al backend.
-            // Usamos el spread operator (...) para copiar todos los valores del formulario.
-            // 'programasIds' ya está incluido aquí correctamente.
-            const formattedValues = {
+            const payload = {
                 ...values,
-                // Formateamos las fechas como antes
-                fecha_nacimiento: values.fecha_nacimiento?.toISOString(),
-                fecha_inscripcion: values.fecha_inscripcion?.toISOString(),
-                fecha_graduacion: values.fecha_graduacion?.toISOString(),
+                fecha_nacimiento: values.fecha_nacimiento
+                    ? values.fecha_nacimiento.toISOString()
+                    : null,
+                fecha_inscripcion: values.fecha_inscripcion
+                    ? values.fecha_inscripcion.toISOString()
+                    : null,
+                fecha_graduacion: values.fecha_graduacion
+                    ? values.fecha_graduacion.toISOString()
+                    : null,
             };
 
-            // 3. (Opcional pero recomendado) Eliminamos campos que no deben ser actualizados en la tabla 'students'.
-            //    Tu backend podría ignorarlos, pero es más limpio no enviarlos.
-            delete formattedValues.programas_asociados; // Este es un objeto de visualización
-            delete formattedValues.coordinador_nombre;   // Este viene de un JOIN
-            delete formattedValues.monto_programa;      // Propiedad del programa, no del estudiante
+            delete payload.coordinador;
+            delete payload.programa_asociado;
 
-            // Para depurar, puedes verificar aquí lo que estás enviando:
-            console.log('Enviando al backend:', formattedValues);
+            console.log("Enviando al backend:", payload);
 
-            // 4. Enviamos la petición PUT con los datos correctos.
-            await axios.put(`${API_URL}/students/${student.id}`, formattedValues);
+            await updateStudent(student.id, payload);
 
-            // Refrescamos los datos del estudiante para mostrar la información actualizada
-            await fetchStudentData();
-
+            message.success("Estudiante actualizado exitosamente");
             setIsEditing(false);
-            message.success('Estudiante actualizado exitosamente');
-
+            fetchStudentData();
         } catch (error) {
-            // Manejo de errores mejorado para dar más contexto
-            const errorMessage = error.response?.data?.error || 'Ocurrió un error inesperado.';
-            console.error('Error al actualizar el estudiante:', error.response || error);
+            const errorMessage =
+                error.response?.data?.error || "Ocurrió un error inesperado.";
+            console.error("Error al actualizar el estudiante:", error);
             message.error(`Error al actualizar: ${errorMessage}`);
         }
     };
 
-
-    // Renderizado condicional de campos editables
-    const renderEditableField = (name, options = {}) => {
-        const { type = 'text', selectOptions = [], label } = options;
-
-        if (name === 'email') {
-            return (
-                <Form.Item
-                    name={name}
-                    label={label}
-                    rules={[
-                        { type: 'email', message: 'Por favor ingrese un correo electrónico válido' },
-                    ]}
-                >
-                    <Input placeholder="correo@ejemplo.com" allowClear />
-                </Form.Item>
+    const handleToggleCandidate = async (checked) => {
+        if (!student) return;
+        try {
+            await updateStudentPosibleGraduacion(student.id, checked);
+            setStudent((prev) => ({
+                ...prev,
+                posible_graduacion: checked,
+            }));
+            message.success(
+                checked
+                    ? "Marcado como candidato a grado"
+                    : "Marcado como no candidato"
             );
+        } catch (error) {
+            console.error(error);
+            message.error("Error al actualizar candidato a grado");
         }
-
-        if (type === 'select') {
-            return (
-                <Form.Item name={name} label={label}>
-                    <Select style={{ width: '100%' }} allowClear>
-                        {selectOptions.map((opt) => (
-                            <Option key={String(opt.value)} value={opt.value}> {/* Convertir key a string */}
-                                {opt.label}
-                            </Option>
-                        ))}
-                    </Select>
-                </Form.Item>
-            );
-        } else if (type === 'multiselect') {
-            return (
-                <Form.Item name={name} label={label}>
-                    <Select
-                        mode="multiple"
-                        style={{ width: '100%' }}
-                        placeholder="Seleccione programas"
-                        allowClear
-                    >
-                        {allPrograms.map((program) => ( // Usar allPrograms aquí
-                            <Option key={program.id} value={program.id}>
-                                {program.nombre}
-                            </Option>
-                        ))}
-                    </Select>
-                </Form.Item>
-            );
-        } else if (type === 'date') {
-            return (
-                <Form.Item name={name} label={label}>
-                    <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} />
-                </Form.Item>
-            );
-        } else if (type === 'number') {
-            return (
-                <Form.Item name={name} label={label}>
-                    <InputNumber
-                        style={{ width: '100%' }}
-                        formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                        parser={(value) => value.replace(/\$\s?|(,*)/g, '')}
-                    />
-                </Form.Item>
-            );
-        }
-        return (
-            <Form.Item name={name} label={label}>
-                <Input allowClear />
-            </Form.Item>
-        );
     };
 
-    // Renderizado de campos en modo vista/edición
-    const renderField = (label, value, name, options = {}) => {
+    const handleGraduate = async () => {
+        if (!student) return;
+        Modal.confirm({
+            title: "¿Confirmar graduación del estudiante?",
+            content: "Esta acción marcará al estudiante como graduado.",
+            onOk: async () => {
+                try {
+                    await axios.put(`${API_URL}/api/students/${student.id}/graduate`);
+                    message.success("Estudiante graduado exitosamente");
+                    setStudent((prev) => ({
+                        ...prev,
+                        fecha_graduacion: new Date().toISOString(),
+                    }));
+                    fetchStudentData();
+                } catch (error) {
+                    console.error("Error al graduar el estudiante:", error);
+                    message.error("Error al graduar el estudiante");
+                }
+            },
+        });
+    };
+
+    const handleDelete = async () => {
+        if (!student) return;
+        Modal.confirm({
+            title: "¿Está seguro de que desea eliminar este estudiante?",
+            content: "Esta acción no se puede deshacer.",
+            onOk: async () => {
+                try {
+                    await deleteStudentService(student.id);
+                    message.success("Estudiante eliminado con éxito");
+                    window.location.href = "/inicio/students";
+                } catch (error) {
+                    console.error("Error al eliminar el estudiante:", error);
+                    message.error("Error al eliminar el estudiante");
+                }
+            },
+        });
+    };
+
+    /* ========== Subida de documentos ========== */
+
+    // Upload con customRequest para controlar el envío con axios
+    const handleUploadDocument = async (options) => {
+        const { file, onSuccess, onError } = options;
+        if (!studentId) return;
+
+        try {
+            setUploadingDoc(true);
+
+            // 👇 usa el servicio correcto (usa /document, no /documents)
+            const data = await uploadStudentDocument(studentId, file);
+
+            message.success("Documento subido correctamente");
+            onSuccess && onSuccess(data);
+
+            // recargar lista
+            fetchStudentDocuments();
+        } catch (error) {
+            console.error("Error al subir documento:", error);
+            const msg = error.response?.data?.error || "Error al subir el documento";
+            message.error(msg);
+            onError && onError(error);
+        } finally {
+            setUploadingDoc(false);
+        }
+    };
+
+
+
+    const handlePreviewDocument = (doc) => {
+        setPreviewDoc(doc);
+        setPreviewVisible(true);
+    };
+
+    const closePreview = () => {
+        setPreviewVisible(false);
+        setPreviewDoc(null);
+    };
+
+    const getDocumentUrl = (doc) => {
+        // Si tu API ya devuelve una URL absoluta úsala directamente.
+        // Si devuelve una ruta relativa, la concatenas con API_URL.
+        if (doc.url?.startsWith("http")) return doc.url;
+        return `${API_URL}${doc.url || ""}`;
+    };
+
+    const renderPreviewContent = () => {
+        if (!previewDoc) return null;
+        const fileUrl = getDocumentUrl(previewDoc);
+        const mime = previewDoc.tipo_mime || previewDoc.mimetype || "";
+
+        // Imágenes
+        if (mime.startsWith("image/")) {
+            return (
+                <img
+                    src={fileUrl}
+                    alt={previewDoc.nombre_original || previewDoc.nombre}
+                    className="w-full h-[70vh] object-contain"
+                />
+            );
+        }
+
+        // PDFs
+        if (
+            mime === "application/pdf" ||
+            fileUrl.toLowerCase().endsWith(".pdf")
+        ) {
+            return (
+                <iframe
+                    src={fileUrl}
+                    title={previewDoc.nombre_original || previewDoc.nombre}
+                    className="w-full h-[70vh]"
+                />
+            );
+        }
+
+        // Otros tipos: mostramos un link para abrir en nueva pestaña
         return (
-            <div style={{ marginBottom: '16px' }}>
-                <Text strong style={{ display: 'block', marginBottom: '4px' }}>
-                    {label}
+            <div className="space-y-3">
+                <Text>
+                    No se puede previsualizar este tipo de archivo directamente, pero
+                    puedes abrirlo en otra pestaña.
                 </Text>
-                {isEditing ? (
-                    // Excluir 'programas_asociados' de la edición directa aquí,
-                    // ya que se maneja con el multiselect 'programas_asociados_ids'
-                    name !== 'programas_asociados' ? renderEditableField(name, { ...options, label }) : null
-                ) : (
-                    typeof value === 'object' && value !== null && !Array.isArray(value) ? value : <Text>{value || 'No especificado'}</Text>
-                )}
+                <div>
+                    <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 underline"
+                    >
+                        Abrir documento
+                    </a>
+                </div>
             </div>
         );
     };
 
-    // Renderizado del componente
+    /* ========== Renderizado condicional global ========== */
+
     if (loading) {
         return (
-            <div style={{ textAlign: 'center', padding: '50px' }}>
+            <div style={{ textAlign: "center", padding: "50px" }}>
                 <Spin size="large" />
-                <Text>Cargando...</Text>
+                <div>
+                    <Text>Cargando estudiante...</Text>
+                </div>
             </div>
         );
     }
 
     if (!student) {
         return (
-            <div style={{ textAlign: 'center', padding: '50px' }}>
+            <div style={{ textAlign: "center", padding: "50px" }}>
                 <Text>No se encontraron datos del estudiante</Text>
             </div>
         );
     }
 
+    const programaNombre = student.programa_asociado?.nombre_programa;
+    const coordinadorNombre = student.coordinador?.nombre;
+
     return (
         <div className="bg-slate-50 min-h-screen p-4 sm:p-6">
             <Form form={form} layout="vertical">
-                {/* --- ENCABEZADO --- */}
+                {/* ========== ENCABEZADO ========== */}
                 <header className="bg-white p-4 rounded-md border border-slate-200 mb-6 shadow-sm">
                     <div className="flex flex-wrap justify-between items-center gap-4">
                         <div className="flex items-center gap-4">
-                            <Avatar size={64} icon={<FaUserGraduate />} className="!bg-blue-500" />
+                            <Avatar
+                                size={64}
+                                icon={<FaUserGraduate />}
+                                className="!bg-blue-500"
+                            />
                             <div>
-                                <h1 className="text-xl font-bold text-slate-800 m-0">{student.nombre} {student.apellido}</h1>
+                                <h1 className="text-xl font-bold text-slate-800 m-0">
+                                    {student.nombre} {student.apellido}
+                                </h1>
                                 <div className="flex flex-wrap items-center gap-2 mt-1">
-                                    <Tag color={student.activo ? 'green' : 'red'}>{student.activo ? 'Activo' : 'Inactivo'}</Tag>
-                                    <Tag color={student.estado_matricula ? 'cyan' : 'orange'}>{student.estado_matricula ? 'Matrícula Paga' : 'Matrícula Pendiente'}</Tag>
+                                    <Tag color={student.activo ? "green" : "red"}>
+                                        {student.activo ? "Activo" : "Inactivo"}
+                                    </Tag>
+                                    <Tag color={student.estado_matricula ? "cyan" : "orange"}>
+                                        {student.estado_matricula
+                                            ? "Matrícula Paga"
+                                            : "Matrícula Pendiente"}
+                                    </Tag>
+                                    {typeof student.posible_graduacion === "boolean" && (
+                                        <Tag
+                                            color={
+                                                student.posible_graduacion ? "geekblue" : "default"
+                                            }
+                                        >
+                                            {student.posible_graduacion
+                                                ? "Candidato a grado"
+                                                : "No candidato"}
+                                        </Tag>
+                                    )}
+                                    {student.fecha_graduacion && (
+                                        <Tag color="purple">
+                                            Graduado el {formatDate(student.fecha_graduacion)}
+                                        </Tag>
+                                    )}
                                 </div>
+                                {coordinadorNombre && (
+                                    <div className="mt-1 text-xs text-slate-500">
+                                        Coordinador:{" "}
+                                        <span className="font-semibold">{coordinadorNombre}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
+
                         <div className="flex flex-wrap gap-2">
                             {isEditing ? (
                                 <>
                                     <Button onClick={() => setIsEditing(false)}>Cancelar</Button>
-                                    <Button type="primary" icon={<FaSave />} onClick={handleSave}>Guardar</Button>
+                                    <Button
+                                        type="primary"
+                                        icon={<FaSave />}
+                                        onClick={handleSave}
+                                    >
+                                        Guardar
+                                    </Button>
                                 </>
                             ) : (
                                 <>
-                                    <Button type="primary" icon={<FaUserEdit />} onClick={handleStartEditing}>Editar</Button>
-                                    <Button icon={<FaWhatsapp />} onClick={handleWhatsAppClick} className="!bg-green-500 !border-green-500 hover:!bg-green-600 !text-white">WhatsApp</Button>
-                                    <Button icon={<FaTrashAlt />} danger onClick={handleDelete}>Eliminar</Button>
+                                    <Button
+                                        type="primary"
+                                        icon={<FaUserEdit />}
+                                        onClick={handleStartEditing}
+                                    >
+                                        Editar
+                                    </Button>
+                                    <Button
+                                        icon={<FaWhatsapp />}
+                                        onClick={handleWhatsAppClick}
+                                        className="!bg-green-500 !border-green-500 hover:!bg-green-600 !text-white"
+                                    >
+                                        WhatsApp
+                                    </Button>
+                                    <Button icon={<FaTrashAlt />} danger onClick={handleDelete}>
+                                        Eliminar
+                                    </Button>
                                 </>
                             )}
                         </div>
                     </div>
                 </header>
 
-                {/* --- CUERPO PRINCIPAL (GRID) --- */}
+                {/* ========== CUERPO PRINCIPAL ========== */}
                 <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* --- COLUMNA 1 --- */}
                     <div className="space-y-6">
                         <InfoSection title="Información Personal">
-                            <EditableField label="Nombre" value={student.nombre} name="nombre" isEditing={isEditing} />
-                            <EditableField label="Apellido" value={student.apellido} name="apellido" isEditing={isEditing} />
-                            <EditableField label="Tipo Doc." value={student.tipo_documento} name="tipo_documento" isEditing={isEditing} type="select" options={[{ value: 'CC', label: 'Cédula' }, { value: 'TI', label: 'Tarjeta de Identidad' }, { value: 'CE', label: 'Cédula Extranjería' }]} />
-                            <EditableField label="Num. Doc." value={student.numero_documento} name="numero_documento" isEditing={isEditing} />
-                            <EditableField label="Fecha de Nac." value={student.fecha_nacimiento} name="fecha_nacimiento" isEditing={isEditing} type="date" />
-                            <EditableField label="Lugar de Nac." value={student.lugar_nacimiento} name="lugar_nacimiento" isEditing={isEditing} />
-                            <EditableField label="Lugar de Exp." value={student.lugar_expedicion} name="lugar_expedicion" isEditing={isEditing} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FieldItem
+                                    label="Nombre"
+                                    name="nombre"
+                                    value={student.nombre}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Apellido"
+                                    name="apellido"
+                                    value={student.apellido}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Tipo de documento"
+                                    name="tipo_documento"
+                                    value={student.tipo_documento}
+                                    isEditing={isEditing}
+                                >
+                                    <Select allowClear placeholder="Tipo de documento">
+                                        <Option value="CC">Cédula</Option>
+                                        <Option value="TI">Tarjeta de Identidad</Option>
+                                        <Option value="CE">Cédula de Extranjería</Option>
+                                    </Select>
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Número de documento"
+                                    name="numero_documento"
+                                    value={student.numero_documento}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Fecha de nacimiento"
+                                    name="fecha_nacimiento"
+                                    value={formatDate(student.fecha_nacimiento)}
+                                    isEditing={isEditing}
+                                >
+                                    <DatePicker format="YYYY-MM-DD" className="w-full" />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Lugar de nacimiento"
+                                    name="lugar_nacimiento"
+                                    value={student.lugar_nacimiento}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Lugar de expedición"
+                                    name="lugar_expedicion"
+                                    value={student.lugar_expedicion}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="EPS"
+                                    name="eps"
+                                    value={student.eps}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="RH"
+                                    name="rh"
+                                    value={student.rh}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+                            </div>
                         </InfoSection>
 
                         <InfoSection title="Información de Contacto">
-                            <EditableField label="Email" value={student.email} name="email" isEditing={isEditing} />
-                            <EditableField label="Tel. Llamadas" value={student.telefono_llamadas} name="telefono_llamadas" isEditing={isEditing} />
-                            <EditableField label="Tel. WhatsApp" value={student.telefono_whatsapp} name="telefono_whatsapp" isEditing={isEditing} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FieldItem
+                                    label="Email"
+                                    name="email"
+                                    value={student.email}
+                                    isEditing={isEditing}
+                                >
+                                    <Input placeholder="correo@ejemplo.com" allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Teléfono llamadas"
+                                    name="telefono_llamadas"
+                                    value={student.telefono_llamadas}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Teléfono WhatsApp"
+                                    name="telefono_whatsapp"
+                                    value={student.telefono_whatsapp}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+                            </div>
                         </InfoSection>
                     </div>
 
                     {/* --- COLUMNA 2 --- */}
                     <div className="space-y-6">
                         <InfoSection title="Información Académica y Administrativa">
-                            <EditableField label="Programas" value={
-                                <div className="flex flex-wrap gap-1">
-                                    {student.programas_asociados?.map(p => <Tag color="blue" key={p.programa_id}>{p.nombre_programa}</Tag>)}
-                                </div>
-                            } name="programasIds" isEditing={isEditing} type="multiselect" options={allPrograms} />
-                            <EditableField label="Modalidad" value={student.modalidad_estudio} name="modalidad_estudio" isEditing={isEditing} type="select" options={[{ value: 'Clases en Linea', label: 'En Línea' }, { value: 'Modulos por WhastApp', label: 'Módulos por WhatsApp' }]} />
-                            <EditableField label="Coordinador" value={student.coordinador_nombre} name="coordinador_id" isEditing={isEditing} type="select" options={[] /* Aquí deberías cargar la lista de coordinadores */} />
-                            <EditableField label="Último Curso Visto" value={student.ultimo_curso_visto} name="ultimo_curso_visto" isEditing={isEditing} />
-                            <EditableField label="Valor Matrícula" value={student.matricula} name="matricula" isEditing={isEditing} type="money" />
-                            <EditableField label="SIMAT" value={student.simat ? 'Sí' : 'No'} name="simat" isEditing={isEditing} type="select" options={[{ value: true, label: 'Sí' }, { value: false, label: 'No' }]} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FieldItem
+                                    label="Programa"
+                                    name="programa_id"
+                                    value={programaNombre}
+                                    isEditing={isEditing}
+                                >
+                                    <Select
+                                        placeholder="Seleccionar programa"
+                                        allowClear
+                                        showSearch
+                                        optionFilterProp="children"
+                                    >
+                                        {allPrograms.map((p) => (
+                                            <Option key={p.id} value={p.id}>
+                                                {p.nombre}
+                                            </Option>
+                                        ))}
+                                    </Select>
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Modalidad"
+                                    name="modalidad_estudio"
+                                    value={student.modalidad_estudio}
+                                    isEditing={isEditing}
+                                >
+                                    <Select placeholder="Seleccionar modalidad" allowClear>
+                                        <Option value="Clases en Linea">Clases en línea</Option>
+                                        <Option value="Modulos por WhastApp">
+                                            Módulos por WhatsApp
+                                        </Option>
+                                    </Select>
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Último curso visto"
+                                    name="ultimo_curso_visto"
+                                    value={student.ultimo_curso_visto}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Valor matrícula"
+                                    name="matricula"
+                                    value={
+                                        student.matricula
+                                            ? `$ ${Number(student.matricula).toLocaleString()}`
+                                            : null
+                                    }
+                                    isEditing={isEditing}
+                                >
+                                    <InputNumber
+                                        className="w-full"
+                                        min={0}
+                                        formatter={(value) =>
+                                            `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                                        }
+                                        parser={(value) => value.replace(/,/g, "")}
+                                    />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="SIMAT"
+                                    name="simat"
+                                    value={student.simat ? "Activo" : "No activo"}
+                                    isEditing={isEditing}
+                                >
+                                    <Select allowClear>
+                                        <Option value={true}>Activo</Option>
+                                        <Option value={false}>No activo</Option>
+                                    </Select>
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Estado matrícula"
+                                    name="estado_matricula"
+                                    value={
+                                        student.estado_matricula
+                                            ? "Matrícula paga"
+                                            : "Matrícula pendiente"
+                                    }
+                                    isEditing={isEditing}
+                                >
+                                    <Select allowClear>
+                                        <Option value={true}>Matrícula paga</Option>
+                                        <Option value={false}>Matrícula pendiente</Option>
+                                    </Select>
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Estado estudiante"
+                                    name="activo"
+                                    value={student.activo ? "Activo" : "Inactivo"}
+                                    isEditing={isEditing}
+                                >
+                                    <Select allowClear>
+                                        <Option value={true}>Activo</Option>
+                                        <Option value={false}>Inactivo</Option>
+                                    </Select>
+                                </FieldItem>
+                            </div>
                         </InfoSection>
 
                         <InfoSection title="Información de Acudiente">
-                            <EditableField label="Nombre Acudiente" value={student.nombre_acudiente} name="nombre_acudiente" isEditing={isEditing} />
-                            <EditableField label="Tel. Acudiente" value={student.telefono_acudiente} name="telefono_acudiente" isEditing={isEditing} />
-                            <EditableField label="Dirección Acudiente" value={student.direccion_acudiente} name="direccion_acudiente" isEditing={isEditing} />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FieldItem
+                                    label="Nombre acudiente"
+                                    name="nombre_acudiente"
+                                    value={student.acudiente?.nombre}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Tipo documento acudiente"
+                                    name="tipo_documento_acudiente"
+                                    value={student.acudiente?.tipo_documento}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Teléfono acudiente"
+                                    name="telefono_acudiente"
+                                    value={student.acudiente?.telefono}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Dirección acudiente"
+                                    name="direccion_acudiente"
+                                    value={student.acudiente?.direccion}
+                                    isEditing={isEditing}
+                                >
+                                    <Input allowClear />
+                                </FieldItem>
+                            </div>
                         </InfoSection>
                     </div>
 
-                    {/* --- COLUMNA 3 (Acciones y Fechas) --- */}
+                    {/* --- COLUMNA 3 --- */}
                     <div className="space-y-6">
                         <InfoSection title="Estado y Fechas Clave">
-                            <EditableField label="Fecha Inscripción" value={student.fecha_inscripcion} name="fecha_inscripcion" type="date" isEditing={isEditing} />
-                            <EditableField label="Fecha Graduación" value={student.fecha_graduacion} name="fecha_graduacion" type="date" isEditing={isEditing} />
+                            <div className="space-y-4">
+                                <FieldItem
+                                    label="Fecha de inscripción"
+                                    name="fecha_inscripcion"
+                                    value={formatDate(student.fecha_inscripcion)}
+                                    isEditing={isEditing}
+                                >
+                                    <DatePicker format="YYYY-MM-DD" className="w-full" />
+                                </FieldItem>
+
+                                <FieldItem
+                                    label="Fecha de graduación"
+                                    name="fecha_graduacion"
+                                    value={formatDate(student.fecha_graduacion)}
+                                    isEditing={isEditing}
+                                >
+                                    <DatePicker format="YYYY-MM-DD" className="w-full" />
+                                </FieldItem>
+
+                                <div className="flex items-center justify-between mt-2">
+                                    <Text className="text-xs text-slate-500 font-semibold">
+                                        Candidato a grado
+                                    </Text>
+                                    <Switch
+                                        checked={!!student.posible_graduacion}
+                                        onChange={handleToggleCandidate}
+                                        disabled={isEditing}
+                                    />
+                                </div>
+                            </div>
+                        </InfoSection>
+
+                        {/* ========== DOCUMENTOS DEL ESTUDIANTE ========== */}
+                        <InfoSection title="Documentos del Estudiante">
+                            <div className="space-y-4">
+                                <div>
+                                    <Text className="text-xs text-slate-500 font-semibold block mb-1">
+                                        Subir nuevo documento
+                                    </Text>
+                                    <Upload
+                                        multiple
+                                        showUploadList={false}
+                                        customRequest={handleUploadDocument}
+                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                                        disabled={uploadingDoc}
+                                    >
+                                        <Button loading={uploadingDoc} className="w-full">
+                                            Seleccionar archivo(s)
+                                        </Button>
+                                    </Upload>
+                                    <Text type="secondary" className="text-[11px]">
+                                        Puedes subir PDFs, imágenes u otros documentos relevantes
+                                        del estudiante.
+                                    </Text>
+                                </div>
+
+                                <div>
+                                    <Text className="text-xs text-slate-500 font-semibold block mb-2">
+                                        Documentos subidos
+                                    </Text>
+                                    {docsLoading ? (
+                                        <div className="flex items-center gap-2">
+                                            <Spin size="small" />
+                                            <Text>Cargando documentos...</Text>
+                                        </div>
+                                    ) : documents.length === 0 ? (
+                                        <Text type="secondary" className="text-sm">
+                                            No hay documentos registrados para este estudiante.
+                                        </Text>
+                                    ) : (
+                                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                                            {documents.map((doc) => (
+                                                <div
+                                                    key={doc.id}
+                                                    className="flex items-center justify-between px-3 py-2 border border-slate-200 rounded-md bg-slate-50"
+                                                >
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-medium text-slate-800">
+                                                            {doc.nombre_original || doc.nombre}
+                                                        </span>
+                                                        <span className="text-[11px] text-slate-500">
+                                                            {doc.tipo_mime || doc.mimetype || "Documento"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            size="small"
+                                                            onClick={() => handlePreviewDocument(doc)}
+                                                        >
+                                                            Ver
+                                                        </Button>
+                                                        <Button
+                                                            size="small"
+                                                            danger
+                                                            onClick={() => handleDeleteDocument(doc)}
+                                                        >
+                                                            Eliminar
+                                                        </Button>
+                                                    </div>
+
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </InfoSection>
 
                         <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm">
-                            <h3 className="text-sm font-semibold text-slate-800 mb-4">Acciones Rápidas</h3>
+                            <h3 className="text-sm font-semibold text-slate-800 mb-4">
+                                Acciones Rápidas
+                            </h3>
                             <div className="space-y-2">
-                                <Link to={`/inicio/payments/student/${student.id}`} className="w-full">
-                                    <Button icon={<FaFileInvoiceDollar />} disabled={isEditing} className="w-full">Ver Pagos del Estudiante</Button>
+                                <Link
+                                    to={`/inicio/payments/student/${student.id}`}
+                                    className="w-full block"
+                                >
+                                    <Button
+                                        icon={<FaFileInvoiceDollar />}
+                                        disabled={isEditing}
+                                        className="w-full"
+                                    >
+                                        Ver pagos del estudiante
+                                    </Button>
                                 </Link>
-                                <Button icon={<FaGraduationCap />} onClick={handleDelete} disabled={student.fecha_graduacion || isEditing} className="w-full">Marcar como Graduado</Button>
+
+                                <Button
+                                    icon={<FaGraduationCap />}
+                                    onClick={handleGraduate}
+                                    disabled={isEditing || !!student.fecha_graduacion}
+                                    className="w-full"
+                                >
+                                    Marcar como Graduado
+                                </Button>
                             </div>
                         </div>
                     </div>
                 </main>
             </Form>
+
+            {/* MODAL DE PREVISUALIZACIÓN DE DOCUMENTO */}
+            <Modal
+                open={previewVisible}
+                onCancel={closePreview}
+                footer={null}
+                width="80%"
+                title={
+                    previewDoc?.nombre_original ||
+                    previewDoc?.nombre ||
+                    "Vista previa de documento"
+                }
+            >
+                {renderPreviewContent()}
+            </Modal>
         </div>
     );
 };
-
 
 export default StudentDetails;

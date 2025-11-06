@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Table, Input, Button, Space, Popconfirm, message, Typography, Card } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import CreateProgramModal from "./addProgram";
-import { getPrograms, deleteProgram } from "../../services/studentService";
+import { getPrograms, deleteProgram } from "../../services/programs/programService";
 
 const { Title } = Typography;
 

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../AuthContext";
 import { Button, Input, Form, Typography, message } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
-import { login } from "../../services/studentService";
+import { login } from "../../services/auth/authService";
 
 const { Title, Text, Link } = Typography;
 
