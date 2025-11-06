@@ -111,7 +111,7 @@ const RootLayout = () => {
         const userId = localStorage.getItem('userId');
         if (!userId) return;
 
-        const response = await axios.get(`${API_AUTH}/users/${userId}`);
+        const response = await axios.get(`${API_URL}/api/users/${userId}`);
         if (response.data) {
           setUserProfile({
             name: response.data.name || 'Usuario',
