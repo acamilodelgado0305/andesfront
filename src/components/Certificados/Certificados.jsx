@@ -44,7 +44,7 @@ function Certificados() {
           return;
         }
         const response = await axios.get(
-          `https://clasit-backend-api-570877385695.us-central1.run.app/auth/users/${userId}`
+          `https://clasit-backend-api-570877385695.us-central1.run.app/api/users/${userId}`
         );
         setUserName(response.data.name || '');
       } catch (err) {

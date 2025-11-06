@@ -69,7 +69,7 @@ const Home = () => {
         }
 
         const response = await axios.get(
-          `https://clasit-backend-api-570877385695.us-central1.run.app/auth/users/${userId}`
+          `https://clasit-backend-api-570877385695.us-central1.run.app/api/users/${userId}`
         );
 
         if (response.data && response.data.app) {
