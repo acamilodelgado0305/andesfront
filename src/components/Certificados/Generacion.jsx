@@ -48,7 +48,7 @@ function Generacion() {
         try {
             // 1. Payload para el CERTIFICADO (JSON)
             const certPayload = JSON.stringify({ nombre, numeroDocumento, tipoDocumento });
-            const certPromise = fetch(`${API_BACKEND_URL}/generar-certificado`, {
+            const certPromise = fetch(`${API_BACKEND_URL}/api/generar-certificado`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: certPayload,
@@ -64,7 +64,7 @@ function Generacion() {
                 carnetPayload.append('foto', fotoFile);
             }
 
-            const carnetPromise = fetch(`${API_BACKEND_URL}/generar-carnet`, {
+            const carnetPromise = fetch(`${API_BACKEND_URL}/api/generar-carnet`, {
                 method: 'POST',
                 body: carnetPayload,
             });
