@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Table, InputNumber, Button, message, Input, Modal, Space } from 'antd';
 import axios from 'axios';
-import { getAllMaterias } from '../../GestionAcademica/Materias/serviceMateria';
+import { getAllMaterias } from '../../services/materias/serviceMateria';
 
 const { Title } = Typography;
 const { Search } = Input;

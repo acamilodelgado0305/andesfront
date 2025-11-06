@@ -30,7 +30,7 @@ backApi.interceptors.request.use(
  */
 export const getAllMaterias = async () => {
   try {
-    const response = await backApi.get("/materias");
+    const response = await backApi.get("/api/materias");
     return response.data;
   } catch (error) {
     console.error("Error al obtener las materias:", error);
@@ -45,7 +45,7 @@ export const getAllMaterias = async () => {
  */
 export const createMateria = async (materiaData) => {
   try {
-    const response = await backApi.post('/materias', materiaData);
+    const response = await backApi.post('/api/materias', materiaData);
     return response.data;
   } catch (error) {
     console.error('Error al crear la materia:', error);
@@ -61,7 +61,7 @@ export const createMateria = async (materiaData) => {
  */
 export const updateMateria = async (materiaId, materiaData) => {
   try {
-    const response = await backApi.put(`/materias/${materiaId}`, materiaData);
+    const response = await backApi.put(`/api/materias/${materiaId}`, materiaData);
     return response.data;
   } catch (error) {
     console.error(`Error al actualizar la materia con ID ${materiaId}:`, error);
@@ -76,7 +76,7 @@ export const updateMateria = async (materiaId, materiaData) => {
  */
 export const deleteMateria = async (materiaId) => {
   try {
-    const response = await backApi.delete(`/materias/${materiaId}`);
+    const response = await backApi.delete(`/api/materias/${materiaId}`);
     return response.data;
   } catch (error) {
     console.error(`Error al eliminar la materia con ID ${materiaId}:`, error);

@@ -26,7 +26,7 @@ const MENU_CONFIG = {
         { key: '/inicio/docentes', icon: <IdcardOutlined />, label: 'Docentes', path: '/inicio/docentes' },
         { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias', path: '/inicio/materias' },
         { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
-         { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas Académicos', path: '/inicio/programas' },
+        
       ],
     },
    
@@ -53,7 +53,7 @@ all: [
         { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
       ],
     },
-    { key: '/inicio/programas', icon: <BookOutlined />, label: 'Programas Académicos', path: '/inicio/programas' },
+
     { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
     { key: '/inicio/generacion', icon: <PaperClipOutlined />, label: 'Generación de Documentos', path: '/inicio/generacion' },
     { key: '/inicio/inventario', icon: <BuildOutlined />, label: 'Inventario', path: '/inicio/inventario' },

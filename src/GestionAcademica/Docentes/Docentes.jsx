@@ -3,7 +3,7 @@ import {
   Table, Button, Modal, Form, Input, message, Spin, Typography, Flex, Space, Popconfirm
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { getAllDocentes, createDocente, deleteDocente, updateDocente } from './serviceDocente';
+import { getAllDocentes, createDocente, deleteDocente, updateDocente } from '../../services/docentes/serviceDocente';
 
 const { Title } = Typography;
 const PRIMARY_COLOR = '#155153';

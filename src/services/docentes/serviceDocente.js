@@ -30,7 +30,7 @@ backApi.interceptors.request.use(
  */
 export const getAllDocentes = async () => {
   try {
-    const response = await backApi.get("/docentes");
+    const response = await backApi.get("/api/docentes");
     return response.data;
   } catch (error) {
     console.error("Error al obtener los docentes:", error);
@@ -45,7 +45,7 @@ export const getAllDocentes = async () => {
  */
 export const getDocenteById = async (docenteId) => {
   try {
-    const response = await backApi.get(`/docentes/${docenteId}`);
+    const response = await backApi.get(`/api/docentes/${docenteId}`);
     return response.data;
   } catch (error) {
     console.error(`Error al obtener el docente con ID ${docenteId}:`, error);
@@ -60,7 +60,7 @@ export const getDocenteById = async (docenteId) => {
  */
 export const createDocente = async (docenteData) => {
   try {
-    const response = await backApi.post('/docentes', docenteData);
+    const response = await backApi.post('/api/docentes', docenteData);
     return response.data;
   } catch (error) {
     console.error('Error al crear el docente:', error);
@@ -76,7 +76,7 @@ export const createDocente = async (docenteData) => {
  */
 export const updateDocente = async (docenteId, docenteData) => {
   try {
-    const response = await backApi.put(`/docentes/${docenteId}`, docenteData);
+    const response = await backApi.put(`/api/docentes/${docenteId}`, docenteData);
     return response.data;
   } catch (error) {
     console.error(`Error al actualizar el docente con ID ${docenteId}:`, error);
@@ -92,7 +92,7 @@ export const updateDocente = async (docenteId, docenteData) => {
 export const deleteDocente = async (docenteId) => {
   try {
     // La respuesta de un DELETE exitoso no suele tener cuerpo, pero la retornamos por si acaso.
-    const response = await backApi.delete(`/docentes/${docenteId}`);
+    const response = await backApi.delete(`/api/docentes/${docenteId}`);
     return response.data;
   } catch (error) {
     console.error(`Error al eliminar el docente con ID ${docenteId}:`, error);

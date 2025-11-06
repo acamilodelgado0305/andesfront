@@ -4,8 +4,8 @@ import {
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 // Importamos los servicios de materias y también el de docentes
-import { getAllMaterias, createMateria, updateMateria, deleteMateria } from './serviceMateria';
-import { getAllDocentes } from '../Docentes/serviceDocente';
+import { getAllMaterias, createMateria, updateMateria, deleteMateria } from '../../services/materias/serviceMateria';
+import { getAllDocentes } from '../../services/docentes/serviceDocente';
 
 const { Title } = Typography;
 const { Option } = Select;
