@@ -48,7 +48,7 @@ const IngresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValu
             }
             setLoadingInventario(true);
             try {
-                const apiUrl = `${import.meta.env.VITE_API_BACKEND}/inventario/user/${userId}`;
+                const apiUrl = `${import.meta.env.VITE_API_BACKEND}/api/inventario/user/${userId}`;
                 const response = await fetch(apiUrl);
                 if (response.ok) {
                     const data = await response.json();
