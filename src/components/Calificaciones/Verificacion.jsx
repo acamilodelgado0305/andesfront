@@ -286,7 +286,7 @@ const Verificacion = () => {
     // ✅ PASO 2: Configuramos la petición según el tipo de documento
     if (docType === 'certificado') {
       // Para el CERTIFICADO, usamos JSON
-      endpoint = `${API_BACKEND_URL}/generar-certificado`;
+      endpoint = `${API_BACKEND_URL}/api/generar-certificado`;
 
       const payload = {
         nombre: fullName,
@@ -301,7 +301,7 @@ const Verificacion = () => {
 
     } else { // docType === 'carnet'
       // Para el CARNET, usamos Form-Data
-      endpoint = `${API_BACKEND_URL}/generar-carnet`;
+      endpoint = `${API_BACKEND_URL}/api/generar-carnet`;
 
       const payload = new FormData();
       payload.append('nombre', fullName);
