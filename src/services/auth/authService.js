@@ -8,7 +8,7 @@ const BACK_URL =
 // Opcional: si quieres login SIN interceptor ni token:
 export const rawLogin = async (email, password) => {
   try {
-    const response = await axios.post(`${BACK_URL}/auth/login`, {
+    const response = await axios.post(`${BACK_URL}/login`, {
       email,
       password,
     });
@@ -22,7 +22,7 @@ export const rawLogin = async (email, password) => {
 // Login usando backApi (normalmente igual al anterior, pero pasando por interceptor)
 export const login = async (email, password) => {
   try {
-    const response = await backApi.post("/auth/login", { email, password });
+    const response = await backApi.post("/api/login", { email, password });
     return response.data; // aquí vendrá tu token, user, etc.
   } catch (error) {
     console.error("Error al iniciar sesión:", error);
