@@ -35,7 +35,7 @@ import {
   assignToSelectedStudents,
 } from "../../../services/evaluation/evaluationService";
 
-import { getProgramas  } from "../../../services/programas/programasService";
+import { getProgramas } from "../../../services/programas/programasService";
 import { getAllMaterias } from "../../../services/materias/serviceMateria";
 import { getStudents } from "../../../services/student/studentService";
 
@@ -66,6 +66,9 @@ const EvaluationBuilder = () => {
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [assignStudentsLoading, setAssignStudentsLoading] = useState(false);
 
+  // 👉 Observamos el campo tipo_pregunta para reaccionar en caliente
+  const tipoPregunta = Form.useWatch("tipo_pregunta", questionForm);
+
   const fetchEvaluation = async () => {
     try {
       setLoading(true);
@@ -84,7 +87,7 @@ const EvaluationBuilder = () => {
     try {
       setCatalogsLoading(true);
       const [invRes, matRes, stuRes] = await Promise.all([
-        getProgramas (),
+        getProgramas(),
         getAllMaterias(),
         getStudents(),
       ]);
@@ -107,10 +110,34 @@ const EvaluationBuilder = () => {
   }, [evaluationId]);
 
   const openQuestionModal = () => {
+    // Reseteamos el formulario y dejamos los valores iniciales
     questionForm.resetFields();
+    questionForm.setFieldsValue({
+      tipo_pregunta: "opcion_multiple",
+      es_obligatoria: true,
+      puntaje: 1,
+    });
     setOptions([{ texto: "", es_correcta: false }]);
     setQuestionModalVisible(true);
   };
+
+  // 👉 Cada vez que cambia el tipo de pregunta, ajustamos las opciones al instante
+  useEffect(() => {
+    if (!questionModalVisible) return;
+
+    if (tipoPregunta === "verdadero_falso") {
+      setOptions([
+        { texto: "Verdadero", es_correcta: false },
+        { texto: "Falso", es_correcta: false },
+      ]);
+    } else if (tipoPregunta === "opcion_multiple") {
+      setOptions((prev) =>
+        prev.length > 0 ? prev : [{ texto: "", es_correcta: false }]
+      );
+    } else if (tipoPregunta === "abierta") {
+      setOptions([]);
+    }
+  }, [tipoPregunta, questionModalVisible]);
 
   const handleAddOptionField = () => {
     setOptions((prev) => [...prev, { texto: "", es_correcta: false }]);
@@ -160,6 +187,7 @@ const EvaluationBuilder = () => {
       message.success("Pregunta creada");
       setQuestionModalVisible(false);
       questionForm.resetFields();
+      setOptions([{ texto: "", es_correcta: false }]);
       fetchEvaluation();
     } catch (err) {
       if (err?.errorFields) return;
@@ -340,7 +368,7 @@ const EvaluationBuilder = () => {
             </Row>
           </Card>
 
-          {/* Card de asignación tipo "configuración" a la derecha de Forms */}
+          {/* Card de asignación */}
           <Card
             className="gf-assign-card"
             bordered={false}
@@ -362,8 +390,7 @@ const EvaluationBuilder = () => {
                   >
                     {programs.map((p) => (
                       <Option key={p.id} value={p.id}>
-                        {p.nombre}{" "}
-                        {p.tipo_programa ? `(${p.tipo_programa})` : ""}
+                        {p.nombre} {p.tipo_programa ? `(${p.tipo_programa})` : ""}
                       </Option>
                     ))}
                   </Select>
@@ -384,7 +411,6 @@ const EvaluationBuilder = () => {
                       estudiante_programas
                     </Button>
                   </Space>
-                 
                 </Space>
               </Col>
 
@@ -407,9 +433,7 @@ const EvaluationBuilder = () => {
                       <Option key={s.id} value={s.id}>
                         {s.name || s.nombre || ""}{" "}
                         {s.last_name || s.apellido || ""}{" "}
-                        {s.document_number
-                          ? ` - ${s.document_number}`
-                          : ""}
+                        {s.document_number ? ` - ${s.document_number}` : ""}
                       </Option>
                     ))}
                   </Select>
@@ -431,7 +455,7 @@ const EvaluationBuilder = () => {
             </Row>
           </Card>
 
-          {/* Lista de preguntas: cada una como card al estilo Forms */}
+          {/* Lista de preguntas */}
           <div className="gf-questions-container">
             {questions.length === 0 && (
               <div className="gf-empty-questions">
@@ -467,10 +491,7 @@ const EvaluationBuilder = () => {
                     {q.opciones && q.opciones.length > 0 && (
                       <div className="gf-question-options">
                         {q.opciones.map((opt) => (
-                          <div
-                            key={opt.id}
-                            className="gf-option-row"
-                          >
+                          <div key={opt.id} className="gf-option-row">
                             <div className="gf-option-bullet" />
                             <span className="gf-option-text">
                               {opt.es_correcta && (
@@ -523,7 +544,7 @@ const EvaluationBuilder = () => {
         onClick={openQuestionModal}
       />
 
-      {/* MODAL PREGUNTA (diseñado tipo card de Forms) */}
+      {/* MODAL PREGUNTA */}
       <Modal
         open={questionModalVisible}
         title="Nueva pregunta"
@@ -561,9 +582,7 @@ const EvaluationBuilder = () => {
                 >
                   <Select>
                     <Option value="opcion_multiple">Opción múltiple</Option>
-                    <Option value="verdadero_falso">
-                      Verdadero / Falso
-                    </Option>
+                    <Option value="verdadero_falso">Verdadero / Falso</Option>
                     <Option value="abierta">Abierta</Option>
                   </Select>
                 </Form.Item>
@@ -604,8 +623,9 @@ const EvaluationBuilder = () => {
             </Row>
           </Form>
 
+          {/* Opciones de respuesta, solo para opción múltiple o VF */}
           {["opcion_multiple", "verdadero_falso"].includes(
-            questionForm.getFieldValue("tipo_pregunta")
+            tipoPregunta || "opcion_multiple"
           ) && (
             <>
               <Divider />
@@ -624,37 +644,39 @@ const EvaluationBuilder = () => {
                     onChange={(e) =>
                       handleOptionChange(index, "texto", e.target.value)
                     }
+                    disabled={tipoPregunta === "verdadero_falso"} // para no cambiar los textos VF
                   />
-                  <span className="gf-option-correct-label">
-                    Correcta
-                  </span>
+                  <span className="gf-option-correct-label">Correcta</span>
                   <Switch
                     checked={opt.es_correcta}
                     onChange={(checked) =>
                       handleOptionChange(index, "es_correcta", checked)
                     }
                   />
-                  {options.length > 1 && (
-                    <Button
-                      danger
-                      size="small"
-                      onClick={() => handleRemoveOptionField(index)}
-                    >
-                      X
-                    </Button>
-                  )}
+                  {options.length > 1 &&
+                    tipoPregunta === "opcion_multiple" && (
+                      <Button
+                        danger
+                        size="small"
+                        onClick={() => handleRemoveOptionField(index)}
+                      >
+                        X
+                      </Button>
+                    )}
                 </div>
               ))}
 
-              <Button
-                style={{ marginTop: 8 }}
-                type="dashed"
-                block
-                icon={<PlusOutlined />}
-                onClick={handleAddOptionField}
-              >
-                Agregar opción
-              </Button>
+              {tipoPregunta === "opcion_multiple" && (
+                <Button
+                  style={{ marginTop: 8 }}
+                  type="dashed"
+                  block
+                  icon={<PlusOutlined />}
+                  onClick={handleAddOptionField}
+                >
+                  Agregar opción
+                </Button>
+              )}
             </>
           )}
         </Card>
