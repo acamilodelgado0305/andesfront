@@ -20,11 +20,12 @@ import StudentRegistrationFormMauricio from "./components/PublicForms/formMauric
 import StudentRegistrationFormMarily from "./components/PublicForms/formMarily";
 import StudentRegistrationFormJesus from "./components/PublicForms/formJesus";
 import Certificados from "./components/Certificados/Certificados";
-import StudentInformacion from "./components/Students/StudentInformacion"; // Asegúrate de que esté importado
+import StudentInformacion from "./components/Students/StudentInformacion";
 import Calificaciones from "./components/Calificaciones/Calificaciones";
 import Bachillerato from "./components/Calificaciones/Bachillerato";
 import CursosTecnicos from "./components/Calificaciones/CursosTecnicos";
 import StudentReportPortal from "./components/PublicForms/StudentReportPortal";
+import StudentLoginForm from "./components/PublicForms/StudentLoginForm";
 import Sales from "./sales/Sales";
 import Generacion from "./components/Certificados/Generacion";
 import DashboardClients from "./components/admin/DashboardClients";
@@ -34,6 +35,12 @@ import Materias from "./GestionAcademica/Materias/Materias";
 import Docentes from "./GestionAcademica/Docentes/Docentes";
 import ConsultaPreRegistro from "./components/Calificaciones/ConsultaPreRegistro";
 
+// ✅ Evaluaciones (ADMIN + ESTUDIANTE)
+import AdminEvaluationPage from "./components/Evaluations/Admin/AdminEvaluationsPage";
+import EvaluationBuilder from "./components/Evaluations/Admin/EvaluationBuilder";
+import StudentAssignmentsPage from "./components/Evaluations/Student/StudentAssignmentsPage";
+import TakeEvaluationPage from "./components/Evaluations/Student/TakeEvaluationPage";
+import MyStudentEvaluationsPage from "./components/Evaluations/MyStudentEvaluationsPage";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -61,8 +68,21 @@ const App = () => (
           <Route path="/Mauriciopulido" element={<StudentRegistrationFormMauricio />} />
           <Route path="/Jesusbenitez" element={<StudentRegistrationFormJesus />} />
           <Route path="/incase" element={<StudentRegistrationFormMarily />} />
-                <Route path="/sales" element={<Sales />} />
-          {/* Rutas principales */}
+          <Route path="/sales" element={<Sales />} />
+
+          {/* 🔹 Portal estudiante: evaluaciones */}
+          <Route
+            path="/evaluaciones/mias"
+            element={<MyStudentEvaluationsPage />}
+          />
+          <Route
+            path="/evaluaciones/asignacion/:assignmentId"
+            element={<TakeEvaluationPage />}
+          />
+
+
+
+          {/* Rutas principales (área interna, con layout Root) */}
           <Route path="/inicio" element={<Root />}>
             <Route index element={<Home />} />
             <Route path="dashboard" element={<Home />} />
@@ -70,16 +90,26 @@ const App = () => (
             <Route path="programas" element={<Programs />} />
             <Route path="materias" element={<Materias />} />
             <Route path="docentes" element={<Docentes />} />
+
+            {/* 🔹 Admin evaluaciones */}
+            <Route path="evaluaciones" element={<AdminEvaluationPage />} />
+            <Route
+              path="evaluaciones/:evaluationId/builder"
+              element={<EvaluationBuilder />}
+            />
+
             <Route path="adminclients" element={<DashboardClients />} />
-            
             <Route path="calificaciones" element={<Calificaciones />} />
             <Route path="calificaciones/bachillerato" element={<Bachillerato />} />
-            <Route path="calificaciones/cursos-tecnicos" element={<CursosTecnicos />} />
+            <Route
+              path="calificaciones/cursos-tecnicos"
+              element={<CursosTecnicos />}
+            />
             <Route path="certificados" element={<Certificados />} />
             <Route path="generacion" element={<Generacion />} />
             <Route path="inventario" element={<Inventario />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
-            <Route path="students/view/:id" element={<StudentInformacion />} /> {/* Nueva ruta */}
+            <Route path="students/view/:id" element={<StudentInformacion />} />
           </Route>
 
           {/* Ruta de error */}

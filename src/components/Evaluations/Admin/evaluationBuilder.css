@@ -1,0 +1,263 @@
+/* src/components/admin/evaluaciones/evaluationBuilder.css */
+
+.gf-page {
+  min-height: 100vh;
+  background-color: #f1f3f4;
+  font-family: "Roboto", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+.gf-header-bar {
+  background: linear-gradient(90deg, #673ab7, #5e35b1);
+  height: 80px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.22);
+  display: flex;
+  align-items: center;
+}
+
+.gf-header-content {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  color: #fff;
+}
+
+.gf-back-button.ant-btn {
+  border: none;
+  background: transparent;
+  color: #fff;
+  box-shadow: none;
+  padding-left: 0;
+}
+
+.gf-back-button.ant-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.gf-header-title {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.gf-body {
+  display: flex;
+  justify-content: center;
+  padding: 24px 8px 72px;
+}
+
+.gf-main-column {
+  width: 100%;
+  max-width: 768px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Card principal del formulario */
+.gf-form-card {
+  border-radius: 8px !important;
+  border-top: 8px solid #673ab7 !important;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3),
+    0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  background-color: #fff;
+}
+
+.gf-form-title-input {
+  border: none !important;
+  border-radius: 0;
+  padding-left: 0;
+  padding-right: 0;
+  font-size: 26px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  box-shadow: none !important;
+}
+
+.gf-form-title-input[readonly] {
+  background-color: transparent;
+  cursor: default;
+}
+
+.gf-form-description-input {
+  border: none !important;
+  border-radius: 0;
+  padding-left: 0;
+  padding-right: 0;
+  box-shadow: none !important;
+  background-color: transparent;
+  resize: none;
+}
+
+.gf-meta-item {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+}
+
+.gf-meta-label {
+  font-size: 11px;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gf-meta-value {
+  font-size: 13px;
+}
+
+/* Card de configuración / asignación */
+.gf-assign-card {
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3),
+    0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  background-color: #fff;
+}
+
+.gf-section-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.gf-help-text {
+  font-size: 11px;
+  color: #5f6368;
+}
+
+/* Preguntas */
+.gf-questions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gf-empty-questions {
+  font-size: 13px;
+  color: #5f6368;
+  padding: 16px 8px;
+  text-align: center;
+}
+
+.gf-question-card-wrapper {
+  padding: 0 !important;
+  border: none !important;
+}
+
+.gf-question-card {
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3),
+    0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  background-color: #fff;
+}
+
+.gf-question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.gf-question-text {
+  margin-bottom: 8px;
+}
+
+.gf-question-options {
+  margin-top: 8px;
+}
+
+.gf-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.gf-option-row-modal {
+  padding: 4px 0;
+}
+
+.gf-option-bullet {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #c4c4c4;
+  flex-shrink: 0;
+}
+
+.gf-option-text {
+  flex: 1;
+  font-size: 13px;
+}
+
+.gf-option-correct-label {
+  font-size: 12px;
+  color: #5f6368;
+}
+
+/* Footer de pregunta */
+.gf-question-footer {
+  margin-top: 12px;
+  text-align: right;
+}
+
+/* FAB (botón flotante) tipo Google Forms */
+.gf-fab-add-question {
+  position: fixed;
+  right: 32px;
+  bottom: 32px;
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 50% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #673ab7 !important;
+  border: none !important;
+  box-shadow: 0 3px 5px rgba(60, 64, 67, 0.3),
+    0 1px 18px rgba(60, 64, 67, 0.15);
+  z-index: 50;
+}
+
+.gf-fab-add-question:hover {
+  background-color: #5e35b1 !important;
+}
+
+/* Modal pregunta */
+.gf-question-modal .ant-modal-content {
+  border-radius: 8px;
+}
+
+.gf-question-modal-card {
+  border-radius: 8px !important;
+  border-top: 6px solid #673ab7 !important;
+}
+
+.gf-modal-options-header {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .gf-header-content {
+    padding: 0 12px;
+  }
+
+  .gf-body {
+    padding: 16px 4px 72px;
+  }
+
+  .gf-main-column {
+    max-width: 100%;
+  }
+
+  .gf-fab-add-question {
+    right: 16px;
+    bottom: 16px;
+  }
+}

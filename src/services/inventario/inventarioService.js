@@ -41,3 +41,14 @@ export const deleteInventario = async (ids) => {
   });
   return response.data;
 };
+
+
+// Obtener la lista de programas académicos desde inventario
+// (los usamos en los selects de Evaluaciones)
+export const getInventarioProgramas = async () => {
+  // Ahora mismo usamos el mismo endpoint general de inventario.
+  // Si más adelante creas un endpoint específico para "programas",
+  // solo actualizas esta URL.
+  const response = await backApi.get("/api/inventario");
+  return response.data;
+};
