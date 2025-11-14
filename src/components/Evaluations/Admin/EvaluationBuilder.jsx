@@ -22,6 +22,7 @@ import {
   DeleteOutlined,
   ArrowLeftOutlined,
   SendOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import { useParams, useNavigate } from "react-router-dom";
 
@@ -33,6 +34,7 @@ import {
   assignByMainProgram,
   assignByStudentPrograms,
   assignToSelectedStudents,
+  updateQuestion, // 👈 ya está importado
 } from "../../../services/evaluation/evaluationService";
 
 import { getProgramas } from "../../../services/programas/programasService";
@@ -54,6 +56,10 @@ const EvaluationBuilder = () => {
   const [questionModalVisible, setQuestionModalVisible] = useState(false);
   const [questionForm] = Form.useForm();
   const [options, setOptions] = useState([{ texto: "", es_correcta: false }]);
+
+  // 👇 NUEVO: estado para saber si estamos editando o creando
+  const [editingQuestion, setEditingQuestion] = useState(null);
+  const [savingQuestion, setSavingQuestion] = useState(false);
 
   const [assignProgramId, setAssignProgramId] = useState(null);
   const [assignLoading, setAssignLoading] = useState(false);
@@ -109,8 +115,8 @@ const EvaluationBuilder = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evaluationId]);
 
-  const openQuestionModal = () => {
-    // Reseteamos el formulario y dejamos los valores iniciales
+  const resetQuestionModalState = () => {
+    setEditingQuestion(null);
     questionForm.resetFields();
     questionForm.setFieldsValue({
       tipo_pregunta: "opcion_multiple",
@@ -118,6 +124,46 @@ const EvaluationBuilder = () => {
       puntaje: 1,
     });
     setOptions([{ texto: "", es_correcta: false }]);
+  };
+
+  const openQuestionModal = () => {
+    resetQuestionModalState();
+    setQuestionModalVisible(true);
+  };
+
+  // 👇 NUEVO: abrir modal en modo edición
+  const openEditQuestionModal = (question) => {
+    setEditingQuestion(question || null);
+
+    // Seteamos los valores básicos
+    questionForm.setFieldsValue({
+      enunciado: question.enunciado,
+      tipo_pregunta: question.tipo_pregunta,
+      es_obligatoria: question.es_obligatoria,
+      puntaje: Number(question.puntaje || 1),
+      orden: question.orden,
+    });
+
+    // Preparamos las opciones existentes (si las hay)
+    let initialOptions = [];
+    if (question.opciones && question.opciones.length > 0) {
+      initialOptions = question.opciones
+        .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+        .map((opt) => ({
+          id: opt.id, // 👈 guardamos id para saber cuáles existen ya
+          texto: opt.texto,
+          es_correcta: opt.es_correcta,
+        }));
+    } else if (question.tipo_pregunta === "verdadero_falso") {
+      initialOptions = [
+        { texto: "Verdadero", es_correcta: false },
+        { texto: "Falso", es_correcta: false },
+      ];
+    } else if (question.tipo_pregunta === "opcion_multiple") {
+      initialOptions = [{ texto: "", es_correcta: false }];
+    }
+
+    setOptions(initialOptions);
     setQuestionModalVisible(true);
   };
 
@@ -125,6 +171,30 @@ const EvaluationBuilder = () => {
   useEffect(() => {
     if (!questionModalVisible) return;
 
+    // Si estamos editando, NO sobreescribimos las opciones que ya trajimos,
+    // a menos que no exista ninguna.
+    if (editingQuestion) {
+      if (
+        (tipoPregunta === "verdadero_falso" ||
+          tipoPregunta === "opcion_multiple") &&
+        options.length === 0
+      ) {
+        if (tipoPregunta === "verdadero_falso") {
+          setOptions([
+            { texto: "Verdadero", es_correcta: false },
+            { texto: "Falso", es_correcta: false },
+          ]);
+        } else if (tipoPregunta === "opcion_multiple") {
+          setOptions([{ texto: "", es_correcta: false }]);
+        }
+      }
+      if (tipoPregunta === "abierta") {
+        setOptions([]);
+      }
+      return;
+    }
+
+    // 👉 Comportamiento normal cuando estamos creando
     if (tipoPregunta === "verdadero_falso") {
       setOptions([
         { texto: "Verdadero", es_correcta: false },
@@ -137,7 +207,7 @@ const EvaluationBuilder = () => {
     } else if (tipoPregunta === "abierta") {
       setOptions([]);
     }
-  }, [tipoPregunta, questionModalVisible]);
+  }, [tipoPregunta, questionModalVisible, editingQuestion, options.length]);
 
   const handleAddOptionField = () => {
     setOptions((prev) => [...prev, { texto: "", es_correcta: false }]);
@@ -157,6 +227,8 @@ const EvaluationBuilder = () => {
 
   const handleSaveQuestion = async () => {
     try {
+      setSavingQuestion(true);
+
       const values = await questionForm.validateFields();
       const { enunciado, tipo_pregunta, es_obligatoria, puntaje, orden } =
         values;
@@ -169,30 +241,76 @@ const EvaluationBuilder = () => {
         opcionesToSend = options
           .filter((opt) => opt.texto && opt.texto.trim() !== "")
           .map((opt, idx) => ({
+            id: opt.id, // 👈 si existe, la mandamos para que el backend sepa cuál es
             texto: opt.texto.trim(),
             es_correcta: !!opt.es_correcta,
             orden: idx + 1,
           }));
       }
 
-      await addQuestionWithOptions(evaluationId, {
-        enunciado,
-        tipo_pregunta,
-        es_obligatoria,
-        puntaje,
-        orden,
-        opciones: opcionesToSend,
-      });
+      if (editingQuestion) {
+        // --------- MODO EDICIÓN ---------
+        // 1. Detectamos opciones eliminadas
+        const originalOptionIds = (editingQuestion.opciones || []).map(
+          (o) => o.id
+        );
+        const currentOptionIds = opcionesToSend
+          .map((o) => o.id)
+          .filter((id) => !!id);
+        const removedOptionIds = originalOptionIds.filter(
+          (id) => !currentOptionIds.includes(id)
+        );
 
-      message.success("Pregunta creada");
+        // 2. Actualizamos la pregunta (y las opciones que se manden)
+        //    IMPORTANTE: ajusta si tu servicio usa otra firma
+        await updateQuestion(editingQuestion.id, {
+          enunciado,
+          tipo_pregunta,
+          es_obligatoria,
+          puntaje,
+          orden,
+          opciones: opcionesToSend,
+        });
+
+        // 3. Eliminamos en backend las opciones que ya no existen
+        for (const optId of removedOptionIds) {
+          try {
+            await deleteOption(optId);
+          } catch (e) {
+            console.error("Error eliminando opción", e);
+          }
+        }
+
+        message.success("Pregunta actualizada");
+      } else {
+        // --------- MODO CREACIÓN ---------
+        await addQuestionWithOptions(evaluationId, {
+          enunciado,
+          tipo_pregunta,
+          es_obligatoria,
+          puntaje,
+          orden,
+          opciones: opcionesToSend,
+        });
+        message.success("Pregunta creada");
+      }
+
       setQuestionModalVisible(false);
-      questionForm.resetFields();
-      setOptions([{ texto: "", es_correcta: false }]);
+      resetQuestionModalState();
       fetchEvaluation();
     } catch (err) {
-      if (err?.errorFields) return;
+      if (err?.errorFields) {
+        // error de validación del form
+        return;
+      }
       console.error(err);
-      message.error("Error al guardar la pregunta");
+      message.error(
+        editingQuestion
+          ? "Error al actualizar la pregunta"
+          : "Error al guardar la pregunta"
+      );
+    } finally {
+      setSavingQuestion(false);
     }
   };
 
@@ -215,7 +333,7 @@ const EvaluationBuilder = () => {
     });
   };
 
-  const handleDeleteOption = (optionId) => {
+  const handleDeleteOptionInList = (optionId) => {
     Modal.confirm({
       title: "Eliminar opción",
       content: "¿Seguro que deseas eliminar esta opción?",
@@ -390,7 +508,8 @@ const EvaluationBuilder = () => {
                   >
                     {programs.map((p) => (
                       <Option key={p.id} value={p.id}>
-                        {p.nombre} {p.tipo_programa ? `(${p.tipo_programa})` : ""}
+                        {p.nombre}{" "}
+                        {p.tipo_programa ? `(${p.tipo_programa})` : ""}
                       </Option>
                     ))}
                   </Select>
@@ -448,7 +567,8 @@ const EvaluationBuilder = () => {
                   </Button>
 
                   <small className="gf-help-text">
-                    Ideal para grupos pequeños, recuperaciones o pruebas piloto.
+                    Ideal para grupos pequeños, recuperaciones o pruebas
+                    piloto.
                   </small>
                 </Space>
               </Col>
@@ -508,7 +628,7 @@ const EvaluationBuilder = () => {
                               type="link"
                               danger
                               size="small"
-                              onClick={() => handleDeleteOption(opt.id)}
+                              onClick={() => handleDeleteOptionInList(opt.id)}
                             >
                               eliminar
                             </Button>
@@ -518,14 +638,23 @@ const EvaluationBuilder = () => {
                     )}
 
                     <div className="gf-question-footer">
-                      <Button
-                        danger
-                        size="small"
-                        icon={<DeleteOutlined />}
-                        onClick={() => handleDeleteQuestion(q.id)}
-                      >
-                        Eliminar pregunta
-                      </Button>
+                      <Space>
+                        <Button
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => openEditQuestionModal(q)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          danger
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          onClick={() => handleDeleteQuestion(q.id)}
+                        >
+                          Eliminar pregunta
+                        </Button>
+                      </Space>
                     </div>
                   </Card>
                 </List.Item>
@@ -547,11 +676,15 @@ const EvaluationBuilder = () => {
       {/* MODAL PREGUNTA */}
       <Modal
         open={questionModalVisible}
-        title="Nueva pregunta"
-        okText="Guardar"
+        title={editingQuestion ? "Editar pregunta" : "Nueva pregunta"}
+        okText={editingQuestion ? "Actualizar" : "Guardar"}
         cancelText="Cancelar"
-        onCancel={() => setQuestionModalVisible(false)}
+        onCancel={() => {
+          setQuestionModalVisible(false);
+          resetQuestionModalState();
+        }}
         onOk={handleSaveQuestion}
+        confirmLoading={savingQuestion}
         destroyOnClose
         className="gf-question-modal"
       >
