@@ -66,7 +66,7 @@ export const updateQuestion = async (questionId, payload) => {
 // Eliminar pregunta
 export const deleteQuestion = async (questionId) => {
   const response = await backApi.delete(
-    `/api/evaluaciones/preguntas/${questionId}`
+    `/api/preguntas/${questionId}`
   );
   return response.data;
 };
