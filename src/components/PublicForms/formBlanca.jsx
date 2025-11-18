@@ -18,8 +18,8 @@ const DEFAULT_COORDINATOR_ID = 4;
 const getInventarioByUser = async (userId) => {
     const API_BASE_URL = import.meta.env.VITE_API_BACKEND || "https://clasit-backend-api-570877385695.us-central1.run.app";
     try {
-        console.log(`Intentando cargar inventario para user ID: ${userId} desde ${API_BASE_URL}/inventario/user/${userId}`);
-        const response = await fetch(`${API_BASE_URL}/inventario/user/${userId}`, {
+        console.log(`Intentando cargar inventario para user ID: ${userId} desde ${API_BASE_URL}/api/programas`);
+        const response = await fetch(`${API_BASE_URL}/api/programas`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",

@@ -32,7 +32,9 @@ import {
     updateStudent,
     updateStudentPosibleGraduacion,
     deleteStudent as deleteStudentService,
-    uploadStudentDocument, getStudentDocuments, deleteStudentDocument
+    uploadStudentDocument,
+    getStudentDocuments,
+    deleteStudentDocument,
 } from "../../services/student/studentService";
 
 const API_URL = import.meta.env.VITE_API_BACKEND;
@@ -97,6 +99,12 @@ const StudentDetails = ({ studentId }) => {
 
             setStudent(studentData);
 
+            // 🔥 CAMBIO: obtener IDs de programas asociados para el formulario
+            const programasIdsFromStudent =
+                (studentData.programas_asociados || []).map(
+                    (p) => p.programa_id
+                ) || [];
+
             form.setFieldsValue({
                 // básicos
                 nombre: studentData.nombre,
@@ -129,8 +137,8 @@ const StudentDetails = ({ studentId }) => {
                     ? dayjs(studentData.fecha_graduacion)
                     : null,
 
-                // programa (único) asociado
-                programa_id: studentData.programa_asociado?.programa_id,
+                // 🔥 CAMBIO: ahora usamos programasIds (array) en vez de programa_id único
+                programasIds: programasIdsFromStudent,
 
                 // acudiente (mapeado a columnas reales de la tabla)
                 nombre_acudiente: studentData.acudiente?.nombre,
@@ -161,8 +169,6 @@ const StudentDetails = ({ studentId }) => {
         }
     }, [studentId]);
 
-
-
     useEffect(() => {
         fetchStudentData();
         fetchStudentDocuments();
@@ -176,9 +182,7 @@ const StudentDetails = ({ studentId }) => {
             return;
         }
         try {
-            const response = await axios.get(
-                `${API_URL}/api/inventario/user/${userId}`
-            );
+            const response = await axios.get(`${API_URL}/api/programas`);
             setAllPrograms(response.data || []);
         } catch (error) {
             console.error(error);
@@ -225,7 +229,6 @@ const StudentDetails = ({ studentId }) => {
         });
     };
 
-
     const handleSave = async () => {
         try {
             const values = await form.validateFields();
@@ -243,9 +246,11 @@ const StudentDetails = ({ studentId }) => {
                     : null,
             };
 
+            // 🔥 IMPORTANTE: no enviamos cosas que no existen en backend
             delete payload.coordinador;
             delete payload.programa_asociado;
 
+            // payload.programasIds se envía tal cual (array) → backend actualiza estudiante_programas
             console.log("Enviando al backend:", payload);
 
             await updateStudent(student.id, payload);
@@ -287,7 +292,9 @@ const StudentDetails = ({ studentId }) => {
             content: "Esta acción marcará al estudiante como graduado.",
             onOk: async () => {
                 try {
-                    await axios.put(`${API_URL}/api/students/${student.id}/graduate`);
+                    await axios.put(
+                        `${API_URL}/api/students/${student.id}/graduate`
+                    );
                     message.success("Estudiante graduado exitosamente");
                     setStudent((prev) => ({
                         ...prev,
@@ -322,33 +329,26 @@ const StudentDetails = ({ studentId }) => {
 
     /* ========== Subida de documentos ========== */
 
-    // Upload con customRequest para controlar el envío con axios
     const handleUploadDocument = async (options) => {
         const { file, onSuccess, onError } = options;
         if (!studentId) return;
 
         try {
             setUploadingDoc(true);
-
-            // 👇 usa el servicio correcto (usa /document, no /documents)
             const data = await uploadStudentDocument(studentId, file);
-
             message.success("Documento subido correctamente");
             onSuccess && onSuccess(data);
-
-            // recargar lista
             fetchStudentDocuments();
         } catch (error) {
             console.error("Error al subir documento:", error);
-            const msg = error.response?.data?.error || "Error al subir el documento";
+            const msg =
+                error.response?.data?.error || "Error al subir el documento";
             message.error(msg);
             onError && onError(error);
         } finally {
             setUploadingDoc(false);
         }
     };
-
-
 
     const handlePreviewDocument = (doc) => {
         setPreviewDoc(doc);
@@ -361,8 +361,6 @@ const StudentDetails = ({ studentId }) => {
     };
 
     const getDocumentUrl = (doc) => {
-        // Si tu API ya devuelve una URL absoluta úsala directamente.
-        // Si devuelve una ruta relativa, la concatenas con API_URL.
         if (doc.url?.startsWith("http")) return doc.url;
         return `${API_URL}${doc.url || ""}`;
     };
@@ -372,7 +370,6 @@ const StudentDetails = ({ studentId }) => {
         const fileUrl = getDocumentUrl(previewDoc);
         const mime = previewDoc.tipo_mime || previewDoc.mimetype || "";
 
-        // Imágenes
         if (mime.startsWith("image/")) {
             return (
                 <img
@@ -383,7 +380,6 @@ const StudentDetails = ({ studentId }) => {
             );
         }
 
-        // PDFs
         if (
             mime === "application/pdf" ||
             fileUrl.toLowerCase().endsWith(".pdf")
@@ -397,12 +393,11 @@ const StudentDetails = ({ studentId }) => {
             );
         }
 
-        // Otros tipos: mostramos un link para abrir en nueva pestaña
         return (
             <div className="space-y-3">
                 <Text>
-                    No se puede previsualizar este tipo de archivo directamente, pero
-                    puedes abrirlo en otra pestaña.
+                    No se puede previsualizar este tipo de archivo directamente,
+                    pero puedes abrirlo en otra pestaña.
                 </Text>
                 <div>
                     <a
@@ -439,7 +434,11 @@ const StudentDetails = ({ studentId }) => {
         );
     }
 
-    const programaNombre = student.programa_asociado?.nombre_programa;
+    // 🔥 CAMBIO: nombres de programas asociados (para mostrar en texto)
+    const programasAsociadosNombres = (student.programas_asociados || [])
+        .map((p) => p.nombre)
+        .join(", ");
+
     const coordinadorNombre = student.coordinador?.nombre;
 
     return (
@@ -462,15 +461,22 @@ const StudentDetails = ({ studentId }) => {
                                     <Tag color={student.activo ? "green" : "red"}>
                                         {student.activo ? "Activo" : "Inactivo"}
                                     </Tag>
-                                    <Tag color={student.estado_matricula ? "cyan" : "orange"}>
+                                    <Tag
+                                        color={
+                                            student.estado_matricula ? "cyan" : "orange"
+                                        }
+                                    >
                                         {student.estado_matricula
                                             ? "Matrícula Paga"
                                             : "Matrícula Pendiente"}
                                     </Tag>
-                                    {typeof student.posible_graduacion === "boolean" && (
+                                    {typeof student.posible_graduacion ===
+                                        "boolean" && (
                                         <Tag
                                             color={
-                                                student.posible_graduacion ? "geekblue" : "default"
+                                                student.posible_graduacion
+                                                    ? "geekblue"
+                                                    : "default"
                                             }
                                         >
                                             {student.posible_graduacion
@@ -480,14 +486,28 @@ const StudentDetails = ({ studentId }) => {
                                     )}
                                     {student.fecha_graduacion && (
                                         <Tag color="purple">
-                                            Graduado el {formatDate(student.fecha_graduacion)}
+                                            Graduado el{" "}
+                                            {formatDate(student.fecha_graduacion)}
                                         </Tag>
                                     )}
                                 </div>
+
+                                {/* 🔥 CAMBIO: mostrar programas en el encabezado */}
+                                {programasAsociadosNombres && (
+                                    <div className="mt-1 text-xs text-slate-500">
+                                        Programas:{" "}
+                                        <span className="font-semibold">
+                                            {programasAsociadosNombres}
+                                        </span>
+                                    </div>
+                                )}
+
                                 {coordinadorNombre && (
                                     <div className="mt-1 text-xs text-slate-500">
                                         Coordinador:{" "}
-                                        <span className="font-semibold">{coordinadorNombre}</span>
+                                        <span className="font-semibold">
+                                            {coordinadorNombre}
+                                        </span>
                                     </div>
                                 )}
                             </div>
@@ -496,7 +516,9 @@ const StudentDetails = ({ studentId }) => {
                         <div className="flex flex-wrap gap-2">
                             {isEditing ? (
                                 <>
-                                    <Button onClick={() => setIsEditing(false)}>Cancelar</Button>
+                                    <Button onClick={() => setIsEditing(false)}>
+                                        Cancelar
+                                    </Button>
                                     <Button
                                         type="primary"
                                         icon={<FaSave />}
@@ -521,7 +543,11 @@ const StudentDetails = ({ studentId }) => {
                                     >
                                         WhatsApp
                                     </Button>
-                                    <Button icon={<FaTrashAlt />} danger onClick={handleDelete}>
+                                    <Button
+                                        icon={<FaTrashAlt />}
+                                        danger
+                                        onClick={handleDelete}
+                                    >
                                         Eliminar
                                     </Button>
                                 </>
@@ -562,8 +588,12 @@ const StudentDetails = ({ studentId }) => {
                                 >
                                     <Select allowClear placeholder="Tipo de documento">
                                         <Option value="CC">Cédula</Option>
-                                        <Option value="TI">Tarjeta de Identidad</Option>
-                                        <Option value="CE">Cédula de Extranjería</Option>
+                                        <Option value="TI">
+                                            Tarjeta de Identidad
+                                        </Option>
+                                        <Option value="CE">
+                                            Cédula de Extranjería
+                                        </Option>
                                     </Select>
                                 </FieldItem>
 
@@ -582,7 +612,10 @@ const StudentDetails = ({ studentId }) => {
                                     value={formatDate(student.fecha_nacimiento)}
                                     isEditing={isEditing}
                                 >
-                                    <DatePicker format="YYYY-MM-DD" className="w-full" />
+                                    <DatePicker
+                                        format="YYYY-MM-DD"
+                                        className="w-full"
+                                    />
                                 </FieldItem>
 
                                 <FieldItem
@@ -631,7 +664,10 @@ const StudentDetails = ({ studentId }) => {
                                     value={student.email}
                                     isEditing={isEditing}
                                 >
-                                    <Input placeholder="correo@ejemplo.com" allowClear />
+                                    <Input
+                                        placeholder="correo@ejemplo.com"
+                                        allowClear
+                                    />
                                 </FieldItem>
 
                                 <FieldItem
@@ -659,14 +695,16 @@ const StudentDetails = ({ studentId }) => {
                     <div className="space-y-6">
                         <InfoSection title="Información Académica y Administrativa">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* 🔥 CAMBIO: Programas múltiples */}
                                 <FieldItem
-                                    label="Programa"
-                                    name="programa_id"
-                                    value={programaNombre}
+                                    label="Programas"
+                                    name="programasIds"
+                                    value={programasAsociadosNombres}
                                     isEditing={isEditing}
                                 >
                                     <Select
-                                        placeholder="Seleccionar programa"
+                                        mode="multiple"
+                                        placeholder="Seleccionar programa(s)"
                                         allowClear
                                         showSearch
                                         optionFilterProp="children"
@@ -685,8 +723,13 @@ const StudentDetails = ({ studentId }) => {
                                     value={student.modalidad_estudio}
                                     isEditing={isEditing}
                                 >
-                                    <Select placeholder="Seleccionar modalidad" allowClear>
-                                        <Option value="Clases en Linea">Clases en línea</Option>
+                                    <Select
+                                        placeholder="Seleccionar modalidad"
+                                        allowClear
+                                    >
+                                        <Option value="Clases en Linea">
+                                            Clases en línea
+                                        </Option>
                                         <Option value="Modulos por WhastApp">
                                             Módulos por WhatsApp
                                         </Option>
@@ -707,7 +750,9 @@ const StudentDetails = ({ studentId }) => {
                                     name="matricula"
                                     value={
                                         student.matricula
-                                            ? `$ ${Number(student.matricula).toLocaleString()}`
+                                            ? `$ ${Number(
+                                                  student.matricula
+                                              ).toLocaleString()}`
                                             : null
                                     }
                                     isEditing={isEditing}
@@ -716,21 +761,30 @@ const StudentDetails = ({ studentId }) => {
                                         className="w-full"
                                         min={0}
                                         formatter={(value) =>
-                                            `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                                            `${value}`.replace(
+                                                /\B(?=(\d{3})+(?!\d))/g,
+                                                ","
+                                            )
                                         }
-                                        parser={(value) => value.replace(/,/g, "")}
+                                        parser={(value) =>
+                                            value.replace(/,/g, "")
+                                        }
                                     />
                                 </FieldItem>
 
                                 <FieldItem
                                     label="SIMAT"
                                     name="simat"
-                                    value={student.simat ? "Activo" : "No activo"}
+                                    value={
+                                        student.simat ? "Activo" : "No activo"
+                                    }
                                     isEditing={isEditing}
                                 >
                                     <Select allowClear>
                                         <Option value={true}>Activo</Option>
-                                        <Option value={false}>No activo</Option>
+                                        <Option value={false}>
+                                            No activo
+                                        </Option>
                                     </Select>
                                 </FieldItem>
 
@@ -745,15 +799,21 @@ const StudentDetails = ({ studentId }) => {
                                     isEditing={isEditing}
                                 >
                                     <Select allowClear>
-                                        <Option value={true}>Matrícula paga</Option>
-                                        <Option value={false}>Matrícula pendiente</Option>
+                                        <Option value={true}>
+                                            Matrícula paga
+                                        </Option>
+                                        <Option value={false}>
+                                            Matrícula pendiente
+                                        </Option>
                                     </Select>
                                 </FieldItem>
 
                                 <FieldItem
                                     label="Estado estudiante"
                                     name="activo"
-                                    value={student.activo ? "Activo" : "Inactivo"}
+                                    value={
+                                        student.activo ? "Activo" : "Inactivo"
+                                    }
                                     isEditing={isEditing}
                                 >
                                     <Select allowClear>
@@ -815,7 +875,10 @@ const StudentDetails = ({ studentId }) => {
                                     value={formatDate(student.fecha_inscripcion)}
                                     isEditing={isEditing}
                                 >
-                                    <DatePicker format="YYYY-MM-DD" className="w-full" />
+                                    <DatePicker
+                                        format="YYYY-MM-DD"
+                                        className="w-full"
+                                    />
                                 </FieldItem>
 
                                 <FieldItem
@@ -824,7 +887,10 @@ const StudentDetails = ({ studentId }) => {
                                     value={formatDate(student.fecha_graduacion)}
                                     isEditing={isEditing}
                                 >
-                                    <DatePicker format="YYYY-MM-DD" className="w-full" />
+                                    <DatePicker
+                                        format="YYYY-MM-DD"
+                                        className="w-full"
+                                    />
                                 </FieldItem>
 
                                 <div className="flex items-center justify-between mt-2">
@@ -854,13 +920,19 @@ const StudentDetails = ({ studentId }) => {
                                         accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
                                         disabled={uploadingDoc}
                                     >
-                                        <Button loading={uploadingDoc} className="w-full">
+                                        <Button
+                                            loading={uploadingDoc}
+                                            className="w-full"
+                                        >
                                             Seleccionar archivo(s)
                                         </Button>
                                     </Upload>
-                                    <Text type="secondary" className="text-[11px]">
-                                        Puedes subir PDFs, imágenes u otros documentos relevantes
-                                        del estudiante.
+                                    <Text
+                                        type="secondary"
+                                        className="text-[11px]"
+                                    >
+                                        Puedes subir PDFs, imágenes u otros
+                                        documentos relevantes del estudiante.
                                     </Text>
                                 </div>
 
@@ -871,11 +943,17 @@ const StudentDetails = ({ studentId }) => {
                                     {docsLoading ? (
                                         <div className="flex items-center gap-2">
                                             <Spin size="small" />
-                                            <Text>Cargando documentos...</Text>
+                                            <Text>
+                                                Cargando documentos...
+                                            </Text>
                                         </div>
                                     ) : documents.length === 0 ? (
-                                        <Text type="secondary" className="text-sm">
-                                            No hay documentos registrados para este estudiante.
+                                        <Text
+                                            type="secondary"
+                                            className="text-sm"
+                                        >
+                                            No hay documentos registrados para
+                                            este estudiante.
                                         </Text>
                                     ) : (
                                         <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -886,28 +964,38 @@ const StudentDetails = ({ studentId }) => {
                                                 >
                                                     <div className="flex flex-col">
                                                         <span className="text-sm font-medium text-slate-800">
-                                                            {doc.nombre_original || doc.nombre}
+                                                            {doc.nombre_original ||
+                                                                doc.nombre}
                                                         </span>
                                                         <span className="text-[11px] text-slate-500">
-                                                            {doc.tipo_mime || doc.mimetype || "Documento"}
+                                                            {doc.tipo_mime ||
+                                                                doc.mimetype ||
+                                                                "Documento"}
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <Button
                                                             size="small"
-                                                            onClick={() => handlePreviewDocument(doc)}
+                                                            onClick={() =>
+                                                                handlePreviewDocument(
+                                                                    doc
+                                                                )
+                                                            }
                                                         >
                                                             Ver
                                                         </Button>
                                                         <Button
                                                             size="small"
                                                             danger
-                                                            onClick={() => handleDeleteDocument(doc)}
+                                                            onClick={() =>
+                                                                handleDeleteDocument(
+                                                                    doc
+                                                                )
+                                                            }
                                                         >
                                                             Eliminar
                                                         </Button>
                                                     </div>
-
                                                 </div>
                                             ))}
                                         </div>
@@ -937,7 +1025,9 @@ const StudentDetails = ({ studentId }) => {
                                 <Button
                                     icon={<FaGraduationCap />}
                                     onClick={handleGraduate}
-                                    disabled={isEditing || !!student.fecha_graduacion}
+                                    disabled={
+                                        isEditing || !!student.fecha_graduacion
+                                    }
                                     className="w-full"
                                 >
                                     Marcar como Graduado

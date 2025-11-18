@@ -1,8 +1,4 @@
-import React, {
-  useState,
-  useMemo,
-  useCallback,
-} from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   Table,
   Input,
@@ -38,18 +34,14 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
-const StudentTable = ({
-  onDelete,
-  students = [],
-  loading = false,
-}) => {
+const StudentTable = ({ onDelete, students = [], loading = false }) => {
   const [filters, setFilters] = useState({
     searchText: {},
     selectedStatus: null,
     selectedCoordinator: null,
     dateRange: null,
     predefinedDate: null,
-    selectedGraduation: null, // ✅ nuevo filtro
+    selectedGraduation: null, // ✅ filtro candidatos a grado
   });
 
   const navigate = useNavigate();
@@ -63,7 +55,6 @@ const StudentTable = ({
     ];
   }, [students]);
 
-  // Función para logica de estilos de coordinador
   const getCoordinatorTagColor = (name) => {
     if (!name) return "default";
     const lower = name.toLowerCase();
@@ -120,11 +111,14 @@ const StudentTable = ({
           if (!searchText[key]) return true;
 
           if (key === "nombre_programa") {
-            // En este componente estamos usando programa_nombre directo
-            return student.programa_nombre
-              ? student.programa_nombre
-                  .toLowerCase()
-                  .includes(searchText[key])
+            // Ahora soporta programa_nombre viejo o programas_asociados nuevo
+            const programNames =
+              student.programa_nombre ||
+              (student.programas_asociados || [])
+                .map((p) => p.nombre)
+                .join(" ");
+            return programNames
+              ? programNames.toLowerCase().includes(searchText[key])
               : false;
           }
 
@@ -175,7 +169,7 @@ const StudentTable = ({
           }
         }
 
-        // ✅ Filtro por posible graduación
+        // Filtro por posible graduación
         let graduationMatch = true;
         if (selectedGraduation === "candidato") {
           graduationMatch = student.posible_graduacion === true;
@@ -366,17 +360,34 @@ const StudentTable = ({
       filterSearch: true,
     },
     {
-      title: "Programa",
-      dataIndex: "programa_nombre",
-      key: "programa_nombre",
-      render: (programaNombre, record) =>
-        programaNombre ? (
-          <Tag color="blue" key={record.programa_id}>
-            {programaNombre}
-          </Tag>
-        ) : (
-          <Tag color="volcano">Sin programa</Tag>
-        ),
+      title: "Programa(s)",
+      key: "programa",
+      render: (_, record) => {
+        const programNamesArray =
+          record.programa_nombre
+            ? [record.programa_nombre]
+            : (record.programas_asociados || []).map((p) => p.nombre);
+
+        if (!programNamesArray || programNamesArray.length === 0) {
+          return <Tag color="volcano">Sin programa</Tag>;
+        }
+
+        const firstPrograms = programNamesArray.slice(0, 2);
+        const extraCount = programNamesArray.length - firstPrograms.length;
+
+        return (
+          <Space size={2} wrap>
+            {firstPrograms.map((name) => (
+              <Tag color="blue" key={name}>
+                {name}
+              </Tag>
+            ))}
+            {extraCount > 0 && (
+              <Tag color="geekblue">+{extraCount} más</Tag>
+            )}
+          </Space>
+        );
+      },
       filterDropdown: ({
         setSelectedKeys,
         selectedKeys,
@@ -416,12 +427,16 @@ const StudentTable = ({
           </Space>
         </div>
       ),
-      onFilter: (value, record) =>
-        record.programa_nombre
-          ? record.programa_nombre
-              .toLowerCase()
-              .includes(value.toLowerCase())
-          : false,
+      onFilter: (value, record) => {
+        const programNames =
+          record.programa_nombre ||
+          (record.programas_asociados || [])
+            .map((p) => p.nombre)
+            .join(" ");
+        return programNames
+          ? programNames.toLowerCase().includes(value.toLowerCase())
+          : false;
+      },
     },
     {
       title: "Estado",
