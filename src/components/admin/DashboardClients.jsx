@@ -32,7 +32,7 @@ function DashboardClients() {
     const fetchClients = useCallback(async () => {
         try {
             // Usamos la nueva ruta del controlador 'getSubscriptionsOverviewController'
-            const { data } = await axios.get(`${API_URL}/subscriptions`);
+            const { data } = await axios.get(`${API_URL}/api/subscriptions`);
             setClients(data);
             setFilteredClients(data);
         } catch (err) {
@@ -94,7 +94,7 @@ function DashboardClients() {
     const handleSubscriptionSubmit = async (values) => {
         try {
             // Usamos el endpoint del controlador 'renewSubscriptionController'
-            await axios.post(`${API_URL}/subscriptions/renew`, {
+            await axios.post(`${API_URL}/api/subscriptions/renew`, {
                 userId: selectedClient.id,
                 planId: values.planId, // CAMBIADO: Enviamos el ID del plan seleccionado
                 description: values.description

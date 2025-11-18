@@ -123,7 +123,7 @@ const RootLayout = () => {
             app: response.data.app || 'feva',
           });
         }
-        const subscriptionResponse = await axios.get(`${API_URL}/subscriptions/expiration/${userId}`);
+        const subscriptionResponse = await axios.get(`${API_URL}/api/subscriptions/expiration/${userId}`);
         if (subscriptionResponse.data) {
           setSubscriptionData({
             endDate: subscriptionResponse.data.end_date,

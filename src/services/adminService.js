@@ -43,7 +43,7 @@ export const getClientDetailsApi = async (userId) => {
 
 export const createSubscriptionApi = async (subscriptionData) => {
   try {
-    const response = await backApi.post('/subscriptions', subscriptionData);
+    const response = await backApi.post('/api/subscriptions', subscriptionData);
     return response.data;
   } catch (error) {
     console.error('Error al crear la suscripción:', error);
