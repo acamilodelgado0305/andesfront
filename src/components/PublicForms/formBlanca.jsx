@@ -239,7 +239,7 @@ const StudentRegistrationFormBlanca = ({ onStudentRegistered }) => {
     const handleSubmit = async (values) => {
         setLoadingSubmit(true);
         const apiUrl = import.meta.env.VITE_API_BACKEND
-            ? `${import.meta.env.VITE_API_BACKEND}/students`
+            ? `${import.meta.env.VITE_API_BACKEND}/api/students`
             : "https://clasit-backend-api-570877385695.us-central1.run.app/api/students";
 
         try {

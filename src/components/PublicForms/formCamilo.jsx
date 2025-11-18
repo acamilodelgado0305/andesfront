@@ -239,7 +239,7 @@ const StudentRegistrationForm1 = ({ onStudentRegistered }) => {
     const handleSubmit = async (values) => {
         setLoadingSubmit(true);
         const apiUrl = import.meta.env.VITE_API_BACKEND
-            ? `${import.meta.env.VITE_API_BACKEND}/students`
+            ? `${import.meta.env.VITE_API_BACKEND}/api/students`
             : "https://back.app.validaciondebachillerato.com.co/api/students";
 
         try {
