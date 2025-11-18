@@ -1,24 +1,20 @@
 // src/pages/evaluations/MyStudentEvaluationsPage.jsx
 import React, { useEffect, useState, useCallback } from "react";
-import { Card, Spin, Alert, message } from "antd";
+import { Card, Spin, Alert, message, Typography, Space, Button } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import StudentEvaluationsTab from "../../components/PublicForms/StudentEvaluationsTab";
 import { getStudentAssignments } from "../../services/evaluation/evaluationService";
 
-// Si tienes un contexto de auth, podrías usarlo así:
-// import { useAuth } from "../../context/AuthContext";
+const { Title, Text } = Typography;
 
 const MyStudentEvaluationsPage = () => {
   const navigate = useNavigate();
   const [evaluations, setEvaluations] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // 🔐 OBTENER ID DEL ESTUDIANTE
-  // Ajusta aquí según tu estructura de auth.
-  // Por ejemplo, si en el token guardas user.student_id:
-  // const { user } = useAuth();
-  // const studentId = user?.student_id;
-  const studentId = localStorage.getItem("student_id"); // EJEMPLO simple
+  // 🔐 ID del estudiante desde storage (ajusta según tu auth)
+  const studentId = localStorage.getItem("student_id");
 
   const fetchAssignments = useCallback(async () => {
     if (!studentId) {
@@ -29,31 +25,19 @@ const MyStudentEvaluationsPage = () => {
     try {
       setLoading(true);
       const data = await getStudentAssignments(studentId);
-      // data debería ser un array de asignaciones con info de la evaluación
 
       const mapped = (data || []).map((item) => ({
-        // ID de la asignación (lo usamos para navegar)
         id: item.id,
         key: item.id,
-
-        // Datos de la evaluación (según lo que devuelva tu backend)
         titulo: item.titulo || item.evaluacion_titulo || "Sin título",
-
-        // Estado: normalizamos un poco por si viene 'finalizada'
         estado:
           item.estado === "finalizada"
             ? "resuelta"
             : item.estado || "pendiente",
-
-        // Intentos
         intentosRealizados:
           item.intentos_realizados ?? item.intentosRealizados ?? 0,
-        intentosMax: item.intentos_max ?? item.intentosMax ?? 1,
-
-        // Calificación
+        intentosMax: item.intentos_max ?? item.intentosMax ?? 2,
         calificacion: item.calificacion ?? null,
-
-        // Fecha fin
         fechaFin: item.fecha_fin || item.fechaFin || null,
       }));
 
@@ -71,33 +55,101 @@ const MyStudentEvaluationsPage = () => {
   }, [fetchAssignments]);
 
   const handleStartEvaluation = (record) => {
-    // record.id es el ID de la asignación
     navigate(`/evaluaciones/asignacion/${record.id}`);
   };
 
   if (!studentId) {
     return (
-      <Alert
-        type="error"
-        message="No se encontró el estudiante"
-        description="Inicia sesión nuevamente o verifica tu acceso al portal de estudiantes."
-      />
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background:
+            "linear-gradient(135deg, #f3f6fb 0%, #eef2f9 40%, #ffffff 100%)",
+          padding: 16,
+        }}
+      >
+        <Alert
+          type="error"
+          showIcon
+          message="No se encontró el estudiante"
+          description="Inicia sesión nuevamente o verifica tu acceso al portal de estudiantes."
+        />
+      </div>
     );
   }
 
   return (
-    <Card title="Mis evaluaciones">
-      {loading ? (
-        <div style={{ textAlign: "center", marginTop: 30 }}>
-          <Spin />
-        </div>
-      ) : (
-        <StudentEvaluationsTab
-          evaluations={evaluations}
-          onStartEvaluation={handleStartEvaluation}
-        />
-      )}
-    </Card>
+    <div
+      style={{
+        minHeight: "100vh",
+        background:
+          "linear-gradient(135deg, #f3f6fb 0%, #eef2f9 40%, #ffffff 100%)",
+        padding: "24px 16px 40px",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 960,
+          margin: "0 auto",
+        }}
+      >
+        <Card
+          bordered={false}
+          style={{
+            borderRadius: 16,
+            boxShadow:
+              "0 10px 30px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.12)",
+          }}
+          bodyStyle={{ padding: 20 }}
+        >
+          {/* Encabezado tipo Microsoft / dashboard */}
+          <Space
+            style={{ marginBottom: 16, width: "100%" }}
+            align="center"
+            justify="space-between"
+          >
+            <div>
+              <Title level={4} style={{ marginBottom: 0 }}>
+                Mis evaluaciones
+              </Title>
+              <Text type="secondary">
+                Revisa tus evaluaciones asignadas, calificaciones e intentos.
+              </Text>
+            </div>
+
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={fetchAssignments}
+              loading={loading}
+            >
+              Actualizar
+            </Button>
+          </Space>
+
+          {loading ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "40px 0",
+              }}
+            >
+              <Spin size="large" />
+              <div style={{ marginTop: 12 }}>
+                <Text type="secondary">Cargando tus evaluaciones...</Text>
+              </div>
+            </div>
+          ) : (
+            <StudentEvaluationsTab
+              evaluations={evaluations}
+              onStartEvaluation={handleStartEvaluation}
+            />
+          )}
+        </Card>
+      </div>
+    </div>
   );
 };
 

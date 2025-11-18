@@ -101,65 +101,71 @@ function StudentPortal() {
   // ---------------------------------------------------------------------------
   // CARGAR evaluaciones asignadas (service)
   // ---------------------------------------------------------------------------
-  const loadStudentEvaluations = async (studentId) => {
-    if (!studentId) return;
+const loadStudentEvaluations = async (studentId) => {
+  if (!studentId) return;
 
-    try {
-      const data = await getStudentAssignments(studentId);
+  try {
+    const data = await getStudentAssignments(studentId);
 
-      const assignments = Array.isArray(data)
-        ? data
-        : Array.isArray(data.asignaciones)
-        ? data.asignaciones
-        : [];
+    const assignments = Array.isArray(data)
+      ? data
+      : Array.isArray(data.asignaciones)
+      ? data.asignaciones
+      : [];
 
-      const mapped = assignments.map((item, index) => ({
-        key:
-          item.asignacion_id ||
-          item.assignment_id ||
-          item.id ||
-          `asig-${index}`,
-        asignacionId:
-          item.asignacion_id || item.assignment_id || item.id,
-        evaluacionId:
-          item.evaluacion_id ||
-          item.evaluation_id ||
-          item.evaluacion?.id,
-        titulo:
-          item.titulo_evaluacion ||
-          item.titulo ||
-          item.evaluacion_titulo ||
-          item.evaluacion?.titulo ||
-          "Evaluación",
-        descripcion:
-          item.descripcion ||
-          item.descripcion_evaluacion ||
-          item.evaluacion?.descripcion ||
-          "",
-        estado:
-          item.estado ||
-          item.estado_asignacion ||
-          item.status ||
-          "pendiente",
-        intentosRealizados:
-          item.intentos_realizados ?? item.intentos_usados ?? 0,
-        intentosMax: item.intentos_max ?? item.max_intentos ?? 1,
-        calificacion: item.calificacion ?? item.nota ?? null,
-        fechaInicio:
-          item.fecha_inicio || item.inicio || item.evaluacion?.fecha_inicio,
-        fechaFin:
-          item.fecha_fin || item.fin || item.evaluacion?.fecha_fin,
-      }));
+    const mapped = assignments.map((item, index) => ({
+      key:
+        item.asignacion_id ||
+        item.assignment_id ||
+        item.id ||
+        `asig-${index}`,
+      asignacionId:
+        item.asignacion_id || item.assignment_id || item.id,
+      evaluacionId:
+        item.evaluacion_id ||
+        item.evaluation_id ||
+        item.evaluacion?.id,
+      titulo:
+        item.titulo_evaluacion ||
+        item.titulo ||
+        item.evaluacion_titulo ||
+        item.evaluacion?.titulo ||
+        "Evaluación",
+      descripcion:
+        item.descripcion ||
+        item.descripcion_evaluacion ||
+        item.evaluacion?.descripcion ||
+        "",
+      estado:
+        item.estado ||
+        item.estado_asignacion ||
+        item.status ||
+        "pendiente",
 
-      setEvaluations(mapped);
-    } catch (err) {
-      console.error(
-        "Error cargando evaluaciones:",
-        err.response?.data || err.message
-      );
-      setEvaluations([]);
-    }
-  };
+      // 🔹 Asignación = intentos_realizados
+      intentosRealizados:
+        item.intentos_realizados ?? item.intentos_usados ?? 0,
+
+      // 🔹 Evaluación = intentos_max (total de intentos permitidos)
+      intentosMax: item.intentos_max ?? item.max_intentos ?? null,
+
+      calificacion: item.calificacion ?? item.nota ?? null,
+      fechaInicio:
+        item.fecha_inicio || item.inicio || item.evaluacion?.fecha_inicio,
+      fechaFin:
+        item.fecha_fin || item.fin || item.evaluacion?.fecha_fin,
+    }));
+
+    setEvaluations(mapped);
+  } catch (err) {
+    console.error(
+      "Error cargando evaluaciones:",
+      err.response?.data || err.message
+    );
+    setEvaluations([]);
+  }
+};
+
 
   // ---------------------------------------------------------------------------
   // LOGIN (solo autenticación + estado base)

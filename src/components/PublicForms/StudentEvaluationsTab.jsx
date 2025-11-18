@@ -10,33 +10,64 @@ function StudentEvaluationsTab({ evaluations, onStartEvaluation }) {
       title: "Evaluación",
       dataIndex: "titulo",
       key: "titulo",
+      render: (titulo) => (
+        <span style={{ fontWeight: 600, color: "#111827" }}>{titulo}</span>
+      ),
     },
     {
       title: "Estado",
       dataIndex: "estado",
       key: "estado",
-      render: (estado) => {
+      render: (estadoRaw) => {
+        const estado = estadoRaw || "pendiente";
         let color = "default";
+
         if (estado === "pendiente") color = "orange";
         if (estado === "en_progreso") color = "blue";
         if (estado === "resuelta") color = "green";
-        return <Tag color={color}>{(estado || "pendiente").toUpperCase()}</Tag>;
+
+        return (
+          <Tag color={color} style={{ borderRadius: 999 }}>
+            {estado.toUpperCase()}
+          </Tag>
+        );
       },
     },
     {
       title: "Intentos",
       key: "intentos",
-      render: (_, record) =>
-        `${record.intentosRealizados}/${record.intentosMax}`,
+      render: (_, record) => {
+        const realizados = record.intentosRealizados ?? 0;
+        const max = record.intentosMax ?? null; // desde la evaluación
+
+        const hasLimit = max !== null && max !== undefined;
+        const hasAttemptsLeft = !hasLimit || realizados < max;
+
+        const color = hasAttemptsLeft ? "processing" : "red";
+
+        return (
+          <Tag color={color} style={{ borderRadius: 999 }}>
+            {hasLimit ? `${realizados}/${max}` : `${realizados} / Sin límite`}
+          </Tag>
+        );
+      },
     },
     {
       title: "Calificación",
       dataIndex: "calificacion",
       key: "calificacion",
-      render: (calificacion) =>
-        calificacion !== null && calificacion !== undefined
-          ? Number(calificacion).toFixed(1)
-          : "Sin calificar",
+      render: (calificacion) => {
+        if (calificacion === null || calificacion === undefined) {
+          return <Text type="secondary">Sin calificar</Text>;
+        }
+
+        const nota = Number(calificacion);
+        return (
+          <Tag color="green" style={{ borderRadius: 999 }}>
+            {nota.toFixed(1)}
+          </Tag>
+        );
+      },
     },
     {
       title: "Disponible hasta",
@@ -49,20 +80,38 @@ function StudentEvaluationsTab({ evaluations, onStartEvaluation }) {
       title: "Acciones",
       key: "acciones",
       render: (_, record) => {
-        const yaNoPuede =
-          record.intentosRealizados >= record.intentosMax ||
-          record.estado === "resuelta";
+        const realizados = record.intentosRealizados ?? 0;
+        const max = record.intentosMax ?? null;
+        const hasLimit = max !== null && max !== undefined;
+        const hasAttemptsLeft = !hasLimit || realizados < max;
+
+        const now = new Date();
+        const isExpired =
+          record.fechaFin && new Date(record.fechaFin) < now;
+
+        const canAnswer = hasAttemptsLeft && !isExpired;
+
+        let buttonLabel = "Presentar evaluación";
+        let buttonType = "primary";
+
+        if (canAnswer && realizados > 0) {
+          buttonLabel = "Reintentar evaluación";
+        }
+
+        if (!canAnswer) {
+          buttonLabel = "Ver resultados";
+          buttonType = "default";
+        }
+
         return (
           <Button
-            type="primary"
+            type={buttonType}
             icon={<PlayCircleOutlined />}
             size="small"
-            disabled={yaNoPuede}
             onClick={() => onStartEvaluation(record)}
+            style={{ borderRadius: 999 }}
           >
-            {record.estado === "en_progreso"
-              ? "Reanudar evaluación"
-              : "Presentar evaluación"}
+            {buttonLabel}
           </Button>
         );
       },
@@ -74,8 +123,8 @@ function StudentEvaluationsTab({ evaluations, onStartEvaluation }) {
       <Title
         level={4}
         style={{
-          color: "#003366",
-          marginBottom: "15px",
+          color: "#111827",
+          marginBottom: 4,
         }}
       >
         Evaluaciones asignadas
@@ -83,26 +132,29 @@ function StudentEvaluationsTab({ evaluations, onStartEvaluation }) {
 
       <Text
         type="secondary"
-        style={{ display: "block", marginBottom: 10 }}
+        style={{ display: "block", marginBottom: 12, fontSize: 13 }}
       >
-        Aquí verás las evaluaciones que tienes pendientes, en progreso o
-        resueltas. Haz clic en <strong>"Presentar evaluación"</strong> para
-        iniciar.
+        Estas son tus <strong>asignaciones</strong> de evaluación. Si aún tienes
+        intentos disponibles, podrás <strong>presentar</strong> o{" "}
+        <strong>reintentar</strong> la evaluación. Cuando no tengas más
+        intentos, solo podrás <strong>ver tus resultados</strong>.
       </Text>
 
       <Table
         columns={columns}
         dataSource={evaluations}
         pagination={false}
-        bordered
+        bordered={false}
         size="middle"
+        rowKey={(record) => record.key || record.asignacionId}
         locale={{
           emptyText: "No tienes evaluaciones asignadas en este momento.",
         }}
         style={{
-          borderRadius: "6px",
+          borderRadius: 12,
           overflow: "hidden",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+          boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)",
+          background: "#ffffff",
         }}
       />
     </>
