@@ -21,7 +21,7 @@ function Certificados() {
   const [isIngresoDrawerOpen, setIsIngresoDrawerOpen] = useState(false);
   const [isEgresoDrawerOpen, setIsEgresoDrawerOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
-   const [editingEgresoRecord, setEditingEgresoRecord] = useState(null);
+  const [editingEgresoRecord, setEditingEgresoRecord] = useState(null);
 
   const [certificados, setCertificados] = useState([]);
   const [egresos, setEgresos] = useState([]);
@@ -108,37 +108,36 @@ function Certificados() {
   };
 
   const handleShowCreateDrawer = () => {
-    setEditingRecord(null); // Nos aseguramos que no haya ningún registro de edición
+    setEditingRecord(null);
     setIsIngresoDrawerOpen(true);
   };
 
-  // --- NUEVO: Función para abrir el drawer en modo EDICIÓN ---
   const handleShowEditDrawer = (record) => {
-    setEditingRecord(record); // Guardamos el registro a editar
+    setEditingRecord(record);
     setIsIngresoDrawerOpen(true);
   };
 
   const handleCloseIngresoDrawer = () => {
     setIsIngresoDrawerOpen(false);
-    setEditingRecord(null); // Limpiamos el registro al cerrar
+    setEditingRecord(null);
   };
 
-    const handleShowCreateEgresoDrawer = () => {
-    setEditingEgresoRecord(null); // Limpiamos el estado de edición
+  const handleShowCreateEgresoDrawer = () => {
+    setEditingEgresoRecord(null);
     setIsEgresoDrawerOpen(true);
   };
 
   const handleShowEditEgresoDrawer = (record) => {
-    setEditingEgresoRecord(record); // Guardamos el egreso a editar
+    setEditingEgresoRecord(record);
     setIsEgresoDrawerOpen(true);
   };
 
   const handleCloseEgresoDrawer = () => {
     setIsEgresoDrawerOpen(false);
-    setEditingEgresoRecord(null); // Limpiamos el estado al cerrar
+    setEditingEgresoRecord(null);
   };
 
- 
+
 
   const handleIngresoSubmit = async (values) => {
     setLoading(true);
@@ -151,7 +150,6 @@ function Certificados() {
 
       let response;
       if (editingRecord) {
-        // --- LÓGICA DE ACTUALIZACIÓN (PUT) ---
         console.log(`Actualizando registro ID: ${editingRecord._id}`);
         response = await fetch(`https://backendcoalianza.vercel.app/api/v1/clients/${editingRecord._id}`, {
           method: 'PUT',
@@ -161,7 +159,6 @@ function Certificados() {
         if (!response.ok) throw new Error('Error al actualizar la venta');
         message.success('Venta actualizada correctamente');
       } else {
-        // --- LÓGICA DE CREACIÓN (POST) ---
         console.log('Creando nuevo registro');
         response = await fetch('https://backendcoalianza.vercel.app/api/v1/clients', {
           method: 'POST',
@@ -182,43 +179,41 @@ function Certificados() {
     }
   };
 
-   const handleEgresoSubmit = async (values) => {
+  const handleEgresoSubmit = async (values) => {
     setLoading(true);
     try {
       const dataToSubmit = {
         ...values,
         valor: parseFloat(values.valor),
         vendedor: userName || values.vendedor,
-         fecha: values.fecha,
+        fecha: values.fecha,
       };
-      
+
       let response;
       if (editingEgresoRecord) {
-        // --- LÓGICA DE ACTUALIZACIÓN (PUT) PARA EGRESOS ---
         response = await fetch(`https://backendcoalianza.vercel.app/api/v1/egresos/${editingEgresoRecord._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSubmit),
         });
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Error al actualizar el egreso');
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Error al actualizar el egreso');
         }
         message.success('Egreso actualizado correctamente');
       } else {
-        // --- LÓGICA DE CREACIÓN (POST) PARA EGRESOS ---
         response = await fetch('https://backendcoalianza.vercel.app/api/v1/egresos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSubmit),
         });
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Error al registrar el egreso');
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Error al registrar el egreso');
         }
         message.success('Egreso registrado correctamente');
       }
-      
+
       handleCloseEgresoDrawer();
       fetchEgresos();
     } catch (error) {
@@ -234,14 +229,19 @@ function Certificados() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen p-6">
+    <div >
       <Card className="shadow-md rounded-lg overflow-hidden" bordered={false}>
-        <div className="flex justify-between items-center mb-6">
+        {/* Header Section - Responsive */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
           <div className="flex items-center">
-            <FileProtectOutlined className="text-green-900 text-2xl mr-3" />
-            <Title level={3} className="m-0 text-gray-800">Gestión de Movimientos</Title>
+            <FileProtectOutlined className="text-green-900 text-xl sm:text-2xl mr-2 sm:mr-3" />
+            <Title level={3} className="m-0 text-gray-800 text-base sm:text-lg md:text-xl">
+              Gestión de Movimientos
+            </Title>
           </div>
-          <div className="flex gap-3">
+
+          {/* Buttons - Responsive wrapping */}
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <Button
               icon={<ReloadOutlined />}
               onClick={() => {
@@ -249,50 +249,57 @@ function Certificados() {
                 fetchEgresos();
               }}
               loading={loading}
-              className="border border-gray-300 hover:border-green-500 hover:text-green-500"
+              size="small"
+              className="border border-gray-300 hover:border-green-500 hover:text-green-500 flex-1 sm:flex-none"
             >
-              Actualizar
+              <span className="hidden sm:inline">Actualizar</span>
             </Button>
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={handleShowCreateDrawer} // --- MODIFICADO ---
+              onClick={handleShowCreateDrawer}
               loading={loading}
-              className="bg-[#155153] hover:bg-green-700 border-0"
+              size="small"
+              className="bg-[#155153] hover:bg-green-700 border-0 flex-1 sm:flex-none"
             >
-              Nueva Venta
+              <span className="hidden sm:inline">Nueva </span>Venta
             </Button>
-           <Button
+            <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={handleShowCreateEgresoDrawer} // --- MODIFICADO ---
+              onClick={handleShowCreateEgresoDrawer}
               loading={loading}
-              className="bg-red-600 hover:bg-red-700 border-0"
+              size="small"
+              className="bg-red-600 hover:bg-red-700 border-0 flex-1 sm:flex-none"
             >
-              Nuevo Egreso
+              <span className="hidden sm:inline">Nuevo </span>Egreso
             </Button>
           </div>
         </div>
 
-        <Divider className="my-3" />
+        <Divider className="my-2 sm:my-3" />
 
-        <div className="mb-4 flex justify-between items-center">
-          <Text className="text-gray-500">
-            Sistema de administración de movimientos. Registre y gestione ventas y egresos.
+        {/* Info Section - Responsive */}
+        <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <Text className="text-gray-500 text-xs sm:text-sm">
+            <span className="hidden md:inline">Sistema de administración de movimientos. </span>
+            Registre y gestione ventas y egresos.
           </Text>
           {userName && (
-            <Tag color="green" className="text-sm">
+            <Tag color="green" className="text-xs sm:text-sm">
               Usuario: {userName}
             </Tag>
           )}
         </div>
 
-        <Tabs activeKey={activeTab} onChange={handleTabChange}>
+        {/* Tabs - Responsive */}
+        <Tabs activeKey={activeTab} onChange={handleTabChange} size="small">
           <TabPane tab="Ingresos" key="ventas" />
           <TabPane tab="Egresos" key="egresos" />
         </Tabs>
 
-        <div className="bg-white rounded-lg overflow-hidden">
+        {/* Table Container - Responsive with horizontal scroll */}
+        <div className="bg-white rounded-lg overflow-x-auto">
           {loading ? (
             <div className="flex justify-center items-center py-8">
               <Spin size="large" tip="Cargando datos..." />
@@ -306,33 +313,33 @@ function Certificados() {
               onRefresh={activeTab === 'ventas' ? fetchCertificados : fetchEgresos}
               userName={userName}
               type={activeTab}
-             onEdit={activeTab === 'ventas' ? handleShowEditDrawer : handleShowEditEgresoDrawer}
+              onEdit={activeTab === 'ventas' ? handleShowEditDrawer : handleShowEditEgresoDrawer}
             />
           )}
         </div>
       </Card>
 
-      {/* Drawer for Ventas */}
-       <IngresoDrawer
+      {/* Drawer for Ventas - Full width on mobile */}
+      <IngresoDrawer
         open={isIngresoDrawerOpen}
-        onClose={handleCloseIngresoDrawer} // --- MODIFICADO ---
-        onSubmit={handleIngresoSubmit} // --- MODIFICADO ---
+        onClose={handleCloseIngresoDrawer}
+        onSubmit={handleIngresoSubmit}
         loading={loading}
         userName={userName}
-        initialValues={editingRecord} // --- NUEVO: Pasamos los datos del registro a editar ---
+        initialValues={editingRecord}
+        width={window.innerWidth < 768 ? '100%' : 720}
       />
 
+      {/* Drawer for Egresos - Full width on mobile */}
       <EgresoDrawer
-       open={isEgresoDrawerOpen}
-        onClose={handleCloseEgresoDrawer} // Usamos la nueva función de cierre
-        onSubmit={handleEgresoSubmit}    // La función de submit ahora es más potente
+        open={isEgresoDrawerOpen}
+        onClose={handleCloseEgresoDrawer}
+        onSubmit={handleEgresoSubmit}
         loading={loading}
-        userName={userName} // Pasamos el userName por si es necesario
-        initialValues={editingEgresoRecord} 
+        userName={userName}
+        initialValues={editingEgresoRecord}
+        width={window.innerWidth < 768 ? '100%' : 720}
       />
-
-      {/* Drawer for Egresos */}
-
     </div>
   );
 }

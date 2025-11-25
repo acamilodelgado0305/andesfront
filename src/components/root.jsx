@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Menu, Button, Avatar, message, Typography, Dropdown, ConfigProvider, Spin } from 'antd';
-import { DashboardOutlined, TeamOutlined, ReadOutlined,IdcardOutlined , BookOutlined, FileTextOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined, SettingOutlined, UserOutlined, BankOutlined, PaperClipOutlined, BuildOutlined  } from '@ant-design/icons';
+import { DashboardOutlined, TeamOutlined, ReadOutlined, IdcardOutlined, BookOutlined, FileTextOutlined, MenuFoldOutlined, MenuUnfoldOutlined, LogoutOutlined, SettingOutlined, UserOutlined, BankOutlined, PaperClipOutlined, BuildOutlined } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -28,10 +28,10 @@ const MENU_CONFIG = {
         { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias', path: '/inicio/materias' },
         { key: '/inicio/evaluaciones', icon: <BookOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
         { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
-        
+
       ],
     },
-   
+
     { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
     { key: '/inicio/inventario', icon: <BuildOutlined />, label: 'Inventario', path: '/inicio/inventario' },
   ],
@@ -40,9 +40,9 @@ const MENU_CONFIG = {
     { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
     { key: '/inicio/inventario', icon: <BuildOutlined />, label: 'Inventario', path: '/inicio/inventario' },
     { key: '/inicio/generacion', icon: <PaperClipOutlined />, label: 'Generación de Documentos', path: '/inicio/generacion' },
-     
+
   ],
-all: [
+  all: [
     { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
     {
       key: '/academic-management',
@@ -51,9 +51,9 @@ all: [
       children: [
         { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
         { key: '/inicio/docentes', icon: <IdcardOutlined />, label: 'Docentes', path: '/inicio/docentes' },
-         { key: '/inicio/programas', icon: <IdcardOutlined />, label: 'Programas', path: '/inicio/programas' },
+        { key: '/inicio/programas', icon: <IdcardOutlined />, label: 'Programas', path: '/inicio/programas' },
         { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias', path: '/inicio/materias' },
-         { key: '/inicio/evaluaciones', icon: <BookOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
+        { key: '/inicio/evaluaciones', icon: <BookOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
         { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
       ],
     },
@@ -71,42 +71,65 @@ all: [
 
 const RootLayout = () => {
   // =============================================================================
-  // PARTE 2: LÓGICA DEL SIDER DINÁMICO
+  // PARTE 2: LÓGICA DEL SIDER DINÁMICO Y RESPONSIVE
   // =============================================================================
-  const [isSiderCollapsed, setIsSiderCollapsed] = useState(true); // Inicia colapsado por defecto
-  const timerRef = useRef(null); // Ref para el temporizador
-  
+  const [isSiderCollapsed, setIsSiderCollapsed] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const timerRef = useRef(null);
+
+  // Detectar si estamos en modo móvil
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        setIsSiderCollapsed(true);
+        setMobileDrawerOpen(false);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const handleMouseEnter = () => {
+    if (isMobile) return;
     if (timerRef.current) {
-      clearTimeout(timerRef.current); // Cancela cualquier colapso pendiente
+      clearTimeout(timerRef.current);
     }
-    setIsSiderCollapsed(false); // Expande el menú
+    setIsSiderCollapsed(false);
   };
 
   const handleMouseLeave = () => {
-    // Inicia un temporizador para colapsar el menú después de 1 segundo
+    if (isMobile) return;
     timerRef.current = setTimeout(() => {
       setIsSiderCollapsed(true);
-    }, 1000); // 1000 ms = 1 segundo de retardo
+    }, 1000);
+  };
+
+  const toggleMobileDrawer = () => {
+    setMobileDrawerOpen(!mobileDrawerOpen);
+  };
+
+  const closeMobileDrawer = () => {
+    setMobileDrawerOpen(false);
   };
 
   useEffect(() => {
-    // Limpieza: Asegura que el temporizador se elimine si el componente se desmonta
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
     };
   }, []);
-  
-  // (El resto de tus estados y hooks permanecen igual)
+
   const [userProfile, setUserProfile] = useState({ name: '', role: '', app: 'feva' });
   const [isLoading, setIsLoading] = useState(true);
   const [subscriptionData, setSubscriptionData] = useState({ endDate: null, amountPaid: null });
   const location = useLocation();
   const { logout } = useContext(AuthContext);
-  
-  // (Tu useEffect para fetchUserProfile y la lógica de showExpirationWarning permanecen sin cambios...)
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -175,7 +198,7 @@ const RootLayout = () => {
     icon: item.icon,
     label: item.path ? <Link to={item.path}>{item.label}</Link> : item.label,
     children: item.children?.map((child) => ({
-      key: child.path, // Usar el path como key es más robusto para la selección
+      key: child.path,
       icon: child.icon,
       label: <Link to={child.path}>{child.label}</Link>,
     })),
@@ -187,13 +210,14 @@ const RootLayout = () => {
       { key: '2', icon: <SettingOutlined />, label: <Link to="/inicio/configuracion">Configuración</Link> },
       { type: 'divider' },
       { key: '3', icon: <LogoutOutlined />, label: 'Cerrar Sesión', onClick: logout, danger: true },
-    ]}/>
+    ]} />
   );
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen"><Spin size="large" /></div>;
   }
-return (
+
+  return (
     <ConfigProvider
       theme={{
         token: { colorPrimary: PRIMARY_COLOR },
@@ -202,9 +226,6 @@ return (
             itemHoverBg: '#e6f4f4',
             itemSelectedBg: PRIMARY_COLOR,
             itemSelectedColor: '#000000',
-            
-            // SOLUCIÓN DEFINITIVA: Esta regla es más específica.
-            // Apunta directamente al SPAN dentro del título del submenú seleccionado.
             '.ant-menu-submenu-selected > .ant-menu-submenu-title > .ant-menu-title-content': {
               color: PRIMARY_COLOR,
             },
@@ -217,28 +238,89 @@ return (
       }}
     >
       <Layout style={{ minHeight: '100vh' }}>
+        {/* Backdrop para móviles cuando el drawer está abierto */}
+        {isMobile && mobileDrawerOpen && (
+          <div
+            onClick={closeMobileDrawer}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+              zIndex: 999,
+              transition: 'opacity 0.3s',
+            }}
+          />
+        )}
+
         <Sider
-          // ... (props del Sider sin cambios)
           collapsible
-          collapsed={isSiderCollapsed}
+          collapsed={isMobile ? false : isSiderCollapsed}
           trigger={null}
           width={240}
-          style={{ boxShadow: '2px 0 8px rgba(0, 0, 0, 0.05)', borderRight: '1px solid #f0f0f0', transition: 'width 0.2s' }}
+          breakpoint="md"
+          collapsedWidth={isMobile ? 0 : 80}
+          style={{
+            boxShadow: '2px 0 8px rgba(0, 0, 0, 0.05)',
+            borderRight: '1px solid #f0f0f0',
+            transition: 'all 0.3s',
+            position: isMobile ? 'fixed' : 'relative',
+            left: isMobile ? (mobileDrawerOpen ? 0 : -240) : 'auto',
+            zIndex: 1000,
+            height: '100vh',
+            overflow: 'auto',
+          }}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-            {/* ... Contenido del Sider sin cambios ... */}
-            <div className="flex items-center justify-start h-16 p-4">
-              <Link to="/inicio" className="flex items-start gap-2">
-                {!isSiderCollapsed && <Title level={4} className="!m-0 whitespace-nowrap" style={{ color: PRIMARY_COLOR }}>Controla</Title>}
-              </Link>
-            </div>
-            <Menu mode="inline" selectedKeys={[location.pathname]} items={menuItems} style={{ borderRight: 'none' }} />
+          <div className="flex items-center justify-start h-16 p-4">
+            <Link to="/inicio" className="flex items-start gap-2">
+              {(!isSiderCollapsed || isMobile) && <Title level={4} className="!m-0 whitespace-nowrap" style={{ color: PRIMARY_COLOR }}>Controla</Title>}
+            </Link>
+          </div>
+          <Menu
+            mode="inline"
+            selectedKeys={[location.pathname]}
+            items={menuItems.map(item => ({
+              ...item,
+              onClick: isMobile ? closeMobileDrawer : undefined,
+              children: item.children?.map(child => ({
+                ...child,
+                onClick: isMobile ? closeMobileDrawer : undefined,
+              }))
+            }))}
+            style={{ borderRight: 'none' }}
+          />
         </Sider>
+
         <Layout className="site-layout">
-          {/* ... Header y Content sin cambios ... */}
-          <Header style={{ padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0' }}>
-            <div></div>
+          <Header style={{
+            padding: isMobile ? '0 16px' : '0 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #f0f0f0',
+            position: 'sticky',
+            top: 0,
+            zIndex: 998,
+            backgroundColor: '#ffffff',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              {isMobile && (
+                <Button
+                  type="text"
+                  icon={mobileDrawerOpen ? <MenuFoldOutlined style={{ fontSize: '20px' }} /> : <MenuUnfoldOutlined style={{ fontSize: '20px' }} />}
+                  onClick={toggleMobileDrawer}
+                  style={{
+                    fontSize: '16px',
+                    width: 40,
+                    height: 40,
+                  }}
+                />
+              )}
+            </div>
             <Dropdown overlay={profileMenu} trigger={['click']}>
               <div className="flex items-center gap-2 cursor-pointer">
                 <Avatar style={{ backgroundColor: PRIMARY_COLOR }}>{userProfile.name.charAt(0).toUpperCase()}</Avatar>
@@ -246,9 +328,11 @@ return (
               </div>
             </Dropdown>
           </Header>
-          <Content style={{ overflow: 'initial' }}>
+
+          <Content style={{ overflow: 'initial', padding: isMobile ? '16px' : '24px' }}>
             <div style={{ minHeight: 360, background: '#fff' }}>
-                <Outlet />
+              {showExpirationWarning()}
+              <Outlet />
             </div>
           </Content>
         </Layout>
