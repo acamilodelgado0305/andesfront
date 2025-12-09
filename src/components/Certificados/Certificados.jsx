@@ -72,7 +72,7 @@ function Certificados() {
   const fetchCertificados = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://backendcoalianza.vercel.app/api/v1/clients');
+      const response = await fetch('https://backendcoalianza.vercel.app/api/clients');
       if (!response.ok) {
         throw new Error(`Error: ${response.status} - ${response.statusText}`);
       }
@@ -91,7 +91,7 @@ function Certificados() {
   const fetchEgresos = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://backendcoalianza.vercel.app/api/v1/egresos');
+      const response = await fetch('https://backendcoalianza.vercel.app/api/egresos');
       if (!response.ok) {
         throw new Error(`Error: ${response.status} - ${response.statusText}`);
       }
@@ -151,7 +151,7 @@ function Certificados() {
       let response;
       if (editingRecord) {
         console.log(`Actualizando registro ID: ${editingRecord._id}`);
-        response = await fetch(`https://backendcoalianza.vercel.app/api/v1/clients/${editingRecord._id}`, {
+        response = await fetch(`https://backendcoalianza.vercel.app/api/clients/${editingRecord._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSubmit),
@@ -160,7 +160,7 @@ function Certificados() {
         message.success('Venta actualizada correctamente');
       } else {
         console.log('Creando nuevo registro');
-        response = await fetch('https://backendcoalianza.vercel.app/api/v1/clients', {
+        response = await fetch('https://backendcoalianza.vercel.app/api/clients', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSubmit),
@@ -191,7 +191,7 @@ function Certificados() {
 
       let response;
       if (editingEgresoRecord) {
-        response = await fetch(`https://backendcoalianza.vercel.app/api/v1/egresos/${editingEgresoRecord._id}`, {
+        response = await fetch(`https://backendcoalianza.vercel.app/api/egresos/${editingEgresoRecord._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSubmit),
@@ -202,7 +202,7 @@ function Certificados() {
         }
         message.success('Egreso actualizado correctamente');
       } else {
-        response = await fetch('https://backendcoalianza.vercel.app/api/v1/egresos', {
+        response = await fetch('https://backendcoalianza.vercel.app/api/egresos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(dataToSubmit),

@@ -12,8 +12,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { notification } from 'antd';
 
 // VARIABLES DE ENTORNO
-const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app/api/v1';
-const API_BACKEND_FINANZAS = import.meta.env.VITE_API_FINANZAS || 'https://backendcoalianza.vercel.app/api/v1';
+const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app/api';
+const API_BACKEND_FINANZAS = import.meta.env.VITE_API_FINANZAS || 'https://backendcoalianza.vercel.app/api';
 
 // --- SUB-COMPONENTE: Tarjeta de Curso Individual ---
 const CourseCard = ({ courseName, userData, onDownload, downloading }) => {

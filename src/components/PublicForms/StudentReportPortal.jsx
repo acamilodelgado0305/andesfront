@@ -37,7 +37,7 @@ const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 
 // URL para consultar los certificados (basado en tu código anterior de Verificacion)
-const API_BACKEND_FINANZAS = import.meta.env.VITE_API_FINANZAS || 'https://backendcoalianza.vercel.app/api/v1';
+const API_BACKEND_FINANZAS = import.meta.env.VITE_API_FINANZAS || 'https://backendcoalianza.vercel.app/api';
 
 function StudentPortal() {
   // --- ESTADOS ---

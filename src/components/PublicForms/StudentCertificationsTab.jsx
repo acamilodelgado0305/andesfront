@@ -13,7 +13,7 @@ import {
 const { Title, Text } = Typography;
 
 // Asegúrate de que esta variable sea correcta
-const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app/api/v1';
+const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app/api';
 
 const StudentCertificationsTab = ({ studentInfo }) => {
   const [loadingAction, setLoadingAction] = useState(null); // 'certificado-CursoName' o null

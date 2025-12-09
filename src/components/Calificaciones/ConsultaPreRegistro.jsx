@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { notification } from 'antd';
 
 // URL del backend (son las mismas)
-const API_BACKEND_FINANZAS = import.meta.env.VITE_API_FINANZAS || 'https://backendcoalianza.vercel.app/api/v1';
+const API_BACKEND_FINANZAS = import.meta.env.VITE_API_FINANZAS || 'https://backendcoalianza.vercel.app/api';
 
 // --- SUB-COMPONENTE: Formulario de Verificación (sin cambios) ---
 // Este componente es idéntico al de Verificacion.jsx

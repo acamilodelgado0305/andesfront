@@ -169,7 +169,7 @@ const CertificadosTable = ({ data, allVentas, allEgresos, loading, onRefresh, us
   const handleDeleteItem = async (id) => {
     try {
       const endpoint = type === 'ventas' ? 'clients' : 'egresos';
-      await axios.delete(`https://backendcoalianza.vercel.app/api/v1/${endpoint}/${id}`);
+      await axios.delete(`https://backendcoalianza.vercel.app/api/${endpoint}/${id}`);
       message.success(`${type === 'ventas' ? 'Certificado' : 'Egreso'} eliminado correctamente`);
       onRefresh();
     } catch (error) {
