@@ -6,10 +6,18 @@ import {
   Col,
   Tabs,
   Button,
+  notification 
 } from "antd";
-import { LogoutOutlined } from "@ant-design/icons";
+import { 
+  LogoutOutlined, 
+  UserOutlined, 
+  ReadOutlined, 
+  FileTextOutlined,
+  SafetyCertificateOutlined 
+} from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
+// Servicios existentes
 import { generateGradeReportPDF } from "../Utilidades/generateGradeReportPDF";
 import { getStudentAssignments } from "../../services/evaluation/evaluationService";
 import {
@@ -18,284 +26,186 @@ import {
 } from "../../services/auth/studentAuthService";
 import { getStudentGradesAndInfoByDocument } from "../../services/gardes/gradesService";
 
+// Componentes
 import StudentLoginForm from "./StudentLoginForm";
 import StudentInfoTab from "./StudentInfoTab";
 import StudentEvaluationsTab from "./StudentEvaluationsTab";
 import StudentGradesTab from "./StudentGradesTab";
+import StudentCertificationsTab from "./StudentCertificationsTab"; // El componente que creamos antes
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
 
+// URL para consultar los certificados (basado en tu código anterior de Verificacion)
+const API_BACKEND_FINANZAS = import.meta.env.VITE_API_FINANZAS || 'https://backendcoalianza.vercel.app/api/v1';
+
 function StudentPortal() {
-  // --- ESTADOS DE LOGIN ---
+  // --- ESTADOS ---
   const [usernameDoc, setUsernameDoc] = useState("");
   const [passwordDoc, setPasswordDoc] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // --- ESTADOS DE DATOS ---
+  // Datos del estudiante
   const [documentNumber, setDocumentNumber] = useState("");
   const [studentInfo, setStudentInfo] = useState(null);
   const [gradesInfo, setGradesInfo] = useState([]);
-  const [currentStudentId, setCurrentStudentId] = useState(null);
   const [evaluations, setEvaluations] = useState([]);
-
-  // --- ESTADOS DE UI ---
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [currentStudentId, setCurrentStudentId] = useState(null);
 
   const navigate = useNavigate();
 
   // ---------------------------------------------------------------------------
-  // CARGAR notas + complementar info estudiante (desde /grades/student/:doc)
+  // NUEVA FUNCIÓN: CARGAR DATOS DE CERTIFICADOS (API FINANZAS)
   // ---------------------------------------------------------------------------
-  const loadStudentAcademicData = async (doc) => {
-    if (!doc.trim()) {
-      throw new Error("Debe proporcionar un número de documento válido.");
-    }
-
+  const loadCertificateData = async (doc) => {
     try {
-      setError(null);
-
-      const data = await getStudentGradesAndInfoByDocument(doc);
-      const { student, grades, studentId } = data;
-
-      if (!student || !studentId) {
-        throw new Error(
-          "La respuesta de la API no contiene información válida del estudiante o el ID del estudiante."
-        );
+      // Consultamos el endpoint que nos mostraste que devuelve el array "tipo"
+      const response = await fetch(`${API_BACKEND_FINANZAS}/clients/${doc}`);
+      
+      if (response.ok) {
+        const certData = await response.json();
+        
+        // Retornamos los datos útiles para mezclarlos con studentInfo
+        // El JSON que mostraste trae: tipo (array), fechaVencimiento, etc.
+        return {
+           tipo: certData.tipo, 
+           fechaVencimiento: certData.fechaVencimiento,
+           createdAt: certData.createdAt,
+           nombreCurso: certData.nombreCurso // Por si acaso
+        };
       }
-
-      // Combinamos info del login + info académica
-      setStudentInfo((prev) => ({
-        ...(prev || {}),
-        ...student,
-      }));
-      setGradesInfo(grades || []);
-      setCurrentStudentId(studentId);
-      setDocumentNumber(doc);
-
-      await loadStudentEvaluations(studentId);
+      return {}; // Si no encuentra en finanzas, retornamos vacío pero no rompemos el flujo
     } catch (err) {
-      console.error(
-        "Error cargando datos académicos:",
-        err.response?.data || err.message
-      );
-
-      setGradesInfo([]);
-      setCurrentStudentId(null);
-      setEvaluations([]);
-
-      const msg =
-        err.response?.data?.error ||
-        (err.response?.status === 404
-          ? `No se encontró un estudiante con el número de documento: ${doc}.`
-          : err.message || "Ocurrió un error al consultar los datos.");
-
-      setError(msg);
-      setIsLoggedIn(false);
-      clearStudentToken();
-      throw err;
+      console.warn("No se pudo cargar info de certificados externos:", err);
+      return {};
     }
   };
 
   // ---------------------------------------------------------------------------
-  // CARGAR evaluaciones asignadas (service)
+  // CARGAR NOTAS Y EVALUACIONES (Lógica existente)
   // ---------------------------------------------------------------------------
-const loadStudentEvaluations = async (studentId) => {
-  if (!studentId) return;
+  const loadStudentAcademicData = async (doc, authStudentData) => {
+    if (!doc.trim()) throw new Error("Documento inválido.");
 
-  try {
-    const data = await getStudentAssignments(studentId);
+    // 1. Cargar Notas (Servicio Grades)
+    const data = await getStudentGradesAndInfoByDocument(doc);
+    const { student, grades, studentId } = data;
 
-    const assignments = Array.isArray(data)
-      ? data
-      : Array.isArray(data.asignaciones)
-      ? data.asignaciones
-      : [];
+    if (!student || !studentId) throw new Error("Datos académicos no encontrados.");
 
-    const mapped = assignments.map((item, index) => ({
-      key:
-        item.asignacion_id ||
-        item.assignment_id ||
-        item.id ||
-        `asig-${index}`,
-      asignacionId:
-        item.asignacion_id || item.assignment_id || item.id,
-      evaluacionId:
-        item.evaluacion_id ||
-        item.evaluation_id ||
-        item.evaluacion?.id,
-      titulo:
-        item.titulo_evaluacion ||
-        item.titulo ||
-        item.evaluacion_titulo ||
-        item.evaluacion?.titulo ||
-        "Evaluación",
-      descripcion:
-        item.descripcion ||
-        item.descripcion_evaluacion ||
-        item.evaluacion?.descripcion ||
-        "",
-      estado:
-        item.estado ||
-        item.estado_asignacion ||
-        item.status ||
-        "pendiente",
+    // 2. Cargar Evaluaciones
+    let assignedEvaluations = [];
+    try {
+        const evData = await getStudentAssignments(studentId);
+        assignedEvaluations = evData.asignaciones || (Array.isArray(evData) ? evData : []);
+    } catch (e) {
+        console.warn("Error cargando evaluaciones", e);
+    }
+    
+    // 3. Cargar Certificados (NUEVO PASO)
+    // Usamos el documento para buscar en la base de datos de Clientes/Finanzas
+    const extraCertData = await loadCertificateData(doc);
 
-      // 🔹 Asignación = intentos_realizados
-      intentosRealizados:
-        item.intentos_realizados ?? item.intentos_usados ?? 0,
+    // 4. MEZCLAR TODO EN studentInfo
+    // Prioridad: authStudentData (login) -> student (grades) -> extraCertData (finanzas)
+    const finalStudentInfo = {
+        ...authStudentData, // Datos del login
+        ...student,         // Datos académicos
+        ...extraCertData,   // Datos de certificados (Aquí viene el array 'tipo')
+    };
 
-      // 🔹 Evaluación = intentos_max (total de intentos permitidos)
-      intentosMax: item.intentos_max ?? item.max_intentos ?? null,
-
-      calificacion: item.calificacion ?? item.nota ?? null,
-      fechaInicio:
-        item.fecha_inicio || item.inicio || item.evaluacion?.fecha_inicio,
-      fechaFin:
-        item.fecha_fin || item.fin || item.evaluacion?.fecha_fin,
-    }));
-
-    setEvaluations(mapped);
-  } catch (err) {
-    console.error(
-      "Error cargando evaluaciones:",
-      err.response?.data || err.message
-    );
-    setEvaluations([]);
-  }
-};
-
+    // Actualizar estados
+    setStudentInfo(finalStudentInfo);
+    setGradesInfo(grades || []);
+    setEvaluations(assignedEvaluations);
+    setCurrentStudentId(studentId);
+    setDocumentNumber(doc);
+  };
 
   // ---------------------------------------------------------------------------
-  // LOGIN (solo autenticación + estado base)
+  // LOGIN
   // ---------------------------------------------------------------------------
   const handleLogin = async () => {
     setError(null);
-
     const doc = usernameDoc.trim();
     const pass = passwordDoc.trim();
 
     if (!doc || !pass) {
-      setError("Por favor, complete ambos campos con su número de documento.");
+      setError("Complete ambos campos.");
       return;
     }
-
     if (doc !== pass) {
-      setError(
-        "El usuario y la contraseña deben ser el mismo número de documento."
-      );
+      setError("El usuario y contraseña deben ser iguales.");
       return;
     }
 
     setLoading(true);
     try {
-      // 1) Autenticar y guardar token
+      // A) Autenticación básica
       const { student } = await loginStudent(doc, pass);
 
-      // 2) Guardar info básica del login
-      setStudentInfo(student);
-      setCurrentStudentId(student.id);
-      setDocumentNumber(student.documento || doc);
-
-      // 3) Cargar info académica (notas + evaluaciones)
-      await loadStudentAcademicData(student.documento || doc);
-
+      // B) Carga de datos complejos (Notas + Certificados + Evaluaciones)
+      await loadStudentAcademicData(student.documento || doc, student);
+      
       setIsLoggedIn(true);
+      notification.success({ message: `Bienvenido, ${student.nombre}` });
+
     } catch (err) {
-      if (!error) {
-        const msg =
-          err.response?.data?.error ||
-          err.message ||
-          "No fue posible iniciar sesión.";
-        setError(msg);
-      }
+      console.error(err);
+      // Manejo de error más amigable
+      const msg = err.response?.data?.error || err.message || "Error al iniciar sesión.";
+      
+      // Si el error es 404 en academic data, quizás solo tiene certificado pero no notas.
+      // Podrías manejar eso aquí, pero por seguridad, si falla el login, mostramos error.
+      setError(msg);
       setIsLoggedIn(false);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // LOGOUT
-  // ---------------------------------------------------------------------------
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUsernameDoc("");
     setPasswordDoc("");
-    setDocumentNumber("");
     setStudentInfo(null);
     setGradesInfo([]);
-    setCurrentStudentId(null);
     setEvaluations([]);
-    setError(null);
     clearStudentToken();
   };
 
-  // ---------------------------------------------------------------------------
-  // DESCARGAR PDF NOTAS
-  // ---------------------------------------------------------------------------
   const handleDownloadReport = async () => {
-    if (!studentInfo || !currentStudentId) {
-      const msg = "No hay datos de estudiante suficientes para generar el PDF.";
-      setError(msg);
-      return;
-    }
-
+    if (!studentInfo || !currentStudentId) return;
     setLoading(true);
-    setError(null);
     try {
       await generateGradeReportPDF(studentInfo, gradesInfo, currentStudentId);
-    } catch (pdfError) {
-      console.error("Error generando PDF:", pdfError);
-      const msg = pdfError.message || "Error al generar el PDF.";
-      setError(msg);
+    } catch (e) {
+      notification.error({ message: "Error generando reporte de notas" });
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // IR A EVALUACIÓN
-  // ---------------------------------------------------------------------------
   const handleStartEvaluation = (evaluation) => {
-    if (!evaluation.asignacionId) {
-      return;
-    }
-    navigate(`/evaluaciones/asignacion/${evaluation.asignacionId}`);
+     if (evaluation.asignacionId) navigate(`/evaluaciones/asignacion/${evaluation.asignacionId}`);
   };
 
   // ---------------------------------------------------------------------------
-  // RENDER
+  // RENDER UI
   // ---------------------------------------------------------------------------
   return (
-    <Row
-      justify="center"
-      align="top"
-      style={{ minHeight: "90vh", padding: "20px", background: "#f0f2f5" }}
-    >
+    <Row justify="center" align="top" style={{ minHeight: "90vh", padding: "20px", background: "#f0f2f5" }}>
       <Col xs={24} sm={22} md={20} lg={18} xl={16}>
-        <Card
-          bordered={false}
-          style={{
-            boxShadow: "0 8px 16px rgba(0,0,0,0.1)",
-            borderRadius: "12px",
-            padding: "24px",
-          }}
-        >
-          {/* CABECERA */}
+        <Card bordered={false} style={{ borderRadius: "12px", boxShadow: "0 8px 16px rgba(0,0,0,0.1)" }}>
+          
           <div style={{ textAlign: "center", marginBottom: "30px" }}>
-            <Title level={2} style={{ color: "#003366", marginBottom: "5px" }}>
-              Portal del Estudiante
-            </Title>
-            <Text type="secondary" style={{ fontSize: "16px" }}>
-              Inicia sesión con tu número de documento para revisar tu
-              información, tus evaluaciones y tus notas.
-            </Text>
+            <Title level={2} style={{ color: "#003366" }}>Portal del Estudiante</Title>
+            <Text type="secondary">Gestiona tus notas, evaluaciones y certificaciones</Text>
           </div>
 
-          {/* LOGIN */}
-          {!isLoggedIn && (
+          {!isLoggedIn ? (
             <StudentLoginForm
               usernameDoc={usernameDoc}
               passwordDoc={passwordDoc}
@@ -305,79 +215,45 @@ const loadStudentEvaluations = async (studentId) => {
               onChangePassword={setPasswordDoc}
               onSubmit={handleLogin}
             />
-          )}
-
-          {/* CONTENIDO LOGUEADO */}
-          {isLoggedIn && studentInfo && currentStudentId && (
+          ) : (
             <>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "20px",
-                }}
-              >
-                <Text strong>
-                  Sesión iniciada como:{" "}
-                  <span style={{ color: "#0056b3" }}>
-                    {studentInfo.nombre_completo ||
-                      studentInfo.nombre ||
-                      "Estudiante"}
-                  </span>
-                </Text>
-                <Button
-                  icon={<LogoutOutlined />}
-                  type="default"
-                  size="small"
-                  onClick={handleLogout}
-                >
-                  Cerrar sesión
-                </Button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                <Text strong>Estudiante: <span style={{ color: "#0056b3" }}>{studentInfo?.nombre_completo || studentInfo?.nombre}</span></Text>
+                <Button icon={<LogoutOutlined />} onClick={handleLogout} danger type="text">Salir</Button>
               </div>
 
-              <Tabs defaultActiveKey="info">
-                <TabPane tab="Información" key="info">
-                  <StudentInfoTab
-                    studentInfo={studentInfo}
-                    documentNumber={documentNumber}
-                    currentStudentId={currentStudentId}
-                  />
+              <Tabs defaultActiveKey="certificados" type="card">
+                
+                <TabPane tab={<span><UserOutlined /> Información</span>} key="info">
+                  <StudentInfoTab studentInfo={studentInfo} documentNumber={documentNumber} />
+                </TabPane>
+                
+                <TabPane tab={<span><ReadOutlined /> Evaluaciones</span>} key="evaluaciones">
+                  <StudentEvaluationsTab evaluations={evaluations} onStartEvaluation={handleStartEvaluation} />
                 </TabPane>
 
-                <TabPane tab="Evaluaciones" key="evaluaciones">
-                  <StudentEvaluationsTab
-                    evaluations={evaluations}
-                    onStartEvaluation={handleStartEvaluation}
-                  />
-                </TabPane>
-
-                <TabPane tab="Notas" key="notas">
-                  <StudentGradesTab
-                    gradesInfo={gradesInfo}
+                <TabPane tab={<span><FileTextOutlined /> Notas</span>} key="notas">
+                  <StudentGradesTab 
+                    gradesInfo={gradesInfo} 
+                    studentInfo={studentInfo} 
                     currentStudentId={currentStudentId}
-                    studentInfo={studentInfo}
                     loading={loading}
-                    onDownloadReport={handleDownloadReport}
+                    onDownloadReport={handleDownloadReport} 
                   />
                 </TabPane>
+
+                <TabPane tab={<span><SafetyCertificateOutlined /> Certificados</span>} key="certificados">
+                  {/* Pasamos studentInfo que ahora YA TIENE el array 'tipo' mezclado */}
+                  <StudentCertificationsTab studentInfo={studentInfo} />
+                </TabPane>
+                
               </Tabs>
             </>
           )}
 
-          {/* FOOTER AYUDA */}
-          <Text
-            style={{
-              display: "block",
-              textAlign: "center",
-              marginTop: "40px",
-              fontSize: "12px",
-              color: "#777",
-            }}
-          >
-            Si tiene problemas para ingresar, consultar su información, ver sus
-            evaluaciones o notas, por favor contacte a la secretaría académica.
-          </Text>
+          <div style={{ textAlign: "center", marginTop: "40px", color: "#888", fontSize: "12px" }}>
+             Qcontrola © 2025
+          </div>
         </Card>
       </Col>
     </Row>

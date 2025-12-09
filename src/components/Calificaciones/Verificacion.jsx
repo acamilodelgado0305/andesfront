@@ -1,238 +1,178 @@
 import React, { useState, useId } from 'react';
 // ICONOS Y UTILIDADES
-import { AlertCircle, CheckCircle, ArrowLeft, ShieldCheck, Fingerprint, Clock, DownloadCloud, Loader2 } from 'lucide-react';
+import { 
+  AlertCircle, ArrowLeft, ShieldCheck, Fingerprint, Clock, 
+  DownloadCloud, Loader2, FileText, GraduationCap, User, 
+  Calendar, Award 
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-// Se necesita 'notification' de Ant Design para el feedback, igual que en Generacion.jsx
 import { notification } from 'antd';
 
-// URL del backend (mejor si es una variable de entorno como en tu otro componente)
+// VARIABLES DE ENTORNO
 const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app/api/v1';
 const API_BACKEND_FINANZAS = import.meta.env.VITE_API_FINANZAS || 'https://backendcoalianza.vercel.app/api/v1';
 
-
-// --- SUB-COMPONENTE: Formulario de Verificación (sin cambios) ---
-const VerificationForm = ({ cedula, setCedula, handleValidate, isLoading, error }) => (
-  <div className="space-y-6">
-    <div className="bg-slate-50 p-6 rounded-md border border-slate-200">
-      <h3 className="text-lg font-semibold text-slate-900 mb-2">Verifique y Descargue sus Documentos</h3>
-      <p className="text-slate-600">
-        Ingrese su número de documento para validar la certificación y acceder a la descarga de su certificado y carnet.
-      </p>
-    </div>
-    <div>
-      <label htmlFor="cedula" className="block text-sm font-medium text-slate-700 mb-2">
-        Número de Documento <span className="text-red-500">*</span>
-      </label>
-      <input
-        type="text"
-        id="cedula"
-        placeholder="Ingrese el número de documento sin puntos ni comas"
-        value={cedula}
-        onChange={(e) => setCedula(e.target.value.replace(/\D/g, ''))}
-        className="w-full p-3 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
-      />
-    </div>
-
-    <AnimatePresence>
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          className="flex items-center text-red-700 bg-red-50 p-4 rounded-md border border-red-200"
-        >
-          <AlertCircle className="w-5 h-5 mr-3 flex-shrink-0" />
-          <span className="font-medium">{error}</span>
-        </motion.div>
-      )}
-    </AnimatePresence>
-
-    <button
-      onClick={handleValidate}
-      disabled={isLoading || !cedula.trim()}
-      className="w-full px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:bg-slate-400 disabled:cursor-not-allowed font-semibold uppercase tracking-wider shadow-sm"
-    >
-      {isLoading ? (
-        <span className="flex items-center justify-center">
-          <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          Verificando...
-        </span>
-      ) : 'Validar Certificado'}
-    </button>
-  </div>
-);
-
-// --- SUB-COMPONENTE: Despliegue del Certificado (MODIFICADO) ---
-const CertificateDisplay = ({ data, resetForm, verificationId, onDownload, downloading }) => {
-  const formatDate = (dateString) => format(new Date(dateString), "d 'de' MMMM 'de' yyyy", { locale: es });
-  const formatDateTime = (date) => format(date, "d 'de' MMMM 'de' yyyy, h:mm:ss a", { locale: es });
+// --- SUB-COMPONENTE: Tarjeta de Curso Individual ---
+const CourseCard = ({ courseName, userData, onDownload, downloading }) => {
+  const formatDate = (dateString) => format(new Date(dateString), "d 'de' MMMM, yyyy", { locale: es });
+  
+  // 1. Validamos si este curso específico es de Alimentos
+  const isFoodHandling = courseName.toLowerCase().includes('manipulac') || 
+                         courseName.toLowerCase().includes('alimentos');
 
   return (
-    <div className="space-y-6">
-     
-
-      <div className="bg-white rounded-lg border border-slate-200">
-        <div className="bg-slate-50 px-6 py-4 rounded-t-lg border-b border-slate-200">
-          <h3 className="text-lg font-bold text-slate-900">Registro de Certificación</h3>
-        </div>
-
-        <div className="space-y-6">
-          <div className="text-center">
-            <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-slate-800">Certificado Válido y Verificado</h2>
-            <p className="text-slate-500">La siguiente certificación ha sido encontrada y validada en el sistema de SixNyx.</p>
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden flex flex-col h-full"
+    >
+      {/* Encabezado de la Tarjeta */}
+      <div className={`px-6 py-4 border-b ${isFoodHandling ? 'bg-green-50 border-green-100' : 'bg-blue-50 border-blue-100'}`}>
+        <div className="flex justify-between items-start">
+          <div className={`p-2 rounded-lg ${isFoodHandling ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+            {isFoodHandling ? <Award className="w-6 h-6" /> : <GraduationCap className="w-6 h-6" />}
           </div>
-
-          <div className="bg-white rounded-lg border border-slate-200">
-            {/* Encabezado del Certificado */}
-            <div className="bg-slate-50 px-6 py-4 rounded-t-lg border-b border-slate-200">
-              <h3 className="text-lg font-bold text-slate-900">Registro de Certificación</h3>
-            </div>
-
-            {/* Cuerpo del Certificado */}
-            <div className="p-6">
-              <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div>
-                  <dt className="text-sm font-medium text-slate-500">Nombre Completo</dt>
-                  <dd className="text-lg font-semibold text-slate-900">{`${data.nombre} ${data.apellido}`}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-slate-500">Documento de Identidad</dt>
-                  <dd className="text-lg font-semibold text-slate-900">{data.numeroDeDocumento}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-slate-500">Tipo de Certificación</dt>
-                  <dd className="text-lg font-semibold text-slate-900">Buenas Prácticas de Manipulación (BPM)</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-slate-500">Estado</dt>
-                  <dd className="text-lg font-semibold text-green-600">Vigente</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-slate-500">Fecha de Expedición</dt>
-                  <dd className="text-lg font-semibold text-slate-900">{formatDate(data.createdAt)}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-slate-500">Fecha de Vencimiento</dt>
-                  <dd className="text-lg font-semibold text-slate-900">{formatDate(data.fechaVencimiento)}</dd>
-                </div>
-              </dl>
-            </div>
-
-            {/* Detalles de la Certificación */}
-            <div className="border-t border-slate-200 p-6 space-y-3 text-sm">
-              <p className="text-slate-800"><span className="font-semibold">Detalle:</span> Recibió y aprobó la capacitación en Buenas Prácticas de Manipulación de Alimentos (BPM) de acuerdo con el Decreto 3075 de 1997 y la Resolución 2674 de 2013, actualizados según las normativas vigentes en Colombia para 2025.</p>
-              <p className="text-slate-800"><span className="font-semibold">Avalado por:</span> Seccional de Salud de Antioquia CSO-2018</p>
-              <p className="text-slate-800"><span className="font-semibold">Certificador:</span> William Alzate - NIT 712.121.85-2</p>
-            </div>
-
-            {/* Pie de página del Certificado con datos de confianza */}
-            <div className="bg-slate-50 px-6 py-4 rounded-b-lg border-t border-slate-200 space-y-3">
-              <div className="flex items-center text-xs text-slate-500">
-                <Fingerprint className="w-4 h-4 mr-2" />
-                <strong>ID de Verificación:</strong><span className="ml-1 font-mono">{verificationId}</span>
-              </div>
-              <div className="flex items-center text-xs text-slate-500">
-                <Clock className="w-4 h-4 mr-2" />
-                <strong>Fecha de Consulta:</strong><span className="ml-1">{formatDateTime(new Date())}</span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={resetForm}
-            className="w-full px-6 py-3 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors font-semibold uppercase tracking-wider"
-          >
-            Verificar otro certificado
-          </button>
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
+            Vigente
+          </span>
         </div>
+        <h3 className="mt-3 text-lg font-bold text-slate-900 leading-tight min-h-[3.5rem] flex items-center">
+          {courseName}
+        </h3>
+      </div>
 
-        {/* ================================================================= */}
-        {/* ======================= ZONA DE DESCARGA ======================== */}
-        {/* ================================================================= */}
-        <div className="border-t border-slate-200 p-6 space-y-4">
-          <h4 className="font-semibold text-slate-800 text-center">Descargar Documentos</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Botón para Certificado */}
-            <button
-              onClick={() => onDownload('certificado')}
-              disabled={!!downloading} // Deshabilitado si algo se está descargando
-              className="flex items-center justify-center w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:bg-slate-400 font-semibold shadow-sm"
-            >
-              {downloading === 'certificado' ? (
-                <>
-                  <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                  Generando...
-                </>
-              ) : (
-                <>
-                  <DownloadCloud className="h-5 w-5 mr-2" />
-                  Descargar Certificado
-                </>
-              )}
-            </button>
-            {/* Botón para Carnet */}
-            <button
-              onClick={() => onDownload('carnet')}
-              disabled={!!downloading} // Deshabilitado si algo se está descargando
-              className="flex items-center justify-center w-full px-4 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:bg-slate-400 font-semibold shadow-sm"
-            >
-              {downloading === 'carnet' ? (
-                <>
-                  <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                  Generando...
-                </>
-              ) : (
-                <>
-                  <DownloadCloud className="h-5 w-5 mr-2" />
-                  Descargar Carnet
-                </>
-              )}
-            </button>
+      {/* Cuerpo de la Tarjeta */}
+      <div className="p-6 flex-grow space-y-4">
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center text-slate-600">
+            <Calendar className="w-4 h-4 mr-2 text-slate-400" />
+            <span className="font-medium mr-1">Expedición:</span> 
+            {formatDate(userData.createdAt)}
+          </div>
+          <div className="flex items-center text-slate-600">
+            <Clock className="w-4 h-4 mr-2 text-slate-400" />
+            <span className="font-medium mr-1">Vence:</span> 
+            {formatDate(userData.fechaVencimiento)}
           </div>
         </div>
-
-        <div className="bg-slate-50 px-6 py-4 rounded-b-lg border-t border-slate-200 space-y-3">
-          <div className="flex items-center text-xs text-slate-500">
-            <Fingerprint className="w-4 h-4 mr-2" />
-            <strong>ID de Verificación:</strong><span className="ml-1 font-mono">{verificationId}</span>
-          </div>
-          <div className="flex items-center text-xs text-slate-500">
-            <Clock className="w-4 h-4 mr-2" />
-            <strong>Fecha de Consulta:</strong><span className="ml-1">{formatDateTime(new Date())}</span>
-          </div>
+        
+        <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-md border border-slate-100">
+            {isFoodHandling 
+                ? "Cumple con Decreto 3075/1997 y Res. 2674/2013." 
+                : "Certificación de competencias laborales y académicas."}
         </div>
       </div>
 
-      <button
-        onClick={resetForm}
-        className="w-full px-6 py-3 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors font-semibold uppercase tracking-wider"
-      >
-        Verificar otro documento
-      </button>
+      {/* Pie de la Tarjeta (Acciones) */}
+      <div className="p-4 bg-slate-50 border-t border-slate-100">
+        {isFoodHandling ? (
+          <div className="grid grid-cols-2 gap-3">
+             <button
+              onClick={() => onDownload('certificado', courseName)}
+              disabled={!!downloading}
+              className="flex flex-col items-center justify-center p-2 bg-white border border-slate-200 rounded hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-colors text-xs font-medium text-slate-600 disabled:opacity-50"
+            >
+              {downloading === 'certificado' ? <Loader2 className="w-5 h-5 animate-spin mb-1"/> : <DownloadCloud className="w-5 h-5 mb-1"/>}
+              Certificado
+            </button>
+            <button
+              onClick={() => onDownload('carnet', courseName)}
+              disabled={!!downloading}
+              className="flex flex-col items-center justify-center p-2 bg-white border border-slate-200 rounded hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors text-xs font-medium text-slate-600 disabled:opacity-50"
+            >
+              {downloading === 'carnet' ? <Loader2 className="w-5 h-5 animate-spin mb-1"/> : <FileText className="w-5 h-5 mb-1"/>}
+              Carnet
+            </button>
+          </div>
+        ) : (
+          <div className="w-full py-2 flex items-center justify-center text-slate-400 bg-slate-100 rounded border border-slate-200 cursor-not-allowed">
+            <ShieldCheck className="w-4 h-4 mr-2" />
+            <span className="text-xs font-medium">Solo Verificación Web</span>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
+
+// --- SUB-COMPONENTE: Portal de Usuario (Reemplaza CertificateDisplay) ---
+const StudentPortal = ({ data, resetForm, onDownload, downloading }) => {
+  // Manejo defensivo: asegurar que data.tipo sea un array
+  const courses = Array.isArray(data.tipo) ? data.tipo : [data.tipo || "Certificación General"];
+  const fullName = `${data.nombre} ${data.apellido}`;
+
+  return (
+    <div className="space-y-8">
+      {/* Cabecera del Portal */}
+      <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
+        <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 flex-shrink-0">
+          <User className="w-8 h-8 text-slate-500" />
+        </div>
+        <div className="flex-grow">
+          <h2 className="text-2xl font-bold text-slate-900 capitalize">Hola, {data.nombre}</h2>
+          <p className="text-slate-500 flex items-center justify-center sm:justify-start mt-1">
+             <Fingerprint className="w-4 h-4 mr-1"/> Documento: {data.numeroDeDocumento}
+          </p>
+          <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+             <ShieldCheck className="w-3 h-3 mr-1" /> Cuenta Verificada
+          </div>
+        </div>
+        <button
+           onClick={resetForm}
+           className="text-sm text-slate-500 underline hover:text-slate-800"
+        >
+          Salir / Consultar otro
+        </button>
+      </div>
+
+      {/* Grid de Cursos */}
+      <div>
+        <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
+            <Award className="w-5 h-5 mr-2 text-green-600"/>
+            Mis Certificaciones ({courses.length})
+        </h3>
+        
+        {courses.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+            {courses.map((courseName, index) => (
+              <CourseCard 
+                key={index}
+                courseName={courseName}
+                userData={data}
+                onDownload={onDownload}
+                downloading={downloading}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="p-8 text-center bg-slate-50 rounded-lg border border-slate-200 border-dashed">
+            <p className="text-slate-500">No se encontraron certificaciones activas para mostrar.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Footer Informativo */}
+      <div className="text-center text-xs text-slate-400 pt-8 border-t border-slate-200">
+        <p>Los certificados digitales son generados en tiempo real. Si presentas inconvenientes, contacta soporte.</p>
+      </div>
     </div>
   );
 };
 
 
-// --- COMPONENTE PRINCIPAL (MODIFICADO) ---
+// --- COMPONENTE PRINCIPAL ---
 const Verificacion = () => {
   const [cedula, setCedula] = useState('');
   const [error, setError] = useState('');
-  const [certificateData, setCertificateData] = useState(null);
+  const [studentData, setStudentData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [validationSuccess, setValidationSuccess] = useState(false);
-  // Nuevo estado para controlar la descarga actual
-  const [downloading, setDownloading] = useState(null); // Puede ser 'certificado', 'carnet' o null
-  const verificationId = useId();
+  const [downloading, setDownloading] = useState(null); // 'certificado' | 'carnet' | null
 
-  // --- LÓGICA DE VALIDACIÓN (sin cambios) ---
+  // --- LÓGICA DE VALIDACIÓN ---
   const handleValidate = async () => {
     if (!cedula.trim() || cedula.length < 5) {
       setError('Por favor ingrese un número de documento válido.');
@@ -240,179 +180,216 @@ const Verificacion = () => {
     }
     setIsLoading(true);
     setError('');
+    
     try {
-      // Usamos una URL base para las llamadas al API
+      // 1. Fetch al endpoint de clientes
       const response = await fetch(`${API_BACKEND_FINANZAS}/clients/${cedula}`);
+      
       if (response.status === 404) {
-        throw new Error('Certificado no encontrado');
+        throw new Error('No se encontraron registros para este documento.');
       }
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Ocurrió un error en la verificación');
+        throw new Error('Error de conexión con el servidor.');
       }
+      
       const data = await response.json();
-      setCertificateData(data);
-      setValidationSuccess(true);
+      
+      // Validación básica de que llegue data
+      if (!data || !data.numeroDeDocumento) {
+          throw new Error('Datos inválidos recibidos.');
+      }
+
+      setStudentData(data);
     } catch (error) {
-      setError('No se encontró un certificado válido para este número de documento.');
-      setCertificateData(null);
-      setValidationSuccess(false);
+      console.error(error);
+      setError(error.message || 'No se encontró información.');
+      setStudentData(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDownload = async (docType) => {
-    if (!certificateData) return;
+  const handleDownload = async (docType, courseNameForValidation) => {
+    // DOBLE CHECK: Solo permitimos descargar si es Manipulación (seguridad por si hackean el botón)
+    const isFood = courseNameForValidation.toLowerCase().includes('manipulac') || 
+                   courseNameForValidation.toLowerCase().includes('alimentos');
 
-    setDownloading(docType);
-    const notificationKey = 'generatingDoc';
-    notification.info({
-      message: 'Procesando Solicitud',
-      description: `Generando tu ${docType}... Por favor, espera.`,
-      duration: 0,
-      key: notificationKey
-    });
-
-    const { nombre, apellido, numeroDeDocumento, tipoDeDocumento } = certificateData;
-    const fullName = `${nombre} ${apellido}`;
-
-    // ✅ PASO 1: Preparamos las variables para la petición
-    let endpoint = '';
-    let requestOptions = {
-      method: 'POST',
-    };
-
-    // ✅ PASO 2: Configuramos la petición según el tipo de documento
-    if (docType === 'certificado') {
-      // Para el CERTIFICADO, usamos JSON
-      endpoint = `${API_BACKEND_URL}/api/generar-certificado`;
-
-      const payload = {
-        nombre: fullName,
-        numeroDocumento: numeroDeDocumento,
-        tipoDocumento: tipoDeDocumento || 'C.C',
-      };
-
-      requestOptions.headers = {
-        'Content-Type': 'application/json',
-      };
-      requestOptions.body = JSON.stringify(payload);
-
-    } else { // docType === 'carnet'
-      // Para el CARNET, usamos Form-Data
-      endpoint = `${API_BACKEND_URL}/api/generar-carnet`;
-
-      const payload = new FormData();
-      payload.append('nombre', fullName);
-      payload.append('numeroDocumento', numeroDeDocumento);
-      payload.append('tipoDocumento', tipoDeDocumento || 'C.C');
-
-      // NO definimos headers, el navegador lo hace automáticamente para FormData
-      requestOptions.body = payload;
+    if (!isFood) {
+       notification.warning({ message: 'Descarga no disponible', description: 'Este certificado aún no tiene plantilla digital.' });
+       return;
     }
 
-    try {
-      // ✅ PASO 3: Hacemos el fetch con las opciones correctas
-      const response = await fetch(endpoint, requestOptions);
+    setDownloading(docType);
+    const notificationKey = 'download-toast';
+    
+    notification.open({
+        key: notificationKey,
+        message: 'Generando Documento',
+        description: 'Por favor espera mientras preparamos tu PDF...',
+        icon: <Loader2 className="text-blue-500 animate-spin" />,
+        duration: 0,
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `No se pudo generar el ${docType}.`);
+    try {
+      const { nombre, apellido, numeroDeDocumento, tipoDeDocumento } = studentData;
+      const fullName = `${nombre} ${apellido}`;
+
+      let endpoint = '';
+      let requestOptions = { method: 'POST' };
+
+      // NOTA IMPORTANTE:
+      // Aquí estamos llamando al endpoint GENÉRICO que tenías antes. 
+      // Si en el futuro tienes endpoints diferentes por curso, aquí usarías "courseNameForValidation" para decidir la URL.
+      // Por ahora, como dijiste que solo "Manipulación" genera PDF, usamos la lógica actual.
+
+      if (docType === 'certificado') {
+        endpoint = `${API_BACKEND_URL}/api/generar-certificado`;
+        requestOptions.headers = { 'Content-Type': 'application/json' };
+        requestOptions.body = JSON.stringify({
+          nombre: fullName,
+          numeroDocumento: numeroDeDocumento,
+          tipoDocumento: tipoDeDocumento || 'C.C',
+        });
+      } else {
+        endpoint = `${API_BACKEND_URL}/api/generar-carnet`;
+        const formData = new FormData();
+        formData.append('nombre', fullName);
+        formData.append('numeroDocumento', numeroDeDocumento);
+        formData.append('tipoDocumento', tipoDeDocumento || 'C.C');
+        requestOptions.body = formData;
       }
 
-      // El resto de la lógica para descargar el archivo es la misma
+      const response = await fetch(endpoint, requestOptions);
+      if (!response.ok) throw new Error('Error al generar el archivo en el servidor.');
+
       const blob = await response.blob();
-      const fileName = `${docType === 'certificado' ? 'Certificado' : 'Carnet'}_${fullName.replace(/\s/g, '_')}.pdf`;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', fileName);
+      // Nombre del archivo limpio
+      link.setAttribute('download', `${docType}_${fullName.replace(/\s+/g, '_')}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      notification.success({
-        message: '¡Éxito!',
-        description: `Tu ${docType} se ha descargado correctamente.`,
-      });
+      notification.success({ message: 'Descarga Completada', description: 'El archivo se ha guardado en tu dispositivo.' });
 
-    } catch (error) {
-      notification.error({
-        message: `Error al generar ${docType}`,
-        description: error.message || 'No se pudo conectar con el servidor.'
-      });
-      console.error(`Error al descargar ${docType}:`, error);
+    } catch (err) {
+      notification.error({ message: 'Error', description: 'No se pudo generar el documento. Intenta de nuevo.' });
+      console.error(err);
     } finally {
       notification.destroy(notificationKey);
       setDownloading(null);
     }
   };
 
-
   const resetForm = () => {
     setCedula('');
     setError('');
-    setCertificateData(null);
-    setValidationSuccess(false);
+    setStudentData(null);
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 sm:p-6 md:p-8">
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg border border-slate-200">
-          <div className="p-6 md:p-8 border-b border-slate-200">
-            <Link to="/" className="inline-flex items-center text-sm text-green-600 hover:text-green-800 mb-6 font-medium">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Volver al inicio
-            </Link>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900">Validación de Certificados</h1>
-              </div>
-              <div className="flex-shrink-0 flex items-center bg-green-100 text-green-800 px-3 py-1.5 rounded-md text-sm font-semibold">
-                <ShieldCheck className="w-5 h-5 mr-2" />
-                <span>Certificación Oficial</span>
-              </div>
-            </div>
+    <div className="min-h-screen bg-slate-100 p-4 sm:p-6 md:p-8 font-sans">
+      <div className="max-w-4xl mx-auto">
+        
+        {/* Header General */}
+        {!studentData && (
+             <div className="mb-8 text-center">
+                <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Portal de Certificaciones</h1>
+                <p className="text-slate-500 mt-2">Consulta y descarga tus documentos oficiales de Coalianza / Alimentos Inocuos</p>
+             </div>
+        )}
+
+        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+          
+          {/* Barra superior de navegación (Solo si hay datos o si queremos volver) */}
+          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+             <Link to="/" className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-green-600 transition-colors">
+                <ArrowLeft className="w-4 h-4 mr-2" /> Inicio
+             </Link>
+             <div className="flex items-center space-x-2">
+                <ShieldCheck className="w-5 h-5 text-green-600" />
+                <span className="text-sm font-semibold text-slate-700 hidden sm:inline">Plataforma Segura</span>
+             </div>
           </div>
 
-          <div className="p-6 md:p-8">
+          <div className="p-6 md:p-10">
             <AnimatePresence mode="wait">
-              <motion.div
-                key={validationSuccess ? 'result' : 'form'}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                {!validationSuccess ? (
-                  <VerificationForm
-                    cedula={cedula}
-                    setCedula={setCedula}
-                    handleValidate={handleValidate}
-                    isLoading={isLoading}
-                    error={error}
-                  />
-                ) : (
-                  <CertificateDisplay
-                    data={certificateData}
-                    resetForm={resetForm}
-                    verificationId={verificationId}
+              {!studentData ? (
+                <motion.div
+                  key="form"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {/* --- FORMULARIO DE BÚSQUEDA --- */}
+                  <div className="max-w-xl mx-auto space-y-8">
+                    <div className="text-center space-y-4">
+                        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Fingerprint className="w-10 h-10 text-green-600" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-slate-800">Verificar Identidad</h2>
+                        <p className="text-slate-600">Ingresa tu número de documento para acceder a tus certificaciones vigentes.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <label className="block text-sm font-bold text-slate-700 ml-1">Número de Documento</label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Ej: 10203040"
+                                value={cedula}
+                                onChange={(e) => setCedula(e.target.value.replace(/\D/g, ''))}
+                                onKeyDown={(e) => e.key === 'Enter' && handleValidate()}
+                                className="w-full pl-4 pr-4 py-4 bg-slate-50 border border-slate-300 rounded-lg focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all text-lg outline-none"
+                            />
+                        </div>
+                        
+                        <AnimatePresence>
+                            {error && (
+                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-red-600 bg-red-50 p-3 rounded-lg text-sm flex items-center">
+                                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" /> {error}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <button
+                            onClick={handleValidate}
+                            disabled={isLoading || !cedula.trim()}
+                            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center text-lg"
+                        >
+                            {isLoading ? <Loader2 className="animate-spin mr-2" /> : 'Consultar Ahora'}
+                        </button>
+                    </div>
+                  </div>
+
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="portal"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {/* --- PORTAL DE RESULTADOS --- */}
+                  <StudentPortal 
+                    data={studentData} 
+                    resetForm={resetForm} 
                     onDownload={handleDownload}
                     downloading={downloading}
                   />
-                )}
-              </motion.div>
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </div>
-
-        <div className="mt-8 text-center text-sm text-slate-500">
-          <p className="font-semibold">Alimentos Inocuos - NIT 712.121.85-2</p>
-          <p>Avalado por Seccional de Salud de Antioquia CSO-2018</p>
-          <p className="mt-4">Todos los derechos reservados © 2025</p>
+        
+        <div className="mt-12 text-center space-y-2">
+            <p className="text-slate-400 text-sm">© 2025 Alimentos Inocuos S.A.S - Todos los derechos reservados</p>
         </div>
       </div>
     </div>
