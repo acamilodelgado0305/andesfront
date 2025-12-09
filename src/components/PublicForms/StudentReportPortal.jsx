@@ -196,9 +196,9 @@ function StudentPortal() {
   // RENDER UI
   // ---------------------------------------------------------------------------
   return (
-    <Row justify="center" align="top" style={{ minHeight: "90vh", padding: "20px", background: "#f0f2f5" }}>
+    <Row justify="center" align="top" style={{ minHeight: "100vh", background: "#FFFF" }}>
       <Col xs={24} sm={22} md={20} lg={18} xl={16}>
-        <Card bordered={false} style={{ borderRadius: "12px", boxShadow: "0 8px 16px rgba(0,0,0,0.1)" }}>
+        <Card bordered={false} >
           
           <div style={{ textAlign: "center", marginBottom: "30px" }}>
             <Title level={2} style={{ color: "#003366" }}>Portal del Estudiante</Title>
@@ -222,7 +222,7 @@ function StudentPortal() {
                 <Button icon={<LogoutOutlined />} onClick={handleLogout} danger type="text">Salir</Button>
               </div>
 
-              <Tabs defaultActiveKey="certificados" type="card">
+              <Tabs defaultActiveKey="info" type="card">
                 
                 <TabPane tab={<span><UserOutlined /> Información</span>} key="info">
                   <StudentInfoTab studentInfo={studentInfo} documentNumber={documentNumber} />
