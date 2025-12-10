@@ -19,10 +19,12 @@ import {
   updateEgreso
 } from '../../services/controlapos/posService';
 
+import IngresoDrawer from './components/IngresoDrawer';
+
 import DashboardStats from './DashboardStats';
 import TransactionTable from './TransactionTable';
-import IngresoDrawer from './components/IngresoDrawer';
 import EgresoDrawer from './components/EgresoDrawer';
+
 
 const { Title } = Typography;
 const { TabPane } = Tabs;
