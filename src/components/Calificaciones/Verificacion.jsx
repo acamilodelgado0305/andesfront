@@ -335,7 +335,7 @@ const Verificacion = () => {
         {!studentData && (
               <div className="mb-8 text-center">
                  <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Portal de Certificaciones</h1>
-                 <p className="text-slate-500 mt-2">Consulta y descarga tus documentos oficiales de Coalianza / Alimentos Inocuos</p>
+                 <p className="text-slate-500 mt-2">Consulta y descarga tus Certificados y Diplomas Oficiales</p>
               </div>
         )}
 
@@ -426,7 +426,7 @@ const Verificacion = () => {
         </div>
         
         <div className="mt-12 text-center space-y-2">
-            <p className="text-slate-400 text-sm">© 2025 Alimentos Inocuos S.A.S - Todos los derechos reservados</p>
+            <p className="text-slate-400 text-sm">© 2025 Qcontrola - Todos los derechos reservados</p>
         </div>
       </div>
     </div>
