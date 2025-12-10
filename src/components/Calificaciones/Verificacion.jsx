@@ -335,7 +335,7 @@ const Verificacion = () => {
         {!studentData && (
               <div className="mb-8 text-center">
                  <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Portal de Certificaciones</h1>
-                 <p className="text-slate-500 mt-2">Consulta y descarga tus Certificados y Diplomas Oficiales</p>
+                 <p className="text-slate-500 mt-2">Consulta, descarga tus Certificados y Diplomas Oficiales</p>
               </div>
         )}
 
