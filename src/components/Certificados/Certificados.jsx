@@ -19,7 +19,7 @@ import {
   updateEgreso
 } from '../../services/controlapos/posService';
 
-import IngresoDrawer from './components/CreateIncome';
+import IngresoDrawer from './components/IngresoDrawer';
 
 import DashboardStats from './DashboardStats';
 import TransactionTable from './TransactionTable';
