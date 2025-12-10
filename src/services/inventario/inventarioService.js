@@ -2,7 +2,7 @@
 import backApi from "../backApi";
 import axios from "axios";
 
-const API_COALIANZA = import.meta.env.VITE_API;
+const API_COALIANZA = import.meta.env.VITE_API_BACKEND;
 
 
 
@@ -30,7 +30,7 @@ coalianzaApi.interceptors.request.use(
 
 export const getInventario = async (params = {}) => {
   // Ajusta la ruta si tu backend no requiere '/user/'
-  const response = await coalianzaApi.get(`/inventario`,{ params });
+  const response = await coalianzaApi.get(`/api/inventario`,{ params });
   return response.data;
 };
 
