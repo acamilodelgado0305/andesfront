@@ -62,7 +62,7 @@ const CourseCard = ({ courseName, userData, onDownload, downloading }) => {
         
         <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-md border border-slate-100">
             {isFoodHandling 
-                ? "Cumple con Decreto 3075/1997 y Res. 2674/2013." 
+                ? "Res. 2674/2013." 
                 : "Certificación de competencias laborales y académicas."}
         </div>
       </div>
@@ -259,7 +259,7 @@ const handleValidate = async () => {
         endpoint = `${API_BACKEND_URL}/api/generar-carnet`;
         const formData = new FormData();
         formData.append('nombre', fullName);
-        formData.append('numeroDocumento', numeroDeDocumento);
+        formData.append('numeroDocumento', numeroDeDocumento);Decreto 
         formData.append('tipoDocumento', tipoDeDocumento || 'C.C');
         requestOptions.body = formData;
       }
