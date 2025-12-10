@@ -161,10 +161,15 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
     };
     
     // Mapeo para el Select de Ant Design
-    const inventarioOptions = inventario.map(item => ({
-        label: `${item.nombre} - ($${parseFloat(item.monto).toLocaleString('es-CO')})`,
-        value: item.nombre,
-    }));
+// Busca esta parte en tu código y reemplázala:
+
+// Verificamos si inventario es un array antes de hacer map
+const listaInventario = Array.isArray(inventario) ? inventario : [];
+
+const inventarioOptions = listaInventario.map(item => ({
+    label: `${item.nombre} - ($${parseFloat(item.monto || 0).toLocaleString('es-CO')})`,
+    value: item.nombre,
+}));
     
     const menu = (
         <Menu onClick={() => handleSave(true)}>
