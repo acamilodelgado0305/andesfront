@@ -35,7 +35,7 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
     if (storedUserId) {
       setCurrentUserId(Number(storedUserId)); // Asegurarse de que sea un número
     } else {
-      message.error("No se pudo obtener el ID de usuario del almacenamiento local. Asegúrese de iniciar sesión.");
+      message.error(".");
     }
 
     const fetchUserInventario = async () => {

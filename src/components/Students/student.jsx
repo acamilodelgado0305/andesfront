@@ -1,86 +1,58 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { FaSearch } from "react-icons/fa";
-import CreateStudentModal from "./addStudent";
-import {
-  getStudents,
-  deleteStudent,
-  getStudentsByCoordinator,
-} from "../../services/student/studentService";
 import { Input, Button, message } from "antd";
 
+// Componentes y Servicios
+import CreateStudentModal from "./addStudent";
 import StudentTable from "./StudentTable";
+import {
+  getStudents, // Este servicio ahora es "polimórfico" gracias a tu backend
+  deleteStudent
+} from "../../services/student/studentService";
 
 const Students = () => {
+  // --- ESTADOS ---
   const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentUserId, setCurrentUserId] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [isAdminUser, setIsAdminUser] = useState(false);
 
-  // 1. Obtener userId y determinar si es admin
-  useEffect(() => {
-    const userId = localStorage.getItem("userId");
-    if (!userId) {
-      console.error("No userId found in localStorage");
-      message.error(
-        "ID de usuario no encontrado. Por favor, inicie sesión de nuevo."
-      );
-      setCurrentUserId(null);
-      setIsAdminUser(false);
-      return;
-    }
-
-    const parsedUserId = parseInt(userId, 10);
-    setCurrentUserId(parsedUserId);
-    setIsAdminUser(parsedUserId === 3); // ID 3 como admin (ajustable)
-  }, []);
-
-  // 2. Cargar estudiantes según rol
+  // --- 1. CARGAR ESTUDIANTES (Lógica Simplificada) ---
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
-      if (currentUserId === null) {
-        setStudents([]);
-        return;
-      }
-
-      let studentsData;
-      if (isAdminUser) {
-        studentsData = await getStudents();
-      } else {
-        studentsData = await getStudentsByCoordinator(currentUserId);
-      }
-
-      setStudents(Array.isArray(studentsData) ? studentsData : []);
+      // Llamamos al endpoint genérico. 
+      // El Backend lee el Token y decide si devolver todos (Admin) o filtrados (Coordinador).
+      const data = await getStudents();
+      
+      setStudents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching students:", err);
-      message.error("Error al cargar los estudiantes.");
-      setStudents([]);
+      message.error("No se pudo cargar la lista de estudiantes.");
     } finally {
       setLoading(false);
     }
-  }, [currentUserId, isAdminUser]);
+  }, []);
 
+  // Cargar al montar el componente
   useEffect(() => {
-    if (currentUserId !== null) {
-      fetchStudents();
-    }
-  }, [currentUserId, isAdminUser, fetchStudents]);
+    fetchStudents();
+  }, [fetchStudents]);
 
-  // 3. Eliminar estudiante (la confirmación se maneja en la tabla)
+  // --- 2. ELIMINAR ESTUDIANTE ---
   const handleDelete = async (id) => {
     try {
       await deleteStudent(id);
       message.success("Estudiante eliminado con éxito");
+      // Recargamos la lista para ver los cambios
       fetchStudents();
     } catch (error) {
-      console.error("Error al eliminar el estudiante:", error);
-      message.error("Error al eliminar el estudiante.");
+      console.error("Error al eliminar:", error);
+      message.error("No se pudo eliminar el estudiante.");
     }
   };
 
-  // 4. Búsqueda global (nombre, documento, WhatsApp, llamadas)
+  // --- 3. BÚSQUEDA EN TIEMPO REAL (Memoizada) ---
   const filteredStudents = useMemo(() => {
     if (!Array.isArray(students)) return [];
 
@@ -90,20 +62,14 @@ const Students = () => {
     const words = term.split(/\s+/);
 
     return students.filter((student) => {
-      const fullName = `${student.nombre || ""} ${
-        student.apellido || ""
-      }`.toLowerCase();
-      const whatsapp =
-        (student.telefono_whatsapp && student.telefono_whatsapp.toLowerCase()) ||
-        "";
-      const llamadas =
-        (student.telefono_llamadas && student.telefono_llamadas.toLowerCase()) ||
-        "";
-      const documento =
-        (student.numero_documento &&
-          student.numero_documento.toString().toLowerCase()) ||
-        "";
+      // Unimos nombre y apellido para buscar completo
+      const fullName = `${student.nombre || ""} ${student.apellido || ""}`.toLowerCase();
+      
+      const whatsapp = (student.telefono_whatsapp || "").toLowerCase();
+      const llamadas = (student.telefono_llamadas || "").toLowerCase();
+      const documento = (student.numero_documento || "").toString().toLowerCase();
 
+      // Verifica que TODAS las palabras de búsqueda estén en alguno de los campos
       return words.every(
         (w) =>
           fullName.includes(w) ||
@@ -114,36 +80,44 @@ const Students = () => {
     });
   }, [students, searchTerm]);
 
+  // Callback al crear para refrescar la tabla
   const handleStudentAdded = () => {
     fetchStudents();
-    message.success("Estudiante añadido con éxito");
+    message.success("Estudiante añadido correctamente");
   };
 
   return (
     <div className="px-4 mt-8 p-2">
-      <div className="my-3 mb-4 flex justify-between items-center">
-        <div className="flex space-x-2">
+      {/* Barra de Búsqueda y Botón */}
+      <div className="my-3 mb-4 flex flex-col md:flex-row justify-between items-center gap-3">
+        <div className="flex space-x-2 w-full md:w-auto">
           <Input
-            placeholder="Buscar por nombre, documento o WhatsApp..."
-            prefix={<FaSearch />}
+            placeholder="Buscar por nombre, documento o celular..."
+            prefix={<FaSearch className="text-gray-400" />}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: 340 }}
+            style={{ width: '100%', minWidth: '320px' }}
             allowClear
           />
         </div>
 
-        <Button type="primary" onClick={() => setIsModalOpen(true)}>
+        <Button 
+            type="primary" 
+            onClick={() => setIsModalOpen(true)}
+            size="large"
+        >
           Agregar Estudiante
         </Button>
       </div>
 
+      {/* Tabla de Estudiantes */}
       <StudentTable
         students={filteredStudents}
         loading={loading}
         onDelete={handleDelete}
       />
 
+      {/* Modal de Creación */}
       <CreateStudentModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

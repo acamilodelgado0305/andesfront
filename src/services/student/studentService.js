@@ -1,5 +1,29 @@
 // src/services/studentsService.js
+
+import axios from "axios";
 import backApi from "../backApi";
+
+const API_BACKEND = import.meta.env.VITE_API_BACKEND;
+
+// 1. Crear instancia de Axios dedicada para Estudiantes
+const studentsApi = axios.create({
+  baseURL: API_BACKEND,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// 2. Interceptor: Inyecta el token automáticamente en cada petición
+studentsApi.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("authToken"); 
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // Helper para loguear errores
 const logApiError = (context, error) => {
@@ -20,7 +44,9 @@ const logApiError = (context, error) => {
 // Obtener todos los estudiantes
 export const getStudents = async () => {
   try {
-    const response = await backApi.get("/api/students");
+    // Ya no necesitas lógica condicional aquí. 
+    // Si eres Admin, el backend devuelve todos. Si eres Coordinador, devuelve los tuyos.
+    const response = await studentsApi.get("/api/students");
     return response.data;
   } catch (error) {
     logApiError("Error al obtener los estudiantes", error);
