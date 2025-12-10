@@ -1,70 +1,72 @@
-// src/components/EgresoDrawer.js
-
-import React from 'react';
-import { Drawer, Form, Button, Input, Select, DatePicker, Typography, Space, Row, Col, Dropdown, Menu } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { 
+    Drawer, Form, Button, Input, Select, DatePicker, Typography, 
+    Space, Row, Col, Dropdown, Menu, message 
+} from 'antd';
 import {
     EditOutlined,
     FileProtectOutlined,
     DownOutlined,
     FilePdfOutlined,
     CalendarOutlined,
-    DollarCircleOutlined
+    DollarCircleOutlined,
+    SaveOutlined
 } from '@ant-design/icons';
-import { cuentaOptions } from '../options';
 import dayjs from 'dayjs';
+import jsPDF from 'jspdf'; 
+
+// Importa tus opciones
+import { cuentaOptions } from '../options'; 
+
+// IMPORTANTE: Importamos los servicios directamente aquí
+import { createEgreso, updateEgreso } from '../../../services/controlapos/posService';
 
 const { Title, Text } = Typography;
 
-// --- FUNCIÓN PARA GENERAR EL COMPROBANTE DE EGRESO ---
+// --- FUNCIÓN GENERAR PDF (Igual que tenías) ---
 const generarComprobantePDF = (values) => {
     const doc = new jsPDF();
     const fecha = dayjs(values.fecha).format('DD/MM/YYYY');
-
     doc.setFontSize(18);
     doc.text('Comprobante de Egreso', 105, 20, { align: 'center' });
     doc.setFontSize(10);
     doc.text(`Fecha: ${fecha}`, 105, 28, { align: 'center' });
-    doc.text(`Registrado por: ${values.vendedor || 'N/A'}`, 105, 34, { align: 'center' });
-
+    doc.text(`Registrado por: ${values.vendedor || 'Usuario'}`, 105, 34, { align: 'center' });
     doc.setLineWidth(0.5);
     doc.line(20, 40, 190, 40);
-
     doc.setFontSize(12);
     doc.text('Detalles del Egreso', 20, 50);
     doc.setFontSize(10);
     doc.text(`Cuenta de Origen: ${values.cuenta}`, 20, 58);
     doc.text('Descripción:', 20, 68);
-    // Usamos splitTextToSize para manejar descripciones largas
-    const descripcionLines = doc.splitTextToSize(values.descripcion, 170);
+    const descripcionLines = doc.splitTextToSize(values.descripcion || '', 170);
     doc.text(descripcionLines, 20, 74);
-    
-    const finalY = 74 + (descripcionLines.length * 5); // Calculamos la posición después de la descripción
-    
+    const finalY = 74 + (descripcionLines.length * 5); 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Valor: $${parseFloat(values.valor).toLocaleString('es-CO')}`, 105, finalY + 15, { align: 'center' });
-    
-    const fileName = `Comprobante_Egreso_${dayjs(values.fecha).format('YYYY-MM-DD')}.pdf`;
+    const valorFormateado = parseFloat(values.valor).toLocaleString('es-CO');
+    doc.text(`Valor Total: $${valorFormateado}`, 105, finalY + 15, { align: 'center' });
+    const fileName = `Egreso_${dayjs(values.fecha).format('YYYY-MM-DD')}.pdf`;
     doc.save(fileName);
-    message.success('Comprobante generado en PDF.');
 };
 
-
-const EgresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValues }) => {
+const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
     const [form] = Form.useForm();
+    const [saving, setSaving] = useState(false);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (open) {
             if (initialValues) {
                 form.setFieldsValue({
                     ...initialValues,
-                    fecha: initialValues.fecha ? dayjs(initialValues.fecha) : null,
+                    fecha: initialValues.fecha ? dayjs(initialValues.fecha) : dayjs(),
                 });
             } else {
                 form.resetFields();
                 form.setFieldsValue({
                     vendedor: userName,
-                    fecha: dayjs(), // Fecha actual por defecto al crear
+                    fecha: dayjs(), 
+                    cuenta: 'Nequi'
                 });
             }
         }
@@ -73,27 +75,48 @@ const EgresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValue
     const handleSave = async (generatePdf = false) => {
         try {
             const values = await form.validateFields();
-            const formattedValues = {
+            setSaving(true);
+
+            // Preparar datos para el backend
+            const dataToSend = {
                 ...values,
-                fecha: values.fecha ? values.fecha.format('YYYY-MM-DD') : null,
+                fecha: values.fecha ? values.fecha.toISOString() : new Date().toISOString(),
+                valor: parseFloat(values.valor)
             };
             
-            await onSubmit(formattedValues);
-
-            if (generatePdf && !loading) {
-                generarComprobantePDF(formattedValues);
+            if (initialValues && initialValues._id) {
+                // Actualizar
+                await updateEgreso(initialValues._id, dataToSend);
+                message.success('Egreso actualizado correctamente');
+            } else {
+                // Crear
+                await createEgreso(dataToSend);
+                message.success('Egreso registrado exitosamente');
             }
 
-        } catch (errorInfo) {
-            console.log('Fallo la validación:', errorInfo);
-            message.error('Por favor, completa todos los campos requeridos.');
+            if (generatePdf) {
+                generarComprobantePDF(dataToSend);
+            }
+            
+            // ¡ESTA LÍNEA ES LA CLAVE!
+            // Notifica al padre (Certificados.js) que recargue la tabla
+            if (onSuccess) onSuccess(); 
+            
+            onClose();
+        } catch (error) {
+            console.error('Error:', error);
+            if (!error.errorFields) { 
+                message.error('Error al guardar el egreso.');
+            }
+        } finally {
+            setSaving(false);
         }
     };
     
     const menu = (
         <Menu onClick={() => handleSave(true)}>
             <Menu.Item key="1" icon={<FilePdfOutlined />}>
-                Guardar y Generar Comprobante
+                Guardar y Descargar PDF
             </Menu.Item>
         </Menu>
     );
@@ -103,26 +126,28 @@ const EgresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValue
             title={
                 <Space>
                     {initialValues ? <EditOutlined /> : <FileProtectOutlined />}
-                    <Text strong>{initialValues ? 'Editar Egreso' : 'Registrar Nuevo Egreso'}</Text>
+                    <Text strong>{initialValues ? 'Editar Egreso' : 'Registrar Nuevo Gasto'}</Text>
                 </Space>
             }
-            placement="right" width={520} onClose={onClose} open={open}
-            bodyStyle={{ background: '#f5f5f5', padding: 0 }}
-            headerStyle={{ borderBottom: '1px solid #f0f0f0' }}
+            placement="right" 
+            width={520} 
+            onClose={onClose} 
+            open={open}
+            styles={{ body: { background: '#f5f5f5', padding: 0 } }}
             footer={
-                <div style={{ textAlign: 'right' }}>
-                    <Button onClick={onClose} style={{ marginRight: 8 }}>
+                <div style={{ textAlign: 'right', padding: '10px 0' }}>
+                    <Button onClick={onClose} style={{ marginRight: 8 }} disabled={saving}>
                         Cancelar
                     </Button>
-                    <Dropdown.Button
-                        danger // Mantiene el estilo rojo para el botón de egreso
-                        type="primary"
-                        loading={loading}
-                        onClick={() => handleSave(false)}
+                    <Dropdown.Button 
+                        type="primary" 
+                        danger 
+                        loading={saving} 
+                        onClick={() => handleSave(false)} 
                         overlay={menu}
                         icon={<DownOutlined />}
                     >
-                        {initialValues ? 'Guardar Cambios' : 'Guardar Egreso'}
+                        <SaveOutlined /> {initialValues ? 'Actualizar' : 'Guardar Gasto'}
                     </Dropdown.Button>
                 </div>
             }
@@ -130,35 +155,30 @@ const EgresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValue
             <Form form={form} layout="vertical">
                 <div style={{ padding: '24px' }}>
                     <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                        
-                        {/* --- PASO 1: DETALLES --- */}
-                        <div className="form-section-card">
-                            <Title level={5}><CalendarOutlined /> Paso 1: Detalla el Egreso</Title>
-                            <Form.Item name="descripcion" label="Descripción del Egreso" rules={[{ required: true, message: 'La descripción es requerida' }]}>
-                                <Input.TextArea placeholder="Ej: Pago de arriendo, compra de papelería..." rows={3} />
+                        <div style={{ background: '#fff', padding: 24, borderRadius: 8, border: '1px solid #e8e8e8' }}>
+                            <Title level={5}><CalendarOutlined /> Paso 1: Detalles del Gasto</Title>
+                            <Form.Item name="descripcion" label="Descripción / Motivo" rules={[{ required: true, message: 'Requerido' }]}>
+                                <Input.TextArea rows={3} placeholder="Ej: Pago de servicios..." />
                             </Form.Item>
-                            <Form.Item name="fecha" label="Fecha del Egreso" rules={[{ required: true, message: 'Seleccione la fecha' }]}>
-                                <DatePicker format="DD / MMMM / YYYY" style={{ width: '100%' }} disabledDate={(current) => current && current > dayjs().endOf('day')} />
+                            <Form.Item name="fecha" label="Fecha" rules={[{ required: true }]}>
+                                <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabledDate={(c) => c && c > dayjs().endOf('day')} />
                             </Form.Item>
                         </div>
-
-                        {/* --- PASO 2: MONTO --- */}
-                        <div className="form-section-card">
-                            <Title level={5}><DollarCircleOutlined /> Paso 2: Registra el Monto</Title>
-                            <Row gutter={16} align="bottom">
+                        <div style={{ background: '#fff', padding: 24, borderRadius: 8, border: '1px solid #e8e8e8' }}>
+                            <Title level={5}><DollarCircleOutlined /> Paso 2: Monto</Title>
+                            <Row gutter={16}>
                                 <Col span={12}>
-                                    <Form.Item name="valor" label="Valor del Egreso" rules={[{ required: true, message: 'Ingrese el valor' }]}>
-                                        <Input type="number" size="large" placeholder="0" prefix="$" />
+                                    <Form.Item name="valor" label="Valor ($)" rules={[{ required: true }]}>
+                                        <Input type="number" prefix="$" />
                                     </Form.Item>
                                 </Col>
                                 <Col span={12}>
-                                    <Form.Item name="cuenta" label="Cuenta de Origen" rules={[{ required: true, message: 'Seleccione una cuenta' }]}>
-                                        <Select placeholder="¿De dónde salió?" options={cuentaOptions} />
+                                    <Form.Item name="cuenta" label="Cuenta de Salida" rules={[{ required: true }]}>
+                                        <Select options={cuentaOptions} />
                                     </Form.Item>
                                 </Col>
                             </Row>
                         </div>
-                    
                     </Space>
                 </div>
                 <Form.Item name="vendedor" hidden><Input /></Form.Item>
@@ -166,23 +186,5 @@ const EgresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValue
         </Drawer>
     );
 };
-
-// Asegúrate de que este estilo esté disponible, ya sea aquí o en un archivo CSS global.
-// No es necesario duplicarlo si ya lo tienes del IngresoDrawer.
-const styles = `
-.form-section-card {
-    background: #fff;
-    border: 1px solid #e8e8e8;
-    border-radius: 8px;
-    padding: 24px;
-}
-`;
-const styleSheet = document.getElementById("custom-drawer-styles");
-if (!styleSheet) {
-    const newStyleSheet = document.createElement("style");
-    newStyleSheet.id = "custom-drawer-styles";
-    newStyleSheet.innerText = styles;
-    document.head.appendChild(newStyleSheet);
-}
 
 export default EgresoDrawer;
