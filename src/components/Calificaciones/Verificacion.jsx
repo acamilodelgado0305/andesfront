@@ -10,6 +10,7 @@ import { es } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notification } from 'antd';
+import { getClientByCedula } from '../../services/controlapos/posService';
 
 // VARIABLES DE ENTORNO
 const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app/api';
@@ -173,41 +174,45 @@ const Verificacion = () => {
   const [downloading, setDownloading] = useState(null); // 'certificado' | 'carnet' | null
 
   // --- LÓGICA DE VALIDACIÓN ---
-  const handleValidate = async () => {
+// ... dentro de tu componente Verificacion ...
+
+const handleValidate = async () => {
     if (!cedula.trim() || cedula.length < 5) {
       setError('Por favor ingrese un número de documento válido.');
       return;
     }
+    
     setIsLoading(true);
     setError('');
     
     try {
-      // 1. Fetch al endpoint de clientes
-      const response = await fetch(`${API_BACKEND_FINANZAS}/clients/${cedula}`);
+      // --- CAMBIO AQUÍ: Usamos el servicio ---
+      const data = await getClientByCedula(cedula);
       
-      if (response.status === 404) {
-        throw new Error('No se encontraron registros para este documento.');
-      }
-      if (!response.ok) {
-        throw new Error('Error de conexión con el servidor.');
-      }
-      
-      const data = await response.json();
-      
-      // Validación básica de que llegue data
+      // Axios ya nos devuelve la data limpia en response.data (que retorna la función)
+      // Si la petición falla (404), salta al catch automáticamente.
+
       if (!data || !data.numeroDeDocumento) {
           throw new Error('Datos inválidos recibidos.');
       }
 
       setStudentData(data);
+
     } catch (error) {
       console.error(error);
-      setError(error.message || 'No se encontró información.');
+      
+      // Manejo de errores específico de Axios
+      if (error.response && error.response.status === 404) {
+         setError('No se encontraron registros para este documento.');
+      } else {
+         setError('Ocurrió un error al consultar. Intente nuevamente.');
+      }
+      
       setStudentData(null);
     } finally {
       setIsLoading(false);
     }
-  };
+};
 
   const handleDownload = async (docType, courseNameForValidation) => {
     // DOBLE CHECK: Solo permitimos descargar si es Manipulación (seguridad por si hackean el botón)

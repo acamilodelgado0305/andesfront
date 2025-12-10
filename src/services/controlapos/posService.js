@@ -68,4 +68,11 @@ export const deleteEgreso = async (id) => {
   return response.data;
 };
 
+
+export const getClientByCedula = async (cedula) => {
+  // Axios se encarga de lanzar error si es 404 o 500, el frontend debe usar try/catch
+  const response = await coalianzaApi.get(`/clients/${cedula}`);
+  return response.data;
+};
+
 export default coalianzaApi;
