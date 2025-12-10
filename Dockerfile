@@ -13,11 +13,13 @@ RUN npm install
 
 ARG VITE_API_BACKEND
 ARG VITE_API_AUTH
+ARG VITE_API_FINANZAS
 
 
 # Variables para el entorno de Vite en tiempo de build
 ENV VITE_API_BACKEND=$VITE_API_BACKEND
 ENV VITE_API_AUTH=$VITE_API_AUTH
+ENV VITE_API_FINANZAS=$VITE_API_FINANZAS
 
 # Copia el resto del código de la aplicación
 COPY . .
