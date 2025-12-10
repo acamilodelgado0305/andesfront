@@ -1,26 +1,21 @@
-// src/components/IngresoDrawer.js
-
-import React from 'react';
-import { Drawer, Form, Button, Input, Select, Typography, message, Collapse, Row, Col, Statistic, Space, Dropdown, Menu } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { 
+    Drawer, Form, Button, Input, Select, Typography, message, 
+    Collapse, Row, Col, Statistic, Space, Dropdown, Menu 
+} from 'antd';
 import {
-    FileDoneOutlined,
-    UserOutlined,
-    ShoppingOutlined,
-    WalletOutlined,
-    EditOutlined,
-    DownOutlined,
-    FilePdfOutlined
+    FileDoneOutlined, UserOutlined, ShoppingOutlined, WalletOutlined,
+    EditOutlined, DownOutlined, FilePdfOutlined, SaveOutlined
 } from '@ant-design/icons';
+
 import { cuentaOptions } from '../options';
-import jsPDF from 'jspdf';
+
+// Importamos los servicios
+import { createIngreso, updateIngreso } from '../../../services/controlapos/posService'; 
+import { getInventario } from '../../../services/inventario/inventarioService'; 
 
 const { Title, Text } = Typography;
 const { Panel } = Collapse;
-
-// (La función generarFacturaPDF no necesita cambios)
-const generarFacturaPDF = (values) => {
-    // ... tu función de generar PDF
-};
 
 const tipoDocumentoOptions = [
     { value: 'C.C', label: 'C.C' },
@@ -30,105 +25,147 @@ const tipoDocumentoOptions = [
     { value: 'PPT', label: 'PPT' },
 ];
 
-const IngresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValues }) => {
+const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
     const [form] = Form.useForm();
-    const [inventario, setInventario] = React.useState([]);
-    const [loadingInventario, setLoadingInventario] = React.useState(false);
-    const [clientePanelActivo, setClientePanelActivo] = React.useState([]);
+    const [inventario, setInventario] = useState([]);
+    const [loadingInventario, setLoadingInventario] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [clientePanelActivo, setClientePanelActivo] = useState([]);
     
+    // Observar el valor para mostrarlo en el Statistic
     const valorTotal = Form.useWatch('valor', form) || 0;
 
-    React.useEffect(() => {
-        // --- LÓGICA DE INVENTARIO REINTEGRADA ---
-        const fetchUserInventario = async () => {
-            const userId = localStorage.getItem('userId');
-            if (!userId) {
-                message.error("No se pudo obtener el ID de usuario.");
-                return;
-            }
+    // --- CARGAR INVENTARIO USANDO EL SERVICIO (Sin userId) ---
+    useEffect(() => {
+        const loadInventario = async () => {
             setLoadingInventario(true);
             try {
-                const apiUrl = `${import.meta.env.VITE_API_BACKEND}/api/inventario/user/${userId}`;
-                const response = await fetch(apiUrl);
-                if (response.ok) {
-                    const data = await response.json();
-                    setInventario(data);
-                } else {
-                    const errorData = await response.json();
-                    message.error(`Error al cargar productos: ${errorData.error || response.statusText}`);
-                }
-            } catch (err) {
-                message.error("Error de conexión al cargar los productos.");
+                // Ya no enviamos userId, el token se encarga en el backend
+                const data = await getInventario();
+                setInventario(data);
+            } catch (error) {
+                console.error("Error cargando inventario:", error);
+                message.error("No se pudo cargar la lista de productos.");
             } finally {
                 setLoadingInventario(false);
             }
         };
 
         if (open) {
-            form.resetFields();
-            form.setFieldsValue({ vendedor: userName, tipoDeDocumento: 'C.C', valor: 0 });
-            setClientePanelActivo([]);
-            fetchUserInventario(); // Se llama a la función para cargar el inventario
+            loadInventario();
+            
+            // Si es un registro nuevo, reseteamos el formulario
+            if (!initialValues) {
+                form.resetFields();
+                form.setFieldsValue({ vendedor: userName, tipoDeDocumento: 'C.C', valor: 0 });
+                setClientePanelActivo([]);
+            }
         }
-    }, [open, userName, form]);
+    }, [open, userName, form, initialValues]);
 
-    React.useEffect(() => {
+    // Cargar datos si es edición
+    useEffect(() => {
         if (open && initialValues) {
             const tieneCliente = initialValues.nombre && initialValues.nombre !== 'Cliente';
             setClientePanelActivo(tieneCliente ? ['1'] : []);
+            
+            let tipoValue = initialValues.producto;
+            // Manejo seguro para convertir string a array si es necesario
+            if (typeof initialValues.producto === 'string' && initialValues.producto.includes(',')) {
+                tipoValue = initialValues.producto.split(',').map(s => s.trim());
+            } else if (typeof initialValues.producto === 'string') {
+                 // Si es un solo producto en string, lo convertimos a array para el Select multiple
+                 tipoValue = [initialValues.producto];
+            }
+
             form.setFieldsValue({
                 ...initialValues,
+                tipo: tipoValue, 
                 nombreCompleto: `${initialValues.nombre || ''} ${initialValues.apellido || ''}`.trim(),
                 tipoDeDocumento: initialValues.tipoDeDocumento || 'C.C',
             });
         }
     }, [open, initialValues, form]);
 
-    // --- NUEVA FUNCIÓN CENTRALIZADA PARA GUARDAR ---
+    // Lógica para guardar (Crear o Editar)
     const handleSave = async (generatePdf = false) => {
         try {
             const values = await form.validateFields();
+            setSaving(true);
+
             let dataToSend = { ...values };
             const esVentaConCliente = clientePanelActivo.includes('1');
 
             if (esVentaConCliente) {
                 const nombreCompleto = (values.nombreCompleto || '').trim();
                 const partesNombre = nombreCompleto.split(' ').filter(p => p);
-                dataToSend.nombre = partesNombre.length > 0 ? partesNombre.shift() : '';
-                dataToSend.apellido = partesNombre.length > 0 ? partesNombre.join(' ') : '.';
+                
+                if (partesNombre.length > 1) {
+                    dataToSend.nombre = partesNombre.slice(0, -1).join(' '); 
+                    dataToSend.apellido = partesNombre[partesNombre.length - 1]; 
+                } else {
+                    dataToSend.nombre = partesNombre[0] || 'Cliente';
+                    dataToSend.apellido = '.'; 
+                }
             } else {
-                dataToSend = { ...dataToSend, nombre: 'Cliente', apellido: 'General', numeroDeDocumento: '0', tipoDeDocumento: 'N/A' };
+                // Valores por defecto si no hay cliente específico
+                dataToSend.nombre = 'Cliente';
+                dataToSend.apellido = 'General';
+                dataToSend.numeroDeDocumento = '0';
+                dataToSend.tipoDeDocumento = 'N/A';
             }
-            delete dataToSend.nombreCompleto;
             
-            await onSubmit(dataToSend); // Llama a la prop onSubmit del padre
+            delete dataToSend.nombreCompleto;
 
-            if (generatePdf && !loading) {
-                generarFacturaPDF(dataToSend);
+            let response;
+            if (initialValues && initialValues._id) {
+                response = await updateIngreso(initialValues._id, dataToSend);
+                message.success('Venta actualizada correctamente');
+            } else {
+                response = await createIngreso(dataToSend);
+                message.success('Venta registrada exitosamente');
             }
 
-        } catch (errorInfo) {
-            console.log('Fallo la validación:', errorInfo);
-            message.error('Por favor, completa todos los campos requeridos.');
+            if (generatePdf) {
+                message.info("Generando factura PDF...");
+                // Aquí llamarías a tu función generarFacturaPDF(response || dataToSend);
+            }
+
+            if (onSuccess) onSuccess(); 
+            onClose();
+
+        } catch (error) {
+            console.error(error);
+            if (error.response?.data?.message) {
+                message.error(`Error: ${error.response.data.message}`);
+            } else if (!error.errorFields) { // Si no es error de validación del form
+                message.error("Ocurrió un error inesperado.");
+            }
+        } finally {
+            setSaving(false);
         }
     };
 
+    // Cálculo automático del precio
     const handleValuesChange = (changedValues, allValues) => {
         if (changedValues.tipo !== undefined) {
-            const total = allValues.tipo.reduce((sum, itemName) => {
+            const selectedItems = Array.isArray(allValues.tipo) ? allValues.tipo : [allValues.tipo];
+            
+            const total = selectedItems.reduce((sum, itemName) => {
                 const item = inventario.find(invItem => invItem.nombre === itemName);
-                return sum + (item ? parseFloat(item.monto) : 0);
+                return sum + (item ? parseFloat(item.monto || 0) : 0);
             }, 0);
+            
             form.setFieldsValue({ valor: total });
         }
     };
     
+    // Mapeo para el Select de Ant Design
     const inventarioOptions = inventario.map(item => ({
         label: `${item.nombre} - ($${parseFloat(item.monto).toLocaleString('es-CO')})`,
         value: item.nombre,
     }));
     
-    // --- MENÚ PARA EL BOTÓN DIVIDIDO ---
     const menu = (
         <Menu onClick={() => handleSave(true)}>
             <Menu.Item key="1" icon={<FilePdfOutlined />}>
@@ -145,21 +182,24 @@ const IngresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValu
                     <Text strong>{initialValues ? 'Editar Ingreso' : 'Registrar Nueva Venta'}</Text>
                 </Space>
             }
-            placement="right" width={520} onClose={onClose} open={open}
-            bodyStyle={{ background: '#f5f5f5', padding: 0 }}
-            headerStyle={{ borderBottom: '1px solid #e8e8e8' }}
+            placement="right" 
+            width={520} 
+            onClose={onClose} 
+            open={open}
+            styles={{ body: { background: '#f5f5f5', padding: 0 } }}
             footer={
-                <div style={{ textAlign: 'right' }}>
-                    <Button onClick={onClose} style={{ marginRight: 8 }}>Cancelar</Button>
-                    {/* --- BOTÓN DIVIDIDO PROFESIONAL --- */}
+                <div style={{ textAlign: 'right', padding: '10px 0' }}>
+                    <Button onClick={onClose} style={{ marginRight: 8 }} disabled={saving}>
+                        Cancelar
+                    </Button>
                     <Dropdown.Button 
                         type="primary" 
-                        loading={loading} 
-                        onClick={() => handleSave(false)} // Acción principal
-                        overlay={menu} // Acciones secundarias
+                        loading={saving} 
+                        onClick={() => handleSave(false)} 
+                        overlay={menu}
                         icon={<DownOutlined />}
                     >
-                        {initialValues ? 'Guardar Cambios' : 'Guardar Venta'}
+                        <SaveOutlined /> {initialValues ? 'Actualizar' : 'Guardar Venta'}
                     </Dropdown.Button>
                 </div>
             }
@@ -168,77 +208,102 @@ const IngresoDrawer = ({ open, onClose, onSubmit, loading, userName, initialValu
                 <div style={{ padding: '24px' }}>
                     <Space direction="vertical" size="large" style={{ width: '100%' }}>
                         
-                        {/* PASO 1, 2 Y 3 (sin cambios en la estructura visual) */}
-                        <div className="form-section-card">
+                        {/* SECCIÓN 1: PRODUCTOS */}
+                        <div className="form-section-card" style={{ background: '#fff', padding: 24, borderRadius: 8, border: '1px solid #e8e8e8' }}>
                              <Title level={5}><ShoppingOutlined /> Paso 1: Selecciona los Productos</Title>
-                             <Form.Item name="tipo" rules={[{ required: true, message: 'Seleccione al menos un producto' }]}>
+                             <Form.Item 
+                                name="tipo" 
+                                rules={[{ required: true, message: 'Seleccione al menos un producto' }]}
+                             >
                                  <Select
-                                     mode="multiple" size="large"
-                                     placeholder={loadingInventario ? "Cargando..." : "Buscar y seleccionar..."}
-                                     options={inventarioOptions} loading={loadingInventario}
-                                     disabled={loadingInventario} showSearch
+                                     mode="multiple" 
+                                     size="large"
+                                     placeholder={loadingInventario ? "Cargando inventario..." : "Buscar productos..."}
+                                     options={inventarioOptions} 
+                                     loading={loadingInventario}
+                                     disabled={loadingInventario} 
+                                     showSearch
                                      filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                                     style={{ width: '100%' }}
                                  />
                              </Form.Item>
                         </div>
-                        <div className="form-section-card">
-                             <Title level={5}><WalletOutlined /> Paso 2: Registra el Pago</Title>
-                             <Row align="middle" justify="space-between">
-                                <Col>
-                                     <Form.Item label="Cuenta de Destino" name="cuenta" rules={[{ required: true, message: 'Seleccione una cuenta' }]}>
-                                         <Select size="large" placeholder="¿Dónde se recibió?" options={cuentaOptions} style={{width: 200}}/>
+
+                        {/* SECCIÓN 2: PAGO */}
+                        <div className="form-section-card" style={{ background: '#fff', padding: 24, borderRadius: 8, border: '1px solid #e8e8e8' }}>
+                             <Title level={5}><WalletOutlined /> Paso 2: Detalles del Pago</Title>
+                             <Row gutter={16} align="middle">
+                                <Col span={12}>
+                                     <Form.Item 
+                                        label="Cuenta de Destino" 
+                                        name="cuenta" 
+                                        rules={[{ required: true, message: 'Requerido' }]}
+                                     >
+                                         <Select size="large" placeholder="Ej: Nequi" options={cuentaOptions} />
                                      </Form.Item>
                                 </Col>
-                                <Col>
-                                      <Statistic title="VALOR TOTAL" value={valorTotal} prefix="$" precision={0} />
+                                <Col span={12} style={{ textAlign: 'right' }}>
+                                     <Statistic 
+                                        title="Total a Pagar" 
+                                        value={valorTotal} 
+                                        prefix="$" 
+                                        groupSeparator="."
+                                        precision={0} 
+                                        valueStyle={{ color: '#3f8600', fontWeight: 'bold' }}
+                                     />
+                                     <Form.Item name="valor" hidden><Input /></Form.Item>
                                 </Col>
                              </Row>
                         </div>
-                        <Collapse ghost activeKey={clientePanelActivo} onChange={(keys) => setClientePanelActivo(keys)}>
-                            <Panel header={<Title level={5}><UserOutlined /> Paso 3: Asignar a un Cliente (Opcional)</Title>} key="1">
-                                <Space direction="vertical" style={{width: '100%'}}>
-                                    <Form.Item name="nombreCompleto" label="Nombre Completo" rules={[{ required: clientePanelActivo.includes('1'), message: 'Ingrese el nombre' }]}>
-                                        <Input size="large" placeholder="Ej: Valentina Restrepo"/>
+
+                        {/* SECCIÓN 3: CLIENTE */}
+                        <Collapse 
+                            ghost 
+                            activeKey={clientePanelActivo} 
+                            onChange={(keys) => setClientePanelActivo(keys)}
+                        >
+                            <Panel header={<Title level={5} style={{ margin: 0 }}><UserOutlined /> Paso 3: Cliente (Opcional)</Title>} key="1">
+                                <div style={{ background: '#fff', padding: 16, borderRadius: 8 }}>
+                                    <Form.Item 
+                                        name="nombreCompleto" 
+                                        label="Nombre del Cliente" 
+                                        rules={[{ required: clientePanelActivo.includes('1'), message: 'Ingrese el nombre' }]}
+                                    >
+                                        <Input size="large" placeholder="Nombre y Apellido"/>
                                     </Form.Item>
-                                    <Row gutter={8}>
+                                    <Row gutter={12}>
                                         <Col span={8}>
-                                            <Form.Item name="tipoDeDocumento" label="Tipo Doc." rules={[{ required: clientePanelActivo.includes('1'), message: 'Requerido' }]}>
+                                            <Form.Item 
+                                                name="tipoDeDocumento" 
+                                                label="Tipo" 
+                                                initialValue="C.C"
+                                            >
                                                 <Select size="large" options={tipoDocumentoOptions} />
                                             </Form.Item>
                                         </Col>
                                         <Col span={16}>
-                                            <Form.Item name="numeroDeDocumento" label="Número de Documento" rules={[{ required: clientePanelActivo.includes('1'), message: 'Ingrese el documento' }]}>
-                                                <Input size="large" placeholder="Ej: 1020304050" />
+                                            <Form.Item 
+                                                name="numeroDeDocumento" 
+                                                label="Documento" 
+                                                rules={[{ required: clientePanelActivo.includes('1'), message: 'Falta el documento' }]}
+                                            >
+                                                <Input size="large" placeholder="Número de identidad" />
                                             </Form.Item>
                                         </Col>
                                     </Row>
-                                </Space>
+                                    <Form.Item name="customer_email" label="Email (Opcional)">
+                                        <Input size="large" placeholder="correo@ejemplo.com" />
+                                    </Form.Item>
+                                </div>
                             </Panel>
                         </Collapse>
 
                     </Space>
                 </div>
                 <Form.Item name="vendedor" hidden><Input /></Form.Item>
-                <Form.Item name="valor" hidden><Input /></Form.Item>
             </Form>
         </Drawer>
     );
 };
-
-const styles = `
-.form-section-card {
-    background: #fff;
-    border: 1px solid #e8e8e8;
-    border-radius: 8px;
-    padding: 24px;
-}
-`;
-const styleSheet = document.getElementById("custom-drawer-styles");
-if (!styleSheet) {
-    const newStyleSheet = document.createElement("style");
-    newStyleSheet.id = "custom-drawer-styles";
-    newStyleSheet.innerText = styles;
-    document.head.appendChild(newStyleSheet);
-}
 
 export default IngresoDrawer;

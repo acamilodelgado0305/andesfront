@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ant-design/icons": "^5.4.0",
+    "@ant-design/icons": "^5.6.1",
     "@ant-design/plots": "^2.3.3",
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
@@ -25,6 +25,7 @@
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "keep-react": "^1.1.2",
+    "lodash": "^4.17.21",
     "lucide-react": "^0.438.0",
     "moment": "^2.30.1",
     "nodemon": "^3.1.9",

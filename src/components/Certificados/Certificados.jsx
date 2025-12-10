@@ -1,179 +1,141 @@
-import React, { useState, useEffect } from 'react';
-import CertificadosTable from './CertificadosTable';
-import { Button, Input, Drawer, Form, Select, message, Spin, Card, Divider, Tag, Typography, DatePicker, Tabs } from 'antd';
-import { PlusOutlined, ReloadOutlined, FileProtectOutlined } from '@ant-design/icons';
-import axios from 'axios';
-import IngresoDrawer from './components/Ingresodrawer';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { Card, Tabs, Typography, Button, message, Spin } from 'antd';
+import {
+  DollarOutlined,
+  AuditOutlined,
+  ReloadOutlined,
+  UserOutlined
+} from '@ant-design/icons';
+import moment from 'moment';
+import 'moment/locale/es';
+
+import { AuthContext } from '../../AuthContext';
+import {
+  getAllIngresos,
+  getAllEgresos,
+  createIngreso,
+  updateIngreso,
+  createEgreso,
+  updateEgreso
+} from '../../services/controlapos/posService';
+
+import DashboardStats from './DashboardStats';
+import TransactionTable from './TransactionTable';
+import IngresoDrawer from './components/IngresoDrawer';
 import EgresoDrawer from './components/EgresoDrawer';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { TabPane } = Tabs;
 
-// Formateador para pesos colombianos
-const currencyFormatter = new Intl.NumberFormat('es-CO', {
-  style: 'currency',
-  currency: 'COP',
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
+moment.locale('es');
 
 function Certificados() {
-  const [isIngresoDrawerOpen, setIsIngresoDrawerOpen] = useState(false);
-  const [isEgresoDrawerOpen, setIsEgresoDrawerOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState(null);
-  const [editingEgresoRecord, setEditingEgresoRecord] = useState(null);
-
-  const [certificados, setCertificados] = useState([]);
-  const [egresos, setEgresos] = useState([]);
-  const [filteredCertificados, setFilteredCertificados] = useState([]);
-  const [filteredEgresos, setFilteredEgresos] = useState([]);
+  const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
-  const [userName, setUserName] = useState('');
-  const [activeTab, setActiveTab] = useState('ventas');
-  const [form] = Form.useForm();
-  const [egresoForm] = Form.useForm();
+
+  const [rawDataIngresos, setRawDataIngresos] = useState([]);
+  const [rawDataEgresos, setRawDataEgresos] = useState([]);
+
+  const [selectedDate, setSelectedDate] = useState(moment());
+
+  const [drawerState, setDrawerState] = useState({
+    ingreso: false,
+    egreso: false,
+    editingRecord: null,
+  });
+
+  // arriba de todo
+  const [filters, setFilters] = useState({
+    payment: null,
+    product: null,
+    day: null,
+  });
 
 
+  // RANGO DE FECHAS DEL MES SELECCIONADO
+  const dateRange = useMemo(() => {
+    const start = selectedDate.clone().startOf('month');
+    const end = selectedDate.clone().endOf('month');
+    return [start, end];
+  }, [selectedDate]);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const userId = localStorage.getItem('userId');
-        if (!userId) {
-          console.log('No se encontró userId en localStorage');
-          return;
-        }
-        const response = await axios.get(
-          `https://clasit-backend-api-570877385695.us-central1.run.app/api/users/${userId}`
-        );
-        setUserName(response.data.name || '');
-      } catch (err) {
-        console.error('Error al obtener datos del usuario:', err);
-        message.error('Error al cargar datos del usuario');
-      }
-    };
+  // NAVEGACIÓN DE AÑO / MES (estado centralizado aquí)
+  const handleYearChange = (year) => {
+    const newDate = selectedDate.clone().year(year);
+    setSelectedDate(newDate);
+  };
 
-    fetchUserData();
-  }, []);
+  const handleMonthChange = (direction) => {
+    const newDate = direction === 'next'
+      ? selectedDate.clone().add(1, 'month')
+      : selectedDate.clone().subtract(1, 'month');
+    setSelectedDate(newDate);
+  };
 
-  useEffect(() => {
-    if (userName) {
-      fetchCertificados();
-      fetchEgresos();
-    }
-  }, [userName]);
+  const handleCurrentMonthClick = () => {
+    setSelectedDate(moment());
+  };
 
-  useEffect(() => {
-    if (userName && form) {
-      form.setFieldsValue({ vendedor: userName });
-    }
-  }, [userName, form]);
-
-  const fetchCertificados = async () => {
+  // Cargar datos
+  const fetchTransactions = async () => {
+    if (!user) return;
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await fetch('https://backendcoalianza.vercel.app/api/clients');
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status} - ${response.statusText}`);
-      }
-      const data = await response.json();
-      setCertificados(data);
-      const userCertificados = data.filter((cert) => cert.vendedor === userName);
-      setFilteredCertificados(userCertificados);
+      const [ingresosData, egresosData] = await Promise.all([
+        getAllIngresos(),
+        getAllEgresos()
+      ]);
+
+      const safeIngresos = Array.isArray(ingresosData) ? ingresosData : (ingresosData.data || []);
+      const safeEgresos = Array.isArray(egresosData) ? egresosData : (egresosData.data || []);
+
+      setRawDataIngresos(safeIngresos);
+      setRawDataEgresos(safeEgresos);
     } catch (error) {
-      console.error('Error al cargar los certificados:', error);
-      message.error(`Error: ${error.message || 'Error al cargar los certificados'}`);
+      console.error(error);
+      message.error("Error conectando con el servidor contable.");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchEgresos = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('https://backendcoalianza.vercel.app/api/egresos');
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status} - ${response.statusText}`);
-      }
-      const data = await response.json();
-      setEgresos(data);
-      const userEgresos = data.filter((egreso) => egreso.vendedor === userName);
-      setFilteredEgresos(userEgresos);
-    } catch (error) {
-      console.error('Error al cargar los egresos:', error);
-      message.error(`Error: ${error.message || 'Error al cargar los egresos'}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchTransactions();
+  }, [user]);
 
-  const handleShowCreateDrawer = () => {
-    setEditingRecord(null);
-    setIsIngresoDrawerOpen(true);
-  };
+  // Filtrar por usuario (luego puedes quitar el || true)
+  const myIngresos = useMemo(() => {
+    if (!user?.name || !Array.isArray(rawDataIngresos)) return [];
+    return rawDataIngresos.filter(item => {
+      const isOwner = item.vendedor?.toLowerCase() === user.name.toLowerCase();
+      return isOwner || true;
+    });
+  }, [rawDataIngresos, user]);
 
-  const handleShowEditDrawer = (record) => {
-    setEditingRecord(record);
-    setIsIngresoDrawerOpen(true);
-  };
+  const myEgresos = useMemo(() => {
+    if (!user?.name || !Array.isArray(rawDataEgresos)) return [];
+    return rawDataEgresos.filter(item => {
+      const isOwner = item.vendedor?.toLowerCase() === user.name.toLowerCase();
+      return isOwner || true;
+    });
+  }, [rawDataEgresos, user]);
 
-  const handleCloseIngresoDrawer = () => {
-    setIsIngresoDrawerOpen(false);
-    setEditingRecord(null);
-  };
-
-  const handleShowCreateEgresoDrawer = () => {
-    setEditingEgresoRecord(null);
-    setIsEgresoDrawerOpen(true);
-  };
-
-  const handleShowEditEgresoDrawer = (record) => {
-    setEditingEgresoRecord(record);
-    setIsEgresoDrawerOpen(true);
-  };
-
-  const handleCloseEgresoDrawer = () => {
-    setIsEgresoDrawerOpen(false);
-    setEditingEgresoRecord(null);
-  };
-
-
-
+  // CRUD Drawers
   const handleIngresoSubmit = async (values) => {
     setLoading(true);
     try {
-      const dataToSubmit = {
-        ...values,
-        vendedor: userName || values.vendedor,
-        valor: parseFloat(values.valor),
-      };
-
-      let response;
-      if (editingRecord) {
-        console.log(`Actualizando registro ID: ${editingRecord._id}`);
-        response = await fetch(`https://backendcoalianza.vercel.app/api/clients/${editingRecord._id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(dataToSubmit),
-        });
-        if (!response.ok) throw new Error('Error al actualizar la venta');
-        message.success('Venta actualizada correctamente');
+      const payload = { ...values, vendedor: user.name };
+      if (drawerState.editingRecord) {
+        await updateIngreso(drawerState.editingRecord._id, payload);
+        message.success("Venta actualizada");
       } else {
-        console.log('Creando nuevo registro');
-        response = await fetch('https://backendcoalianza.vercel.app/api/clients', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(dataToSubmit),
-        });
-        if (!response.ok) throw new Error('Error al registrar la venta');
-        message.success('Venta registrada correctamente');
+        await createIngreso(payload);
+        message.success("Venta creada");
       }
-
-      handleCloseIngresoDrawer();
-      fetchCertificados();
+      closeDrawers();
+      fetchTransactions();
     } catch (error) {
-      console.error('Error:', error);
-      message.error(editingRecord ? 'Error al actualizar la venta' : 'Error al registrar la venta');
+      message.error("Error al guardar");
     } finally {
       setLoading(false);
     }
@@ -182,163 +144,150 @@ function Certificados() {
   const handleEgresoSubmit = async (values) => {
     setLoading(true);
     try {
-      const dataToSubmit = {
-        ...values,
-        valor: parseFloat(values.valor),
-        vendedor: userName || values.vendedor,
-        fecha: values.fecha,
-      };
-
-      let response;
-      if (editingEgresoRecord) {
-        response = await fetch(`https://backendcoalianza.vercel.app/api/egresos/${editingEgresoRecord._id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(dataToSubmit),
-        });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Error al actualizar el egreso');
-        }
-        message.success('Egreso actualizado correctamente');
+      const payload = { ...values, vendedor: user.name };
+      if (drawerState.editingRecord) {
+        await updateEgreso(drawerState.editingRecord._id, payload);
+        message.success("Egreso actualizado");
       } else {
-        response = await fetch('https://backendcoalianza.vercel.app/api/egresos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(dataToSubmit),
-        });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Error al registrar el egreso');
-        }
-        message.success('Egreso registrado correctamente');
+        await createEgreso(payload);
+        message.success("Egreso creado");
       }
-
-      handleCloseEgresoDrawer();
-      fetchEgresos();
+      closeDrawers();
+      fetchTransactions();
     } catch (error) {
-      console.error('Error en el envío del egreso:', error);
-      message.error(error.message || (editingEgresoRecord ? 'Error al actualizar el egreso' : 'Error al registrar el egreso'));
+      message.error("Error al guardar");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleTabChange = (key) => {
-    setActiveTab(key);
-  };
+  const openDrawer = (type, record = null) =>
+    setDrawerState({ ...drawerState, [type]: true, editingRecord: record });
+
+  const closeDrawers = () =>
+    setDrawerState({ ingreso: false, egreso: false, editingRecord: null });
+
+  if (!user) {
+    return (
+      <div className="p-10 flex justify-center">
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  // Lista de años (puedes ajustarla)
+  const yearsList = [];
+  for (let i = 2024; i <= 2030; i++) {
+    yearsList.push(i);
+  }
 
   return (
-    <div >
-      <Card className="shadow-md rounded-lg overflow-hidden" bordered={false}>
-        {/* Header Section - Responsive */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
-          <div className="flex items-center">
-            <FileProtectOutlined className="text-green-900 text-xl sm:text-2xl mr-2 sm:mr-3" />
-            <Title level={3} className="m-0 text-gray-800 text-base sm:text-lg md:text-xl">
-              Gestión de Movimientos
+    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
+
+      {/* Encabezado simple */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div>
+            <Title level={4} style={{ margin: 0, color: '#155153' }}>
+              Panel Financiero
             </Title>
-          </div>
-
-          {/* Buttons - Responsive wrapping */}
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() => {
-                fetchCertificados();
-                fetchEgresos();
-              }}
-              loading={loading}
-              size="small"
-              className="border border-gray-300 hover:border-green-500 hover:text-green-500 flex-1 sm:flex-none"
-            >
-              <span className="hidden sm:inline">Actualizar</span>
-            </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleShowCreateDrawer}
-              loading={loading}
-              size="small"
-              className="bg-[#155153] hover:bg-green-700 border-0 flex-1 sm:flex-none"
-            >
-              <span className="hidden sm:inline">Nueva </span>Venta
-            </Button>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleShowCreateEgresoDrawer}
-              loading={loading}
-              size="small"
-              className="bg-red-600 hover:bg-red-700 border-0 flex-1 sm:flex-none"
-            >
-              <span className="hidden sm:inline">Nuevo </span>Egreso
-            </Button>
-          </div>
-        </div>
-
-        <Divider className="my-2 sm:my-3" />
-
-        {/* Info Section - Responsive */}
-        <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-          <Text className="text-gray-500 text-xs sm:text-sm">
-            <span className="hidden md:inline">Sistema de administración de movimientos. </span>
-            Registre y gestione ventas y egresos.
-          </Text>
-          {userName && (
-            <Tag color="green" className="text-xs sm:text-sm">
-              Usuario: {userName}
-            </Tag>
-          )}
-        </div>
-
-        {/* Tabs - Responsive */}
-        <Tabs activeKey={activeTab} onChange={handleTabChange} size="small">
-          <TabPane tab="Ingresos" key="ventas" />
-          <TabPane tab="Egresos" key="egresos" />
-        </Tabs>
-
-        {/* Table Container - Responsive with horizontal scroll */}
-        <div className="bg-white rounded-lg overflow-x-auto">
-          {loading ? (
-            <div className="flex justify-center items-center py-8">
-              <Spin size="large" tip="Cargando datos..." />
+            <div className="flex items-center gap-2 text-gray-500 text-sm">
+              <UserOutlined /> {user.name}
             </div>
-          ) : (
-            <CertificadosTable
-              data={activeTab === 'ventas' ? filteredCertificados : filteredEgresos}
-              allVentas={filteredCertificados}
-              allEgresos={filteredEgresos}
-              loading={loading}
-              onRefresh={activeTab === 'ventas' ? fetchCertificados : fetchEgresos}
-              userName={userName}
-              type={activeTab}
-              onEdit={activeTab === 'ventas' ? handleShowEditDrawer : handleShowEditEgresoDrawer}
-            />
-          )}
-        </div>
-      </Card>
+          </div>
 
-      {/* Drawer for Ventas - Full width on mobile */}
-      <IngresoDrawer
-        open={isIngresoDrawerOpen}
-        onClose={handleCloseIngresoDrawer}
-        onSubmit={handleIngresoSubmit}
-        loading={loading}
-        userName={userName}
-        initialValues={editingRecord}
-        width={window.innerWidth < 768 ? '100%' : 720}
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={fetchTransactions}
+            loading={loading}
+            shape="circle"
+          />
+        </div>
+      </div>
+
+      {/* Stats con rango de fechas (mes/año seleccionados) */}
+      <DashboardStats
+        ingresos={myIngresos}
+        egresos={myEgresos}
+        dateRange={dateRange}
+        filters={filters}   // <- nuevo
       />
 
-      {/* Drawer for Egresos - Full width on mobile */}
+
+      <div className="h-6" />
+
+      {/* Tablas */}
+     <Card
+        className="shadow-md rounded-xl border-0 overflow-hidden"
+        bodyStyle={{ padding: 0 }}
+      >
+        <Tabs
+          defaultActiveKey="ingresos"
+          size="large"
+          tabBarStyle={{ padding: '0 24px', backgroundColor: '#fff', marginBottom: 0 }}
+        >
+          {/* TAB VENTAS (INGRESOS) */}
+          <TabPane tab={<span><DollarOutlined /> Ventas</span>} key="ingresos">
+            <div className="p-4">
+              <TransactionTable
+                type="ingresos"
+                data={myIngresos}
+                loading={loading}
+                onRefresh={fetchTransactions}
+                onEdit={(r) => openDrawer('ingreso', r)}
+                onCreate={() => openDrawer('ingreso')}
+                dateRange={dateRange}
+                userName={user.name}
+                selectedDate={selectedDate}
+                onMonthChange={handleMonthChange}
+                onYearChange={handleYearChange}
+                onCurrentMonthClick={handleCurrentMonthClick}
+                yearsList={yearsList}
+                onFiltersChange={setFilters}   // 🔹 IMPORTANTE: aquí también
+              />
+            </div>
+          </TabPane>
+
+          {/* TAB GASTOS (EGRESOS) */}
+          <TabPane tab={<span><AuditOutlined /> Gastos</span>} key="egresos">
+            <div className="p-4">
+              <TransactionTable
+                type="egresos"                  // 🔹 debe ser egresos
+                data={myEgresos}                // 🔹 usar mis egresos
+                loading={loading}
+                onRefresh={fetchTransactions}
+                onEdit={(r) => openDrawer('egreso', r)}   // 🔹 drawer de egreso
+                onCreate={() => openDrawer('egreso')}
+                dateRange={dateRange}
+                userName={user.name}
+                selectedDate={selectedDate}
+                onMonthChange={handleMonthChange}
+                onYearChange={handleYearChange}
+                onCurrentMonthClick={handleCurrentMonthClick}
+                yearsList={yearsList}
+                onFiltersChange={setFilters}   // 🔹 comparte filtros
+              />
+            </div>
+          </TabPane>
+        </Tabs>
+      </Card>
+
+      <IngresoDrawer
+        open={drawerState.ingreso}
+        onClose={closeDrawers}
+        initialValues={drawerState.editingRecord}
+        onSubmit={handleIngresoSubmit}
+        loading={loading}
+        userName={user.name}
+      />
+
       <EgresoDrawer
-        open={isEgresoDrawerOpen}
-        onClose={handleCloseEgresoDrawer}
+        open={drawerState.egreso}
+        onClose={closeDrawers}
+        initialValues={drawerState.editingRecord}
         onSubmit={handleEgresoSubmit}
         loading={loading}
-        userName={userName}
-        initialValues={editingEgresoRecord}
-        width={window.innerWidth < 768 ? '100%' : 720}
+        userName={user.name}
       />
     </div>
   );

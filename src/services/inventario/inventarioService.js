@@ -1,11 +1,40 @@
 // src/services/inventarioService.js
-import backApi from "../backApi"; // ajusta la ruta si tu backApi está en otro sitio
+import backApi from "../backApi";
+import axios from "axios";
 
-// Obtener todos los items del inventario (general, si lo usas)
-export const getInventario = async () => {
-  const response = await backApi.get("/api/inventario");
+const API_COALIANZA = import.meta.env.VITE_API;
+
+
+
+const coalianzaApi = axios.create({
+  baseURL: API_COALIANZA,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Interceptor: Inyecta el token automáticamente en cada petición
+coalianzaApi.interceptors.request.use(
+  (config) => {
+    // Usamos la misma key que definiste en tu AuthContext
+    const token = localStorage.getItem("authToken"); 
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+
+
+export const getInventario = async (params = {}) => {
+  // Ajusta la ruta si tu backend no requiere '/user/'
+  const response = await coalianzaApi.get(`/inventario`,{ params });
   return response.data;
 };
+
+
 
 // Obtener inventario de un usuario específico
 export const getInventarioByUser = async (userId) => {
