@@ -38,19 +38,29 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
     // --- CARGAR INVENTARIO USANDO EL SERVICIO (Sin userId) ---
     useEffect(() => {
         const loadInventario = async () => {
-            setLoadingInventario(true);
-            try {
-                // Ya no enviamos userId, el token se encarga en el backend
-                const data = await getInventario();
-                setInventario(data);
-            } catch (error) {
-                console.error("Error cargando inventario:", error);
-                message.error("No se pudo cargar la lista de productos.");
-            } finally {
-                setLoadingInventario(false);
-            }
-        };
+        setLoadingInventario(true);
+        try {
+            const data = await getInventario();
+            
+            // LOG DE DEPURACIÓN (Míralo en la consola del navegador en producción)
+            console.log("Datos recibidos del inventario:", data);
 
+            // Solo actualizamos el estado si es un array válido
+            if (Array.isArray(data)) {
+                setInventario(data);
+            } else {
+                console.error("El inventario recibido no es un array:", data);
+                setInventario([]); // Fallback a array vacío para evitar el crash
+                message.warning("Hubo un problema cargando el formato del inventario.");
+            }
+        } catch (error) {
+            console.error("Error cargando inventario:", error);
+            message.error("No se pudo cargar la lista de productos.");
+            setInventario([]); // Fallback en caso de error
+        } finally {
+            setLoadingInventario(false);
+        }
+    };
         if (open) {
             loadInventario();
             
