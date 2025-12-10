@@ -1,4 +1,4 @@
-import React, { useState, useId } from 'react';
+import React, { useState } from 'react';
 // ICONOS Y UTILIDADES
 import { 
   AlertCircle, ArrowLeft, ShieldCheck, Fingerprint, Clock, 
@@ -10,19 +10,45 @@ import { es } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notification } from 'antd';
-import { getClientByCedula } from '../../services/controlapos/posService';
+// Asegúrate de que la ruta de tu servicio sea correcta
+import { getClientByCedula } from '../../services/controlapos/posService'; 
 
 // VARIABLES DE ENTORNO
 const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app/api';
-const API_BACKEND_FINANZAS = import.meta.env.VITE_API_FINANZAS || 'https://backendcoalianza.vercel.app/api';
 
 // --- SUB-COMPONENTE: Tarjeta de Curso Individual ---
 const CourseCard = ({ courseName, userData, onDownload, downloading }) => {
   const formatDate = (dateString) => format(new Date(dateString), "d 'de' MMMM, yyyy", { locale: es });
   
-  // 1. Validamos si este curso específico es de Alimentos
-  const isFoodHandling = courseName.toLowerCase().includes('manipulac') || 
-                         courseName.toLowerCase().includes('alimentos');
+  // Normalizamos el nombre para detectar palabras clave
+  const nameLower = courseName.toLowerCase();
+  
+  // 1. Detección del tipo de curso
+  const isFoodHandling = nameLower.includes('manipulac') || nameLower.includes('alimentos');
+  const isExcel = nameLower.includes('excel'); 
+
+  // 2. Configuración visual según el tipo
+  let theme = { 
+    bg: 'bg-blue-50', border: 'border-blue-100', 
+    iconBg: 'bg-blue-100', iconColor: 'text-blue-700', 
+    Icon: GraduationCap, label: "Certificación Académica" 
+  };
+
+  if (isFoodHandling) {
+    theme = { 
+      bg: 'bg-green-50', border: 'border-green-100', 
+      iconBg: 'bg-green-100', iconColor: 'text-green-700', 
+      Icon: Award, label: "Res. 2674/2013" 
+    };
+  } else if (isExcel) {
+    theme = { 
+      bg: 'bg-emerald-50', border: 'border-emerald-100', 
+      iconBg: 'bg-emerald-100', iconColor: 'text-emerald-700', 
+      Icon: FileText, label: "Habilidades Ofimáticas" 
+    };
+  }
+
+  const ThemeIcon = theme.Icon;
 
   return (
     <motion.div 
@@ -31,10 +57,10 @@ const CourseCard = ({ courseName, userData, onDownload, downloading }) => {
       className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden flex flex-col h-full"
     >
       {/* Encabezado de la Tarjeta */}
-      <div className={`px-6 py-4 border-b ${isFoodHandling ? 'bg-green-50 border-green-100' : 'bg-blue-50 border-blue-100'}`}>
+      <div className={`px-6 py-4 border-b ${theme.bg} ${theme.border}`}>
         <div className="flex justify-between items-start">
-          <div className={`p-2 rounded-lg ${isFoodHandling ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-            {isFoodHandling ? <Award className="w-6 h-6" /> : <GraduationCap className="w-6 h-6" />}
+          <div className={`p-2 rounded-lg ${theme.iconBg} ${theme.iconColor}`}>
+            <ThemeIcon className="w-6 h-6" />
           </div>
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
             Vigente
@@ -51,42 +77,46 @@ const CourseCard = ({ courseName, userData, onDownload, downloading }) => {
           <div className="flex items-center text-slate-600">
             <Calendar className="w-4 h-4 mr-2 text-slate-400" />
             <span className="font-medium mr-1">Expedición:</span> 
-            {formatDate(userData.createdAt)}
+            {userData.createdAt ? formatDate(userData.createdAt) : 'N/A'}
           </div>
           <div className="flex items-center text-slate-600">
             <Clock className="w-4 h-4 mr-2 text-slate-400" />
             <span className="font-medium mr-1">Vence:</span> 
-            {formatDate(userData.fechaVencimiento)}
+            {userData.fechaVencimiento ? formatDate(userData.fechaVencimiento) : 'Indefinido'}
           </div>
         </div>
         
         <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-md border border-slate-100">
-            {isFoodHandling 
-                ? "Res. 2674/2013." 
-                : "Certificación de competencias laborales y académicas."}
+            {theme.label}
         </div>
       </div>
 
       {/* Pie de la Tarjeta (Acciones) */}
       <div className="p-4 bg-slate-50 border-t border-slate-100">
-        {isFoodHandling ? (
+        {(isFoodHandling || isExcel) ? (
           <div className="grid grid-cols-2 gap-3">
+             {/* Botón Certificado */}
              <button
               onClick={() => onDownload('certificado', courseName)}
               disabled={!!downloading}
-              className="flex flex-col items-center justify-center p-2 bg-white border border-slate-200 rounded hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-colors text-xs font-medium text-slate-600 disabled:opacity-50"
+              // Si es Excel, ocupa las 2 columnas porque no hay carnet
+              className={`flex flex-col items-center justify-center p-2 bg-white border border-slate-200 rounded hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-colors text-xs font-medium text-slate-600 disabled:opacity-50 ${isExcel ? 'col-span-2' : ''}`}
             >
               {downloading === 'certificado' ? <Loader2 className="w-5 h-5 animate-spin mb-1"/> : <DownloadCloud className="w-5 h-5 mb-1"/>}
-              Certificado
+              Certificado PDF
             </button>
-            <button
-              onClick={() => onDownload('carnet', courseName)}
-              disabled={!!downloading}
-              className="flex flex-col items-center justify-center p-2 bg-white border border-slate-200 rounded hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors text-xs font-medium text-slate-600 disabled:opacity-50"
-            >
-              {downloading === 'carnet' ? <Loader2 className="w-5 h-5 animate-spin mb-1"/> : <FileText className="w-5 h-5 mb-1"/>}
-              Carnet
-            </button>
+            
+            {/* Botón Carnet (Solo para Alimentos) */}
+            {isFoodHandling && (
+              <button
+                onClick={() => onDownload('carnet', courseName)}
+                disabled={!!downloading}
+                className="flex flex-col items-center justify-center p-2 bg-white border border-slate-200 rounded hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors text-xs font-medium text-slate-600 disabled:opacity-50"
+              >
+                {downloading === 'carnet' ? <Loader2 className="w-5 h-5 animate-spin mb-1"/> : <FileText className="w-5 h-5 mb-1"/>}
+                Carnet
+              </button>
+            )}
           </div>
         ) : (
           <div className="w-full py-2 flex items-center justify-center text-slate-400 bg-slate-100 rounded border border-slate-200 cursor-not-allowed">
@@ -100,11 +130,9 @@ const CourseCard = ({ courseName, userData, onDownload, downloading }) => {
 };
 
 
-// --- SUB-COMPONENTE: Portal de Usuario (Reemplaza CertificateDisplay) ---
+// --- SUB-COMPONENTE: Portal de Usuario ---
 const StudentPortal = ({ data, resetForm, onDownload, downloading }) => {
-  // Manejo defensivo: asegurar que data.tipo sea un array
   const courses = Array.isArray(data.tipo) ? data.tipo : [data.tipo || "Certificación General"];
-  const fullName = `${data.nombre} ${data.apellido}`;
 
   return (
     <div className="space-y-8">
@@ -173,10 +201,8 @@ const Verificacion = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [downloading, setDownloading] = useState(null); // 'certificado' | 'carnet' | null
 
-  // --- LÓGICA DE VALIDACIÓN ---
-// ... dentro de tu componente Verificacion ...
-
-const handleValidate = async () => {
+  // VALIDACIÓN DE DOCUMENTO
+  const handleValidate = async () => {
     if (!cedula.trim() || cedula.length < 5) {
       setError('Por favor ingrese un número de documento válido.');
       return;
@@ -186,40 +212,34 @@ const handleValidate = async () => {
     setError('');
     
     try {
-      // --- CAMBIO AQUÍ: Usamos el servicio ---
       const data = await getClientByCedula(cedula);
       
-      // Axios ya nos devuelve la data limpia en response.data (que retorna la función)
-      // Si la petición falla (404), salta al catch automáticamente.
-
       if (!data || !data.numeroDeDocumento) {
           throw new Error('Datos inválidos recibidos.');
       }
-
       setStudentData(data);
-
     } catch (error) {
       console.error(error);
-      
-      // Manejo de errores específico de Axios
       if (error.response && error.response.status === 404) {
          setError('No se encontraron registros para este documento.');
       } else {
          setError('Ocurrió un error al consultar. Intente nuevamente.');
       }
-      
       setStudentData(null);
     } finally {
       setIsLoading(false);
     }
-};
+  };
 
+  // --- LÓGICA DE DESCARGA (AQUÍ ESTÁ LA MAGIA) ---
   const handleDownload = async (docType, courseNameForValidation) => {
-    // DOBLE CHECK: Solo permitimos descargar si es Manipulación (seguridad por si hackean el botón)
-    const isFood = courseNameForValidation.toLowerCase().includes('manipulac') || 
-                   courseNameForValidation.toLowerCase().includes('alimentos');
+    
+    const courseLower = courseNameForValidation.toLowerCase();
+    const isFood = courseLower.includes('manipulac') || courseLower.includes('alimentos');
+    const isExcel = courseLower.includes('excel');
 
-    if (!isFood) {
+    // Validación de seguridad inicial
+    if (!isFood && !isExcel) {
        notification.warning({ message: 'Descarga no disponible', description: 'Este certificado aún no tiene plantilla digital.' });
        return;
     }
@@ -242,37 +262,49 @@ const handleValidate = async () => {
       let endpoint = '';
       let requestOptions = { method: 'POST' };
 
-      // NOTA IMPORTANTE:
-      // Aquí estamos llamando al endpoint GENÉRICO que tenías antes. 
-      // Si en el futuro tienes endpoints diferentes por curso, aquí usarías "courseNameForValidation" para decidir la URL.
-      // Por ahora, como dijiste que solo "Manipulación" genera PDF, usamos la lógica actual.
-
+      // 1. LÓGICA DE SELECCIÓN DE ENDPOINT
       if (docType === 'certificado') {
-        endpoint = `${API_BACKEND_URL}/api/generar-certificado`;
+        
+        if (isExcel) {
+          // --> NUEVO ENDPOINT PARA EXCEL
+          endpoint = `${API_BACKEND_URL}/api/generar-certificado-pdf`;
+        } else {
+          // --> ENDPOINT LEGACY PARA ALIMENTOS
+          endpoint = `${API_BACKEND_URL}/api/generar-certificado`;
+        }
+
+        // Configuración Body JSON
         requestOptions.headers = { 'Content-Type': 'application/json' };
         requestOptions.body = JSON.stringify({
           nombre: fullName,
           numeroDocumento: numeroDeDocumento,
           tipoDocumento: tipoDeDocumento || 'C.C',
+          curso: courseNameForValidation // Enviamos el nombre por si el backend lo necesita
         });
+
       } else {
+        // CARNET (Solo Alimentos por ahora)
         endpoint = `${API_BACKEND_URL}/api/generar-carnet`;
         const formData = new FormData();
         formData.append('nombre', fullName);
-        formData.append('numeroDocumento', numeroDeDocumento);Decreto 
+        formData.append('numeroDocumento', numeroDeDocumento);
         formData.append('tipoDocumento', tipoDeDocumento || 'C.C');
         requestOptions.body = formData;
       }
 
+      // 2. PETICIÓN
       const response = await fetch(endpoint, requestOptions);
       if (!response.ok) throw new Error('Error al generar el archivo en el servidor.');
 
+      // 3. DESCARGA DEL BLOB
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      // Nombre del archivo limpio
-      link.setAttribute('download', `${docType}_${fullName.replace(/\s+/g, '_')}.pdf`);
+      
+      const safeCourseType = isExcel ? 'Excel' : 'Manipulacion';
+      link.setAttribute('download', `${docType}_${safeCourseType}_${fullName.replace(/\s+/g, '_')}.pdf`);
+      
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -301,15 +333,15 @@ const handleValidate = async () => {
         
         {/* Header General */}
         {!studentData && (
-             <div className="mb-8 text-center">
-                <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Portal de Certificaciones</h1>
-                <p className="text-slate-500 mt-2">Consulta y descarga tus documentos oficiales de Coalianza / Alimentos Inocuos</p>
-             </div>
+              <div className="mb-8 text-center">
+                 <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Portal de Certificaciones</h1>
+                 <p className="text-slate-500 mt-2">Consulta y descarga tus documentos oficiales de Coalianza / Alimentos Inocuos</p>
+              </div>
         )}
 
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
           
-          {/* Barra superior de navegación (Solo si hay datos o si queremos volver) */}
+          {/* Barra superior */}
           <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
              <Link to="/" className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-green-600 transition-colors">
                 <ArrowLeft className="w-4 h-4 mr-2" /> Inicio
