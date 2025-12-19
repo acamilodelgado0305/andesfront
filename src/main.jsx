@@ -41,6 +41,7 @@ import EvaluationBuilder from "./components/Evaluations/Admin/EvaluationBuilder"
 import StudentAssignmentsPage from "./components/Evaluations/Student/StudentAssignmentsPage";
 import TakeEvaluationPage from "./components/Evaluations/Student/TakeEvaluationPage";
 import MyStudentEvaluationsPage from "./components/Evaluations/MyStudentEvaluationsPage";
+import RegistroExpress from "./components/PublicForms/RegistroExpress";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -65,6 +66,7 @@ const App = () => (
           <Route path="/Camilodelgado" element={<StudentRegistrationForm1 />} />
           <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
           <Route path="/Blancasanchez" element={<StudentRegistrationFormBlanca />} />
+           <Route path="/registro" element={<RegistroExpress />} />
           <Route path="/Mauriciopulido" element={<StudentRegistrationFormMauricio />} />
           <Route path="/Jesusbenitez" element={<StudentRegistrationFormJesus />} />
           <Route path="/incase" element={<StudentRegistrationFormMarily />} />
