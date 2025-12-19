@@ -76,7 +76,7 @@ function RegistroExpress() {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/publico', {
+      const response = await fetch('https://controla-570877385695.northamerica-northeast1.run.app/api/ingresos/publico', {
         method: 'POST',
         body: data,
       });
