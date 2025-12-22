@@ -34,6 +34,7 @@ import Verificacion from "./components/Calificaciones/Verificacion";
 import Materias from "./GestionAcademica/Materias/Materias";
 import Docentes from "./GestionAcademica/Docentes/Docentes";
 import ConsultaPreRegistro from "./components/Calificaciones/ConsultaPreRegistro";
+import StudentAlianza from "./components/PublicForms/formAlianza";
 
 // ✅ Evaluaciones (ADMIN + ESTUDIANTE)
 import AdminEvaluationPage from "./components/Evaluations/Admin/AdminEvaluationsPage";
@@ -64,6 +65,7 @@ const App = () => (
           <Route path="/consulta" element={<ConsultaPreRegistro />} />
           <Route path="/Reporte" element={<StudentReportPortal />} />
           <Route path="/certitec" element={<StudentRegistrationForm1 />} />
+          <Route path="/alianzacapacitarte" element={<StudentAlianza />} />
           <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
           <Route path="/Blancasanchez" element={<StudentRegistrationFormBlanca />} />
            <Route path="/registro" element={<RegistroExpress />} />
