@@ -1,395 +1,337 @@
-// src/components/PublicForms/StudentRegistrationFormMarily.jsx
 import React, { useState, useEffect } from "react";
-import { Form, Input, Select, DatePicker, Button, message, Steps, Spin } from "antd";
-import { UserOutlined, PhoneOutlined, IdcardOutlined, BookOutlined, CalendarOutlined } from "@ant-design/icons";
-import moment from 'moment'; // Importa moment para el manejo de fechas
+import {
+  Form,
+  Input,
+  Select,
+  DatePicker,
+  Button,
+  message,
+  Spin,
+  Progress,
+  Typography,
+  Card,
+  Result // Importamos Result para la pantalla de éxito
+} from "antd";
+import {
+  UserOutlined,
+  PhoneOutlined,
+  IdcardOutlined,
+  CheckCircleFilled,
+  GlobalOutlined,
+  SmileOutlined
+} from "@ant-design/icons";
 
 const { Option } = Select;
-const { Step } = Steps;
+const { Title, Text } = Typography;
 
-// --- Definir el ID del coordinador predeterminado (ID 3) ---
-const DEFAULT_COORDINATOR_ID = 6; 
+// --- Configuración ---
+const DEFAULT_COORDINATOR_ID = 3;
+const MICROSOFT_TEAL = "#080761ff";
+const API_BASE_URL = import.meta.env.VITE_API_BACKEND || "https://clasit-backend-api-570877385695.us-central1.run.app";
 
-// --- Función auxiliar para obtener el inventario del usuario ---
-// Esta función es la que realiza la petición a /api/inventario/user/:userId.
-// Se asume que este endpoint está configurado en tu backend para permitir
-// la consulta del inventario del usuario con ID 3 sin necesidad de autenticación JWT
-// para este formulario público.
-const getInventarioByUser = async (userId) => {
-    const API_BASE_URL = import.meta.env.VITE_API_BACKEND || "https://back.app.validaciondebachillerato.com.co";
-    try {
-        console.log(`Intentando cargar inventario para user ID: ${userId} desde ${API_BASE_URL}/api/programas`);
-        const response = await fetch(`${API_BASE_URL}/api/programas`, {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-            },
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            console.log("Inventario cargado exitosamente:", data);
-            return Array.isArray(data) ? data : []; 
-        } else {
-            const errorData = await response.json().catch(() => ({})); 
-            console.error(`Error al obtener el inventario del usuario ${userId}:`, errorData);
-            throw new Error(errorData.error || response.statusText || "Error desconocido al cargar el inventario.");
-        }
-    } catch (err) {
-        console.error(`Error de conexión al cargar el inventario del usuario ${userId}:`, err);
-        throw err;
+// --- Servicio ---
+const getInventarioByUser = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/programs`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     }
+    return [];
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
 };
 
+const StudentRegistrationForm = ({ onStudentRegistered }) => {
+  const [form] = Form.useForm();
+  const [programas, setProgramas] = useState([]);
+  const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [loadingPrograms, setLoadingPrograms] = useState(true);
+  const [currentStep, setCurrentStep] = useState(0);
+  
+  // ✅ NUEVO ESTADO: Controla si el formulario ya fue enviado exitosamente
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-const StudentRegistrationFormMarily = ({ onStudentRegistered }) => {
-    const [form] = Form.useForm();
-    const [programas, setProgramas] = useState([]);
-    const [loadingSubmit, setLoadingSubmit] = useState(false);
-    const [loadingPrograms, setLoadingPrograms] = useState(true); 
-    const [currentStep, setCurrentStep] = useState(0); 
-
-    // Efecto para cargar los programas del coordinador predeterminado (ID 3)
-    useEffect(() => {
-        const fetchProgramsData = async () => {
-            setLoadingPrograms(true);
-            try {
-                const data = await getInventarioByUser(DEFAULT_COORDINATOR_ID); 
-                console.log(`Programas cargados para el formulario público (inventario del usuario ${DEFAULT_COORDINATOR_ID}):`, data);
-                setProgramas(Array.isArray(data) ? data : []); 
-            } catch (err) {
-                console.error("Error fetching Programs for public form:", err);
-                message.error("Error al cargar los programas disponibles. Intente de nuevo.");
-                setProgramas([]); 
-            } finally {
-                setLoadingPrograms(false);
-            }
-        };
-
-        fetchProgramsData();
-    }, []); // Se ejecuta solo una vez al montar el componente
-
-    // Definición de los pasos del formulario
-    const steps = [
-        {
-            title: 'Intereses Académicos',
-            content: (
-                <div className="space-y-4">
-                    <Form.Item 
-                        name="programasIds" 
-                        label="¿Qué programa(s) te interesa(n) estudiar?" 
-                        rules={[{ required: true, message: 'Por favor selecciona al menos un programa de interés!' }]}
-                        tooltip="Puedes seleccionar uno o más programas."
-                    >
-                        <Select
-                            mode="multiple"
-                            placeholder="Selecciona tus programas"
-                            className="h-10"
-                            disabled={loadingPrograms} 
-                        >
-                            {programas.map((program) => (
-                                <Option key={program.id} value={program.id}> 
-                                    {program.nombre}
-                                </Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-
-                    <Form.Item 
-                        name="modalidad_estudio" 
-                        label="¿Cómo prefieres estudiar?" 
-                        rules={[{ required: true, message: 'Por favor selecciona una modalidad de estudio!' }]}
-                    >
-                        <Select placeholder="Selecciona una modalidad" className="h-10">
-                            <Option value="Clases en Linea">Clases en Línea</Option>
-                            <Option value="Modulos por WhastApp">Módulos por WhatsApp</Option>
-                        </Select>
-                    </Form.Item>
-                    
-                    <Form.Item 
-                        name="ultimoCursoVisto" 
-                        label="¿Cuál fue tu último curso o grado aprobado?" 
-                        rules={[{ required: true, message: "Por favor selecciona tu último curso aprobado!" }]}
-                    >
-                        <Select
-                            placeholder="Selecciona un curso"
-                            className="h-10"
-                            style={{ width: "100%" }}
-                        >
-                            {Array.from({ length: 11 }, (_, index) => {
-                                const curso = (index + 1).toString(); 
-                                return (
-                                    <Option key={curso} value={curso}>
-                                        {curso}°
-                                    </Option>
-                                );
-                            })}
-                        </Select>
-                    </Form.Item>
-                </div>
-            ),
-        },
-        {
-            title: 'Datos Personales',
-            content: (
-                <div className="space-y-4">
-                    <Form.Item name="nombre" label="Tu Nombre" rules={[{ required: true, message: 'Por favor ingresa tu nombre!' }]}>
-                        <Input prefix={<UserOutlined />} className="h-10" />
-                    </Form.Item>
-
-                    <Form.Item name="apellido" label="Tu Apellido" rules={[{ required: true, message: 'Por favor ingresa tu apellido!' }]}>
-                        <Input className="h-10" />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="email"
-                        label="Tu Correo Electrónico"
-                        rules={[
-                            { required: true, message: 'Por favor ingresa tu correo electrónico!' },
-                            { type: "email", message: 'Por favor ingresa un correo electrónico válido!' }
-                        ]}
-                    >
-                        <Input className="h-10" />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="fechaNacimiento"
-                        label="Tu Fecha de Nacimiento"
-                        rules={[{ required: true, message: 'Por favor selecciona tu fecha de nacimiento!' }]}
-                    >
-                        <DatePicker className="w-full h-10" format="YYYY-MM-DD" />
-                    </Form.Item>
-
-                    <Form.Item name="lugarNacimiento" label="Tu Lugar de Nacimiento" rules={[{ required: true, message: 'Por favor ingresa tu lugar de nacimiento!' }]}>
-                        <Input className="h-10" />
-                    </Form.Item>
-
-                    <Form.Item name="telefonoLlamadas" label="Teléfono (Llamadas)" rules={[{ required: true, message: 'Por favor ingresa tu teléfono para llamadas!' }]} help="Solo números, sin espacios ni guiones.">
-                        <Input prefix={<PhoneOutlined />} className="h-10" type="number" />
-                    </Form.Item>
-
-                    <Form.Item name="telefonoWhatsapp" label="Teléfono (WhatsApp)" rules={[{ required: true, message: 'Por favor ingresa tu teléfono para WhatsApp!' }]} help="Usaremos este número para comunicarnos contigo. Solo números.">
-                        <Input prefix={<PhoneOutlined />} className="h-10" type="number" />
-                    </Form.Item>
-                </div>
-            ),
-        },
-        {
-            title: 'Documento', 
-            content: (
-                <div className="space-y-4">
-                    <Form.Item name="tipoDocumento" label="Tipo de Documento" rules={[{ required: true, message: 'Por favor selecciona tu tipo de documento!' }]}>
-                        <Select className="h-10">
-                            <Option value="CC">Cédula de Ciudadanía</Option>
-                            <Option value="TI">Tarjeta de Identidad</Option>
-                            <Option value="CE">Cédula Extranjería</Option>
-                            <Option value="PA">Pasaporte</Option>
-                        </Select>
-                    </Form.Item>
-
-                    <Form.Item
-                        name="numeroDocumento"
-                        label="Número de Documento (sin puntos ni espacios)"
-                        rules={[{ required: true, message: 'Por favor ingresa tu número de documento!' }]}
-                    >
-                        <Input
-                            prefix={<IdcardOutlined />}
-                            className="h-10"
-                            placeholder="Ejemplo: 1234567890"
-                            type="number" 
-                        />
-                    </Form.Item>
-
-                    <Form.Item
-                        name="lugarExpedicion"
-                        label="Lugar de Expedición del Documento"
-                        rules={[{ required: true, message: 'Por favor ingresa el lugar de expedición!' }]}
-                    >
-                        <Input className="h-10" />
-                    </Form.Item>
-                    
-                    {/* SIMAT, EPS, RH, y toda la sección de Acudiente ELIMINADOS de la UI */}
-                </div>
-            ),
-        },
-    ];
-
-    // Función para avanzar al siguiente paso, con validación de campos del paso actual
-    const next = async () => {
-        try {
-            const currentStepFields = steps[currentStep].content.props.children
-                .filter(child => child && child.props && child.props.name) // Filtra solo los Form.Item que tienen 'name'
-                .map(child => child.props.name);
-
-            // Valida solo los campos del paso actual
-            await form.validateFields(currentStepFields);
-            setCurrentStep(currentStep + 1);
-        } catch (errorInfo) {
-            console.error('Error de validación al avanzar:', errorInfo);
-            message.error('Por favor, completa todos los campos requeridos antes de avanzar.');
-        }
+  useEffect(() => {
+    const fetchProgramsData = async () => {
+      setLoadingPrograms(true);
+      const data = await getInventarioByUser();
+      setProgramas(data);
+      setLoadingPrograms(false);
     };
+    fetchProgramsData();
+  }, []);
 
-    // Función para regresar al paso anterior
-    const prev = () => {
-        setCurrentStep(currentStep - 1);
-    };
-
-    // Función para manejar el envío final del formulario
-    const handleSubmit = async (values) => {
-        setLoadingSubmit(true);
-        const apiUrl = import.meta.env.VITE_API_BACKEND
-            ? `${import.meta.env.VITE_API_BACKEND}/api/students`
-            : "https://clasit-backend-api-570877385695.us-central1.run.app/api/students";
-
-        try {
-            // Asegurarse de que `values.fechaNacimiento` es un objeto Moment y formatearlo
-            const fechaNacimientoFormatted = values.fechaNacimiento ? values.fechaNacimiento.format("YYYY-MM-DD") : null;
-            
-            // Asegurarse de que `values.programasIds` es un array y sus elementos son enteros
-            // Esta es la lógica crucial replicada del CreateStudentModal para asegurar el formato correcto.
-            const programasIdsFormatted = Array.isArray(values.programasIds) ? 
-                                          values.programasIds.map(id => parseInt(id, 10)) : 
-                                          [];
-
-            // Construir el objeto formattedValues de manera explícita como en CreateStudentModal
-            const formattedValues = {
-                nombre: values.nombre,
-                apellido: values.apellido,
-                email: values.email,
-                tipoDocumento: values.tipoDocumento,
-                numeroDocumento: values.numeroDocumento,
-                lugarExpedicion: values.lugarExpedicion, // Este campo sí existe en el formulario
-                fechaNacimiento: fechaNacimientoFormatted,
-                lugarNacimiento: values.lugarNacimiento,
-                telefonoLlamadas: values.telefonoLlamadas,
-                telefonoWhatsapp: values.telefonoWhatsapp,
-                
-                // Estos campos tienen valores fijos o null para el formulario público, y son booleanos/null para la DB
-                simat: false, // Siempre false (booleano)
-                pagoMatricula: false, // Siempre false (booleano)
-                activo: true, // Nuevo estudiante es activo por defecto
-                eps: null, // Eliminado de la UI, se envía como null
-                rh: null, // Eliminado de la UI, se envía como null
-                nombreAcudiente: null, // Eliminado de la UI, se envía como null
-                tipoDocumentoAcudiente: null, // Eliminado de la UI, se envía como null
-                telefonoAcudiente: null, // Eliminado de la UI, se envía como null
-                direccionAcudiente: null, // Eliminado de la UI, se envía como null
-                
-                // Campos relacionados con programas/modalidad/curso
-                programasIds: programasIdsFormatted, // Usar el array de IDs formateado aquí (debería funcionar)
-                coordinador_id: DEFAULT_COORDINATOR_ID, // ID del coordinador fijo (3)
-                modalidad_estudio: values.modalidad_estudio,
-                ultimo_curso_visto: values.ultimoCursoVisto, // Asegurar que el nombre de la propiedad coincida con la DB
-                estado_matricula: false, // El backend espera booleano para 'estado_matricula'
-            };
-            
-            console.log("Datos a enviar para registrar estudiante (público, payload final):", formattedValues);
-            console.log("URL de la API utilizada:", apiUrl);
-
-            console.log("Iniciando petición fetch para crear estudiante...");
-
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(formattedValues),
-            });
-
-            console.log("Petición fetch completada. Estado de respuesta:", response.status);
-            console.log("Response OK:", response.ok);
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => null);
-                console.error("Error response from server:", errorData);
-                throw new Error(errorData?.message || `Error del servidor: ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log("Success response:", data);
-
-            message.success("¡Registro exitoso! Pronto nos pondremos en contacto contigo.");
-            onStudentRegistered?.(); 
-            form.resetFields(); 
-            setCurrentStep(0); 
-        } catch (error) {
-            console.error("Error detallado al registrar el estudiante:", {
-                message: error.message,
-                stack: error.stack,
-                values, // Incluir los valores originales del formulario para depuración
-            });
-            message.error(`Error al registrar el estudiante: ${error.message || "Por favor intente nuevamente"}`);
-        } finally {
-            setLoadingSubmit(false);
-        }
-    };
-
-    return (
-        <div className="max-w-4xl mx-auto py-8 px-4">
-            <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-t-lg p-6 text-white text-center">
-                <h1 className="text-3xl font-bold mb-2">¡Regístrate como Estudiante!</h1>
-                <p className="text-purple-100">Completa este formulario para iniciar tu proceso de inscripción.</p>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-xl p-6 mt-4">
-                <Steps current={currentStep} className="mb-8">
-                    {steps.map(item => (
-                        <Step key={item.title} title={item.title} />
-                    ))}
-                </Steps>
-
-                {loadingPrograms ? (
-                    <div className="flex justify-center items-center h-64">
-                        <Spin size="large" tip="Cargando programas disponibles..." />
-                    </div>
-                ) : (
-                    <Form
-                        form={form}
-                        layout="vertical"
-                        onFinish={handleSubmit} 
-                        className="space-y-6"
-                    >
-                        {/* CAMBIO CRUCIAL AQUÍ: Renderizar todos los contenidos, ocultando los inactivos */}
-                        <div className="steps-content">
-                            {steps.map((item, index) => (
-                                <div 
-                                    key={item.title} // Usar el título como key o un ID único
-                                    style={{ display: index === currentStep ? 'block' : 'none' }}
-                                >
-                                    {item.content}
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="steps-action mt-8 flex justify-between">
-                            {currentStep > 0 && (
-                                <Button size="large" onClick={() => prev()} className="min-w-[120px]">
-                                    Anterior
-                                </Button>
-                            )}
-                            {currentStep < steps.length - 1 && (
-                                <Button size="large" type="primary" onClick={() => next()} className="min-w-[120px] bg-indigo-600 hover:bg-indigo-700">
-                                    Siguiente
-                                </Button>
-                            )}
-                            {currentStep === steps.length - 1 && (
-                                <Button
-                                    size="large"
-                                    type="primary"
-                                    htmlType="submit" 
-                                    loading={loadingSubmit}
-                                    className="w-full h-12 text-lg bg-green-600 hover:bg-green-700"
-                                >
-                                    Enviar Registro
-                                </Button>
-                            )}
-                        </div>
-                    </Form>
-                )}
-            </div>
+  // --- Estructura de Pasos ---
+  const steps = [
+    {
+      title: "Intereses Académicos",
+      fields: ["programasIds", "modalidad_estudio", "ultimoCursoVisto"],
+      content: (
+        <div className="animate-fade-in-up">
+          <div className="mb-6">
+            <Title level={3} style={{ color: "#333", marginBottom: "0.5rem" }}>
+              1. Intereses Académicos
+            </Title>
+            <Text type="secondary">Cuéntanos qué te gustaría aprender con nosotros.</Text>
+          </div>
+          <Form.Item
+            name="programasIds"
+            label={<span className="text-lg font-medium text-gray-700">¿Qué programa(s) te interesa(n)?</span>}
+            rules={[{ required: true, message: "Debes seleccionar al menos un programa." }]}
+          >
+            <Select mode="multiple" placeholder="Selecciona opciones..." size="large" style={{ width: "100%" }}>
+              {programas.map((prog) => (
+                <Option key={prog.id} value={prog.id}>{prog.nombre}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="modalidad_estudio"
+            label={<span className="text-lg font-medium text-gray-700">¿Cómo prefieres estudiar?</span>}
+            rules={[{ required: true, message: "Selecciona una modalidad." }]}
+          >
+            <Select size="large" placeholder="Selecciona tu preferencia">
+              <Option value="Clases en Linea">🖥️ Clases en Línea (Virtual)</Option>
+              <Option value="Modulos por WhastApp">📱 Módulos por WhatsApp (Flexible)</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="ultimoCursoVisto"
+            label={<span className="text-lg font-medium text-gray-700">¿Cuál fue tu último curso aprobado?</span>}
+            rules={[{ required: true, message: "Selecciona tu último grado." }]}
+          >
+            <Select size="large" placeholder="Selecciona el grado">
+              {Array.from({ length: 11 }, (_, i) => (
+                <Option key={i + 1} value={(i + 1).toString()}>{i + 1}° Grado</Option>
+              ))}
+            </Select>
+          </Form.Item>
         </div>
+      ),
+    },
+    {
+      title: "Datos Personales",
+      fields: ["nombre", "apellido", "email", "fechaNacimiento", "lugarNacimiento", "telefonoLlamadas", "telefonoWhatsapp"],
+      content: (
+        <div className="animate-fade-in-up">
+          <div className="mb-6">
+            <Title level={3} style={{ color: "#333", marginBottom: "0.5rem" }}>
+              2. Tus Datos Personales
+            </Title>
+            <Text type="secondary">Necesitamos estos datos para crear tu perfil.</Text>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Form.Item name="nombre" label="Nombres" rules={[{ required: true, message: "Requerido" }]}>
+              <Input prefix={<UserOutlined />} size="large" />
+            </Form.Item>
+            <Form.Item name="apellido" label="Apellidos" rules={[{ required: true, message: "Requerido" }]}>
+              <Input size="large" />
+            </Form.Item>
+          </div>
+          <Form.Item name="email" label="Correo Electrónico" rules={[{ required: true, type: "email", message: "Email inválido" }]}>
+            <Input prefix={<GlobalOutlined />} size="large" />
+          </Form.Item>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Form.Item name="fechaNacimiento" label="Fecha de Nacimiento" rules={[{ required: true, message: "Requerido" }]}>
+              <DatePicker style={{ width: "100%" }} size="large" format="YYYY-MM-DD" />
+            </Form.Item>
+            <Form.Item name="lugarNacimiento" label="Lugar de Nacimiento" rules={[{ required: true, message: "Requerido" }]}>
+              <Input size="large" />
+            </Form.Item>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Form.Item name="telefonoLlamadas" label="Celular (Llamadas)" rules={[{ required: true, message: "Requerido" }]}>
+              <Input prefix={<PhoneOutlined />} type="number" size="large" />
+            </Form.Item>
+            <Form.Item name="telefonoWhatsapp" label="Celular (WhatsApp)" rules={[{ required: true, message: "Requerido" }]}>
+              <Input prefix={<PhoneOutlined />} type="number" size="large" />
+            </Form.Item>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: "Documentación",
+      fields: ["tipoDocumento", "numeroDocumento", "lugarExpedicion"],
+      content: (
+        <div className="animate-fade-in-up">
+          <div className="mb-6">
+            <Title level={3} style={{ color: "#333", marginBottom: "0.5rem" }}>
+              3. Identificación
+            </Title>
+            <Text type="secondary">Información legal para tu certificado.</Text>
+          </div>
+          <Form.Item name="tipoDocumento" label="Tipo de Documento" rules={[{ required: true, message: "Requerido" }]}>
+            <Select size="large">
+              <Option value="CC">Cédula de Ciudadanía</Option>
+              <Option value="TI">Tarjeta de Identidad</Option>
+              <Option value="CE">Cédula Extranjería</Option>
+              <Option value="PA">Pasaporte</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="numeroDocumento" label="Número de Documento" rules={[{ required: true, message: "Requerido" }]}>
+            <Input prefix={<IdcardOutlined />} type="number" size="large" />
+          </Form.Item>
+          <Form.Item name="lugarExpedicion" label="¿Dónde fue expedido?" rules={[{ required: true, message: "Requerido" }]}>
+            <Input size="large" />
+          </Form.Item>
+        </div>
+      ),
+    },
+  ];
+
+  const next = async () => {
+    try {
+      await form.validateFields(steps[currentStep].fields);
+      setCurrentStep(currentStep + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      message.error("Completa los campos obligatorios.");
+    }
+  };
+
+  const prev = () => {
+    setCurrentStep(currentStep - 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSubmit = async () => {
+    setLoadingSubmit(true);
+    try {
+      const values = form.getFieldsValue(true);
+      await form.validateFields(steps[currentStep].fields);
+
+      const formattedValues = {
+        ...values,
+        fechaNacimiento: values.fechaNacimiento ? values.fechaNacimiento.format("YYYY-MM-DD") : null,
+        programasIds: Array.isArray(values.programasIds) ? values.programasIds.map(id => parseInt(id, 10)) : [],
+        coordinador_id: DEFAULT_COORDINATOR_ID,
+        simat: false, pagoMatricula: false, activo: true, posibleGraduacion: false,
+        eps: null, rh: null, nombreAcudiente: null, tipoDocumentoAcudiente: null, 
+        telefonoAcudiente: null, direccionAcudiente: null, estado_matricula: false
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/students`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formattedValues),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al guardar");
+      }
+
+      // ✅ ÉXITO: Cambiamos el estado para mostrar la pantalla final
+      setIsSubmitted(true);
+      onStudentRegistered?.();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    } catch (error) {
+      console.error("Error Submit:", error);
+      message.error(`Error: ${error.message}`);
+    } finally {
+      setLoadingSubmit(false);
+    }
+  };
+
+  const progressPercent = Math.round(((currentStep) / steps.length) * 100);
+
+  // ✅ RENDERIZADO CONDICIONAL: Si ya se envió, mostrar pantalla de éxito
+  if (isSubmitted) {
+    return (
+      <div className="min-h-screen bg-[#f0f2f5] py-8 px-4 flex flex-col items-center justify-center font-sans">
+        <Card className="w-full max-w-2xl shadow-lg rounded-lg overflow-hidden border-0 text-center py-10">
+          <Result
+            icon={<SmileOutlined style={{ color: MICROSOFT_TEAL }} />}
+            status="success"
+            title="¡Gracias! Tu respuesta ha sido enviada."
+            subTitle="Hemos recibido tu inscripción correctamente. Un asesor académico revisará tu información y te contactará por WhatsApp muy pronto."
+            extra={[
+              <Button 
+                type="primary" 
+                key="console"
+                size="large"
+                onClick={() => window.location.href = 'https://wa.me/'} // Opcional: llevar a WhatsApp
+                style={{ backgroundColor: MICROSOFT_TEAL, borderColor: MICROSOFT_TEAL }}
+              >
+                Contactar Soporte
+              </Button>
+            ]}
+          />
+          <div className="mt-4 text-gray-400 text-sm">
+             Ya puedes cerrar esta página.
+          </div>
+        </Card>
+      </div>
     );
+  }
+
+  // Renderizado normal del formulario
+  return (
+    <div className="min-h-screen bg-[#f0f2f5] py-8 px-4 flex flex-col items-center font-sans">
+      <Card 
+        className="w-full max-w-3xl shadow-md rounded-t-lg overflow-hidden mb-4 border-0"
+        bodyStyle={{ padding: 0 }}
+      >
+        <div style={{ backgroundColor: MICROSOFT_TEAL, height: "10px", width: "100%" }}></div>
+        <div className="p-8 bg-white">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Formulario de Inscripción</h1>
+          <p className="text-gray-500 text-base">
+            Completa tu información para iniciar el proceso.
+          </p>
+        </div>
+      </Card>
+
+      <div className="w-full max-w-3xl mb-6 px-2">
+         <Progress percent={progressPercent} showInfo={false} strokeColor={MICROSOFT_TEAL} trailColor="#d1d5db" />
+      </div>
+
+      <Card className="w-full max-w-3xl shadow-sm rounded-lg border-0">
+        {loadingPrograms ? (
+           <div className="flex justify-center py-12"><Spin size="large" /></div>
+        ) : (
+          <Form form={form} layout="vertical" className="pt-2" requiredMark={false}>
+            <div className="min-h-[300px]">
+                {steps[currentStep].content}
+            </div>
+            <div className="mt-8 flex justify-between items-center pt-6 border-t border-gray-100">
+              {currentStep > 0 ? (
+                <Button onClick={prev} size="large" className="px-8">Atrás</Button>
+              ) : <div></div>}
+
+              {currentStep < steps.length - 1 && (
+                <Button 
+                    type="primary" onClick={next} size="large"
+                    style={{ backgroundColor: MICROSOFT_TEAL, borderColor: MICROSOFT_TEAL }}
+                    className="px-8"
+                >
+                  Siguiente
+                </Button>
+              )}
+
+              {currentStep === steps.length - 1 && (
+                <Button
+                  type="primary" onClick={handleSubmit} loading={loadingSubmit} size="large"
+                  style={{ backgroundColor: MICROSOFT_TEAL, borderColor: MICROSOFT_TEAL }}
+                  className="px-8 flex items-center gap-2"
+                >
+                  <CheckCircleFilled /> Enviar
+                </Button>
+              )}
+            </div>
+          </Form>
+        )}
+      </Card>
+      <div className="mt-8 text-center text-gray-400 text-sm">Plataforma Educativa Segura • {new Date().getFullYear()}</div>
+    </div>
+  );
 };
 
-export default StudentRegistrationFormMarily;
+export default StudentRegistrationForm;
