@@ -1,20 +1,21 @@
 import axios from "axios";
 
-// Asegúrate de que esta variable de entorno apunte a tu backend principal (Node/Postgres)
+// Asegúrate de que esta variable de entorno apunte a tu backend principal
 const API_BACKEND = import.meta.env.VITE_API_BACKEND;
 
 // 1. Crear instancia de Axios
+// NOTA: Hemos quitado "Content-Type": "application/json" de los headers globales.
+// Axios es inteligente: si envías un objeto, él pone 'application/json' solo.
+// Si envías FormData (archivos), él pone 'multipart/form-data' solo.
 const inventarioApi = axios.create({
   baseURL: API_BACKEND,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  // headers: { "Content-Type": "application/json" } // <--- ESTO SE ELIMINÓ PARA SOPORTAR FOTOS
 });
 
 // 2. Interceptor: Inyecta el token automáticamente en cada petición
 inventarioApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("authToken"); 
+    const token = localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -29,7 +30,6 @@ inventarioApi.interceptors.request.use(
  * Obtener todo el inventario del usuario logueado
  */
 export const getInventario = async (params = {}) => {
-  // El backend usa el token para saber quién es el usuario, no hace falta pasar ID
   const response = await inventarioApi.get('/api/inventario', { params });
   return response.data;
 };
@@ -44,15 +44,17 @@ export const getInventarioById = async (id) => {
 
 /**
  * Crear un nuevo ítem
- * payload: { nombre, monto, descripcion }
+ * payload: Puede ser {objeto json} o new FormData() con imagen
  */
 export const createInventario = async (payload) => {
+  // Axios detectará si payload es FormData y ajustará los headers automáticamente
   const response = await inventarioApi.post("/api/inventario", payload);
   return response.data;
 };
 
 /**
  * Actualizar un ítem existente
+ * payload: Puede ser {objeto json} o new FormData() con imagen
  */
 export const updateInventario = async (id, payload) => {
   const response = await inventarioApi.put(`/api/inventario/${id}`, payload);
@@ -70,7 +72,7 @@ export const deleteInventario = async (ids) => {
       data: { ids }, // Enviar body en delete requiere propiedad 'data' en axios
     });
     return response.data;
-  } 
+  }
   // Si es un solo ID
   else {
     const response = await inventarioApi.delete(`/api/inventario/${ids}`);
