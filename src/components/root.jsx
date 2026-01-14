@@ -1,13 +1,26 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, message, Typography, Dropdown, ConfigProvider, Spin } from 'antd';
-import { 
-  DashboardOutlined, TeamOutlined, ReadOutlined, IdcardOutlined, 
-  BookOutlined, FileTextOutlined, MenuFoldOutlined, MenuUnfoldOutlined, 
-  LogoutOutlined, SettingOutlined, UserOutlined, BankOutlined, 
-  PaperClipOutlined, BuildOutlined 
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Layout, Menu, Button, Avatar, Typography, Dropdown, ConfigProvider, Spin } from 'antd';
+import {
+  DashboardOutlined,
+  TeamOutlined,
+  ReadOutlined,
+  IdcardOutlined,
+  BookOutlined,
+  FileTextOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  LogoutOutlined,
+  SettingOutlined,
+  UserOutlined,
+  BankOutlined,
+  PaperClipOutlined,
+  BuildOutlined,
+  ShopOutlined,      // Icono POS
+  AppstoreOutlined,  // Icono Otros
+  UsergroupAddOutlined // Icono Personas
 } from '@ant-design/icons';
-import { AuthContext } from '../AuthContext'; // <--- Importamos el contexto
+import { AuthContext } from '../AuthContext';
 import axios from 'axios';
 import dayjs from 'dayjs';
 
@@ -17,63 +30,77 @@ const { Title } = Typography;
 const API_URL = import.meta.env.VITE_API_BACKEND;
 const PRIMARY_COLOR = '#155153';
 
-// Configuración de Menús (Sin cambios)
-const MENU_CONFIG = {
-  feva: [
-    { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
-    {
-      key: '/academic-management',
-      icon: <ReadOutlined />,
-      label: 'Gestión Académica',
-      children: [
-        { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
-        { key: '/inicio/docentes', icon: <IdcardOutlined />, label: 'Docentes', path: '/inicio/docentes' },
-        { key: '/inicio/programas', icon: <IdcardOutlined />, label: 'Programas', path: '/inicio/programas' },
-        { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias', path: '/inicio/materias' },
-        { key: '/inicio/evaluaciones', icon: <BookOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
-        { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
-      ],
-    },
-    { key: '/inicio/generacion', icon: <PaperClipOutlined />, label: 'Generación de Documentos', path: '/inicio/generacion' },
-    { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
-    { key: '/inicio/inventario', icon: <BuildOutlined />, label: 'Inventario', path: '/inicio/inventario' },
-  ],
-  certificaciones: [
-    { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
-    { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
-    { key: '/inicio/inventario', icon: <BuildOutlined />, label: 'Inventario', path: '/inicio/inventario' },
-    { key: '/inicio/generacion', icon: <PaperClipOutlined />, label: 'Generación de Documentos', path: '/inicio/generacion' },
-  ],
-  all: [
-    { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
-    {
-      key: '/academic-management',
-      icon: <ReadOutlined />,
-      label: 'Gestión Académica',
-      children: [
-        { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
-        { key: '/inicio/docentes', icon: <IdcardOutlined />, label: 'Docentes', path: '/inicio/docentes' },
-        { key: '/inicio/programas', icon: <IdcardOutlined />, label: 'Programas', path: '/inicio/programas' },
-        { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias', path: '/inicio/materias' },
-        { key: '/inicio/evaluaciones', icon: <BookOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
-        { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
-      ],
-    },
-    { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
-    { key: '/inicio/generacion', icon: <PaperClipOutlined />, label: 'Generación de Documentos', path: '/inicio/generacion' },
-    { key: '/inicio/inventario', icon: <BuildOutlined />, label: 'Inventario', path: '/inicio/inventario' },
-    { key: '/inicio/adminclients', icon: <SettingOutlined />, label: 'Administración', path: '/inicio/adminclients' },
-  ],
-  docente: [
-    { key: '/inicio/dashboard', icon: <DashboardOutlined />, label: 'Panel de Control', path: '/inicio/dashboard' },
-    { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
-  ],
-};
+// =========================================================
+// 📋 MENÚ MAESTRO (Definición única de toda la app)
+// =========================================================
+// 'requiredModule': Debe coincidir con lo que envía tu Backend en user.modules
+// Si no tiene 'requiredModule', es público para cualquier usuario logueado.
+
+const MENU_MASTER = [
+  // --- 1. GENERAL (Todos lo ven) ---
+  {
+    key: '/inicio/dashboard',
+    icon: <DashboardOutlined />,
+    label: 'Panel de Control',
+    path: '/inicio/dashboard'
+  },
+
+  // --- 2. GESTIÓN COMERCIAL (POS, Inventario, Caja) ---
+  {
+    key: '/gestion-comercial',
+    icon: <ShopOutlined />,
+    label: 'Gestión Comercial (POS)',
+    requiredModule: 'POS', // <--- Módulo requerido
+    children: [
+      { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos / Caja', path: '/inicio/certificados' },
+      { key: '/inicio/inventario', icon: <BuildOutlined />, label: 'Inventario', path: '/inicio/inventario' },
+      { key: '/inicio/personas', icon: <UsergroupAddOutlined />, label: 'Directorio Personas', path: '/inicio/personas' },
+    ]
+  },
+
+  // --- 3. GESTIÓN ACADÉMICA ---
+  {
+    key: '/academic-management',
+    icon: <ReadOutlined />,
+    label: 'Gestión Académica',
+    requiredModule: 'ACADEMICO', // <--- Módulo requerido
+    children: [
+      { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
+      { key: '/inicio/docentes', icon: <IdcardOutlined />, label: 'Docentes', path: '/inicio/docentes' },
+      { key: '/inicio/programas', icon: <IdcardOutlined />, label: 'Programas', path: '/inicio/programas' },
+      { key: '/inicio/materias', icon: <BookOutlined />, label: 'Materias', path: '/inicio/materias' },
+      { key: '/inicio/evaluaciones', icon: <BookOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
+      { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
+    ],
+  },
+
+  // --- 4. UTILIDADES / GENERACIÓN ---
+  {
+    key: '/otros-utilidades',
+    icon: <AppstoreOutlined />,
+    label: 'Otros / Utilidades',
+    requiredModule: 'GENERACION', // <--- Módulo requerido
+    children: [
+      { key: '/inicio/generacion', icon: <PaperClipOutlined />, label: 'Generación Documentos', path: '/inicio/generacion' },
+    ]
+  },
+
+  // --- 5. ADMINISTRACIÓN DEL SISTEMA ---
+  {
+    key: '/admin-sistema',
+    icon: <SettingOutlined />,
+    label: 'Administración',
+    requiredModule: 'ADMIN', // <--- Módulo requerido
+    children: [
+      { key: '/inicio/adminclients', icon: <SettingOutlined />, label: 'Configuración Global', path: '/inicio/adminclients' },
+    ]
+  }
+];
 
 const RootLayout = () => {
-  // 1. OBTENER USUARIO DEL CONTEXTO (Fuente de la verdad)
+  // 1. OBTENER USUARIO DEL CONTEXTO
   const { user, logout, loading: authLoading } = useContext(AuthContext);
-  
+
   const [isSiderCollapsed, setIsSiderCollapsed] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -82,7 +109,7 @@ const RootLayout = () => {
   const [subscriptionData, setSubscriptionData] = useState({ endDate: null, amountPaid: null });
   const location = useLocation();
 
-  // Detectar móvil
+  // --- LÓGICA RESPONSIVE ---
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768;
@@ -97,7 +124,7 @@ const RootLayout = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Lógica del Sider Hover
+  // --- LÓGICA SIDER HOVER ---
   const handleMouseEnter = () => {
     if (isMobile) return;
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -115,13 +142,11 @@ const RootLayout = () => {
     };
   }, []);
 
-  // 2. CARGAR SUSCRIPCIÓN (Usando el ID real del contexto)
+  // --- 2. CARGAR SUSCRIPCIÓN ---
   useEffect(() => {
     const fetchSubscription = async () => {
-      // Solo ejecutamos si el usuario ya cargó en el contexto
       if (user && user.id) {
         try {
-          // Usamos user.id (o user.bid si es el ID de negocio) según tu token
           const response = await axios.get(`${API_URL}/api/subscriptions/expiration/${user.id}`);
           if (response.data) {
             setSubscriptionData({
@@ -131,17 +156,15 @@ const RootLayout = () => {
           }
         } catch (error) {
           console.error('Error fetching subscription:', error);
-          // No bloqueamos la UI si falla la suscripción
         }
       }
     };
 
-    if (!authLoading) {
+    if (!authLoading && user) {
       fetchSubscription();
     }
   }, [user, authLoading]);
 
-  // Alerta de expiración
   const showExpirationWarning = () => {
     if (!subscriptionData.endDate) return null;
     const today = dayjs().startOf('day');
@@ -152,11 +175,11 @@ const RootLayout = () => {
     if (isNearExpiration) {
       const formattedAmount = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(subscriptionData.amountPaid);
       return (
-        <div style={{ padding: '16px', background: '#fff1f0', border: '1px solid #ffa39e', margin: '16px', borderRadius: '8px' }}>
-          <p style={{ margin: '0 0 10px 0' }}>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          <p className="m-0">
             ⚠️ <strong>Atención:</strong> Tu plan vence en <strong>{daysLeft} día(s)</strong>. Monto a cancelar: <strong>{formattedAmount}</strong>.
           </p>
-          <Button type="primary" danger href="https://linkdepagospse.rappipay.co/U7pafq" target="_blank" rel="noopener noreferrer">
+          <Button type="link" danger href="https://linkdepagospse.rappipay.co/U7pafq" target="_blank" rel="noopener noreferrer" style={{ paddingLeft: 0 }}>
             Renovar mi Plan Ahora
           </Button>
         </div>
@@ -165,29 +188,58 @@ const RootLayout = () => {
     return null;
   };
 
-  // 3. DETERMINAR MENÚ SEGÚN EL ROL DEL CONTEXTO
-  const getMenuItems = () => {
-    if (!user) return []; // Si no hay usuario, menú vacío
-    
-    // Usamos user.role y user.app (si existe en el token, sino default 'feva')
-    const role = user.role || 'guest';
-    const app = user.app || 'feva'; 
+  // =========================================================
+  // 🚀 3. FILTRADO DINÁMICO DEL MENÚ (CORE LOGIC)
+  // =========================================================
+  const getDynamicMenuItems = () => {
+    if (!user) return [];
 
-    if (role === 'docente') return MENU_CONFIG.docente;
-    return MENU_CONFIG[app] || MENU_CONFIG.feva;
+    // A. Si es SuperAdmin, devuelve TODO el menú maestro
+    if (user.role === 'superadmin') {
+      return mapMenuToAntd(MENU_MASTER);
+    }
+
+    // B. Si es 'Docente' (Legacy), podemos devolver un subconjunto específico 
+    // O mejor, asegurarnos de que el backend le envíe ['ACADEMICO'] en user.modules
+    // Para compatibilidad total, si no tiene modules pero es docente:
+    if (user.role === 'docente' && (!user.modules || user.modules.length === 0)) {
+      // Filtramos manualmente solo la parte académica
+      const academicMenu = MENU_MASTER.find(m => m.key === '/academic-management');
+      const dashboard = MENU_MASTER.find(m => m.key === '/inicio/dashboard');
+      return mapMenuToAntd([dashboard, academicMenu].filter(Boolean));
+    }
+
+    // C. Filtrado Estándar basado en Módulos (ABAC)
+    const userModules = user.modules || []; // Array ej: ['POS', 'INVENTARIO']
+
+    const filteredMenu = MENU_MASTER.filter(item => {
+      // 1. Si no requiere módulo, es público (ej: Dashboard)
+      if (!item.requiredModule) return true;
+
+      // 2. Si requiere módulo, verificamos si el usuario lo tiene
+      return userModules.includes(item.requiredModule);
+    });
+
+    return mapMenuToAntd(filteredMenu);
   };
 
-  const menuItems = getMenuItems().map((item) => ({
-    key: item.key,
-    icon: item.icon,
-    label: item.path ? <Link to={item.path}>{item.label}</Link> : item.label,
-    children: item.children?.map((child) => ({
-      key: child.path,
-      icon: child.icon,
-      label: <Link to={child.path}>{child.label}</Link>,
-    })),
-  }));
+  // Helper para convertir nuestra estructura al formato de Ant Design
+  const mapMenuToAntd = (items) => {
+    return items.map((item) => ({
+      key: item.key,
+      icon: item.icon,
+      label: item.path ? <Link to={item.path}>{item.label}</Link> : item.label,
+      children: item.children?.map((child) => ({
+        key: child.path,
+        icon: child.icon,
+        label: <Link to={child.path}>{child.label}</Link>,
+      })),
+    }));
+  };
 
+  const menuItems = getDynamicMenuItems();
+
+  // --- MENÚ DE PERFIL ---
   const profileMenu = (
     <Menu items={[
       { key: '1', icon: <UserOutlined />, label: <Link to="/inicio/perfil">Mi Perfil</Link> },
@@ -197,14 +249,14 @@ const RootLayout = () => {
     ]} />
   );
 
-  // Si el AuthContext está cargando, mostramos spinner global
+  // --- RENDER ---
+
   if (authLoading) {
     return <div className="flex items-center justify-center h-screen"><Spin size="large" tip="Cargando sesión..." /></div>;
   }
 
-  // Si terminó de cargar pero no hay usuario (caso raro si hay rutas protegidas), manejamos null
   if (!user) {
-     return <div className="flex items-center justify-center h-screen">No hay sesión activa.</div>;
+    return <div className="flex items-center justify-center h-screen">No hay sesión activa.</div>;
   }
 
   return (
@@ -216,8 +268,10 @@ const RootLayout = () => {
             itemHoverBg: '#e6f4f4',
             itemSelectedBg: PRIMARY_COLOR,
             itemSelectedColor: '#000000',
+            // Estilo para submenús activos
             '.ant-menu-submenu-selected > .ant-menu-submenu-title > .ant-menu-title-content': {
               color: PRIMARY_COLOR,
+              fontWeight: 'bold'
             },
           },
           Layout: {
@@ -228,7 +282,7 @@ const RootLayout = () => {
       }}
     >
       <Layout style={{ minHeight: '100vh' }}>
-        {/* Backdrop para móvil */}
+        {/* Backdrop Móvil */}
         {isMobile && mobileDrawerOpen && (
           <div
             onClick={() => setMobileDrawerOpen(false)}
@@ -240,14 +294,14 @@ const RootLayout = () => {
           collapsible
           collapsed={isMobile ? false : isSiderCollapsed}
           trigger={null}
-          width={240}
+          width={260}
           breakpoint="md"
           collapsedWidth={isMobile ? 0 : 80}
           style={{
             boxShadow: '2px 0 8px rgba(0, 0, 0, 0.05)',
             borderRight: '1px solid #f0f0f0',
             position: isMobile ? 'fixed' : 'relative',
-            left: isMobile ? (mobileDrawerOpen ? 0 : -240) : 'auto',
+            left: isMobile ? (mobileDrawerOpen ? 0 : -260) : 'auto',
             zIndex: 1000,
             height: '100vh',
             overflow: 'auto',
@@ -256,52 +310,72 @@ const RootLayout = () => {
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          <div className="flex items-center justify-start h-16 p-4">
+          {/* LOGO */}
+          <div className="flex items-center justify-start h-16 p-4 border-b border-gray-100">
             <Link to="/inicio" className="flex items-start gap-2">
-              {(!isSiderCollapsed || isMobile) && <Title level={4} className="!m-0 whitespace-nowrap" style={{ color: PRIMARY_COLOR }}>Controla</Title>}
+              {(!isSiderCollapsed || isMobile) ? (
+                <Title level={4} className="!m-0 whitespace-nowrap" style={{ color: PRIMARY_COLOR }}>
+                  Controla
+                </Title>
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-[#155153] flex items-center justify-center text-white font-bold">
+                  C
+                </div>
+              )}
             </Link>
           </div>
+
+          {/* MENÚ DINÁMICO */}
           <Menu
             mode="inline"
             selectedKeys={[location.pathname]}
+            // Abrir automáticamente los grupos principales si no está colapsado
+            defaultOpenKeys={!isSiderCollapsed ? ['/gestion-comercial', '/academic-management'] : []}
             items={menuItems.map(item => ({
-                ...item,
+              ...item,
+              onClick: isMobile ? () => setMobileDrawerOpen(false) : undefined,
+              children: item.children?.map(child => ({
+                ...child,
                 onClick: isMobile ? () => setMobileDrawerOpen(false) : undefined,
-                children: item.children?.map(child => ({
-                    ...child,
-                    onClick: isMobile ? () => setMobileDrawerOpen(false) : undefined,
-                }))
+              }))
             }))}
-            style={{ borderRight: 'none' }}
+            style={{ borderRight: 'none', paddingTop: '10px' }}
           />
         </Sider>
 
         <Layout className="site-layout">
           <Header style={{ padding: isMobile ? '0 16px' : '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0', position: 'sticky', top: 0, zIndex: 998, backgroundColor: '#ffffff' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {isMobile && (
-                <Button
-                  type="text"
-                  icon={mobileDrawerOpen ? <MenuFoldOutlined style={{ fontSize: '20px' }} /> : <MenuUnfoldOutlined style={{ fontSize: '20px' }} />}
-                  onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
-                  style={{ fontSize: '16px', width: 40, height: 40 }}
-                />
-              )}
+              <Button
+                type="text"
+                icon={isMobile
+                  ? (mobileDrawerOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />)
+                  : (isSiderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />)
+                }
+                onClick={() => isMobile ? setMobileDrawerOpen(!mobileDrawerOpen) : setIsSiderCollapsed(!isSiderCollapsed)}
+                style={{ fontSize: '18px', width: 48, height: 48 }}
+              />
             </div>
-            
-            {/* 4. INDICADOR DE USUARIO LOGUEADO (Desde AuthContext) */}
+
             <Dropdown overlay={profileMenu} trigger={['click']}>
-              <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors">
-                <Avatar style={{ backgroundColor: PRIMARY_COLOR }}>
-                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
+                <Avatar style={{ backgroundColor: PRIMARY_COLOR }} size="large">
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </Avatar>
                 <div className="flex flex-col items-start leading-tight">
-                    <span className="font-semibold hidden md:inline text-sm text-gray-800">
-                        {user.name || 'Usuario'}
-                    </span>
+                  <span className="font-semibold hidden md:inline text-sm text-gray-800">
+                    {user.name || 'Usuario'}
+                  </span>
+                  <div className="flex gap-1 items-center">
                     <span className="hidden md:inline text-xs text-gray-500 capitalize">
-                        {user.role || 'Rol'}
+                      {user.role}
                     </span>
+                    {user.modules && user.modules.length > 0 && user.role !== 'superadmin' && (
+                      <span className="hidden md:inline text-[10px] bg-blue-100 text-blue-700 px-1 rounded">
+                        {user.modules.includes('POS') ? 'POS' : 'Edu'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </Dropdown>

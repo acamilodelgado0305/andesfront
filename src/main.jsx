@@ -30,6 +30,7 @@ import Sales from "./sales/Sales";
 import Generacion from "./components/Certificados/Generacion";
 import DashboardClients from "./components/admin/DashboardClients";
 import Inventario from "./components/inventario/Inventario";
+import PersonasDashboard from "./components/personas/PersonasDashboard";
 import Verificacion from "./components/Calificaciones/Verificacion";
 import Materias from "./GestionAcademica/Materias/Materias";
 import Docentes from "./GestionAcademica/Docentes/Docentes";
@@ -68,7 +69,7 @@ const App = () => (
           <Route path="/alianzacapacitarte" element={<StudentAlianza />} />
           <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
           <Route path="/Blancasanchez" element={<StudentRegistrationFormBlanca />} />
-           <Route path="/registro" element={<RegistroExpress />} />
+          <Route path="/registro" element={<RegistroExpress />} />
           <Route path="/Mauriciopulido" element={<StudentRegistrationFormMauricio />} />
           <Route path="/Jesusbenitez" element={<StudentRegistrationFormJesus />} />
           <Route path="/incase" element={<StudentRegistrationFormMarily />} />
@@ -112,6 +113,7 @@ const App = () => (
             <Route path="certificados" element={<Certificados />} />
             <Route path="generacion" element={<Generacion />} />
             <Route path="inventario" element={<Inventario />} />
+            <Route path="personas" element={<PersonasDashboard />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
             <Route path="students/view/:id" element={<StudentInformacion />} />
           </Route>
