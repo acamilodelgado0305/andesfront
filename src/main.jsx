@@ -44,6 +44,7 @@ import StudentAssignmentsPage from "./components/Evaluations/Student/StudentAssi
 import TakeEvaluationPage from "./components/Evaluations/Student/TakeEvaluationPage";
 import MyStudentEvaluationsPage from "./components/Evaluations/MyStudentEvaluationsPage";
 import RegistroExpress from "./components/PublicForms/RegistroExpress";
+import PedidosDashboard from "./components/pedidos/PedidosDashboard";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -114,6 +115,7 @@ const App = () => (
             <Route path="generacion" element={<Generacion />} />
             <Route path="inventario" element={<Inventario />} />
             <Route path="personas" element={<PersonasDashboard />} />
+            <Route path="pedidos" element={<PedidosDashboard />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
             <Route path="students/view/:id" element={<StudentInformacion />} />
           </Route>

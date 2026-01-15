@@ -102,6 +102,7 @@ function Inventario() {
           costo_compra: editingItem.costo_compra,
           unidades_por_caja: editingItem.unidades_por_caja,
           codigo_barras: editingItem.codigo_barras,
+          stock_inicial_empaques: editingItem.cantidad
           // Nota: No seteamos la imagen aquí, la imagen ya subida se muestra aparte
         });
       } else {
@@ -142,10 +143,10 @@ function Inventario() {
   };
 
   // 🔹 AQUI ESTÁ LA MAGIA DEL FORMDATA
+  // 🔹 AQUI ESTÁ LA MAGIA DEL FORMDATA (CORREGIDA)
   const handleFormSubmit = async (values) => {
     setIsSubmitting(true);
     try {
-      // 1. Creamos el objeto FormData
       const formData = new FormData();
 
       // 2. Agregamos campos de texto
@@ -156,15 +157,18 @@ function Inventario() {
       formData.append('unidades_por_caja', values.unidades_por_caja || 1);
       formData.append('codigo_barras', values.codigo_barras || "");
 
-      // 3. Solo enviamos stock inicial si estamos CREANDO
-      if (!editingItem) {
-        formData.append('stock_inicial_empaques', values.stock_inicial_empaques || 0);
-      }
+      // --- 🔥 CORRECCIÓN DE SEGURIDAD AQUÍ 🔥 ---
+      // 1. Eliminamos el "if (!editingItem)" para que SIEMPRE se envíe.
+      // 2. Usamos (|| 0) para que si el usuario borró el número (null), se envíe un 0.
+      const stockSeguro = values.stock_inicial_empaques !== undefined && values.stock_inicial_empaques !== null
+        ? values.stock_inicial_empaques
+        : 0;
 
-      // 4. Agregamos la imagen si el usuario seleccionó una nueva
-      // values.imagen viene del Upload de Antd (normFile)
+      formData.append('stock_inicial_empaques', stockSeguro);
+      // ------------------------------------------
+
+      // 4. Imagen
       if (values.imagen && values.imagen.length > 0) {
-        // Antd guarda el archivo real en originFileObj
         formData.append('imagen', values.imagen[0].originFileObj);
       }
 
@@ -492,17 +496,17 @@ function Inventario() {
               </Col>
 
               {/* Solo mostramos stock inicial al crear, para evitar errores de edición masiva */}
-              {!editingItem && (
-                <Col span={12}>
-                  <Form.Item
-                    name="stock_inicial_empaques"
-                    label="Stock Inicial (Empaques)"
-                    tooltip="Cantidad de cajas/paquetes que tienes ahora"
-                  >
-                    <InputNumber min={0} className="w-full" placeholder="Ej: 2" prefix={<InboxOutlined />} />
-                  </Form.Item>
-                </Col>
-              )}
+
+              <Col span={12}>
+                <Form.Item
+                  name="stock_inicial_empaques"
+                  label="Stock Inicial (Empaques)"
+                  tooltip="Cantidad de cajas/paquetes que tienes ahora"
+                >
+                  <InputNumber min={0} className="w-full" placeholder="Ej: 2" prefix={<InboxOutlined />} />
+                </Form.Item>
+              </Col>
+
             </Row>
 
             <Form.Item name="descripcion" label="Descripción">

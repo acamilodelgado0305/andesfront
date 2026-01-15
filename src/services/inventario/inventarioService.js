@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Asegúrate de que esta variable de entorno apunte a tu backend principal
-const API_BACKEND = import.meta.env.VITE_API_BACKEND;
+const API_BACKEND = import.meta.env.VITE_API_FINANZAS;
 
 // 1. Crear instancia de Axios
 // NOTA: Hemos quitado "Content-Type": "application/json" de los headers globales.
@@ -30,7 +30,7 @@ inventarioApi.interceptors.request.use(
  * Obtener todo el inventario del usuario logueado
  */
 export const getInventario = async (params = {}) => {
-  const response = await inventarioApi.get('/api/inventario', { params });
+  const response = await inventarioApi.get('/inventario', { params });
   return response.data;
 };
 
@@ -38,7 +38,7 @@ export const getInventario = async (params = {}) => {
  * Obtener un ítem específico por ID
  */
 export const getInventarioById = async (id) => {
-  const response = await inventarioApi.get(`/api/inventario/${id}`);
+  const response = await inventarioApi.get(`/inventario/${id}`);
   return response.data;
 };
 
@@ -48,7 +48,7 @@ export const getInventarioById = async (id) => {
  */
 export const createInventario = async (payload) => {
   // Axios detectará si payload es FormData y ajustará los headers automáticamente
-  const response = await inventarioApi.post("/api/inventario", payload);
+  const response = await inventarioApi.post("/inventario", payload);
   return response.data;
 };
 
@@ -57,7 +57,7 @@ export const createInventario = async (payload) => {
  * payload: Puede ser {objeto json} o new FormData() con imagen
  */
 export const updateInventario = async (id, payload) => {
-  const response = await inventarioApi.put(`/api/inventario/${id}`, payload);
+  const response = await inventarioApi.put(`/inventario/${id}`, payload);
   return response.data;
 };
 
@@ -68,14 +68,14 @@ export const updateInventario = async (id, payload) => {
 export const deleteInventario = async (ids) => {
   // Si recibimos un array, usamos el endpoint de eliminación por lote
   if (Array.isArray(ids)) {
-    const response = await inventarioApi.delete("/api/inventario", {
+    const response = await inventarioApi.delete("/inventario", {
       data: { ids }, // Enviar body en delete requiere propiedad 'data' en axios
     });
     return response.data;
   }
   // Si es un solo ID
   else {
-    const response = await inventarioApi.delete(`/api/inventario/${ids}`);
+    const response = await inventarioApi.delete(`/inventario/${ids}`);
     return response.data;
   }
 };
@@ -84,7 +84,7 @@ export const deleteInventario = async (ids) => {
  * Obtener inventario de un usuario específico (Solo Admins)
  */
 export const getInventarioByUser = async (userId) => {
-  const response = await inventarioApi.get(`/api/inventario/user/${userId}`);
+  const response = await inventarioApi.get(`/inventario/user/${userId}`);
   return response.data;
 };
 
