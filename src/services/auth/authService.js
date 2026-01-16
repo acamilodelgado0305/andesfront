@@ -39,3 +39,16 @@ export const logout = () => {
   localStorage.removeItem("token");
   // aquí también puedes limpiar más cosas (usuario, rol, etc.)
 };
+
+
+export const register = async (userData) => {
+  try {
+    // userData debe ser objeto: { name, email, password }
+    const { data } = await axios.post(`${BACK_URL}/api/registro/auth`, userData);
+    return data;
+  } catch (error) {
+    // Capturamos el error del backend para mostrar mensajes claros
+    console.error("Error en registro:", error);
+    throw error;
+  }
+};

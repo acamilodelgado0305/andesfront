@@ -46,6 +46,8 @@ import MyStudentEvaluationsPage from "./components/Evaluations/MyStudentEvaluati
 import RegistroExpress from "./components/PublicForms/RegistroExpress";
 import PedidosDashboard from "./components/pedidos/PedidosDashboard";
 
+import Register from "./components/auth/register";
+
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
 
@@ -75,6 +77,7 @@ const App = () => (
           <Route path="/Jesusbenitez" element={<StudentRegistrationFormJesus />} />
           <Route path="/incase" element={<StudentRegistrationFormMarily />} />
           <Route path="/sales" element={<Sales />} />
+          <Route path="/register" element={<Register />} />
 
           {/* 🔹 Portal estudiante: evaluaciones */}
           <Route
