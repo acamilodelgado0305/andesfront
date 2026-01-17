@@ -278,9 +278,7 @@ const Verificacion = () => {
         <div className="max-w-4xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Icono de Marca */}
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-white/20 shadow-sm">
-              <ShieldCheck className="w-6 h-6 text-[#003366]" />
-            </div>
+
             <div>
               <h1 className="text-xl font-extrabold tracking-tight leading-none uppercase">QCONTROLA</h1>
               <p className="text-xs font-bold text-green-400 tracking-widest uppercase">Portal de Verificación</p>
@@ -308,7 +306,7 @@ const Verificacion = () => {
                   </div>
                   <h2 className="text-2xl font-bold text-[#003366]">Consulta Pública</h2>
                   <p className="text-slate-500 mt-2 text-sm px-4">
-                    Ingrese el documento de identidad para validar la autenticidad de certificados en <strong>Qcontrola</strong>.
+                    Ingrese el documento de identidad para validar la autenticidad de certificados .
                   </p>
                 </div>
 
