@@ -1,229 +1,192 @@
 import React, { useState } from 'react';
-// ICONOS Y UTILIDADES
-import { 
-  AlertCircle, ArrowLeft, ShieldCheck, Fingerprint, Clock, 
-  DownloadCloud, Loader2, FileText, GraduationCap, User, 
-  Calendar, Award 
+import {
+  AlertCircle, ArrowLeft, ShieldCheck, Fingerprint, Clock,
+  DownloadCloud, Loader2, FileText, CheckCircle2, Award,
+  Landmark, ChevronRight, MapPin, Database
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notification } from 'antd';
-// Asegúrate de que la ruta de tu servicio sea correcta
-import { getClientByCedula } from '../../services/controlapos/posService'; 
+// Asegúrate de que esta ruta sea la correcta en tu proyecto
+import { getClientByCedula } from '../../services/controlapos/posService';
 
-// VARIABLES DE ENTORNO
 const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app/api';
 
-// --- SUB-COMPONENTE: Tarjeta de Curso Individual ---
-const CourseCard = ({ courseName, userData, onDownload, downloading }) => {
-  const formatDate = (dateString) => format(new Date(dateString), "d 'de' MMMM, yyyy", { locale: es });
-  
-  // Normalizamos el nombre para detectar palabras clave
-  const nameLower = courseName.toLowerCase();
-  
-  // 1. Detección del tipo de curso
-  const isFoodHandling = nameLower.includes('manipulac') || nameLower.includes('alimentos');
-  const isExcel = nameLower.includes('excel'); 
+// =============================================================================
+// 1. UTILIDAD: Extracción de Intensidad Horaria
+// =============================================================================
+const extractIntensity = (courseName) => {
+  if (!courseName) return '10';
+  const numbers = courseName.match(/(\d+)/g);
+  // Toma el último número encontrado, asumiendo que es la hora (ej: "Curso Nivel 2 x 40h")
+  const hours = numbers && numbers.length > 0 ? numbers[numbers.length - 1] : '10';
+  return `${hours}`;
+};
 
-  // 2. Configuración visual según el tipo
-  let theme = { 
-    bg: 'bg-blue-50', border: 'border-blue-100', 
-    iconBg: 'bg-blue-100', iconColor: 'text-blue-700', 
-    Icon: GraduationCap, label: "Certificación Académica" 
+// =============================================================================
+// 2. COMPONENTE: Sello de Agua (Validez Nacional)
+// =============================================================================
+const OfficialSeal = () => (
+  <div className="absolute -top-3 -right-3 w-20 h-20 opacity-10 pointer-events-none overflow-hidden">
+    <svg viewBox="0 0 100 100" className="w-full h-full text-blue-900 animate-spin-slow">
+      <path id="curve" d="M 50 50 m -37 0 a 37 37 0 1 1 74 0 a 37 37 0 1 1 -74 0" fill="transparent" />
+      <text width="500">
+        <textPath href="#curve" className="text-[10px] font-bold uppercase fill-current tracking-widest">
+          Qcontrola Verificación • Validez Nacional •
+        </textPath>
+      </text>
+    </svg>
+  </div>
+);
+
+// =============================================================================
+// 3. TARJETA DEL CURSO (Diseño Institucional)
+// =============================================================================
+const CourseCard = ({ courseName, userData, onDownload, downloading }) => {
+  const formatDate = (dateString) => format(new Date(dateString), "dd 'de' MMMM, yyyy", { locale: es });
+  const nameLower = courseName.toLowerCase();
+
+  const isFoodHandling = nameLower.includes('manipulac') || nameLower.includes('alimentos');
+  const isExcel = nameLower.includes('excel');
+
+  // Configuración de textos legales
+  let legalContext = {
+    title: "Certificación de Competencias",
+    law: "Normativa Educativa Vigente",
+    color: "border-l-4 border-gray-400"
   };
 
   if (isFoodHandling) {
-    theme = { 
-      bg: 'bg-green-50', border: 'border-green-100', 
-      iconBg: 'bg-green-100', iconColor: 'text-green-700', 
-      Icon: Award, label: "Res. 2674/2013" 
+    legalContext = {
+      title: "Validez Nacional (Colombia)",
+      law: "Res. 2674/2013 - Dec. 3075/1997",
+      color: "border-l-4 border-green-600"
     };
   } else if (isExcel) {
-    theme = { 
-      bg: 'bg-emerald-50', border: 'border-emerald-100', 
-      iconBg: 'bg-emerald-100', iconColor: 'text-emerald-700', 
-      Icon: FileText, label: "Habilidades Ofimáticas" 
+    legalContext = {
+      title: "Formación Laboral",
+      law: "Habilidades Ofimáticas y Digitales",
+      color: "border-l-4 border-blue-500"
     };
   }
 
-  const ThemeIcon = theme.Icon;
-
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden flex flex-col h-full"
+      className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden relative group border border-slate-200"
     >
-      {/* Encabezado de la Tarjeta */}
-      <div className={`px-6 py-4 border-b ${theme.bg} ${theme.border}`}>
-        <div className="flex justify-between items-start">
-          <div className={`p-2 rounded-lg ${theme.iconBg} ${theme.iconColor}`}>
-            <ThemeIcon className="w-6 h-6" />
-          </div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">
-            Vigente
+      <OfficialSeal />
+
+      {/* Encabezado Técnico */}
+      <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <div className={`h-2 w-2 rounded-full ${isFoodHandling ? 'bg-green-500' : 'bg-blue-900'}`}></div>
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            Folio: {userData.numeroDeDocumento}
           </span>
         </div>
-        <h3 className="mt-3 text-lg font-bold text-slate-900 leading-tight min-h-[3.5rem] flex items-center">
+        <div className="flex items-center px-2 py-0.5 bg-green-100 text-green-800 rounded text-[10px] font-bold uppercase border border-green-200">
+          <CheckCircle2 className="w-3 h-3 mr-1" />
+          Vigente
+        </div>
+      </div>
+
+      <div className="p-6">
+        <h3 className="text-lg font-extrabold text-[#003366] leading-snug mb-2 font-serif">
           {courseName}
         </h3>
-      </div>
 
-      {/* Cuerpo de la Tarjeta */}
-      <div className="p-6 flex-grow space-y-4">
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center text-slate-600">
-            <Calendar className="w-4 h-4 mr-2 text-slate-400" />
-            <span className="font-medium mr-1">Expedición:</span> 
-            {userData.createdAt ? formatDate(userData.createdAt) : 'N/A'}
+        {/* Sección Legal con énfasis en Validez Nacional */}
+        <div className={`pl-3 py-2 mb-4 bg-slate-50 ${legalContext.color} text-xs text-slate-700`}>
+          <p className="font-bold uppercase flex items-center">
+            <MapPin className="w-3 h-3 mr-1" /> {legalContext.title}
+          </p>
+          <p className="italic text-slate-500">{legalContext.law}</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-y-2 text-sm text-slate-700 mb-5">
+          <div className="col-span-2 flex items-center">
+            <Clock className="w-4 h-4 mr-2 text-[#003366]" />
+            <span className="font-medium mr-1">Intensidad:</span>
+            {extractIntensity(courseName)}
           </div>
-          <div className="flex items-center text-slate-600">
-            <Clock className="w-4 h-4 mr-2 text-slate-400" />
-            <span className="font-medium mr-1">Vence:</span> 
-            {userData.fechaVencimiento ? formatDate(userData.fechaVencimiento) : 'Indefinido'}
+          <div className="flex items-center">
+            <span className="text-slate-400 text-xs mr-2">Expedición:</span>
+            <span className="font-medium">{userData.createdAt ? formatDate(userData.createdAt) : 'N/A'}</span>
+          </div>
+          <div className="flex items-center justify-end">
+            <span className="text-slate-400 text-xs mr-2">Vence:</span>
+            <span className="font-bold text-[#003366]">{userData.fechaVencimiento ? formatDate(userData.fechaVencimiento) : 'N/A'}</span>
           </div>
         </div>
-        
-        <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-md border border-slate-100">
-            {theme.label}
-        </div>
-      </div>
 
-      {/* Pie de la Tarjeta (Acciones) */}
-      <div className="p-4 bg-slate-50 border-t border-slate-100">
-        {(isFoodHandling || isExcel) ? (
-          <div className="grid grid-cols-2 gap-3">
-             {/* Botón Certificado */}
-             <button
-              onClick={() => onDownload('certificado', courseName)}
+        {/* Footer de Aval - TEXTO REFORZADO */}
+        <div className="flex items-start gap-2 mb-5 p-2 bg-blue-50/50 rounded border border-blue-100">
+          <Landmark className="w-8 h-8 text-[#003366] flex-shrink-0" />
+          <div className="text-[10px] leading-tight text-slate-600">
+            <strong className="block text-[#003366] mb-0.5">COBERTURA NACIONAL</strong>
+            Documento válido ante entes de control en todo el territorio nacional.
+          </div>
+        </div>
+
+        {/* Botones */}
+        <div className="grid grid-cols-2 gap-3 mt-auto">
+          <button
+            onClick={() => onDownload('certificado', courseName)}
+            disabled={!!downloading}
+            className={`flex items-center justify-center py-2.5 px-3 bg-[#003366] text-white text-xs font-bold rounded shadow-sm hover:bg-[#002244] transition-colors disabled:opacity-70 ${isExcel ? 'col-span-2' : ''}`}
+          >
+            {downloading === 'certificado' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <DownloadCloud className="w-4 h-4 mr-2" />}
+            CERTIFICADO PDF
+          </button>
+
+          {isFoodHandling && (
+            <button
+              onClick={() => onDownload('carnet', courseName)}
               disabled={!!downloading}
-              // Si es Excel, ocupa las 2 columnas porque no hay carnet
-              className={`flex flex-col items-center justify-center p-2 bg-white border border-slate-200 rounded hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-colors text-xs font-medium text-slate-600 disabled:opacity-50 ${isExcel ? 'col-span-2' : ''}`}
+              className="flex items-center justify-center py-2.5 px-3 bg-white border border-[#003366] text-[#003366] text-xs font-bold rounded shadow-sm hover:bg-slate-50 transition-colors disabled:opacity-70"
             >
-              {downloading === 'certificado' ? <Loader2 className="w-5 h-5 animate-spin mb-1"/> : <DownloadCloud className="w-5 h-5 mb-1"/>}
-              Certificado PDF
+              {downloading === 'carnet' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileText className="w-4 h-4 mr-2" />}
+              CARNET DIGITAL
             </button>
-            
-            {/* Botón Carnet (Solo para Alimentos) */}
-            {isFoodHandling && (
-              <button
-                onClick={() => onDownload('carnet', courseName)}
-                disabled={!!downloading}
-                className="flex flex-col items-center justify-center p-2 bg-white border border-slate-200 rounded hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors text-xs font-medium text-slate-600 disabled:opacity-50"
-              >
-                {downloading === 'carnet' ? <Loader2 className="w-5 h-5 animate-spin mb-1"/> : <FileText className="w-5 h-5 mb-1"/>}
-                Carnet
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="w-full py-2 flex items-center justify-center text-slate-400 bg-slate-100 rounded border border-slate-200 cursor-not-allowed">
-            <ShieldCheck className="w-4 h-4 mr-2" />
-            <span className="text-xs font-medium">Solo Verificación Web</span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </motion.div>
   );
 };
 
-
-// --- SUB-COMPONENTE: Portal de Usuario ---
-const StudentPortal = ({ data, resetForm, onDownload, downloading }) => {
-  const courses = Array.isArray(data.tipo) ? data.tipo : [data.tipo || "Certificación General"];
-
-  return (
-    <div className="space-y-8">
-      {/* Cabecera del Portal */}
-      <div className="bg-white rounded-lg p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
-        <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 flex-shrink-0">
-          <User className="w-8 h-8 text-slate-500" />
-        </div>
-        <div className="flex-grow">
-          <h2 className="text-2xl font-bold text-slate-900 capitalize">Hola, {data.nombre}</h2>
-          <p className="text-slate-500 flex items-center justify-center sm:justify-start mt-1">
-             <Fingerprint className="w-4 h-4 mr-1"/> Documento: {data.numeroDeDocumento}
-          </p>
-          <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-             <ShieldCheck className="w-3 h-3 mr-1" /> Cuenta Verificada
-          </div>
-        </div>
-        <button
-           onClick={resetForm}
-           className="text-sm text-slate-500 underline hover:text-slate-800"
-        >
-          Salir / Consultar otro
-        </button>
-      </div>
-
-      {/* Grid de Cursos */}
-      <div>
-        <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
-            <Award className="w-5 h-5 mr-2 text-green-600"/>
-            Mis Certificaciones ({courses.length})
-        </h3>
-        
-        {courses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-            {courses.map((courseName, index) => (
-              <CourseCard 
-                key={index}
-                courseName={courseName}
-                userData={data}
-                onDownload={onDownload}
-                downloading={downloading}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="p-8 text-center bg-slate-50 rounded-lg border border-slate-200 border-dashed">
-            <p className="text-slate-500">No se encontraron certificaciones activas para mostrar.</p>
-          </div>
-        )}
-      </div>
-
-      {/* Footer Informativo */}
-      <div className="text-center text-xs text-slate-400 pt-8 border-t border-slate-200">
-        <p>Los certificados digitales son generados en tiempo real. Si presentas inconvenientes, contacta soporte.</p>
-      </div>
-    </div>
-  );
-};
-
-
-// --- COMPONENTE PRINCIPAL ---
+// =============================================================================
+// 4. PANTALLA PRINCIPAL: QCONTROLA VERIFICACIÓN
+// =============================================================================
 const Verificacion = () => {
   const [cedula, setCedula] = useState('');
   const [error, setError] = useState('');
   const [studentData, setStudentData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [downloading, setDownloading] = useState(null); // 'certificado' | 'carnet' | null
+  const [downloading, setDownloading] = useState(null);
 
-  // VALIDACIÓN DE DOCUMENTO
+  // --- CONSULTA A LA BASE DE DATOS DE QCONTROLA ---
   const handleValidate = async () => {
     if (!cedula.trim() || cedula.length < 5) {
       setError('Por favor ingrese un número de documento válido.');
       return;
     }
-    
     setIsLoading(true);
     setError('');
-    
+
     try {
       const data = await getClientByCedula(cedula);
-      
-      if (!data || !data.numeroDeDocumento) {
-          throw new Error('Datos inválidos recibidos.');
-      }
+      if (!data || !data.numeroDeDocumento) throw new Error('Datos inválidos.');
       setStudentData(data);
     } catch (error) {
-      console.error(error);
       if (error.response && error.response.status === 404) {
-         setError('No se encontraron registros para este documento.');
+        setError('El documento no registra certificaciones activas en la base de datos de Qcontrola.');
       } else {
-         setError('Ocurrió un error al consultar. Intente nuevamente.');
+        setError('No se pudo conectar con el servidor de Qcontrola. Intente más tarde.');
       }
       setStudentData(null);
     } finally {
@@ -231,90 +194,70 @@ const Verificacion = () => {
     }
   };
 
-  // --- LÓGICA DE DESCARGA (AQUÍ ESTÁ LA MAGIA) ---
-  const handleDownload = async (docType, courseNameForValidation) => {
-    
-    const courseLower = courseNameForValidation.toLowerCase();
-    const isFood = courseLower.includes('manipulac') || courseLower.includes('alimentos');
-    const isExcel = courseLower.includes('excel');
-
-    // Validación de seguridad inicial
-    if (!isFood && !isExcel) {
-       notification.warning({ message: 'Descarga no disponible', description: 'Este certificado aún no tiene plantilla digital.' });
-       return;
-    }
-
-    setDownloading(docType);
+  // --- DESCARGA DE DOCUMENTOS ---
+  const handleDownload = async (docType, courseName) => {
+    const intensity = extractIntensity(courseName);
     const notificationKey = 'download-toast';
-    
+    setDownloading(docType);
+
     notification.open({
-        key: notificationKey,
-        message: 'Generando Documento',
-        description: 'Por favor espera mientras preparamos tu PDF...',
-        icon: <Loader2 className="text-blue-500 animate-spin" />,
-        duration: 0,
+      key: notificationKey,
+      message: 'Generando Documento Oficial',
+      description: 'Validando firma digital en Qcontrola...',
+      icon: <Loader2 className="text-[#003366] animate-spin" />,
+      duration: 0,
     });
 
     try {
       const { nombre, apellido, numeroDeDocumento, tipoDeDocumento } = studentData;
       const fullName = `${nombre} ${apellido}`;
 
+      // Determinación de Endpoints
       let endpoint = '';
-      let requestOptions = { method: 'POST' };
-
-      // 1. LÓGICA DE SELECCIÓN DE ENDPOINT
       if (docType === 'certificado') {
-        
-        if (isExcel) {
-          // --> NUEVO ENDPOINT PARA EXCEL
-          endpoint = `${API_BACKEND_URL}/api/generar-certificado-pdf`;
-        } else {
-          // --> ENDPOINT LEGACY PARA ALIMENTOS
-          endpoint = `${API_BACKEND_URL}/api/generar-certificado`;
-        }
+        endpoint = courseName.toLowerCase().includes('excel')
+          ? `${API_BACKEND_URL}/api/generar-certificado-pdf`
+          : `${API_BACKEND_URL}/api/generar-certificado`;
+      } else {
+        endpoint = `${API_BACKEND_URL}/api/generar-carnet`;
+      }
 
-        // Configuración Body JSON
+      const requestOptions = { method: 'POST' };
+
+      // Configuración del Payload
+      if (docType === 'certificado') {
         requestOptions.headers = { 'Content-Type': 'application/json' };
         requestOptions.body = JSON.stringify({
           nombre: fullName,
           numeroDocumento: numeroDeDocumento,
           tipoDocumento: tipoDeDocumento || 'C.C',
-          curso: courseNameForValidation // Enviamos el nombre por si el backend lo necesita
+          curso: courseName,
+          intensidadHoraria: intensity // Se envía la intensidad calculada o por defecto (10)
         });
-
       } else {
-        // CARNET (Solo Alimentos por ahora)
-        endpoint = `${API_BACKEND_URL}/api/generar-carnet`;
-        const formData = new FormData();
-        formData.append('nombre', fullName);
-        formData.append('numeroDocumento', numeroDeDocumento);
-        formData.append('tipoDocumento', tipoDeDocumento || 'C.C');
-        requestOptions.body = formData;
+        const fd = new FormData();
+        fd.append('nombre', fullName);
+        fd.append('numeroDocumento', numeroDeDocumento);
+        fd.append('tipoDocumento', tipoDeDocumento || 'C.C');
+        fd.append('intensidadHoraria', intensity);
+        requestOptions.body = fd;
       }
 
-      // 2. PETICIÓN
       const response = await fetch(endpoint, requestOptions);
-      if (!response.ok) throw new Error('Error al generar el archivo en el servidor.');
+      if (!response.ok) throw new Error('Error server');
 
-      // 3. DESCARGA DEL BLOB
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      
-      const safeCourseType = isExcel ? 'Excel' : 'Manipulacion';
-      link.setAttribute('download', `${docType}_${safeCourseType}_${fullName.replace(/\s+/g, '_')}.pdf`);
-      
+      link.setAttribute('download', `${docType}_${fullName.replace(/\s+/g, '_')}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
 
-      notification.success({ message: 'Descarga Completada', description: 'El archivo se ha guardado en tu dispositivo.' });
-
-    } catch (err) {
-      notification.error({ message: 'Error', description: 'No se pudo generar el documento. Intenta de nuevo.' });
-      console.error(err);
+      notification.success({ message: 'Descarga Exitosa', description: 'Documento oficial guardado.' });
+    } catch (e) {
+      notification.error({ message: 'Error', description: 'No se pudo generar el documento.' });
     } finally {
       notification.destroy(notificationKey);
       setDownloading(null);
@@ -328,107 +271,147 @@ const Verificacion = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 sm:p-6 md:p-8 font-sans">
-      <div className="max-w-4xl mx-auto">
-        
-        {/* Header General */}
-        {!studentData && (
-              <div className="mb-8 text-center">
-                 <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Portal de Certificaciones</h1>
-                 <p className="text-slate-500 mt-2">Consulta, descarga tus Certificados y Diplomas Oficiales</p>
-              </div>
-        )}
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-800">
 
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-          
-          {/* Barra superior */}
-          <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-             <Link to="/" className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-green-600 transition-colors">
-                <ArrowLeft className="w-4 h-4 mr-2" /> Inicio
-             </Link>
-             <div className="flex items-center space-x-2">
-                <ShieldCheck className="w-5 h-5 text-green-600" />
-                <span className="text-sm font-semibold text-slate-700 hidden sm:inline">Plataforma Segura</span>
-             </div>
+      {/* HEADER: QCONTROLA VERIFICACIÓN */}
+      <header className="bg-[#003366] text-white py-5 shadow-md border-b-4 border-green-500">
+        <div className="max-w-4xl mx-auto px-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Icono de Marca */}
+            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border border-white/20 shadow-sm">
+              <ShieldCheck className="w-6 h-6 text-[#003366]" />
+            </div>
+            <div>
+              <h1 className="text-xl font-extrabold tracking-tight leading-none uppercase">QCONTROLA</h1>
+              <p className="text-xs font-bold text-green-400 tracking-widest uppercase">Portal de Verificación</p>
+            </div>
           </div>
+          <Link to="/" className="text-xs font-bold text-white/90 hover:text-white flex items-center transition-colors bg-white/10 px-4 py-2 rounded hover:bg-white/20 uppercase tracking-wide">
+            <ArrowLeft className="w-3 h-3 mr-2" /> Volver
+          </Link>
+        </div>
+      </header>
 
-          <div className="p-6 md:p-10">
-            <AnimatePresence mode="wait">
-              {!studentData ? (
-                <motion.div
-                  key="form"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {/* --- FORMULARIO DE BÚSQUEDA --- */}
-                  <div className="max-w-xl mx-auto space-y-8">
-                    <div className="text-center space-y-4">
-                        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Fingerprint className="w-10 h-10 text-green-600" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-slate-800">Verificar Identidad</h2>
-                        <p className="text-slate-600">Ingresa tu número de documento para acceder a tus certificaciones vigentes.</p>
-                    </div>
+      <main className="max-w-4xl mx-auto px-6 py-10">
 
-                    <div className="space-y-4">
-                        <label className="block text-sm font-bold text-slate-700 ml-1">Número de Documento</label>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                placeholder="Ej: 10203040"
-                                value={cedula}
-                                onChange={(e) => setCedula(e.target.value.replace(/\D/g, ''))}
-                                onKeyDown={(e) => e.key === 'Enter' && handleValidate()}
-                                className="w-full pl-4 pr-4 py-4 bg-slate-50 border border-slate-300 rounded-lg focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all text-lg outline-none"
-                            />
-                        </div>
-                        
-                        <AnimatePresence>
-                            {error && (
-                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="text-red-600 bg-red-50 p-3 rounded-lg text-sm flex items-center">
-                                    <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" /> {error}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+        <AnimatePresence mode="wait">
+          {!studentData ? (
+            <motion.div
+              key="search"
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              className="max-w-lg mx-auto"
+            >
+              <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-slate-200">
+                <div className="p-8 pb-6 text-center">
+                  <div className="inline-flex p-3 bg-blue-50 rounded-full mb-4">
+                    <Database className="w-8 h-8 text-[#003366]" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-[#003366]">Consulta Pública</h2>
+                  <p className="text-slate-500 mt-2 text-sm px-4">
+                    Ingrese el documento de identidad para validar la autenticidad de certificados en <strong>Qcontrola</strong>.
+                  </p>
+                </div>
 
-                        <button
-                            onClick={handleValidate}
-                            disabled={isLoading || !cedula.trim()}
-                            className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center text-lg"
-                        >
-                            {isLoading ? <Loader2 className="animate-spin mr-2" /> : 'Consultar Ahora'}
-                        </button>
-                    </div>
+                <div className="px-8 pb-8 space-y-6">
+                  <div className="relative">
+                    <Fingerprint className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={cedula}
+                      onChange={(e) => setCedula(e.target.value.replace(/\D/g, ''))}
+                      onKeyDown={(e) => e.key === 'Enter' && handleValidate()}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#003366] outline-none transition-all font-medium text-lg placeholder:text-slate-400"
+                      placeholder="Número de Documento"
+                    />
                   </div>
 
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="portal"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {/* --- PORTAL DE RESULTADOS --- */}
-                  <StudentPortal 
-                    data={studentData} 
-                    resetForm={resetForm} 
-                    onDownload={handleDownload}
-                    downloading={downloading}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-        
-        <div className="mt-12 text-center space-y-2">
-            <p className="text-slate-400 text-sm">© 2025 Qcontrola - Todos los derechos reservados</p>
-        </div>
-      </div>
+                  {error && (
+                    <div className="p-3 bg-red-50 text-red-700 text-sm rounded flex items-center border border-red-100 animate-pulse">
+                      <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" /> {error}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleValidate}
+                    disabled={isLoading || !cedula}
+                    className="w-full py-3.5 bg-[#003366] hover:bg-[#002244] text-white font-bold rounded-lg shadow-md transition-all flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed uppercase tracking-wide text-sm"
+                  >
+                    {isLoading ? <Loader2 className="animate-spin" /> : 'Validar Documento'}
+                  </button>
+                </div>
+                <div className="bg-slate-50 p-3 text-center text-[10px] text-slate-400 border-t border-slate-100 uppercase tracking-wide">
+                  Powered by Qcontrola Technology
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="results"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            >
+              {/* DATOS DEL ESTUDIANTE */}
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-l-4 border-[#003366]">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-[#003366] rounded-full flex items-center justify-center text-white text-xl font-bold">
+                    {studentData.nombre.charAt(0)}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 capitalize">{studentData.nombre} {studentData.apellido}</h2>
+                    <p className="text-slate-500 text-sm font-medium flex items-center">
+                      C.C. {studentData.numeroDeDocumento}
+                      <span className="ml-3 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded-full flex items-center border border-green-200">
+                        <CheckCircle2 className="w-3 h-3 mr-1" /> Validado
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <button onClick={resetForm} className="text-xs font-bold text-[#003366] hover:text-[#002244] border border-[#003366] px-4 py-2 rounded hover:bg-slate-50 transition-colors uppercase">
+                  Nueva consulta
+                </button>
+              </div>
+
+              {/* LISTA DE CERTIFICADOS */}
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-[#003366] mb-4 flex items-center pb-2 border-b border-slate-200">
+                  <Award className="w-5 h-5 mr-2" /> Certificaciones Disponibles
+                </h3>
+
+                {Array.isArray(studentData.tipo) && studentData.tipo.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {studentData.tipo.map((curso, idx) => (
+                      <CourseCard
+                        key={idx}
+                        courseName={curso}
+                        userData={studentData}
+                        onDownload={handleDownload}
+                        downloading={downloading}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-10 text-center bg-white rounded-lg border border-dashed border-slate-300">
+                    <p className="text-slate-500">El usuario existe en Qcontrola pero no tiene cursos activos visualizables.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* DISCLAIMER DE LA FUENTE DE DATOS */}
+              <div className="text-center space-y-2 mt-8 opacity-70">
+                <p className="text-xs text-slate-500 max-w-2xl mx-auto">
+                  <Database className="w-3 h-3 inline mr-1 mb-0.5" />
+                  La información aquí presentada reposa en las <strong>bases de datos de Qcontrola</strong> y certifica la autenticidad de los documentos físicos.
+                  Cualquier inconsistencia favor reportarla a soporte.
+                </p>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  © 2025 Qcontrola - Todos los derechos reservados.
+                </p>
+              </div>
+
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      </main>
     </div>
   );
 };

@@ -6,7 +6,6 @@ import ImgCrop from 'antd-img-crop';
 const { Option } = Select;
 
 // Estilos inspirados en la interfaz de Microsoft (Fluent UI)
-
 const headerStyle = {
     marginBottom: '28px',
     paddingBottom: '12px',
@@ -36,7 +35,8 @@ function Generacion() {
 
     const onFinish = async (values) => {
         setLoading(true);
-        const { nombre, numeroDocumento, tipoDocumento } = values;
+        // 1. DESESTRUCTURAMOS EL NUEVO CAMPO 'intensidadHoraria'
+        const { nombre, numeroDocumento, tipoDocumento, intensidadHoraria } = values;
 
         notification.info({
             message: 'Procesando Solicitud',
@@ -46,19 +46,29 @@ function Generacion() {
         });
 
         try {
-            // 1. Payload para el CERTIFICADO (JSON)
-            const certPayload = JSON.stringify({ nombre, numeroDocumento, tipoDocumento });
+            // =================================================================
+            // 2. Payload para el CERTIFICADO (JSON) - AQUÍ AGREGAMOS EL DATO
+            // =================================================================
+            const certPayload = JSON.stringify({
+                nombre,
+                numeroDocumento,
+                tipoDocumento,
+                intensidadHoraria // <--- Nuevo dato enviado al backend
+            });
+
             const certPromise = fetch(`${API_BACKEND_URL}/api/generar-certificado`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: certPayload,
             });
 
-            // 2. Payload para el CARNET (FormData)
+            // 3. Payload para el CARNET (FormData)
+            // El carnet no usa intensidad horaria, lo dejamos igual
             const carnetPayload = new FormData();
             carnetPayload.append('nombre', nombre);
             carnetPayload.append('numeroDocumento', numeroDocumento);
             carnetPayload.append('tipoDocumento', tipoDocumento);
+            carnetPayload.append('intensidadHoraria', intensidadHoraria);
 
             if (fotoFile) {
                 carnetPayload.append('foto', fotoFile);
@@ -140,30 +150,42 @@ function Generacion() {
                 <h2 style={headerStyle}>Generador de Documentos</h2>
                 <Form form={form} layout="vertical" onFinish={onFinish}>
 
-                    {/* --- Campos de texto sin cambios --- */}
                     <Form.Item label="Nombre Completo" name="nombre" rules={[{ required: true, message: 'Por favor, ingresa el nombre.' }]}>
                         <Input placeholder="Ej: Ana Sofía Rincón" />
                     </Form.Item>
-                    <Form.Item label="Número de Documento" name="numeroDocumento" rules={[{ required: true, message: 'Por favor, ingresa el documento.' }]}>
-                        <Input placeholder="Ej: 1098765432" />
-                    </Form.Item>
-                    <Form.Item label="Tipo de Documento" name="tipoDocumento" initialValue="C.C" rules={[{ required: true, message: 'Por favor, selecciona el tipo.' }]}>
-                        <Select>
-                            <Option value="C.C">C.C. (Cédula de Ciudadanía)</Option>
-                            <Option value="T.I">T.I. (Tarjeta de Identidad)</Option>
-                            <Option value="Pasaporte">Pasaporte</Option>
-                            <Option value="C.E">C.E. (Cédula de Extranjería)</Option>
-                            <Option value="PPT">PPT (Permiso por Protección Temporal)</Option>
-                        </Select>
-                    </Form.Item>
+
+                    <div style={{ display: 'flex', gap: '16px' }}>
+                        <Form.Item style={{ flex: 1 }} label="Tipo de Documento" name="tipoDocumento" initialValue="C.C" rules={[{ required: true, message: 'Por favor, selecciona el tipo.' }]}>
+                            <Select>
+                                <Option value="C.C">C.C. (Cédula de Ciudadanía)</Option>
+                                <Option value="T.I">T.I. (Tarjeta de Identidad)</Option>
+                                <Option value="Pasaporte">Pasaporte</Option>
+                                <Option value="C.E">C.E. (Cédula de Extranjería)</Option>
+                                <Option value="PPT">PPT (Permiso por Protección Temporal)</Option>
+                            </Select>
+                        </Form.Item>
+
+                        <Form.Item style={{ flex: 1 }} label="Número de Documento" name="numeroDocumento" rules={[{ required: true, message: 'Por favor, ingresa el documento.' }]}>
+                            <Input placeholder="Ej: 1098765432" />
+                        </Form.Item>
+                    </div>
 
                     {/* ================================================================= */}
-                    {/* MODIFICADO: Campo de fotografía ahora con editor de recorte */}
+                    {/* NUEVO CAMPO: Intensidad Horaria */}
                     {/* ================================================================= */}
+                    <Form.Item
+                        label="Intensidad Horaria"
+                        name="intensidadHoraria"
+                        rules={[{ required: true, message: 'Por favor, ingresa la intensidad horaria.' }]}
+                    >
+                        <Input placeholder="Ej: 120 Horas Académicas" />
+                    </Form.Item>
+
+
                     <Form.Item label="Fotografía para el Carnet (Opcional)" name="foto" valuePropName="fileList" getValueFromEvent={normFile}>
                         <ImgCrop
-                            rotationSlider // Permite al usuario rotar la imagen
-                            aspect={3 / 4} // Fuerza un recorte con aspecto de foto de carnet (3 de ancho por 4 de alto)
+                            rotationSlider
+                            aspect={3 / 4}
                             modalTitle="Editar Fotografía"
                             modalOk="Aceptar"
                             modalCancel="Cancelar"
