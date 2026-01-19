@@ -8,7 +8,7 @@ const { Option } = Select;
 const { Step } = Steps;
 
 // --- Definir el ID del coordinador predeterminado (ID 3) ---
-const DEFAULT_COORDINATOR_ID = 5; 
+const DEFAULT_COORDINATOR_ID = 5;
 
 // --- Función auxiliar para obtener el inventario del usuario ---
 // Esta función es la que realiza la petición a /api/inventario/user/:userId.
@@ -29,9 +29,9 @@ const getInventarioByUser = async (userId) => {
         if (response.ok) {
             const data = await response.json();
             console.log("Inventario cargado exitosamente:", data);
-            return Array.isArray(data) ? data : []; 
+            return Array.isArray(data) ? data : [];
         } else {
-            const errorData = await response.json().catch(() => ({})); 
+            const errorData = await response.json().catch(() => ({}));
             console.error(`Error al obtener el inventario del usuario ${userId}:`, errorData);
             throw new Error(errorData.error || response.statusText || "Error desconocido al cargar el inventario.");
         }
@@ -46,21 +46,21 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
     const [form] = Form.useForm();
     const [programas, setProgramas] = useState([]);
     const [loadingSubmit, setLoadingSubmit] = useState(false);
-    const [loadingPrograms, setLoadingPrograms] = useState(true); 
-    const [currentStep, setCurrentStep] = useState(0); 
+    const [loadingPrograms, setLoadingPrograms] = useState(true);
+    const [currentStep, setCurrentStep] = useState(0);
 
     // Efecto para cargar los programas del coordinador predeterminado (ID 3)
     useEffect(() => {
         const fetchProgramsData = async () => {
             setLoadingPrograms(true);
             try {
-                const data = await getInventarioByUser(DEFAULT_COORDINATOR_ID); 
+                const data = await getInventarioByUser(DEFAULT_COORDINATOR_ID);
                 console.log(`Programas cargados para el formulario público (inventario del usuario ${DEFAULT_COORDINATOR_ID}):`, data);
-                setProgramas(Array.isArray(data) ? data : []); 
+                setProgramas(Array.isArray(data) ? data : []);
             } catch (err) {
                 console.error("Error fetching Programs for public form:", err);
                 message.error("Error al cargar los programas disponibles. Intente de nuevo.");
-                setProgramas([]); 
+                setProgramas([]);
             } finally {
                 setLoadingPrograms(false);
             }
@@ -75,9 +75,9 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
             title: 'Intereses Académicos',
             content: (
                 <div className="space-y-4">
-                    <Form.Item 
-                        name="programasIds" 
-                        label="¿Qué programa(s) te interesa(n) estudiar?" 
+                    <Form.Item
+                        name="programasIds"
+                        label="¿Qué programa(s) te interesa(n) estudiar?"
                         rules={[{ required: true, message: 'Por favor selecciona al menos un programa de interés!' }]}
                         tooltip="Puedes seleccionar uno o más programas."
                     >
@@ -85,19 +85,19 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
                             mode="multiple"
                             placeholder="Selecciona tus programas"
                             className="h-10"
-                            disabled={loadingPrograms} 
+                            disabled={loadingPrograms}
                         >
                             {programas.map((program) => (
-                                <Option key={program.id} value={program.id}> 
+                                <Option key={program.id} value={program.id}>
                                     {program.nombre}
                                 </Option>
                             ))}
                         </Select>
                     </Form.Item>
 
-                    <Form.Item 
-                        name="modalidad_estudio" 
-                        label="¿Cómo prefieres estudiar?" 
+                    <Form.Item
+                        name="modalidad_estudio"
+                        label="¿Cómo prefieres estudiar?"
                         rules={[{ required: true, message: 'Por favor selecciona una modalidad de estudio!' }]}
                     >
                         <Select placeholder="Selecciona una modalidad" className="h-10">
@@ -105,10 +105,10 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
                             <Option value="Modulos por WhastApp">Módulos por WhatsApp</Option>
                         </Select>
                     </Form.Item>
-                    
-                    <Form.Item 
-                        name="ultimoCursoVisto" 
-                        label="¿Cuál fue tu último curso o grado aprobado?" 
+
+                    <Form.Item
+                        name="ultimoCursoVisto"
+                        label="¿Cuál fue tu último curso o grado aprobado?"
                         rules={[{ required: true, message: "Por favor selecciona tu último curso aprobado!" }]}
                     >
                         <Select
@@ -117,7 +117,7 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
                             style={{ width: "100%" }}
                         >
                             {Array.from({ length: 11 }, (_, index) => {
-                                const curso = (index + 1).toString(); 
+                                const curso = (index + 1).toString();
                                 return (
                                     <Option key={curso} value={curso}>
                                         {curso}°
@@ -175,7 +175,7 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
             ),
         },
         {
-            title: 'Documento', 
+            title: 'Documento',
             content: (
                 <div className="space-y-4">
                     <Form.Item name="tipoDocumento" label="Tipo de Documento" rules={[{ required: true, message: 'Por favor selecciona tu tipo de documento!' }]}>
@@ -196,7 +196,7 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
                             prefix={<IdcardOutlined />}
                             className="h-10"
                             placeholder="Ejemplo: 1234567890"
-                            type="number" 
+                            type="number"
                         />
                     </Form.Item>
 
@@ -207,7 +207,7 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
                     >
                         <Input className="h-10" />
                     </Form.Item>
-                    
+
                     {/* SIMAT, EPS, RH, y toda la sección de Acudiente ELIMINADOS de la UI */}
                 </div>
             ),
@@ -245,12 +245,12 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
         try {
             // Asegurarse de que `values.fechaNacimiento` es un objeto Moment y formatearlo
             const fechaNacimientoFormatted = values.fechaNacimiento ? values.fechaNacimiento.format("YYYY-MM-DD") : null;
-            
+
             // Asegurarse de que `values.programasIds` es un array y sus elementos son enteros
             // Esta es la lógica crucial replicada del CreateStudentModal para asegurar el formato correcto.
-            const programasIdsFormatted = Array.isArray(values.programasIds) ? 
-                                          values.programasIds.map(id => parseInt(id, 10)) : 
-                                          [];
+            const programasIdsFormatted = Array.isArray(values.programasIds) ?
+                values.programasIds.map(id => parseInt(id, 10)) :
+                [];
 
             // Construir el objeto formattedValues de manera explícita como en CreateStudentModal
             const formattedValues = {
@@ -264,7 +264,7 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
                 lugarNacimiento: values.lugarNacimiento,
                 telefonoLlamadas: values.telefonoLlamadas,
                 telefonoWhatsapp: values.telefonoWhatsapp,
-                
+
                 // Estos campos tienen valores fijos o null para el formulario público, y son booleanos/null para la DB
                 simat: false, // Siempre false (booleano)
                 pagoMatricula: false, // Siempre false (booleano)
@@ -275,7 +275,7 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
                 tipoDocumentoAcudiente: null, // Eliminado de la UI, se envía como null
                 telefonoAcudiente: null, // Eliminado de la UI, se envía como null
                 direccionAcudiente: null, // Eliminado de la UI, se envía como null
-                
+
                 // Campos relacionados con programas/modalidad/curso
                 programasIds: programasIdsFormatted, // Usar el array de IDs formateado aquí (debería funcionar)
                 coordinador_id: DEFAULT_COORDINATOR_ID, // ID del coordinador fijo (3)
@@ -283,7 +283,7 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
                 ultimo_curso_visto: values.ultimoCursoVisto, // Asegurar que el nombre de la propiedad coincida con la DB
                 estado_matricula: false, // El backend espera booleano para 'estado_matricula'
             };
-            
+
             console.log("Datos a enviar para registrar estudiante (público, payload final):", formattedValues);
             console.log("URL de la API utilizada:", apiUrl);
 
@@ -310,9 +310,9 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
             console.log("Success response:", data);
 
             message.success("¡Registro exitoso! Pronto nos pondremos en contacto contigo.");
-            onStudentRegistered?.(); 
-            form.resetFields(); 
-            setCurrentStep(0); 
+            onStudentRegistered?.();
+            form.resetFields();
+            setCurrentStep(0);
         } catch (error) {
             console.error("Error detallado al registrar el estudiante:", {
                 message: error.message,
@@ -347,13 +347,13 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
                     <Form
                         form={form}
                         layout="vertical"
-                        onFinish={handleSubmit} 
+                        onFinish={handleSubmit}
                         className="space-y-6"
                     >
                         {/* CAMBIO CRUCIAL AQUÍ: Renderizar todos los contenidos, ocultando los inactivos */}
                         <div className="steps-content">
                             {steps.map((item, index) => (
-                                <div 
+                                <div
                                     key={item.title} // Usar el título como key o un ID único
                                     style={{ display: index === currentStep ? 'block' : 'none' }}
                                 >
@@ -377,7 +377,7 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
                                 <Button
                                     size="large"
                                     type="primary"
-                                    htmlType="submit" 
+                                    htmlType="submit"
                                     loading={loadingSubmit}
                                     className="w-full h-12 text-lg bg-green-600 hover:bg-green-700"
                                 >

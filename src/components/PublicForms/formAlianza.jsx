@@ -32,7 +32,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BACKEND || "https://clasit-backend
 // --- Servicio ---
 const getInventarioByUser = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/programs`, {
+    const response = await fetch(`${API_BASE_URL}/api/programas`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -53,7 +53,7 @@ const StudentAlianza = ({ onStudentRegistered }) => {
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [loadingPrograms, setLoadingPrograms] = useState(true);
   const [currentStep, setCurrentStep] = useState(0);
-  
+
   // ✅ NUEVO ESTADO: Controla si el formulario ya fue enviado exitosamente
   const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -213,7 +213,7 @@ const StudentAlianza = ({ onStudentRegistered }) => {
         programasIds: Array.isArray(values.programasIds) ? values.programasIds.map(id => parseInt(id, 10)) : [],
         coordinador_id: DEFAULT_COORDINATOR_ID,
         simat: false, pagoMatricula: false, activo: true, posibleGraduacion: false,
-        eps: null, rh: null, nombreAcudiente: null, tipoDocumentoAcudiente: null, 
+        eps: null, rh: null, nombreAcudiente: null, tipoDocumentoAcudiente: null,
         telefonoAcudiente: null, direccionAcudiente: null, estado_matricula: false
       };
 
@@ -254,8 +254,8 @@ const StudentAlianza = ({ onStudentRegistered }) => {
             title="¡Gracias! Tu respuesta ha sido enviada."
             subTitle="Hemos recibido tu inscripción correctamente. Un asesor académico revisará tu información y te contactará por WhatsApp muy pronto."
             extra={[
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 key="console"
                 size="large"
                 onClick={() => window.location.href = 'https://wa.me/'} // Opcional: llevar a WhatsApp
@@ -266,7 +266,7 @@ const StudentAlianza = ({ onStudentRegistered }) => {
             ]}
           />
           <div className="mt-4 text-gray-400 text-sm">
-             Ya puedes cerrar esta página.
+            Ya puedes cerrar esta página.
           </div>
         </Card>
       </div>
@@ -276,7 +276,7 @@ const StudentAlianza = ({ onStudentRegistered }) => {
   // Renderizado normal del formulario
   return (
     <div className="min-h-screen bg-[#f0f2f5] py-8 px-4 flex flex-col items-center font-sans">
-      <Card 
+      <Card
         className="w-full max-w-3xl shadow-md rounded-t-lg overflow-hidden mb-4 border-0"
         bodyStyle={{ padding: 0 }}
       >
@@ -290,16 +290,16 @@ const StudentAlianza = ({ onStudentRegistered }) => {
       </Card>
 
       <div className="w-full max-w-3xl mb-6 px-2">
-         <Progress percent={progressPercent} showInfo={false} strokeColor={MICROSOFT_TEAL} trailColor="#d1d5db" />
+        <Progress percent={progressPercent} showInfo={false} strokeColor={MICROSOFT_TEAL} trailColor="#d1d5db" />
       </div>
 
       <Card className="w-full max-w-3xl shadow-sm rounded-lg border-0">
         {loadingPrograms ? (
-           <div className="flex justify-center py-12"><Spin size="large" /></div>
+          <div className="flex justify-center py-12"><Spin size="large" /></div>
         ) : (
           <Form form={form} layout="vertical" className="pt-2" requiredMark={false}>
             <div className="min-h-[300px]">
-                {steps[currentStep].content}
+              {steps[currentStep].content}
             </div>
             <div className="mt-8 flex justify-between items-center pt-6 border-t border-gray-100">
               {currentStep > 0 ? (
@@ -307,10 +307,10 @@ const StudentAlianza = ({ onStudentRegistered }) => {
               ) : <div></div>}
 
               {currentStep < steps.length - 1 && (
-                <Button 
-                    type="primary" onClick={next} size="large"
-                    style={{ backgroundColor: MICROSOFT_TEAL, borderColor: MICROSOFT_TEAL }}
-                    className="px-8"
+                <Button
+                  type="primary" onClick={next} size="large"
+                  style={{ backgroundColor: MICROSOFT_TEAL, borderColor: MICROSOFT_TEAL }}
+                  className="px-8"
                 >
                   Siguiente
                 </Button>
