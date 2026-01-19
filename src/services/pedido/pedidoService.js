@@ -64,11 +64,23 @@ export const createPedido = async (data) => {
  * @param {number} id - ID del pedido
  * @param {string} nuevoEstado - 'PENDIENTE', 'ENTREGADO' o 'ANULADO'
  */
-export const updateEstadoPedido = async (id, nuevoEstado) => {
-    // Usamos PATCH como definimos en el backend
-    const response = await pedidoApi.patch(`/pedidos/${id}/estado`, {
-        nuevo_estado: nuevoEstado
-    });
+export const updateEstadoPedido = async (id, data) => {
+    // 1. Preparamos el cuerpo de la petición (body)
+    let body;
+
+    // Si pasas solo el texto (ej: "ANULADO"), lo envolvemos
+    if (typeof data === 'string') {
+        body = { nuevo_estado: data };
+    }
+    // Si pasas un objeto (ej: { nuevo_estado: 'ENTREGADO', cuenta_destino: 'Nequi' }), lo usamos directo
+    else {
+        body = data;
+    }
+
+    // 2. Enviamos la petición
+    // Nota: Verifica si tu backend usa PATCH o PUT. Usaré PATCH porque así lo tienes tú.
+    const response = await pedidoApi.patch(`/pedidos/${id}/estado`, body);
+
     return response.data;
 };
 

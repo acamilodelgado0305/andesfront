@@ -70,6 +70,8 @@ const StudentPayments = () => {
   }, []);
 
   // Cargar estudiante + tipos de pago + programas + pagos
+  // Dentro de StudentPayments.jsx
+
   const loadAllStudentPaymentData = useCallback(async () => {
     if (!studentId) return;
     setLoading(true);
@@ -83,11 +85,27 @@ const StudentPayments = () => {
         ]);
 
       setStudent(studentData);
-      setPaymentTypes(typesData || []);
-      setStudentPrograms(programsData || []);
-      setPayments(paymentsData || []);
+
+      // --- CORRECCIÓN AQUÍ ---
+      // Verificamos si programsData es un array directamente.
+      // Si no, buscamos si viene dentro de una propiedad común como .data o .result
+      // Si todo falla, forzamos un array vacío.
+      const safePrograms = Array.isArray(programsData)
+        ? programsData
+        : (programsData?.data || programsData?.programs || []);
+
+      setStudentPrograms(safePrograms);
+
+      // Aplicamos la misma lógica para paymentTypes y paymentsData por seguridad
+      const safeTypes = Array.isArray(typesData) ? typesData : (typesData?.data || []);
+      setPaymentTypes(safeTypes);
+
+      const safePayments = Array.isArray(paymentsData) ? paymentsData : (paymentsData?.data || []);
+      setPayments(safePayments);
+      // -----------------------
+
     } catch (err) {
-      console.error(err);
+      console.error("Error loading data:", err);
       message.error("Error al cargar la información de pagos.");
     } finally {
       setLoading(false);
@@ -160,8 +178,8 @@ const StudentPayments = () => {
       );
       message.error(
         "Error al registrar pago: " +
-          (error.response?.data?.error ||
-            "Verifica la consola para más detalles.")
+        (error.response?.data?.error ||
+          "Verifica la consola para más detalles.")
       );
     }
   };
@@ -187,7 +205,7 @@ const StudentPayments = () => {
           );
           message.error(
             "Error al eliminar pago: " +
-              (error.response?.data?.error || "Verifica la consola.")
+            (error.response?.data?.error || "Verifica la consola.")
           );
         }
       },
@@ -313,9 +331,9 @@ const StudentPayments = () => {
   const avgMonthlyCost =
     studentPrograms.length > 0
       ? studentPrograms.reduce(
-          (sum, p) => sum + parseFloat(p.costo_mensual_esperado),
-          0
-        ) / studentPrograms.length
+        (sum, p) => sum + parseFloat(p.costo_mensual_esperado),
+        0
+      ) / studentPrograms.length
       : 0;
 
   return (
@@ -437,7 +455,8 @@ const StudentPayments = () => {
                 rules={[{ required: true }]}
               >
                 <Select placeholder="Seleccione el programa">
-                  {studentPrograms.map((p) => (
+                  {/* CORRECCIÓN: Agregar '?' antes de .map y validar que sea array */}
+                  {Array.isArray(studentPrograms) && studentPrograms.map((p) => (
                     <Option key={p.programa_id} value={p.programa_id}>
                       {p.programa_nombre}
                     </Option>

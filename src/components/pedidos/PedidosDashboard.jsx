@@ -7,7 +7,7 @@ import {
     PlusOutlined, SearchOutlined, ShoppingCartOutlined, UserOutlined, DeleteOutlined,
     CheckCircleOutlined, CloseCircleOutlined, ShopOutlined, EditOutlined,
     EnvironmentOutlined, FileTextOutlined, CloseOutlined, FilePdfOutlined,
-    AppstoreOutlined, ContainerOutlined
+    AppstoreOutlined, ContainerOutlined, DollarCircleOutlined
 } from "@ant-design/icons";
 
 // LIBRERIAS PDF
@@ -17,6 +17,8 @@ import autoTable from "jspdf-autotable";
 import { getPedidos, createPedido, updatePedido, updateEstadoPedido, getPedidoById, getOrderStats } from "../../services/pedido/pedidoService";
 import { getInventario } from "../../services/inventario/inventarioService";
 import { getPersonas } from "../../services/person/personaService";
+
+import { cuentaOptions } from "../Certificados/options";
 
 import PedidosStats from "./PedidosStats";
 
@@ -55,6 +57,12 @@ const PedidosDashboard = () => {
     const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
     const [observaciones, setObservaciones] = useState("");
     const [procesandoVenta, setProcesandoVenta] = useState(false);
+
+
+    const [modalEntregaOpen, setModalEntregaOpen] = useState(false);
+    const [pedidoAEntregar, setPedidoAEntregar] = useState(null);
+    const [cuentaDestino, setCuentaDestino] = useState('Efectivo');
+    const [loadingEntrega, setLoadingEntrega] = useState(false);
 
     // --- FUNCIÓN DE CARGA ROBUSTA (PEDIDOS + STATS) ---
     const cargarTodo = useCallback(async () => {
@@ -291,11 +299,42 @@ const PedidosDashboard = () => {
 
     const cambiarEstado = async (id, nuevoEstado) => {
         try {
-            await updateEstadoPedido(id, nuevoEstado);
+            // Si es entregar, NO llamamos a esta, usamos abrirModalEntrega
+            // Aquí enviamos null en cuenta porque Anular no requiere cuenta
+            await updateEstadoPedido(id, { nuevo_estado: nuevoEstado });
             message.success(`Estado cambiado a ${nuevoEstado}`);
-            cargarTodo(); // 🔥 Actualizar stats al cambiar estado
+            cargarTodo();
         } catch (error) {
             message.error("No se pudo cambiar el estado");
+        }
+    };
+
+    const abrirModalEntrega = (id) => {
+        setPedidoAEntregar(id);
+        setCuentaDestino('Efectivo'); // Reset a default
+        setModalEntregaOpen(true);
+    };
+
+
+    const confirmarEntrega = async () => {
+        if (!pedidoAEntregar) return;
+        setLoadingEntrega(true);
+        try {
+            // Enviamos el objeto completo como espera el servicio modificado
+            // Asegúrate que tu servicio haga: axios.put(url, body) donde body es este objeto
+            await updateEstadoPedido(pedidoAEntregar, {
+                nuevo_estado: 'ENTREGADO',
+                cuenta_destino: cuentaDestino
+            });
+
+            message.success("Pedido entregado e ingreso registrado");
+            setModalEntregaOpen(false);
+            cargarTodo();
+        } catch (error) {
+            console.error(error);
+            message.error(error.response?.data?.message || "Error al entregar pedido");
+        } finally {
+            setLoadingEntrega(false);
         }
     };
 
@@ -379,8 +418,18 @@ const PedidosDashboard = () => {
 
                                                 {pedido.estado === 'PENDIENTE' && (
                                                     <>
-                                                        <Tooltip title="Anular"><Button danger icon={<CloseCircleOutlined />} onClick={() => cambiarEstado(pedido.id, 'ANULADO')} /></Tooltip>
-                                                        <Tooltip title="Entregar"><Button type="primary" icon={<CheckCircleOutlined />} className="bg-[#155153]" onClick={() => cambiarEstado(pedido.id, 'ENTREGADO')} /></Tooltip>
+                                                        <Tooltip title="Anular">
+                                                            <Button danger icon={<CloseCircleOutlined />} onClick={() => cambiarEstado(pedido.id, 'ANULADO')} />
+                                                        </Tooltip>
+                                                        {/* BOTÓN ENTREGAR AHORA ABRE MODAL */}
+                                                        <Tooltip title="Entregar y Cobrar">
+                                                            <Button
+                                                                type="primary"
+                                                                icon={<CheckCircleOutlined />}
+                                                                className="bg-[#155153]"
+                                                                onClick={() => abrirModalEntrega(pedido.id)}
+                                                            />
+                                                        </Tooltip>
                                                     </>
                                                 )}
                                             </div>
@@ -391,6 +440,28 @@ const PedidosDashboard = () => {
                         ))}
                     </Row>
                 )}
+
+
+                <Modal
+                    title={<div className="flex items-center gap-2"><DollarCircleOutlined className="text-green-600" /> Confirmar Pago</div>}
+                    open={modalEntregaOpen}
+                    onCancel={() => setModalEntregaOpen(false)}
+                    onOk={confirmarEntrega}
+                    confirmLoading={loadingEntrega}
+                    okText="Confirmar Entrega"
+                    cancelText="Cancelar"
+                    okButtonProps={{ className: 'bg-[#155153]' }}
+                >
+                    <p>Vas a marcar el pedido <b>#{pedidoAEntregar}</b> como entregado.</p>
+                    <p className="mb-2 font-bold text-gray-600">¿A dónde ingresó el dinero?</p>
+                    <Select
+                        className="w-full"
+                        size="large"
+                        value={cuentaDestino}
+                        onChange={setCuentaDestino}
+                        options={cuentaOptions}
+                    />
+                </Modal>
 
                 {/* --- MODAL POS SUPER MEJORADO --- */}
                 <Modal
