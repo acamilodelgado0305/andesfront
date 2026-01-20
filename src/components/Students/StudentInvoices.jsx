@@ -9,16 +9,21 @@ import {
   Spin,
   Form,
   Select,
-  DatePicker,
   Input,
   InputNumber,
   Tag,
+  Card,
+  Progress,
+  Alert,
+  Divider
 } from "antd";
 import {
   FaPlus,
   FaDownload,
   FaTrashAlt,
   FaMoneyBillWave,
+  FaWallet,
+  FaUniversity
 } from "react-icons/fa";
 import {
   CheckCircleOutlined,
@@ -27,6 +32,7 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 
+// SERVICIOS
 import { getStudentById } from "../../services/student/studentService";
 import {
   getPaymentTypes,
@@ -34,29 +40,34 @@ import {
   getPaymentsByStudent,
   createPayment,
   deletePayment,
-} from "../../services/payment/paymentService"; // ajusta la ruta según tu estructura
+} from "../../services/payment/paymentService";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 // URLs de entorno
-const API_BACKEND = import.meta.env.VITE_API_BACKEND; // p.ej. http://localhost:3002
-const API_BASE =
-  import.meta.env.VITE_API || `${API_BACKEND}/api`; // p.ej. http://localhost:3002/api
+const API_BACKEND = import.meta.env.VITE_API_BACKEND;
+const API_BASE = import.meta.env.VITE_API || `${API_BACKEND}/api`;
 
 const StudentPayments = () => {
   const { id: studentId } = useParams();
-  const [payments, setPayments] = useState([]);
-  const [student, setStudent] = useState(null);
 
+  // ESTADOS DE DATOS
+  const [student, setStudent] = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [paymentTypes, setPaymentTypes] = useState([]);
+
+  // ESTADO FINANCIERO (Cartera)
+  const [financialData, setFinancialData] = useState([]);
+
+  // ESTADOS UI
   const [loading, setLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [form] = Form.useForm();
-  const [paymentTypes, setPaymentTypes] = useState([]);
-  const [studentPrograms, setStudentPrograms] = useState([]);
-  const [selectedPaymentType, setSelectedPaymentType] = useState(null);
-  const [montoEsperadoMensualidad, setMontoEsperadoMensualidad] =
-    useState(null);
+
+  // ESTADOS PARA LOGICA DE PAGO
+  const [selectedProgramId, setSelectedProgramId] = useState(null);
+  const [currentDebt, setCurrentDebt] = useState(null);
 
   // --- UTILIDADES ---
   const formatCurrency = useCallback((value) => {
@@ -65,48 +76,36 @@ const StudentPayments = () => {
       style: "currency",
       currency: "COP",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 0,
     });
   }, []);
 
-  // Cargar estudiante + tipos de pago + programas + pagos
-  // Dentro de StudentPayments.jsx
-
+  // --- CARGA DE DATOS ---
   const loadAllStudentPaymentData = useCallback(async () => {
     if (!studentId) return;
     setLoading(true);
     try {
-      const [studentData, typesData, programsData, paymentsData] =
+      const [studentData, typesData, programInfoData, paymentsData] =
         await Promise.all([
           getStudentById(studentId),
           getPaymentTypes(),
-          getStudentProgramInfo(studentId),
+          getStudentProgramInfo(studentId), // Trae la info calculada de deuda
           getPaymentsByStudent(studentId),
         ]);
 
       setStudent(studentData);
+      setPaymentTypes(Array.isArray(typesData) ? typesData : []);
+      setPayments(Array.isArray(paymentsData) ? paymentsData : []);
 
-      // --- CORRECCIÓN AQUÍ ---
-      // Verificamos si programsData es un array directamente.
-      // Si no, buscamos si viene dentro de una propiedad común como .data o .result
-      // Si todo falla, forzamos un array vacío.
-      const safePrograms = Array.isArray(programsData)
-        ? programsData
-        : (programsData?.data || programsData?.programs || []);
-
-      setStudentPrograms(safePrograms);
-
-      // Aplicamos la misma lógica para paymentTypes y paymentsData por seguridad
-      const safeTypes = Array.isArray(typesData) ? typesData : (typesData?.data || []);
-      setPaymentTypes(safeTypes);
-
-      const safePayments = Array.isArray(paymentsData) ? paymentsData : (paymentsData?.data || []);
-      setPayments(safePayments);
-      // -----------------------
+      // Manejo seguro de la nueva estructura financiera
+      // El backend devuelve { student_id:..., programas_financiero: [...] }
+      const programsFinanciero = programInfoData?.programas_financiero || [];
+      setFinancialData(programsFinanciero);
 
     } catch (err) {
       console.error("Error loading data:", err);
-      message.error("Error al cargar la información de pagos.");
+      // No mostramos error invasivo si falla algo menor, pero logueamos
+      message.error("Error al cargar la información financiera.");
     } finally {
       setLoading(false);
     }
@@ -116,131 +115,100 @@ const StudentPayments = () => {
     loadAllStudentPaymentData();
   }, [loadAllStudentPaymentData]);
 
-  // Actualizar monto sugerido de mensualidad cuando cambia tipo/programa
+  // --- LÓGICA DEL MODAL (CALCULAR DEUDA AL SELECCIONAR PROGRAMA) ---
   useEffect(() => {
-    if (
-      selectedPaymentType === "Mensualidad" &&
-      form.getFieldValue("program_id")
-    ) {
-      const selectedProgram = studentPrograms.find(
-        (p) => p.programa_id === form.getFieldValue("program_id")
-      );
-      if (selectedProgram) {
-        const monto = parseFloat(selectedProgram.costo_mensual_esperado);
-        setMontoEsperadoMensualidad(monto);
-        form.setFieldsValue({ monto: monto });
-      } else {
-        setMontoEsperadoMensualidad(null);
-        form.setFieldsValue({ monto: null });
+    if (selectedProgramId && financialData.length > 0) {
+      const prog = financialData.find((p) => p.programa_id === selectedProgramId);
+      if (prog) {
+        const deuda = parseFloat(prog.saldo_pendiente);
+        // Si hay deuda positiva, la guardamos, si hay saldo a favor (negativo), mostramos 0
+        setCurrentDebt(deuda);
+
+        // Opcional: Sugerir el monto a pagar automáticamente
+        /* if (deuda > 0) {
+             form.setFieldsValue({ monto: deuda });
+        }
+        */
       }
     } else {
-      setMontoEsperadoMensualidad(null);
+      setCurrentDebt(null);
     }
-  }, [selectedPaymentType, form, studentPrograms]);
+  }, [selectedProgramId, financialData, form]);
 
-  // Crear pago
+  // --- CREAR PAGO (ABONO) ---
   const handleCreatePayment = async (values) => {
     try {
-      const isMensualidad = values.tipo_pago_nombre === "Mensualidad";
-
-      const periodo =
-        isMensualidad && values.periodo_pagado
-          ? dayjs(values.periodo_pagado).format("YYYY-MM")
-          : null;
-
-      const programIdToSend =
-        isMensualidad && values.program_id
-          ? parseInt(values.program_id, 10)
-          : null;
-
       await createPayment({
         student_id: parseInt(studentId, 10),
         tipo_pago_nombre: values.tipo_pago_nombre,
         monto: parseFloat(values.monto),
-        periodo_pagado: periodo,
         metodo_pago: values.metodo_pago,
         referencia_transaccion: values.referencia_transaccion || null,
         observaciones: values.observaciones || null,
-        program_id: programIdToSend,
+        program_id: values.program_id || null, // Importante: Asocia el pago a la deuda del programa
+        // periodo_pagado: null // Ya no es obligatorio
       });
 
       message.success("Pago registrado exitosamente.");
       setIsModalVisible(false);
       form.resetFields();
-      setSelectedPaymentType(null);
-      setMontoEsperadoMensualidad(null);
+      setSelectedProgramId(null);
+      setCurrentDebt(null);
 
+      // Recargar para ver las barras de progreso actualizadas
       await loadAllStudentPaymentData();
     } catch (error) {
-      console.error(
-        `[${dayjs().format("DD/MM/YYYY HH:mm:ss")}] Error al registrar pago:`,
-        error.response?.data || error.message
-      );
+      console.error("Error al registrar pago:", error);
       message.error(
         "Error al registrar pago: " +
-        (error.response?.data?.error ||
-          "Verifica la consola para más detalles.")
+        (error.response?.data?.error || "Verifica los datos.")
       );
     }
   };
 
-  // Eliminar pago
+  // --- ELIMINAR PAGO ---
   const handleDeletePayment = async (paymentId) => {
     Modal.confirm({
-      title: "¿Está seguro de que desea eliminar este pago?",
-      content: "Esta acción no se puede deshacer.",
+      title: "¿Eliminar este pago?",
+      content: "Al eliminarlo, la deuda del estudiante aumentará nuevamente.",
       okText: "Sí, eliminar",
       cancelText: "Cancelar",
+      okType: "danger",
       onOk: async () => {
         try {
           await deletePayment(paymentId);
-          message.success("Pago eliminado con éxito.");
+          message.success("Pago eliminado.");
           await loadAllStudentPaymentData();
         } catch (error) {
-          console.error(
-            `[${dayjs().format(
-              "DD/MM/YYYY HH:mm:ss"
-            )}] Error al eliminar pago:`,
-            error.response?.data || error.message
-          );
-          message.error(
-            "Error al eliminar pago: " +
-            (error.response?.data?.error || "Verifica la consola.")
-          );
+          message.error("Error al eliminar el pago.");
         }
       },
     });
   };
 
-  // Descargar recibo (usa /api/...)
+  // --- DESCARGAR RECIBO ---
   const handleDownloadReceipt = (paymentId) => {
     const receiptUrl = `${API_BASE}/receipts/${paymentId}/download`;
     window.open(receiptUrl, "_blank");
-    message.info(
-      "Generando recibo. Si la descarga no inicia, verifique las ventanas emergentes."
-    );
   };
 
-  // Columnas tabla
+  // --- COLUMNAS DE LA TABLA ---
   const columns = [
     {
       title: "Concepto",
       dataIndex: "tipo_pago_nombre",
       key: "tipo_pago_nombre",
-      render: (text) => (
-        <span className="font-semibold text-slate-700">{text}</span>
-      ),
+      render: (text) => <span className="font-bold text-slate-700">{text}</span>,
     },
     {
-      title: "Período/Programa",
-      key: "periodo_programa",
+      title: "Programa / Destino",
+      key: "programa",
       render: (_, record) => (
         <Text type="secondary" className="text-xs">
-          {record.tipo_pago_nombre === "Mensualidad"
-            ? record.periodo_pagado
-              ? dayjs(record.periodo_pagado + "-01").format("MMMM YYYY")
-              : "N/A"
-            : record.programa_nombre || "General"}
+          {/* Intentamos mostrar el nombre del programa si viene en el registro, o buscamos en financialData */}
+          {record.programa_nombre ||
+            (financialData.find(p => p.programa_id === record.program_id)?.programa_nombre) ||
+            "Pago General"}
         </Text>
       ),
     },
@@ -248,12 +216,10 @@ const StudentPayments = () => {
       title: "Monto",
       dataIndex: "monto",
       key: "monto",
-      render: (text) => (
-        <span className="text-slate-800">{formatCurrency(text)}</span>
-      ),
+      render: (text) => <span className="text-slate-800 font-medium">{formatCurrency(text)}</span>,
     },
     {
-      title: "Fecha de Pago",
+      title: "Fecha",
       dataIndex: "fecha_pago",
       key: "fecha_pago",
       render: (text) => (text ? dayjs(text).format("DD/MM/YYYY") : "N/A"),
@@ -263,256 +229,231 @@ const StudentPayments = () => {
       dataIndex: "estado",
       key: "estado",
       render: (estado) => {
-        const colors = {
-          Pagado: "green",
-          Pendiente: "orange",
-          Vencido: "red",
-        };
-        const icons = {
-          Pagado: <CheckCircleOutlined />,
-          Pendiente: <ClockCircleOutlined />,
-          Vencido: <ExclamationCircleOutlined />,
-        };
-        return (
-          <Tag color={colors[estado]} icon={icons[estado]}>
-            {estado}
-          </Tag>
-        );
+        const color = estado === "Pagado" ? "green" : estado === "Pendiente" ? "orange" : "red";
+        const icon = estado === "Pagado" ? <CheckCircleOutlined /> : <ClockCircleOutlined />;
+        return <Tag color={color} icon={icon}>{estado}</Tag>;
       },
     },
     {
-      title: "Acciones",
+      title: "",
       key: "acciones",
       align: "right",
       render: (_, record) => (
-        <div className="flex justify-end gap-x-2">
+        <div className="flex justify-end gap-2">
           {record.estado === "Pagado" && (
-            <Button
-              type="text"
-              size="small"
-              icon={<FaDownload />}
-              onClick={() => handleDownloadReceipt(record.id)}
-            >
+            <Button type="text" size="small" icon={<FaDownload />} onClick={() => handleDownloadReceipt(record.id)}>
               Recibo
             </Button>
           )}
-          <Button
-            type="text"
-            danger
-            size="small"
-            icon={<FaTrashAlt />}
-            onClick={() => handleDeletePayment(record.id)}
-          />
+          <Button type="text" danger size="small" icon={<FaTrashAlt />} onClick={() => handleDeletePayment(record.id)} />
         </div>
       ),
     },
   ];
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Spin size="large" />
-      </div>
-    );
+    return <div className="flex justify-center items-center h-screen"><Spin size="large" /></div>;
   }
 
   if (!student) {
-    return (
-      <div className="text-center p-10">
-        No se encontraron datos del estudiante.
-      </div>
-    );
+    return <div className="text-center p-10">Estudiante no encontrado.</div>;
   }
-
-  const totalPaid = payments
-    .filter((p) => p.estado === "Pagado")
-    .reduce((sum, p) => sum + parseFloat(p.monto), 0);
-
-  const avgMonthlyCost =
-    studentPrograms.length > 0
-      ? studentPrograms.reduce(
-        (sum, p) => sum + parseFloat(p.costo_mensual_esperado),
-        0
-      ) / studentPrograms.length
-      : 0;
 
   return (
     <div className="bg-slate-50 min-h-screen p-4 sm:p-6">
-      {/* ENCABEZADO */}
+
+      {/* --- ENCABEZADO --- */}
       <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
         <div>
-          <Text className="text-slate-500">Gestión Financiera</Text>
+          <Text className="text-slate-500 uppercase tracking-wide text-xs font-bold">Gestión de Cartera</Text>
           <Title level={3} className="!mt-0 !mb-1">
-            Pagos de {student.nombre} {student.apellido}
+            {student.nombre} {student.apellido}
           </Title>
-          <Text>
-            Coordinador Asignado:{" "}
-            <span className="font-semibold">
-              {student.coordinador_nombre || "N/A"}
+          <div className="flex gap-4 text-sm text-slate-600">
+            <span><span className="font-semibold">Coordinador:</span> {student.coordinador_nombre || "N/A"}</span>
+            <span><span className="font-semibold">Estado Matrícula:</span>
+              <Tag className="ml-2" color={student.estado_matricula ? "green" : "volcano"}>
+                {student.estado_matricula ? "ACTIVA" : "PENDIENTE"}
+              </Tag>
             </span>
-          </Text>
+          </div>
         </div>
-        <Button
-          type="primary"
-          icon={<FaPlus />}
-          onClick={() => setIsModalVisible(true)}
-        >
-          Registrar Nuevo Pago
+        <Button type="primary" size="large" icon={<FaPlus />} onClick={() => setIsModalVisible(true)}>
+          Registrar Abono
         </Button>
       </header>
 
-      {/* DASHBOARD FINANCIERO */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-4 border border-slate-200 rounded-md">
-          <Text className="text-slate-500">Valor Matrícula</Text>
-          <p className="text-2xl font-semibold text-slate-800">
-            {formatCurrency(student.matricula)}
-          </p>
-          <Tag color={student.estado_matricula ? "green" : "orange"}>
-            {student.estado_matricula ? "Pagada" : "Pendiente"}
-          </Tag>
-        </div>
-        <div className="bg-white p-4 border border-slate-200 rounded-md">
-          <Text className="text-slate-500">Costo Mensual Promedio</Text>
-          <p className="text-2xl font-semibold text-slate-800">
-            {formatCurrency(avgMonthlyCost)}
-          </p>
-          <Text className="text-xs text-slate-400">
-            Basado en programas inscritos
-          </Text>
-        </div>
-        <div className="bg-blue-500 text-white p-4 border border-blue-600 rounded-md">
-          <Text className="text-blue-100">Total Pagado</Text>
-          <p className="text-2xl font-semibold">
-            {formatCurrency(totalPaid)}
-          </p>
-          <Text className="text-xs text-blue-200">
-            Suma de todos los pagos confirmados
-          </Text>
+      {/* --- DASHBOARD DE ESTADO DE CUENTA (CARDS POR PROGRAMA) --- */}
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
+          <FaUniversity className="text-blue-600" /> Estado de Cuenta por Programa
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {financialData.length > 0 ? (
+            financialData.map((prog) => {
+              const porcentaje = prog.monto_total > 0
+                ? ((prog.total_abonado / prog.monto_total) * 100).toFixed(1)
+                : 0;
+
+              const isFullyPaid = parseFloat(prog.saldo_pendiente) <= 0;
+
+              return (
+                <Card key={prog.programa_id} className="shadow-sm border-slate-200 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-bold text-slate-800 text-base leading-tight w-3/4">
+                      {prog.programa_nombre}
+                    </h4>
+                    {isFullyPaid && <Tag color="green">Paz y Salvo</Tag>}
+                  </div>
+
+                  <Divider className="my-3" />
+
+                  <div className="grid grid-cols-2 gap-y-2 text-sm mb-4">
+                    <div className="text-slate-500">Costo Total:</div>
+                    <div className="text-right font-medium">{formatCurrency(prog.monto_total)}</div>
+
+                    <div className="text-slate-500">Abonado:</div>
+                    <div className="text-right font-medium text-green-600">{formatCurrency(prog.total_abonado)}</div>
+
+                    <div className="text-slate-500 font-bold">Pendiente:</div>
+                    <div className={`text-right font-bold ${isFullyPaid ? 'text-slate-400' : 'text-red-500'}`}>
+                      {formatCurrency(prog.saldo_pendiente)}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Progress
+                      percent={parseFloat(porcentaje)}
+                      size="small"
+                      status={isFullyPaid ? "success" : "active"}
+                      strokeColor={isFullyPaid ? "#52c41a" : "#1890ff"}
+                    />
+                  </div>
+                </Card>
+              );
+            })
+          ) : (
+            <Alert message="Este estudiante no tiene programas financieros asociados." type="warning" showIcon className="col-span-3" />
+          )}
         </div>
       </div>
 
-      {/* TABLA PAGOS */}
-      <div className="bg-white rounded-md border border-slate-200 shadow-sm">
-        <div className="p-4 border-b border-slate-200">
+      {/* --- TABLA HISTORIAL --- */}
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-lg">
           <h3 className="text-base font-semibold text-slate-800 flex items-center gap-2">
-            <FaMoneyBillWave className="text-slate-400" />
-            Historial de Pagos
+            <FaMoneyBillWave className="text-slate-500" /> Historial de Transacciones
           </h3>
+          <div className="text-slate-500 text-sm">
+            Total Abonado: <span className="font-bold text-slate-800">
+              {formatCurrency(payments.filter(p => p.estado === 'Pagado').reduce((acc, curr) => acc + parseFloat(curr.monto), 0))}
+            </span>
+          </div>
         </div>
         <Table
           columns={columns}
           dataSource={payments}
           rowKey="id"
-          pagination={{ pageSize: 8, hideOnSinglePage: true }}
-          locale={{
-            emptyText: "Este estudiante aún no tiene pagos registrados.",
-          }}
+          pagination={{ pageSize: 10 }}
+          locale={{ emptyText: "No hay pagos registrados." }}
         />
       </div>
 
-      {/* MODAL NUEVO PAGO */}
+      {/* --- MODAL REGISTRO --- */}
       <Modal
-        title="Registrar Nuevo Pago"
+        title={
+          <div className="flex items-center gap-2 text-blue-700">
+            <FaWallet /> Registrar Nuevo Abono
+          </div>
+        }
         open={isModalVisible}
         onCancel={() => {
           setIsModalVisible(false);
           form.resetFields();
-          setSelectedPaymentType(null);
-          setMontoEsperadoMensualidad(null);
+          setSelectedProgramId(null);
+          setCurrentDebt(null);
         }}
         footer={null}
         destroyOnClose
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleCreatePayment}
-          initialValues={{ metodo_pago: "Transferencia" }}
-        >
-          <Form.Item
-            name="tipo_pago_nombre"
-            label="Tipo de Pago"
-            rules={[{ required: true }]}
-          >
-            <Select
-              placeholder="Seleccione un tipo"
-              onChange={(value) => setSelectedPaymentType(value)}
-            >
+        <Form form={form} layout="vertical" onFinish={handleCreatePayment} initialValues={{ metodo_pago: "Efectivo" }}>
+
+          {/* 1. TIPO DE PAGO */}
+          <Form.Item name="tipo_pago_nombre" label="Concepto / Tipo de Pago" rules={[{ required: true, message: 'Requerido' }]}>
+            <Select placeholder="Seleccione concepto">
               {paymentTypes.map((type) => (
-                <Option key={type.id} value={type.nombre}>
-                  {type.nombre}
-                </Option>
+                <Option key={type.id} value={type.nombre}>{type.nombre}</Option>
               ))}
             </Select>
           </Form.Item>
 
-          {selectedPaymentType === "Mensualidad" && (
-            <>
-              <Form.Item
-                name="program_id"
-                label="Programa"
-                rules={[{ required: true }]}
+          {/* 2. SELECCIÓN DE PROGRAMA (Obligatorio para calcular deuda) */}
+          <div className="bg-blue-50 p-3 rounded-md mb-4 border border-blue-100">
+            <Form.Item
+              name="program_id"
+              label="¿A qué programa desea abonar?"
+              rules={[{ required: true, message: 'Seleccione un programa' }]}
+              className="mb-0"
+            >
+              <Select
+                placeholder="Seleccione el programa..."
+                onChange={(val) => setSelectedProgramId(val)}
               >
-                <Select placeholder="Seleccione el programa">
-                  {/* CORRECCIÓN: Agregar '?' antes de .map y validar que sea array */}
-                  {Array.isArray(studentPrograms) && studentPrograms.map((p) => (
-                    <Option key={p.programa_id} value={p.programa_id}>
-                      {p.programa_nombre}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
+                {financialData.map(p => (
+                  <Option key={p.programa_id} value={p.programa_id}>
+                    {p.programa_nombre}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-              <Form.Item
-                name="periodo_pagado"
-                label="Período Pagado"
-                rules={[{ required: true }]}
-              >
-                <DatePicker picker="month" className="w-full" />
-              </Form.Item>
+            {/* INFORMACIÓN DE DEUDA EN TIEMPO REAL */}
+            {selectedProgramId && currentDebt !== null && (
+              <div className="mt-3 flex justify-between items-center text-sm">
+                <span className="text-slate-600">Saldo pendiente actual:</span>
+                <span className={`font-bold text-lg ${currentDebt > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                  {formatCurrency(currentDebt)}
+                </span>
+              </div>
+            )}
+          </div>
 
-              {montoEsperadoMensualidad != null && (
-                <Text type="secondary">
-                  Monto sugerido:{" "}
-                  <strong>{formatCurrency(montoEsperadoMensualidad)}</strong>
-                </Text>
-              )}
-            </>
-          )}
-
-          <Form.Item
-            name="monto"
-            label="Monto Pagado"
-            rules={[{ required: true }]}
-          >
-            <InputNumber prefix="$ " className="w-full" />
+          {/* 3. MONTO */}
+          <Form.Item name="monto" label="Monto a Abonar" rules={[{ required: true, message: 'Ingrese el monto' }]}>
+            <InputNumber
+              className="w-full"
+              prefix="$"
+              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+              parser={(value) => value.replace(/\$\s?|(,*)/g, "")}
+              size="large"
+            />
           </Form.Item>
 
-          <Form.Item
-            name="metodo_pago"
-            label="Método de Pago"
-            rules={[{ required: true }]}
-          >
-            <Input placeholder="Transferencia, Efectivo, etc." />
-          </Form.Item>
+          {/* 4. MÉTODO Y DETALLES */}
+          <div className="grid grid-cols-2 gap-4">
+            <Form.Item name="metodo_pago" label="Método de Pago" rules={[{ required: true }]}>
+              <Select>
+                <Option value="Efectivo">Efectivo</Option>
+                <Option value="Transferencia">Transferencia</Option>
+                <Option value="Tarjeta">Tarjeta</Option>
+                <Option value="Nequi">Nequi</Option>
+                <Option value="Daviplata">Daviplata</Option>
+              </Select>
+            </Form.Item>
 
-          <Form.Item
-            name="referencia_transaccion"
-            label="Referencia"
-          >
-            <Input />
-          </Form.Item>
+            <Form.Item name="referencia_transaccion" label="Referencia (Opcional)">
+              <Input placeholder="# Recibo / Ref" />
+            </Form.Item>
+          </div>
 
           <Form.Item name="observaciones" label="Observaciones">
-            <Input.TextArea rows={3} />
+            <Input.TextArea rows={2} placeholder="Notas adicionales..." />
           </Form.Item>
 
-          <Form.Item>
-            <Button type="primary" htmlType="submit" className="w-full">
-              Registrar
-            </Button>
-          </Form.Item>
+          <Button type="primary" htmlType="submit" block size="large" className="mt-2 bg-blue-600 hover:bg-blue-500">
+            Registrar Abono
+          </Button>
         </Form>
       </Modal>
     </div>
