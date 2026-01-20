@@ -49,8 +49,8 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
         }
 
         const apiUrl = import.meta.env.VITE_API_BACKEND
-          ? `${import.meta.env.VITE_API_BACKEND}/inventario/user/${currentUserId}`
-          : `https://clasit-backend-api-570877385695.us-central1.run.app/api/inventario/user/${currentUserId}`;
+          ? `${import.meta.env.VITE_API_BACKEND}/api/programas`
+          : `https://clasit-backend-api-570877385695.us-central1.run.app/api/programas`;
 
         const response = await fetch(apiUrl, {
           method: "GET",
