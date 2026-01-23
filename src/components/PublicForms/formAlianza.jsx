@@ -172,20 +172,22 @@ const StudentRegistrationForm = ({ onStudentRegistered, coordinatorId = 8 }) => 
     try {
       const values = form.getFieldsValue(true);
 
-      // Validación final de todos los campos
+      // Validación final
       await form.validateFields(steps[currentStep].fields);
 
-      // Preparar Payload
+      // Preparar Payload y CORREGIR NOMBRES
       const formattedValues = {
         ...values,
         fechaNacimiento: values.fechaNacimiento ? values.fechaNacimiento.format("YYYY-MM-DD") : null,
         programasIds: Array.isArray(values.programasIds) ? values.programasIds.map(id => parseInt(id, 10)) : [],
 
-        // --- AQUÍ ASIGNAMOS EL COORDINADOR EXPLÍCITAMENTE ---
-        coordinador_id: coordinatorId,
-        // ----------------------------------------------------
+        // ✅ CORRECCIÓN: Mapeamos el campo camelCase (Front) al snake_case (DB)
+        ultimo_curso_visto: values.ultimoCursoVisto,
 
-        // Valores por defecto para registro público
+        // Asignamos el coordinador
+        coordinador_id: coordinatorId,
+
+        // Valores por defecto
         simat: false,
         pagoMatricula: false,
         activo: true,
@@ -193,12 +195,13 @@ const StudentRegistrationForm = ({ onStudentRegistered, coordinatorId = 8 }) => 
         estado_matricula: false
       };
 
-      console.log("Enviando registro público:", formattedValues);
+      // (Opcional) Borramos la clave vieja para limpiar el objeto
+      delete formattedValues.ultimoCursoVisto;
 
-      // 4. Llamada al servicio createStudentPublic
+      console.log("Enviando registro público corregido:", formattedValues);
+
       await createStudentPublic(formattedValues);
 
-      // Éxito
       setIsSubmitted(true);
       if (onStudentRegistered) onStudentRegistered();
       window.scrollTo({ top: 0, behavior: 'smooth' });

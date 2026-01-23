@@ -73,6 +73,9 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
         fechaNacimiento: values.fechaNacimiento ? values.fechaNacimiento.format("YYYY-MM-DD") : null,
         // Asegurar que los IDs sean números
         programasIds: values.programasIds.map((id) => parseInt(id, 10)),
+
+
+        ultimo_curso_visto: values.ultimoCursoAprobado,
         // NOTA: Ya no enviamos 'coordinador_id'. El backend lo toma del Token.
       };
 
