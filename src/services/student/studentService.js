@@ -16,7 +16,7 @@ const studentsApi = axios.create({
 // 2. Interceptor: Inyecta el token automáticamente en cada petición
 studentsApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("authToken"); 
+    const token = localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -39,6 +39,31 @@ const logApiError = (context, error) => {
   }
 };
 
+
+
+export const createStudentAuthenticated = async (studentData) => {
+  try {
+    const response = await studentsApi.post("/api/students", studentData);
+    return response.data;
+  } catch (error) {
+    logApiError("Error al crear estudiante (Autenticado)", error);
+    throw error;
+  }
+};
+
+/**
+ * [PÚBLICO] Crear estudiante desde Formulario Externo.
+ * Requiere 'coordinador_id' en el payload.
+ */
+export const createStudentPublic = async (studentData) => {
+  try {
+    const response = await studentsApi.post("/api/public/students", studentData);
+    return response.data;
+  } catch (error) {
+    logApiError("Error al crear estudiante (Público)", error);
+    throw error;
+  }
+};
 // ========================= STUDENTS ========================= //
 
 // Obtener todos los estudiantes

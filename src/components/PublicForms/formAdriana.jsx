@@ -1,37 +1,23 @@
 import React, { useState, useEffect } from "react";
 import {
-  Form,
-  Input,
-  Select,
-  DatePicker,
-  Button,
-  message,
-  Spin,
-  Progress,
-  Typography,
-  Card,
-  Result // Importamos Result para la pantalla de éxito
+  Form, Input, Select, DatePicker, Button, message, Spin, Progress, Typography, Card, Result
 } from "antd";
 import {
-  UserOutlined,
-  PhoneOutlined,
-  IdcardOutlined,
-  CheckCircleFilled,
-  GlobalOutlined,
-  SmileOutlined
+  UserOutlined, PhoneOutlined, IdcardOutlined, CheckCircleFilled, GlobalOutlined, SmileOutlined
 } from "@ant-design/icons";
+
+// 1. Importamos el servicio PÚBLICO
+import { createStudentPublic } from "../../services/student/studentService";
 
 const { Option } = Select;
 const { Title, Text } = Typography;
 
-// --- Configuración ---
-const DEFAULT_COORDINATOR_ID = 3;
-const MICROSOFT_TEAL = "#610707ff";
-const API_BASE_URL = import.meta.env.VITE_API_BACKEND || "https://clasit-backend-api-570877385695.us-central1.run.app";
+const MICROSOFT_TEAL = "#080761ff";
 
-// --- Servicio ---
-const getInventarioByUser = async () => {
+// --- Servicio Local para Cargar Programas (Opcional: Mover a studentsService) ---
+const getInventarioPublico = async () => {
   try {
+    const API_BASE_URL = import.meta.env.VITE_API_BACKEND || "http://localhost:3000";
     const response = await fetch(`${API_BASE_URL}/api/programas`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
@@ -47,27 +33,26 @@ const getInventarioByUser = async () => {
   }
 };
 
-const StudentRegistrationForm = ({ onStudentRegistered }) => {
+// 2. Aceptamos coordinatorId como prop (por defecto 6)
+const StudentRegistrationForm = ({ onStudentRegistered, coordinatorId = 3 }) => {
   const [form] = Form.useForm();
   const [programas, setProgramas] = useState([]);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [loadingPrograms, setLoadingPrograms] = useState(true);
   const [currentStep, setCurrentStep] = useState(0);
-
-  // ✅ NUEVO ESTADO: Controla si el formulario ya fue enviado exitosamente
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
     const fetchProgramsData = async () => {
       setLoadingPrograms(true);
-      const data = await getInventarioByUser();
+      const data = await getInventarioPublico();
       setProgramas(data);
       setLoadingPrograms(false);
     };
     fetchProgramsData();
   }, []);
 
-  // --- Estructura de Pasos ---
+  // --- Estructura de Pasos (UI se mantiene igual) ---
   const steps = [
     {
       title: "Intereses Académicos",
@@ -75,38 +60,24 @@ const StudentRegistrationForm = ({ onStudentRegistered }) => {
       content: (
         <div className="animate-fade-in-up">
           <div className="mb-6">
-            <Title level={3} style={{ color: "#333", marginBottom: "0.5rem" }}>
-              1. Intereses Académicos
-            </Title>
+            <Title level={3} style={{ color: "#333", marginBottom: "0.5rem" }}>1. Intereses Académicos</Title>
             <Text type="secondary">Cuéntanos qué te gustaría aprender con nosotros.</Text>
           </div>
-          <Form.Item
-            name="programasIds"
-            label={<span className="text-lg font-medium text-gray-700">¿Qué programa(s) te interesa(n)?</span>}
-            rules={[{ required: true, message: "Debes seleccionar al menos un programa." }]}
-          >
-            <Select mode="multiple" placeholder="Selecciona opciones..." size="large" style={{ width: "100%" }}>
+          <Form.Item name="programasIds" label="¿Qué programa(s) te interesa(n)?" rules={[{ required: true, message: "Selecciona al menos uno." }]}>
+            <Select mode="multiple" placeholder="Selecciona opciones..." size="large">
               {programas.map((prog) => (
                 <Option key={prog.id} value={prog.id}>{prog.nombre}</Option>
               ))}
             </Select>
           </Form.Item>
-          <Form.Item
-            name="modalidad_estudio"
-            label={<span className="text-lg font-medium text-gray-700">¿Cómo prefieres estudiar?</span>}
-            rules={[{ required: true, message: "Selecciona una modalidad." }]}
-          >
-            <Select size="large" placeholder="Selecciona tu preferencia">
-              <Option value="Clases en Linea">🖥️ Clases en Línea (Virtual)</Option>
-              <Option value="Modulos por WhastApp">📱 Módulos por WhatsApp (Flexible)</Option>
+          <Form.Item name="modalidad_estudio" label="¿Cómo prefieres estudiar?" rules={[{ required: true }]}>
+            <Select size="large">
+              <Option value="Clases en Linea">🖥️ Clases en Línea</Option>
+              <Option value="Modulos por WhastApp">📱 Módulos por WhatsApp</Option>
             </Select>
           </Form.Item>
-          <Form.Item
-            name="ultimoCursoVisto"
-            label={<span className="text-lg font-medium text-gray-700">¿Cuál fue tu último curso aprobado?</span>}
-            rules={[{ required: true, message: "Selecciona tu último grado." }]}
-          >
-            <Select size="large" placeholder="Selecciona el grado">
+          <Form.Item name="ultimoCursoVisto" label="Último curso aprobado" rules={[{ required: true }]}>
+            <Select size="large">
               {Array.from({ length: 11 }, (_, i) => (
                 <Option key={i + 1} value={(i + 1).toString()}>{i + 1}° Grado</Option>
               ))}
@@ -121,35 +92,32 @@ const StudentRegistrationForm = ({ onStudentRegistered }) => {
       content: (
         <div className="animate-fade-in-up">
           <div className="mb-6">
-            <Title level={3} style={{ color: "#333", marginBottom: "0.5rem" }}>
-              2. Tus Datos Personales
-            </Title>
-            <Text type="secondary">Necesitamos estos datos para crear tu perfil.</Text>
+            <Title level={3} style={{ color: "#333", marginBottom: "0.5rem" }}>2. Tus Datos Personales</Title>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item name="nombre" label="Nombres" rules={[{ required: true, message: "Requerido" }]}>
+            <Form.Item name="nombre" label="Nombres" rules={[{ required: true }]}>
               <Input prefix={<UserOutlined />} size="large" />
             </Form.Item>
-            <Form.Item name="apellido" label="Apellidos" rules={[{ required: true, message: "Requerido" }]}>
+            <Form.Item name="apellido" label="Apellidos" rules={[{ required: true }]}>
               <Input size="large" />
             </Form.Item>
           </div>
-          <Form.Item name="email" label="Correo Electrónico" rules={[{ required: true, type: "email", message: "Email inválido" }]}>
+          <Form.Item name="email" label="Correo Electrónico" rules={[{ required: true, type: "email" }]}>
             <Input prefix={<GlobalOutlined />} size="large" />
           </Form.Item>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item name="fechaNacimiento" label="Fecha de Nacimiento" rules={[{ required: true, message: "Requerido" }]}>
+            <Form.Item name="fechaNacimiento" label="Fecha Nacimiento" rules={[{ required: true }]}>
               <DatePicker style={{ width: "100%" }} size="large" format="YYYY-MM-DD" />
             </Form.Item>
-            <Form.Item name="lugarNacimiento" label="Lugar de Nacimiento" rules={[{ required: true, message: "Requerido" }]}>
+            <Form.Item name="lugarNacimiento" label="Lugar Nacimiento" rules={[{ required: true }]}>
               <Input size="large" />
             </Form.Item>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item name="telefonoLlamadas" label="Celular (Llamadas)" rules={[{ required: true, message: "Requerido" }]}>
+            <Form.Item name="telefonoLlamadas" label="Celular" rules={[{ required: true }]}>
               <Input prefix={<PhoneOutlined />} type="number" size="large" />
             </Form.Item>
-            <Form.Item name="telefonoWhatsapp" label="Celular (WhatsApp)" rules={[{ required: true, message: "Requerido" }]}>
+            <Form.Item name="telefonoWhatsapp" label="WhatsApp" rules={[{ required: true }]}>
               <Input prefix={<PhoneOutlined />} type="number" size="large" />
             </Form.Item>
           </div>
@@ -162,12 +130,9 @@ const StudentRegistrationForm = ({ onStudentRegistered }) => {
       content: (
         <div className="animate-fade-in-up">
           <div className="mb-6">
-            <Title level={3} style={{ color: "#333", marginBottom: "0.5rem" }}>
-              3. Identificación
-            </Title>
-            <Text type="secondary">Información legal para tu certificado.</Text>
+            <Title level={3} style={{ color: "#333", marginBottom: "0.5rem" }}>3. Identificación</Title>
           </div>
-          <Form.Item name="tipoDocumento" label="Tipo de Documento" rules={[{ required: true, message: "Requerido" }]}>
+          <Form.Item name="tipoDocumento" label="Tipo Documento" rules={[{ required: true }]}>
             <Select size="large">
               <Option value="CC">Cédula de Ciudadanía</Option>
               <Option value="TI">Tarjeta de Identidad</Option>
@@ -175,10 +140,10 @@ const StudentRegistrationForm = ({ onStudentRegistered }) => {
               <Option value="PA">Pasaporte</Option>
             </Select>
           </Form.Item>
-          <Form.Item name="numeroDocumento" label="Número de Documento" rules={[{ required: true, message: "Requerido" }]}>
+          <Form.Item name="numeroDocumento" label="Número Documento" rules={[{ required: true }]}>
             <Input prefix={<IdcardOutlined />} type="number" size="large" />
           </Form.Item>
-          <Form.Item name="lugarExpedicion" label="¿Dónde fue expedido?" rules={[{ required: true, message: "Requerido" }]}>
+          <Form.Item name="lugarExpedicion" label="Lugar Expedición" rules={[{ required: true }]}>
             <Input size="large" />
           </Form.Item>
         </div>
@@ -201,41 +166,47 @@ const StudentRegistrationForm = ({ onStudentRegistered }) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // 3. Envío usando el Servicio
   const handleSubmit = async () => {
     setLoadingSubmit(true);
     try {
       const values = form.getFieldsValue(true);
+
+      // Validación final de todos los campos
       await form.validateFields(steps[currentStep].fields);
 
+      // Preparar Payload
       const formattedValues = {
         ...values,
         fechaNacimiento: values.fechaNacimiento ? values.fechaNacimiento.format("YYYY-MM-DD") : null,
         programasIds: Array.isArray(values.programasIds) ? values.programasIds.map(id => parseInt(id, 10)) : [],
-        coordinador_id: DEFAULT_COORDINATOR_ID,
-        simat: false, pagoMatricula: false, activo: true, posibleGraduacion: false,
-        eps: null, rh: null, nombreAcudiente: null, tipoDocumentoAcudiente: null,
-        telefonoAcudiente: null, direccionAcudiente: null, estado_matricula: false
+
+        // --- AQUÍ ASIGNAMOS EL COORDINADOR EXPLÍCITAMENTE ---
+        coordinador_id: coordinatorId,
+        // ----------------------------------------------------
+
+        // Valores por defecto para registro público
+        simat: false,
+        pagoMatricula: false,
+        activo: true,
+        posibleGraduacion: false,
+        estado_matricula: false
       };
 
-      const response = await fetch(`${API_BASE_URL}/api/students`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formattedValues),
-      });
+      console.log("Enviando registro público:", formattedValues);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Error al guardar");
-      }
+      // 4. Llamada al servicio createStudentPublic
+      await createStudentPublic(formattedValues);
 
-      // ✅ ÉXITO: Cambiamos el estado para mostrar la pantalla final
+      // Éxito
       setIsSubmitted(true);
-      onStudentRegistered?.();
+      if (onStudentRegistered) onStudentRegistered();
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
     } catch (error) {
       console.error("Error Submit:", error);
-      message.error(`Error: ${error.message}`);
+      const msg = error.response?.data?.error || error.message || "Error al guardar";
+      message.error(`Error: ${msg}`);
     } finally {
       setLoadingSubmit(false);
     }
@@ -243,49 +214,33 @@ const StudentRegistrationForm = ({ onStudentRegistered }) => {
 
   const progressPercent = Math.round(((currentStep) / steps.length) * 100);
 
-  // ✅ RENDERIZADO CONDICIONAL: Si ya se envió, mostrar pantalla de éxito
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-[#f0f2f5] py-8 px-4 flex flex-col items-center justify-center font-sans">
-        <Card className="w-full max-w-2xl shadow-lg rounded-lg overflow-hidden border-0 text-center py-10">
+        <Card className="w-full max-w-2xl shadow-lg rounded-lg border-0 text-center py-10">
           <Result
             icon={<SmileOutlined style={{ color: MICROSOFT_TEAL }} />}
             status="success"
             title="¡Gracias! Tu respuesta ha sido enviada."
-            subTitle="Hemos recibido tu inscripción correctamente. Un asesor académico revisará tu información y te contactará por WhatsApp muy pronto."
+            subTitle="Hemos recibido tu inscripción correctamente."
             extra={[
-              <Button
-                type="primary"
-                key="console"
-                size="large"
-                onClick={() => window.location.href = 'https://wa.me/'} // Opcional: llevar a WhatsApp
-                style={{ backgroundColor: MICROSOFT_TEAL, borderColor: MICROSOFT_TEAL }}
-              >
-                Contactar Soporte
+              <Button type="primary" key="console" size="large" onClick={() => window.location.reload()} style={{ backgroundColor: MICROSOFT_TEAL }}>
+                Nueva Inscripción
               </Button>
             ]}
           />
-          <div className="mt-4 text-gray-400 text-sm">
-            Ya puedes cerrar esta página.
-          </div>
         </Card>
       </div>
     );
   }
 
-  // Renderizado normal del formulario
   return (
     <div className="min-h-screen bg-[#f0f2f5] py-8 px-4 flex flex-col items-center font-sans">
-      <Card
-        className="w-full max-w-3xl shadow-md rounded-t-lg overflow-hidden mb-4 border-0"
-        bodyStyle={{ padding: 0 }}
-      >
+      <Card className="w-full max-w-3xl shadow-md rounded-t-lg overflow-hidden mb-4 border-0" bodyStyle={{ padding: 0 }}>
         <div style={{ backgroundColor: MICROSOFT_TEAL, height: "10px", width: "100%" }}></div>
         <div className="p-8 bg-white">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Formulario de Inscripción</h1>
-          <p className="text-gray-500 text-base">
-            Completa tu información para iniciar el proceso.
-          </p>
+          <p className="text-gray-500 text-base">Completa tu información para iniciar el proceso.</p>
         </div>
       </Card>
 
@@ -307,21 +262,13 @@ const StudentRegistrationForm = ({ onStudentRegistered }) => {
               ) : <div></div>}
 
               {currentStep < steps.length - 1 && (
-                <Button
-                  type="primary" onClick={next} size="large"
-                  style={{ backgroundColor: MICROSOFT_TEAL, borderColor: MICROSOFT_TEAL }}
-                  className="px-8"
-                >
+                <Button type="primary" onClick={next} size="large" style={{ backgroundColor: MICROSOFT_TEAL }} className="px-8">
                   Siguiente
                 </Button>
               )}
 
               {currentStep === steps.length - 1 && (
-                <Button
-                  type="primary" onClick={handleSubmit} loading={loadingSubmit} size="large"
-                  style={{ backgroundColor: MICROSOFT_TEAL, borderColor: MICROSOFT_TEAL }}
-                  className="px-8 flex items-center gap-2"
-                >
+                <Button type="primary" onClick={handleSubmit} loading={loadingSubmit} size="large" style={{ backgroundColor: MICROSOFT_TEAL }} className="px-8 flex items-center gap-2">
                   <CheckCircleFilled /> Enviar
                 </Button>
               )}
