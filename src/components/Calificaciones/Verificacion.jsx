@@ -96,7 +96,7 @@ const CourseCard = ({ courseName, userData, onDownload, downloading }) => {
 
       <div className="p-6">
         <h3 className="text-lg font-extrabold text-[#003366] leading-snug mb-2 font-serif">
-          {courseName}
+          Curso Manipulación de Alimentos (BPM)
         </h3>
 
         {/* Sección Legal con énfasis en Validez Nacional */}
