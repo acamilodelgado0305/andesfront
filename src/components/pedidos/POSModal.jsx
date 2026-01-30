@@ -4,15 +4,16 @@ import {
 } from "antd";
 import {
     CloseOutlined, ShoppingCartOutlined, AppstoreOutlined, SearchOutlined,
-    PlusOutlined, MinusOutlined, ShopOutlined, UserOutlined
+    PlusOutlined, MinusOutlined, ShopOutlined, UserOutlined, FileTextOutlined
 } from "@ant-design/icons";
 
 // SERVICIOS
-import { getInventario } from "../../services/inventario/inventarioService"; // Ajusta tu ruta
-import { getPersonas } from "../../services/person/personaService";     // Ajusta tu ruta
-import { createPedido, updatePedido, getPedidoById } from "../../services/pedido/pedidoService"; // Ajusta tu ruta
+import { getInventario } from "../../services/inventario/inventarioService";
+import { getPersonas } from "../../services/person/personaService";
+import { createPedido, updatePedido, getPedidoById } from "../../services/pedido/pedidoService";
 
 const { Option } = Select;
+const { TextArea } = Input; // <--- Importamos TextArea
 
 // Estilos CSS para el Modal Full Screen
 const modalStyles = `
@@ -33,6 +34,7 @@ const POSModal = ({ visible, onClose, onSaved, orderIdToEdit }) => {
     // --- ESTADOS DE VENTA ---
     const [carrito, setCarrito] = useState([]);
     const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
+    const [observaciones, setObservaciones] = useState(""); // <--- NUEVO ESTADO
     const [busquedaProducto, setBusquedaProducto] = useState("");
     const [procesando, setProcesando] = useState(false);
 
@@ -44,6 +46,7 @@ const POSModal = ({ visible, onClose, onSaved, orderIdToEdit }) => {
             // Limpiar al cerrar
             setCarrito([]);
             setClienteSeleccionado(null);
+            setObservaciones(""); // <--- LIMPIAR OBSERVACIONES
             setBusquedaProducto("");
             setViewMobile("catalogo");
         }
@@ -63,6 +66,7 @@ const POSModal = ({ visible, onClose, onSaved, orderIdToEdit }) => {
                 const items = data.items || data.items_detalle || [];
 
                 setClienteSeleccionado(pedido.persona_id);
+                setObservaciones(pedido.observaciones || ""); // <--- CARGAR OBSERVACIONES
 
                 const carritoMap = items.map(i => ({
                     id: i.inventario_id,
@@ -72,7 +76,7 @@ const POSModal = ({ visible, onClose, onSaved, orderIdToEdit }) => {
                     imagen_url: i.imagen_url || null
                 }));
                 setCarrito(carritoMap);
-                setViewMobile("carrito"); // Ir directo al carrito al editar
+                setViewMobile("carrito");
             }
         } catch (error) {
             message.error("Error cargando datos del POS");
@@ -107,7 +111,8 @@ const POSModal = ({ visible, onClose, onSaved, orderIdToEdit }) => {
         try {
             const payload = {
                 persona_id: clienteSeleccionado,
-                items: carrito.map(p => ({ inventario_id: p.id, cantidad: p.cantidad }))
+                items: carrito.map(p => ({ inventario_id: p.id, cantidad: p.cantidad })),
+                observaciones: observaciones // <--- ENVIAR AL BACKEND
             };
 
             if (orderIdToEdit) {
@@ -117,8 +122,8 @@ const POSModal = ({ visible, onClose, onSaved, orderIdToEdit }) => {
                 await createPedido(payload);
                 notification.success({ message: 'Venta Registrada' });
             }
-            onSaved(); // Notificar al padre para recargar lista
-            onClose(); // Cerrar modal
+            onSaved();
+            onClose();
         } catch (error) {
             notification.error({ message: 'Error procesando la venta', description: error.message });
         } finally {
@@ -187,8 +192,10 @@ const POSModal = ({ visible, onClose, onSaved, orderIdToEdit }) => {
                             </div>
                         </div>
 
-                        {/* DERECHA: CARRITO */}
+                        {/* DERECHA: CARRITO Y OBSERVACIONES */}
                         <div className={`flex flex-col w-full md:w-1/3 h-full bg-gray-50 border-l border-gray-200 transition-transform duration-300 absolute md:relative ${viewMobile === 'carrito' ? 'translate-x-0 z-30' : 'translate-x-full md:translate-x-0 z-0'}`}>
+
+                            {/* Lista Items */}
                             <div className="flex-1 overflow-y-auto p-3 pb-4">
                                 {carrito.length === 0 ? (
                                     <div className="h-full flex flex-col items-center justify-center text-gray-400">
@@ -213,14 +220,32 @@ const POSModal = ({ visible, onClose, onSaved, orderIdToEdit }) => {
                                     ))
                                 )}
                             </div>
+
+                            {/* Panel Inferior: Cliente + Observaciones + Total + Botón */}
                             <div className="bg-white p-4 border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-40">
-                                <Select showSearch placeholder="Buscar Cliente..." className="w-full mb-3" size="large" value={clienteSeleccionado} onChange={setClienteSeleccionado} onSearch={val => getPersonas({ q: val }).then(r => setClientes(r))} filterOption={false} suffixIcon={<UserOutlined />}>
+
+                                {/* 1. Selector Cliente */}
+                                <Select showSearch placeholder="Buscar Cliente..." className="w-full mb-2" size="large" value={clienteSeleccionado} onChange={setClienteSeleccionado} onSearch={val => getPersonas({ q: val }).then(r => setClientes(r))} filterOption={false} suffixIcon={<UserOutlined />}>
                                     {clientes.map(c => <Option key={c.id} value={c.id}>{c.nombre} {c.apellido}</Option>)}
                                 </Select>
+
+                                {/* 2. Campo de Observaciones (NUEVO) */}
+                                <TextArea
+                                    placeholder="Observaciones (ej: Sin salsa, Entregar tarde...)"
+                                    className="mb-3"
+                                    rows={2}
+                                    value={observaciones}
+                                    onChange={(e) => setObservaciones(e.target.value)}
+                                    maxLength={250}
+                                />
+
+                                {/* 3. Totales */}
                                 <div className="flex justify-between items-end mb-3">
                                     <span className="text-gray-500 font-medium">Total a Pagar</span>
                                     <span className="text-3xl font-black text-[#155153]">{formatCurrency(totalCarrito)}</span>
                                 </div>
+
+                                {/* 4. Botón Acción */}
                                 <Button type="primary" block size="large" className="h-12 text-lg font-bold bg-[#155153] shadow-lg shadow-teal-900/20" onClick={handleGuardar} loading={procesando}>
                                     {orderIdToEdit ? 'ACTUALIZAR PEDIDO' : 'COBRAR VENTA'}
                                 </Button>
