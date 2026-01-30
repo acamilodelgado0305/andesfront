@@ -103,4 +103,16 @@ export const getOrderStats = async () => {
     return response.data;
 };
 
+
+export const realizarCierre = async (observaciones = "") => {
+    // Se envía como POST a /pedidos/cierre
+    const response = await pedidoApi.post('/pedidos/cierre', { observaciones });
+    return response.data;
+};
+
+export const getCierres = async () => {
+    const response = await pedidoApi.get('/pedidos/historial-cierres');
+    return response.data;
+};
+
 export default pedidoApi;
