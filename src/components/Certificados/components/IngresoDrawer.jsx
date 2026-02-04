@@ -23,6 +23,7 @@ const tipoDocumentoOptions = [
     { value: 'Pasaporte', label: 'Pasaporte' },
     { value: 'C.E', label: 'C.E' },
     { value: 'PPT', label: 'PPT' },
+    { value: 'NIT', label: 'NIT' },
 ];
 
 const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
@@ -92,7 +93,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                 ...initialValues,
                 tipo: tipoValue, 
                 nombreCompleto: `${initialValues.nombre || ''} ${initialValues.apellido || ''}`.trim(),
-                tipoDeDocumento: initialValues.tipoDeDocumento || 'C.C',
+                tipoDeDocumento: initialValues.tipoDeDocumento || initialValues.tipoDocumento || 'C.C',
             });
         }
     }, [open, initialValues, form]);
@@ -115,7 +116,10 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                     dataToSend.apellido = partesNombre[partesNombre.length - 1]; 
                 } else {
                     dataToSend.nombre = partesNombre[0] || 'Cliente';
-                    dataToSend.apellido = '.'; 
+                    dataToSend.apellido = '.';
+                }
+                if (values.tipoDeDocumento) {
+                    dataToSend.tipoDocumento = values.tipoDeDocumento;
                 }
             } else {
                 // Valores por defecto si no hay cliente específico
@@ -123,6 +127,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                 dataToSend.apellido = 'General';
                 dataToSend.numeroDeDocumento = '0';
                 dataToSend.tipoDeDocumento = 'N/A';
+                dataToSend.tipoDocumento = 'N/A';
             }
             
             delete dataToSend.nombreCompleto;
@@ -322,3 +327,4 @@ const inventarioOptions = listaInventario.map(item => ({
 };
 
 export default IngresoDrawer;
+

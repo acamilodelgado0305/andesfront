@@ -4,7 +4,7 @@ import { ArrowUpOutlined, ArrowDownOutlined, WalletOutlined } from '@ant-design/
 import moment from 'moment';
 
 const DashboardStats = ({ ingresos, egresos, dateRange, filters = {} }) => {
-  const { payment, product, day } = filters; // <- nuevos filtros
+  const { payment, product } = filters; // <- nuevos filtros
 
   const stats = useMemo(() => {
     const start = dateRange[0];
@@ -19,7 +19,6 @@ const DashboardStats = ({ ingresos, egresos, dateRange, filters = {} }) => {
       if (!inDate) return false;
 
       if (payment && i.cuenta !== payment) return false;
-      if (day && moment(i.createdAt).date() !== day) return false;
 
       if (product) {
         const concept = getConcept(i);
@@ -35,7 +34,6 @@ const DashboardStats = ({ ingresos, egresos, dateRange, filters = {} }) => {
       if (!inDate) return false;
 
       if (payment && e.cuenta !== payment) return false;
-      if (day && moment(e.fecha).date() !== day) return false;
 
       return true;
     });
@@ -62,7 +60,7 @@ const DashboardStats = ({ ingresos, egresos, dateRange, filters = {} }) => {
       margen,
       countVentas: filteredIngresos.length,
     };
-  }, [ingresos, egresos, dateRange, payment, product, day]);
+  }, [ingresos, egresos, dateRange, payment, product]);
 
   const currencyFormatter = (val) =>
     `$ ${new Intl.NumberFormat('es-CO').format(val)}`;

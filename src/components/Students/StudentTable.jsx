@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Table,
   Input,
@@ -14,7 +14,7 @@ import {
   DatePicker,
   Tooltip,
 } from "antd";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   DeleteOutlined,
   WhatsAppOutlined,
@@ -34,17 +34,54 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
+const STORAGE_KEY = "students_filters";
+
 const StudentTable = ({ onDelete, students = [], loading = false }) => {
-  const [filters, setFilters] = useState({
-    searchText: {},
-    selectedStatus: null,
-    selectedCoordinator: null,
-    dateRange: null,
-    predefinedDate: null,
-    selectedGraduation: null, // ✅ filtro candidatos a grado
+  const [filters, setFilters] = useState(() => {
+    if (typeof window === "undefined") {
+      return {
+        searchText: {},
+        selectedStatus: null,
+        selectedCoordinator: [],
+        dateRange: null,
+        predefinedDate: null,
+        selectedGraduation: null, // filtro candidatos a grado
+        selectedProgram: [],
+        selectedModalidad: [],
+      };
+    }
+    try {
+      const raw = window.sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) throw new Error("no-cache");
+      const saved = JSON.parse(raw);
+      return {
+        searchText: saved.searchText || {},
+        selectedStatus: saved.selectedStatus || null,
+        selectedCoordinator: saved.selectedCoordinator || [],
+        dateRange: Array.isArray(saved.dateRange)
+          ? [moment(saved.dateRange[0]), moment(saved.dateRange[1])]
+          : null,
+        predefinedDate: saved.predefinedDate || null,
+        selectedGraduation: saved.selectedGraduation || null,
+        selectedProgram: saved.selectedProgram || [],
+        selectedModalidad: saved.selectedModalidad || [],
+      };
+    } catch (e) {
+      return {
+        searchText: {},
+        selectedStatus: null,
+        selectedCoordinator: [],
+        dateRange: null,
+        predefinedDate: null,
+        selectedGraduation: null,
+        selectedProgram: [],
+        selectedModalidad: [],
+      };
+    }
   });
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Coordinadores únicos
   const coordinators = useMemo(() => {
@@ -54,7 +91,24 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
       ),
     ];
   }, [students]);
+  const programOptions = useMemo(() => {
+    const set = new Set();
+    students.forEach((s) => {
+      if (s.programa_nombre) set.add(s.programa_nombre);
+      (s.programas_asociados || []).forEach((p) => {
+        if (p?.nombre) set.add(p.nombre);
+      });
+    });
+    return Array.from(set);
+  }, [students]);
 
+  const modalidadOptions = useMemo(() => {
+    const set = new Set();
+    students.forEach((s) => {
+      if (s.modalidad_estudio) set.add(s.modalidad_estudio);
+    });
+    return Array.from(set);
+  }, [students]);
   const getCoordinatorTagColor = (name) => {
     if (!name) return "default";
     const lower = name.toLowerCase();
@@ -91,6 +145,17 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
     });
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const payload = {
+      ...filters,
+      dateRange: filters.dateRange
+        ? [filters.dateRange[0]?.toISOString(), filters.dateRange[1]?.toISOString()]
+        : null,
+    };
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [filters]);
+
   // Datos filtrados
   const filteredData = useMemo(() => {
     if (!Array.isArray(students)) return [];
@@ -104,6 +169,8 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
           dateRange,
           predefinedDate,
           selectedGraduation,
+          selectedProgram,
+          selectedModalidad,
         } = filters;
 
         // Filtro por texto (por columna)
@@ -134,9 +201,33 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
           : true;
 
         // Filtro por coordinador
-        const coordinatorMatch = selectedCoordinator
-          ? student.coordinador_nombre === selectedCoordinator
+        const coordinatorMatch = Array.isArray(selectedCoordinator) && selectedCoordinator.length > 0
+          ? selectedCoordinator.includes(student.coordinador_nombre)
           : true;
+
+        // Filtro por programa
+        let programMatch = true;
+        if (Array.isArray(selectedProgram) && selectedProgram.length > 0) {
+          const programNames =
+            student.programa_nombre ||
+            (student.programas_asociados || [])
+              .map((p) => p.nombre)
+              .join(" ");
+          programMatch = programNames
+            ? selectedProgram.some((p) =>
+                programNames.toLowerCase().includes(p.toLowerCase())
+              )
+            : false;
+        }
+
+        // Filtro por modalidad
+        let modalidadMatch = true;
+        if (Array.isArray(selectedModalidad) && selectedModalidad.length > 0) {
+          const modalidad = (student.modalidad_estudio || "").toLowerCase();
+          modalidadMatch = selectedModalidad.some(
+            (m) => modalidad === m.toLowerCase()
+          );
+        }
 
         // Filtro por fecha inscripción
         let dateMatch = true;
@@ -183,6 +274,8 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
           searchMatch &&
           statusMatch &&
           coordinatorMatch &&
+          programMatch &&
+          modalidadMatch &&
           dateMatch &&
           graduationMatch
         );
@@ -556,7 +649,9 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
               icon={<EyeOutlined />}
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/inicio/students/view/${record.id}`);
+                navigate(`/inicio/students/view/${record.id}`, {
+                  state: { from: `${location.pathname}${location.search}` },
+                });
               }}
             />
           </Tooltip>
@@ -652,7 +747,49 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
           </Select>
 
           <Select
-            style={{ width: 200 }}
+            mode="multiple"
+            style={{ width: 220 }}
+            placeholder="Modalidad"
+            allowClear
+            onChange={(value) =>
+              handleFilterChange(value, "selectedModalidad")
+            }
+            value={filters.selectedModalidad}
+          >
+            {['Clases en Linea', 'Modulos por WhastApp', ...modalidadOptions].map((m) => (
+              <Option key={m} value={m}>
+                {m}
+              </Option>
+            ))}
+          </Select>
+
+          <Select
+            mode="multiple"
+            style={{ width: 240 }}
+            placeholder="Programa"
+            allowClear
+            onChange={(value) =>
+              handleFilterChange(value, "selectedProgram")
+            }
+            value={filters.selectedProgram}
+            showSearch
+            optionFilterProp="children"
+            filterOption={(input, option) =>
+              (option?.children || "")
+                .toLowerCase()
+                .includes(input.toLowerCase())
+            }
+          >
+            {programOptions.map((p) => (
+              <Option key={p} value={p}>
+                {p}
+              </Option>
+            ))}
+          </Select>
+
+          <Select
+            mode="multiple"
+            style={{ width: 220 }}
             placeholder="Coordinador"
             allowClear
             onChange={(value) =>
@@ -673,7 +810,6 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
               </Option>
             ))}
           </Select>
-
           <Select
             style={{ width: 220 }}
             placeholder="Posible graduación"
@@ -686,7 +822,6 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
             <Option value="candidato">Candidatos a grado</Option>
             <Option value="no_candidato">No candidatos</Option>
           </Select>
-
           <Select
             style={{ width: 200 }}
             placeholder="Fecha inscripción"
@@ -838,8 +973,10 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
               "No hay estudiantes disponibles que coincidan con los filtros.",
           }}
           onRow={(record) => ({
-            onClick: () =>
-              navigate(`/inicio/students/view/${record.id}`),
+          onClick: () =>
+              navigate(`/inicio/students/view/${record.id}`, {
+                state: { from: `${location.pathname}${location.search}` },
+              }),
           })}
           rowClassName="cursor-pointer"
           bordered
@@ -871,3 +1008,10 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
 };
 
 export default StudentTable;
+
+
+
+
+
+
+

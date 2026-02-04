@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
     Layout, Typography, Row, Col, Card, Button, Avatar, Badge,
-    Spin, Modal, message, Statistic, Select, Table, List, Tag, Tabs
+    Spin, Modal, message, Statistic, Select, Table, List, Tag, Tabs, Input
 } from "antd";
 import {
     PlusOutlined, ShoppingCartOutlined, UserOutlined,
@@ -67,6 +67,7 @@ const PedidosDashboard = () => {
     const [modalHistorialOpen, setModalHistorialOpen] = useState(false);
     const [listaCierres, setListaCierres] = useState([]);
     const [loadingHistorial, setLoadingHistorial] = useState(false);
+    const [busquedaPedido, setBusquedaPedido] = useState("");
 
     // --- ESTADOS DETALLE HISTORICO ---
     const [modalDetalleCierreOpen, setModalDetalleCierreOpen] = useState(false);
@@ -206,10 +207,81 @@ const PedidosDashboard = () => {
 
     const generarReporteControlActual = () => {
         const doc = new jsPDF();
-        doc.text("Consolidado Actual", 10, 10);
-        autoTable(doc, { head: [['Producto', 'Total']], body: listaConsolidada.map(i => [i.nombre, i.cantidad]) });
+        const fechaActual = new Date();
+        const totalAcumulado = stats?.general?.total_ingresos || 0;
+        const totalPedidos = pedidos.length;
+        const totalProductosConsolidados = listaConsolidada.reduce((acc, item) => acc + Number(item.cantidad || 0), 0);
+
+        doc.setFontSize(16);
+        doc.text("Reporte del pedido actual", 105, 15, null, null, "center");
+        doc.setDrawColor(21, 81, 83);
+        doc.line(10, 20, 200, 20);
+
+        doc.setFontSize(10);
+        doc.text(`Fecha: ${fechaActual.toLocaleString()}`, 10, 28);
+        doc.text(`Total acumulado: ${formatCurrency(totalAcumulado)}`, 10, 34);
+        doc.text(`Pedidos: ${totalPedidos}`, 120, 28);
+        doc.text(`Unidades consolidadas: ${totalProductosConsolidados}`, 120, 34);
+
+        autoTable(doc, {
+            startY: 42,
+            head: [['Producto', 'Cantidad']],
+            body: listaConsolidada.map(i => [i.nombre, i.cantidad]),
+            theme: 'grid',
+            headStyles: { fillColor: [21, 81, 83] },
+            styles: { fontSize: 10, cellPadding: 3 }
+        });
+
+        const nextY = (doc.lastAutoTable?.finalY || 42) + 8;
+        autoTable(doc, {
+            startY: nextY,
+            head: [['Cliente', 'Total pedido']],
+            body: pedidos.map(p => [p.cliente_nombre || '-', formatCurrency(p.total)]),
+            theme: 'grid',
+            headStyles: { fillColor: [21, 81, 83] },
+            styles: { fontSize: 10, cellPadding: 3 }
+        });
+
+        let detalleY = (doc.lastAutoTable?.finalY || nextY) + 10;
+        pedidos.forEach((p, idx) => {
+            let items = [];
+            try {
+                items = typeof p.items_detalle === 'string'
+                    ? JSON.parse(p.items_detalle)
+                    : (p.items_detalle || []);
+            } catch (e) {
+                items = [];
+            }
+
+            if (detalleY > 260) {
+                doc.addPage();
+                detalleY = 20;
+            }
+
+            doc.setFontSize(12);
+            doc.text(`Pedido #${p.id} - ${p.cliente_nombre || 'Cliente'}`, 10, detalleY);
+            doc.setFontSize(10);
+            doc.text(`Total: ${formatCurrency(p.total)}`, 10, detalleY + 6);
+
+            autoTable(doc, {
+                startY: detalleY + 10,
+                head: [['Producto', 'Cantidad']],
+                body: items.map(i => [i.producto || i.nombre || '-', i.cantidad || 0]),
+                theme: 'striped',
+                headStyles: { fillColor: [21, 81, 83] },
+                styles: { fontSize: 9, cellPadding: 2 }
+            });
+
+            detalleY = (doc.lastAutoTable?.finalY || (detalleY + 10)) + 10;
+        });
         doc.save("Consolidado_Actual.pdf");
     };
+
+    const pedidosFiltrados = pedidos.filter(p => {
+        if (!busquedaPedido.trim()) return true;
+        const nombre = (p.cliente_nombre || "").toString().toLowerCase();
+        return nombre.includes(busquedaPedido.trim().toLowerCase());
+    });
 
     return (
         <Layout className="min-h-screen bg-gray-50">
@@ -219,44 +291,51 @@ const PedidosDashboard = () => {
 
                 {/* HEADER */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                    <div>
-                        <Title level={3} style={{ margin: 0, color: '#155153' }}>Dashboard POS</Title>
-                        <Text type="secondary">Turno Actual</Text>
+                    <div className="w-full md:w-auto">
+                        <Title level={3} style={{ margin: 0, color: '#155153' }}>Dashboard de Pedidos</Title>
+                        <Text type="secondary">Pedidos actuales</Text>
                     </div>
-                    {/* Botones responsivos: flex-wrap permite que bajen si no caben */}
-                    <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                        <Button icon={<HistoryOutlined />} onClick={abrirHistorial} className="flex-1 md:flex-none">Historial</Button>
-                        <Button danger icon={<LockOutlined />} onClick={handleCerrarCaja} className="flex-1 md:flex-none">Cerrar</Button>
-                        <Button className="bg-orange-500 text-white border-none flex-1 md:flex-none" icon={<FileTextOutlined />} onClick={() => setModalConsolidadoOpen(true)}>Consolidado</Button>
-                        <Button type="primary" className="bg-[#155153] w-full md:w-auto mt-2 md:mt-0" icon={<PlusOutlined />} size="large" onClick={() => { setEditingOrderId(null); setIsPosOpen(true); }}>Nueva Venta</Button>
+                    <div className="w-full md:max-w-sm">
+                        <Input
+                            placeholder="Buscar por nombre de cliente"
+                            allowClear
+                            value={busquedaPedido}
+                            onChange={(e) => setBusquedaPedido(e.target.value)}
+                        />
+                    </div>
+                    <div className="w-full md:w-auto">
+                        <Button type="primary" className="bg-[#155153] w-full md:w-auto h-10" icon={<PlusOutlined />} size="large" onClick={() => { setEditingOrderId(null); setIsPosOpen(true); }}>Nuevo Pedido</Button>
                     </div>
                 </div>
 
                 {/* WIDGETS */}
                 {stats && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <Card className="shadow-sm border-l-4 border-green-500 rounded-lg">
-                            <Statistic title="Ingresos Turno" value={stats.general?.total_ingresos || 0} prefix="$" groupSeparator="." precision={0} />
+                            <Statistic title="Total acumulado en pedidos" value={stats.general?.total_ingresos || 0} prefix="$" groupSeparator="." precision={0} />
                         </Card>
                         <Card className="shadow-sm border-l-4 border-orange-400 rounded-lg">
-                            <Statistic title="Pendientes" value={stats.por_estado?.find(e => e.name === 'PENDIENTE')?.value || 0} prefix={<ShoppingCartOutlined />} />
-                        </Card>
-                        <Card className="shadow-sm border-l-4 border-blue-500 rounded-lg">
-                            <Statistic title="Unidades" value={stats.general?.total_unidades || 0} prefix={<AppstoreOutlined />} />
+                            <Statistic title="Pedidos pendientes" value={stats.por_estado?.find(e => e.name === 'PENDIENTE')?.value || 0} prefix={<ShoppingCartOutlined />} />
                         </Card>
                     </div>
                 )}
 
+                <div className="flex flex-wrap gap-2 w-full mb-6 justify-start">
+                    <Button icon={<HistoryOutlined />} onClick={abrirHistorial} className="h-8 px-3 text-xs">Historial de pedidos</Button>
+                    <Button danger icon={<LockOutlined />} onClick={handleCerrarCaja} className="h-8 px-3 text-xs">Cerrar pedido actual</Button>
+                    <Button className="bg-orange-500 text-white border-none h-8 px-3 text-xs" icon={<FileTextOutlined />} onClick={() => setModalConsolidadoOpen(true)}>Reporte del pedido</Button>
+                </div>
+
                 {/* LISTADO ACTUAL */}
                 {loading ? <div className="text-center py-20"><Spin size="large" /></div> : (
-                    pedidos.length === 0 ? (
+                    pedidosFiltrados.length === 0 ? (
                         <div className="text-center py-20 text-gray-400">
                             <CheckCircleOutlined className="text-6xl mb-4 opacity-20" />
                             <p>Todo limpio. ¡Listo para nuevas ventas!</p>
                         </div>
                     ) : (
                         <Row gutter={[12, 12]}>
-                            {pedidos.map(p => (
+                            {pedidosFiltrados.map(p => (
                                 <Col xs={24} sm={12} lg={8} xl={6} key={p.id}>
                                     <Badge.Ribbon text={p.estado} color={p.estado === 'PENDIENTE' ? 'orange' : 'green'}>
                                         <Card hoverable className="rounded-xl shadow-sm border-gray-200" bodyStyle={{ padding: '12px' }}>
@@ -297,7 +376,39 @@ const PedidosDashboard = () => {
                 <POSModal visible={isPosOpen} onClose={() => setIsPosOpen(false)} onSaved={cargarTodo} orderIdToEdit={editingOrderId} />
 
                 <Modal title="Consolidado Actual" open={modalConsolidadoOpen} onCancel={() => setModalConsolidadoOpen(false)} footer={null} wrapClassName="responsive-modal">
-                    <Table dataSource={listaConsolidada} columns={[{ title: 'Producto', dataIndex: 'nombre' }, { title: 'Cant.', dataIndex: 'cantidad', align: 'center' }]} pagination={false} size="small" scroll={{ y: 300 }} />
+                    <div className="bg-white border border-gray-200 rounded-md p-4 text-xs text-gray-700 mb-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                                <div className="text-gray-400 uppercase tracking-wide">Fecha</div>
+                                <div className="font-semibold">{new Date().toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <div className="text-gray-400 uppercase tracking-wide">Total acumulado</div>
+                                <div className="font-semibold">{formatCurrency(stats?.general?.total_ingresos || 0)}</div>
+                            </div>
+                            <div>
+                                <div className="text-gray-400 uppercase tracking-wide">Pedidos</div>
+                                <div className="font-semibold">{pedidos.length}</div>
+                            </div>
+                            <div>
+                                <div className="text-gray-400 uppercase tracking-wide">Unidades consolidadas</div>
+                                <div className="font-semibold">{listaConsolidada.reduce((acc, item) => acc + Number(item.cantidad || 0), 0)}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <Table dataSource={listaConsolidada} columns={[{ title: 'Producto', dataIndex: 'nombre' }, { title: 'Cant.', dataIndex: 'cantidad', align: 'center' }]} pagination={false} size="small" scroll={{ y: 260 }} />
+                    <div className="mt-3 text-xs font-semibold text-gray-600">Detalle por cliente</div>
+                    <Table
+                        dataSource={pedidos}
+                        columns={[
+                            { title: 'Cliente', dataIndex: 'cliente_nombre', ellipsis: true },
+                            { title: 'Total', dataIndex: 'total', align: 'right', render: (val) => formatCurrency(val), width: 120 },
+                        ]}
+                        rowKey="id"
+                        pagination={{ pageSize: 5 }}
+                        size="small"
+                        scroll={{ y: 200 }}
+                    />
                     <Button type="primary" danger block icon={<FilePdfOutlined />} onClick={generarReporteControlActual} className="mt-4">Descargar PDF</Button>
                 </Modal>
 

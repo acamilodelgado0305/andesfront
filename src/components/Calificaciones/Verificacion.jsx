@@ -209,7 +209,12 @@ const Verificacion = () => {
     });
 
     try {
-      const { nombre, apellido, numeroDeDocumento, tipoDeDocumento } = studentData;
+      const { nombre, apellido, numeroDeDocumento } = studentData;
+      const tipoDocumento =
+        studentData.tipoDeDocumento ||
+        studentData.tipoDocumento ||
+        studentData.tipo_documento ||
+        'C.C';
       const fullName = `${nombre} ${apellido}`;
 
       // Determinación de Endpoints
@@ -230,7 +235,7 @@ const Verificacion = () => {
         requestOptions.body = JSON.stringify({
           nombre: fullName,
           numeroDocumento: numeroDeDocumento,
-          tipoDocumento: tipoDeDocumento || 'C.C',
+          tipoDocumento: tipoDocumento,
           curso: courseName,
           intensidadHoraria: intensity // Se envía la intensidad calculada o por defecto (10)
         });
@@ -238,7 +243,7 @@ const Verificacion = () => {
         const fd = new FormData();
         fd.append('nombre', fullName);
         fd.append('numeroDocumento', numeroDeDocumento);
-        fd.append('tipoDocumento', tipoDeDocumento || 'C.C');
+        fd.append('tipoDocumento', tipoDocumento);
         fd.append('intensidadHoraria', intensity);
         requestOptions.body = fd;
       }
@@ -356,7 +361,7 @@ const Verificacion = () => {
                   <div>
                     <h2 className="text-xl font-bold text-slate-900 capitalize">{studentData.nombre} {studentData.apellido}</h2>
                     <p className="text-slate-500 text-sm font-medium flex items-center">
-                      C.C. {studentData.numeroDeDocumento}
+                      {(studentData.tipoDeDocumento || studentData.tipoDocumento || studentData.tipo_documento || 'C.C')}. {studentData.numeroDeDocumento}
                       <span className="ml-3 px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded-full flex items-center border border-green-200">
                         <CheckCircle2 className="w-3 h-3 mr-1" /> Validado
                       </span>

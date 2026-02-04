@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext,useMemo } from 'react';
 import { Card, Tabs, Typography, Button, message, Spin } from 'antd';
 import { DollarOutlined, AuditOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
 import moment from 'moment';
@@ -27,7 +27,10 @@ function Certificados() {
 
   const [rawDataIngresos, setRawDataIngresos] = useState([]);
   const [rawDataEgresos, setRawDataEgresos] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(moment());
+  const [dateRange, setDateRange] = useState([
+    moment().startOf('month'),
+    moment().endOf('month')
+  ]);
 
   const [drawerState, setDrawerState] = useState({
     ingreso: false,
@@ -38,19 +41,7 @@ function Certificados() {
   const [filters, setFilters] = useState({
     payment: null,
     product: null,
-    day: null,
   });
-
-  // --- LÓGICA DE FECHAS ---
-  const dateRange = useMemo(() => {
-    const start = selectedDate.clone().startOf('month');
-    const end = selectedDate.clone().endOf('month');
-    return [start, end];
-  }, [selectedDate]);
-
-  const handleYearChange = (year) => setSelectedDate(selectedDate.clone().year(year));
-  const handleMonthChange = (dir) => setSelectedDate(dir === 'next' ? selectedDate.clone().add(1, 'month') : selectedDate.clone().subtract(1, 'month'));
-  const handleCurrentMonthClick = () => setSelectedDate(moment());
 
   // --- CARGA DE DATOS (REFRESH) ---
   const fetchTransactions = async () => {
@@ -109,8 +100,6 @@ function Certificados() {
 
   if (!user) return <div className="p-10 flex justify-center"><Spin size="large" /></div>;
 
-  const yearsList = Array.from({ length: 7 }, (_, i) => 2024 + i);
-
   return (
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
       
@@ -142,12 +131,8 @@ function Certificados() {
                 onEdit={(r) => openDrawer('ingreso', r)}
                 onCreate={() => openDrawer('ingreso')}
                 dateRange={dateRange}
+                onDateRangeChange={setDateRange}
                 userName={user.name}
-                selectedDate={selectedDate}
-                onMonthChange={handleMonthChange}
-                onYearChange={handleYearChange}
-                onCurrentMonthClick={handleCurrentMonthClick}
-                yearsList={yearsList}
                 onFiltersChange={setFilters}
               />
             </div>
@@ -163,12 +148,8 @@ function Certificados() {
                 onEdit={(r) => openDrawer('egreso', r)}
                 onCreate={() => openDrawer('egreso')}
                 dateRange={dateRange}
+                onDateRangeChange={setDateRange}
                 userName={user.name}
-                selectedDate={selectedDate}
-                onMonthChange={handleMonthChange}
-                onYearChange={handleYearChange}
-                onCurrentMonthClick={handleCurrentMonthClick}
-                yearsList={yearsList}
                 onFiltersChange={setFilters}
               />
             </div>

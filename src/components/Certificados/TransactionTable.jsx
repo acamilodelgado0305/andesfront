@@ -7,6 +7,7 @@ import {
   Space,
   Popconfirm,
   Select,
+  DatePicker,
   message
 } from 'antd';
 import {
@@ -14,12 +15,10 @@ import {
   ClearOutlined,
   FilePdfOutlined,
   EditOutlined,
-  DeleteOutlined,
-  LeftOutlined,
-  RightOutlined,
-  CalendarOutlined
+  DeleteOutlined
 } from '@ant-design/icons';
 import moment from 'moment';
+import dayjs from 'dayjs';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import 'moment/locale/es';
@@ -37,19 +36,13 @@ const TransactionTable = ({
   onEdit,
   onCreate,
   dateRange,
+  onDateRangeChange,
   userName,
-  selectedDate,
-  onMonthChange,
-  onYearChange,
-  onCurrentMonthClick,
-
-  yearsList = [],
   onFiltersChange,
 }) => {
   const [searchText, setSearchText] = useState('');
   const [paymentFilter, setPaymentFilter] = useState(null);
   const [conceptFilter, setConceptFilter] = useState(null);
-  const [dayFilter, setDayFilter] = useState(null);
 
   // Helper para obtener SIEMPRE el producto desde el campo correcto
   const getConcept = (r = {}) => {
@@ -61,7 +54,6 @@ const TransactionTable = ({
     onFiltersChange((prev) => ({
       payment: partial.payment !== undefined ? partial.payment : prev.payment,
       product: partial.product !== undefined ? partial.product : prev.product,
-      day: partial.day !== undefined ? partial.day : prev.day,
     }));
   };
 
@@ -91,9 +83,6 @@ const TransactionTable = ({
           '[]'
         );
 
-        // 2) filtro por día del mes
-        const dayMatch = dayFilter ? itemDate.date() === dayFilter : true;
-
         const concept = getConcept(item) || '';
         const conceptLower = concept.toLowerCase();
         const searchLower = searchText.toLowerCase();
@@ -116,7 +105,6 @@ const TransactionTable = ({
 
         return (
           isInDateRange &&
-          dayMatch &&
           textMatch &&
           accountMatch &&
           conceptMatch
@@ -126,7 +114,7 @@ const TransactionTable = ({
         const field = type === 'ingresos' ? 'createdAt' : 'fecha';
         return moment(b[field]).valueOf() - moment(a[field]).valueOf();
       });
-  }, [data, dateRange, searchText, paymentFilter, conceptFilter, dayFilter, type]);
+  }, [data, dateRange, searchText, paymentFilter, conceptFilter, type]);
 
   const handleDelete = async (id) => {
     try {
@@ -171,7 +159,7 @@ const TransactionTable = ({
             </span>
             {type === 'ingresos' && (
               <span className="text-xs text-gray-400">
-                CC: {r.numeroDeDocumento}
+                {(r.tipoDocumento || r.tipoDeDocumento || 'Documento')}: {r.numeroDeDocumento || 'N/D'}
               </span>
             )}
             {r.payment_reference && (
@@ -232,7 +220,9 @@ const TransactionTable = ({
   const generatePDF = () => {
     const doc = new jsPDF();
     const title = type === 'ingresos' ? 'Reporte de Ventas' : 'Reporte de Gastos';
-    const periodo = `${moment(dateRange[0]).format('MMMM YYYY')}`;
+    const start = moment(dateRange[0]).format('DD/MM/YYYY');
+    const end = moment(dateRange[1]).format('DD/MM/YYYY');
+    const periodo = start === end ? start : `${start} - ${end}`;
 
     doc.setFontSize(14);
     doc.text(`${title} - ${periodo}`, 14, 20);
@@ -271,17 +261,43 @@ const TransactionTable = ({
     });
 
     doc.save(
-      `${title.replace(/\s+/g, '_')}_${moment(dateRange[0]).format('MM_YYYY')}.pdf`
+      `${title.replace(/\s+/g, '_')}_${moment(dateRange[0]).format('DD_MM_YYYY')}.pdf`
     );
   };
 
-  // Total del valor según los filtros actuales
-  const totalFiltrado = useMemo(() => {
-    return filteredData.reduce((acc, item) => acc + (item.valor || 0), 0);
-  }, [filteredData]);
-
-  // Opciones de día (1–31)
-  const daysOptions = Array.from({ length: 31 }, (_, i) => i + 1);
+  const { RangePicker } = DatePicker;
+  const pickerValue =
+    dateRange && dateRange.length === 2
+      ? [dayjs(dateRange[0].toDate()), dayjs(dateRange[1].toDate())]
+      : null;
+  const datePresets = [
+    {
+      label: 'Hoy',
+      value: [dayjs().startOf('day'), dayjs().endOf('day')],
+    },
+    {
+      label: 'Ayer',
+      value: [
+        dayjs().subtract(1, 'day').startOf('day'),
+        dayjs().subtract(1, 'day').endOf('day'),
+      ],
+    },
+    {
+      label: 'Este mes',
+      value: [dayjs().startOf('month'), dayjs().endOf('month')],
+    },
+    {
+      label: 'Mes pasado',
+      value: [
+        dayjs().subtract(1, 'month').startOf('month'),
+        dayjs().subtract(1, 'month').endOf('month'),
+      ],
+    },
+    {
+      label: 'Este año',
+      value: [dayjs().startOf('year'), dayjs().endOf('year')],
+    },
+  ];
 
   return (
     <div>
@@ -330,85 +346,42 @@ const TransactionTable = ({
             ))}
           </Select>
 
-          <Select
-            placeholder="Día del mes"
-            style={{ width: 100 }}
-            allowClear
-            value={dayFilter}
-            onChange={(value) => {
-              setDayFilter(value);
-              syncFilters({ day: value });
-            }}
-          >
-            {daysOptions.map((d) => (
-              <Option key={d} value={d}>
-                {d}
-              </Option>
-            ))}
-          </Select>
-
           <Button
             icon={<ClearOutlined />}
             onClick={() => {
               setSearchText('');
               setPaymentFilter(null);
               setConceptFilter(null);
-              setDayFilter(null);
-              syncFilters({ payment: null, product: null, day: null });
+              syncFilters({ payment: null, product: null });
             }}
           />
         </Space>
 
         {/* Filtros de periodo + acciones */}
         <Space wrap>
-          {/* Navegador Mes/Año */}
-          <div className="flex items-center bg-gray-100 px-2 py-1 rounded-lg">
-            <Button
-              type="text"
-              icon={<LeftOutlined />}
-              onClick={() => onMonthChange('prev')}
-              className="hover:bg-white rounded-md"
-            />
-            <div
-              className="px-3 min-w-[130px] text-center cursor-pointer"
-              onClick={onCurrentMonthClick}
-            >
-              <span className="text-sm font-bold text-gray-700 capitalize">
-                {selectedDate.format('MMMM')} {selectedDate.year()}
-              </span>
-            </div>
-            <Button
-              type="text"
-              icon={<RightOutlined />}
-              onClick={() => onMonthChange('next')}
-              className="hover:bg-white rounded-md"
-            />
-
-            <Select
-              value={selectedDate.year()}
-              onChange={onYearChange}
-              bordered={false}
-              className="font-semibold text-gray-700 ml-1"
-              dropdownMatchSelectWidth={false}
-            >
-              {yearsList.map((y) => (
-                <Option key={y} value={y}>
-                  {y}
-                </Option>
-              ))}
-            </Select>
-
-            <Button
-              type="text"
-              icon={<CalendarOutlined />}
-              title="Ir al mes actual"
-              onClick={onCurrentMonthClick}
-              className="text-gray-400 hover:text-[#155153]"
-            />
-          </div>
+          <RangePicker
+            allowClear
+            value={pickerValue}
+            presets={datePresets}
+            onChange={(values) => {
+              if (values && values.length === 2) {
+                onDateRangeChange([
+                  moment(values[0].toDate()).startOf('day'),
+                  moment(values[1].toDate()).endOf('day'),
+                ]);
+              } else {
+                onDateRangeChange([
+                  moment().startOf('month'),
+                  moment().endOf('month'),
+                ]);
+              }
+            }}
+            format="DD/MM/YYYY"
+            className="bg-gray-100 rounded-lg"
+          />
 
           <Button icon={<FilePdfOutlined />} onClick={generatePDF}>
-            PDF Mes
+            PDF
           </Button>
 
           <Button
@@ -457,30 +430,6 @@ const TransactionTable = ({
         pagination={{ pageSize: 7 }}
         size="middle"
         scroll={{ x: 900 }}
-        summary={() => {
-          return (
-            <Table.Summary.Row>
-              <Table.Summary.Cell index={0} colSpan={3}>
-                <span className="font-semibold">
-                  Total {type === 'ingresos' ? 'ventas' : 'gastos'} filtrado:
-                </span>
-              </Table.Summary.Cell>
-              <Table.Summary.Cell index={3} align="right">
-                <span
-                  className={`font-bold ${type === 'ingresos' ? 'text-green-700' : 'text-red-600'
-                    }`}
-                >
-                  {new Intl.NumberFormat('es-CO', {
-                    style: 'currency',
-                    currency: 'COP',
-                  }).format(totalFiltrado)}
-                </span>
-              </Table.Summary.Cell>
-              <Table.Summary.Cell index={4} />
-              <Table.Summary.Cell index={5} />
-            </Table.Summary.Row>
-          );
-        }}
       />
     </div>
   );
