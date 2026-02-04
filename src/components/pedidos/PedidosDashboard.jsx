@@ -81,15 +81,11 @@ const PedidosDashboard = () => {
         setLoading(true);
         try {
             const [pedidosRes, statsRes] = await Promise.all([getPedidos(), getOrderStats()]);
-            setPedidos(pedidosRes.data || pedidosRes || []);
+            const pedidosData = pedidosRes.data || pedidosRes || [];
+            setPedidos(pedidosData);
             setStats(statsRes.data || statsRes);
-
-            const dataStats = statsRes.data || statsRes;
-            if (dataStats && dataStats.top_productos) {
-                setListaConsolidada(dataStats.top_productos.map((item, idx) => ({ key: idx, nombre: item.name, cantidad: item.cantidad })));
-            } else {
-                setListaConsolidada([]);
-            }
+            const { consolidado } = calcularConsolidadoDesdePedidos(pedidosData);
+            setListaConsolidada(consolidado);
         } catch (error) {
             console.error(error);
             message.error("Error al cargar datos");
