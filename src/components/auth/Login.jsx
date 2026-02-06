@@ -5,6 +5,7 @@ import { AuthContext } from "../../AuthContext";
 import { Button, Input, Form, Typography, message } from "antd";
 import { MailOutlined, LockOutlined } from "@ant-design/icons";
 import { login as loginService } from "../../services/auth/authService";
+import logo from "../../../images/logo.png";
 
 const { Title, Text, Link } = Typography;
 const PRIMARY_COLOR = "#155153";
@@ -44,12 +45,20 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg">
         <header className="mb-8 text-center">
-          <Title
-            level={3}
-            style={{ color: PRIMARY_COLOR, fontWeight: "600" }}
-          >
-            Controla
-          </Title>
+          <div className="flex items-center justify-center gap-2">
+            <Title
+              level={3}
+              className="!mb-0"
+              style={{ color: PRIMARY_COLOR, fontWeight: "600" }}
+            >
+              Controla
+            </Title>
+            <img
+              src={logo}
+              alt="Logo"
+              className="h-7 w-7 object-contain"
+            />
+          </div>
           <Title level={2} className="!mt-2 !mb-2">
             Iniciar Sesión
           </Title>

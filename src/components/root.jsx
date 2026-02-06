@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Menu, Button, Avatar, Typography, Dropdown, ConfigProvider, Spin } from 'antd';
 import {
   DashboardOutlined,
@@ -101,6 +101,7 @@ const MENU_MASTER = [
 const RootLayout = () => {
   // 1. OBTENER USUARIO DEL CONTEXTO
   const { user, logout, loading: authLoading } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const [isSiderCollapsed, setIsSiderCollapsed] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -256,8 +257,9 @@ const RootLayout = () => {
     return <div className="flex items-center justify-center h-screen"><Spin size="large" tip="Cargando sesión..." /></div>;
   }
 
-  if (!user) {
-    return <div className="flex items-center justify-center h-screen">No hay sesión activa.</div>;
+  if (!authLoading && !user) {
+    navigate('/login', { replace: true });
+    return null;
   }
 
   return (
