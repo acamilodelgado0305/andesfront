@@ -49,6 +49,13 @@ export const AuthProvider = ({ children }) => {
                         if (!parsedUser.modules && payload.modules) {
                             parsedUser.modules = payload.modules;
                         }
+                        if (!parsedUser.organization && payload.organization) {
+                            parsedUser.organization = payload.organization;
+                        }
+                        if (!parsedUser.organizations && payload.organizations) {
+                            parsedUser.organizations = payload.organizations;
+                        }
+                        localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(parsedUser));
                         setUser(parsedUser);
                     } catch {
                         setUser(null);
@@ -62,7 +69,9 @@ export const AuthProvider = ({ children }) => {
                         bid: payload.bid,
                         app: payload.scope, // O payload.app
                         // <--- IMPORTANTE: RECUPERAR LOS MÓDULOS DEL TOKEN
-                        modules: payload.modules || []
+                        modules: payload.modules || [],
+                        organization: payload.organization || null,
+                        organizations: payload.organizations || []
                     };
                     setUser(reconstructedUser);
                     localStorage.setItem(
@@ -97,13 +106,21 @@ export const AuthProvider = ({ children }) => {
                 bid: payload.bid,
                 app: payload.scope,
                 // <--- IMPORTANTE: MAPEAR MÓDULOS AQUÍ TAMBIÉN
-                modules: payload.modules || []
+                modules: payload.modules || [],
+                organization: payload.organization || null,
+                organizations: payload.organizations || []
             };
         }
 
         // Si el user viene de la API, nos aseguramos que traiga módulos, sino miramos el token
         if (finalUser && !finalUser.modules && payload && payload.modules) {
             finalUser.modules = payload.modules;
+        }
+        if (finalUser && !finalUser.organization && payload && payload.organization) {
+            finalUser.organization = payload.organization;
+        }
+        if (finalUser && !finalUser.organizations && payload && payload.organizations) {
+            finalUser.organizations = payload.organizations;
         }
 
         if (finalUser) {

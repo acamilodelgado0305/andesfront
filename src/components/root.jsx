@@ -100,7 +100,7 @@ const MENU_MASTER = [
 
 const RootLayout = () => {
   // 1. OBTENER USUARIO DEL CONTEXTO
-  const { user, logout, loading: authLoading } = useContext(AuthContext);
+  const { user, logout, loading: authLoading, login } = useContext(AuthContext);
 
   const [isSiderCollapsed, setIsSiderCollapsed] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -108,6 +108,7 @@ const RootLayout = () => {
   const timerRef = useRef(null);
 
   const [subscriptionData, setSubscriptionData] = useState({ endDate: null, amountPaid: null });
+  const [switchingOrgId, setSwitchingOrgId] = useState(null);
   const location = useLocation();
 
   // --- LÓGICA RESPONSIVE ---
@@ -250,6 +251,43 @@ const RootLayout = () => {
     ]} />
   );
 
+  const handleSwitchOrganization = async (organizationId) => {
+    if (!organizationId || user?.organization?.id === organizationId) return;
+    try {
+      setSwitchingOrgId(organizationId);
+      const authToken = localStorage.getItem('authToken');
+      const { data } = await axios.post(
+        `${API_URL}/api/organizations/switch`,
+        { organization_id: organizationId },
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+
+      if (data?.token) {
+        // Reusa la lógica de AuthContext para refrescar sesión y user
+        login(data.token, data.user);
+      }
+    } catch (error) {
+      console.error('Error switching organization:', error);
+    } finally {
+      setSwitchingOrgId(null);
+    }
+  };
+
+  const organizationMenu = (
+    <Menu
+      items={(user?.organizations || []).map((org) => ({
+        key: String(org.id),
+        label: (
+          <div className="flex flex-col">
+            <span className="font-medium">{org.name}</span>
+            {org.nit && <span className="text-xs text-gray-500">{org.nit}</span>}
+          </div>
+        ),
+        onClick: () => handleSwitchOrganization(org.id),
+      }))}
+    />
+  );
+
   // --- RENDER ---
 
   if (authLoading) {
@@ -356,6 +394,17 @@ const RootLayout = () => {
                 onClick={() => isMobile ? setMobileDrawerOpen(!mobileDrawerOpen) : setIsSiderCollapsed(!isSiderCollapsed)}
                 style={{ fontSize: '18px', width: 48, height: 48 }}
               />
+
+              {user?.organization?.name && (
+                <Dropdown overlay={organizationMenu} trigger={['click']}>
+                  <Button type="text" style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <BankOutlined />
+                    <span className="text-sm font-semibold text-gray-800">
+                      {switchingOrgId ? 'Cambiando...' : user.organization.name}
+                    </span>
+                  </Button>
+                </Dropdown>
+              )}
             </div>
 
             <Dropdown overlay={profileMenu} trigger={['click']}>
