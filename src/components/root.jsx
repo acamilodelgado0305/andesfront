@@ -98,6 +98,34 @@ const MENU_MASTER = [
   }
 ];
 
+const EDUCATIONAL_MENU_CHILD_PATHS = ['/inicio/students', '/inicio/calificaciones'];
+
+const isEducationalPlanUser = (currentUser) => {
+  if (!currentUser || currentUser.role !== 'user') return false;
+  const planText = [
+    currentUser.plan_name,
+    currentUser.plan,
+    currentUser.plan_type,
+    currentUser.planType,
+    currentUser.app,
+    currentUser.scope,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return planText.includes('educa');
+};
+
+const buildEducationalMenu = () => {
+  const academicMenu = MENU_MASTER.find(m => m.key === '/academic-management');
+  if (!academicMenu) return [];
+  const filteredChildren = (academicMenu.children || []).filter(child =>
+    EDUCATIONAL_MENU_CHILD_PATHS.includes(child.path)
+  );
+  if (!filteredChildren.length) return [];
+  return [{ ...academicMenu, children: filteredChildren }];
+};
+
 const RootLayout = () => {
   // 1. OBTENER USUARIO DEL CONTEXTO
   const { user, logout, loading: authLoading } = useContext(AuthContext);
@@ -195,6 +223,10 @@ const RootLayout = () => {
   // =========================================================
   const getDynamicMenuItems = () => {
     if (!user) return [];
+
+    if (isEducationalPlanUser(user)) {
+      return mapMenuToAntd(buildEducationalMenu());
+    }
 
     // A. Si es SuperAdmin, devuelve TODO el menú maestro
     if (user.role === 'superadmin') {
