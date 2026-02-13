@@ -7,13 +7,23 @@ const pedidoApi = axios.create({
     baseURL: API_BACKEND,
 });
 
-// Interceptor: Inyecta el token automáticamente (Igual que en personas)
+// Interceptor: Inyecta el token y x-tenant automáticamente
 pedidoApi.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem("authToken");
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        try {
+            const storedUser = localStorage.getItem("authUser");
+            if (storedUser) {
+                const user = JSON.parse(storedUser);
+                const slug = user?.organization?.slug || user?.organization?.name;
+                if (slug) {
+                    config.headers["x-tenant"] = slug;
+                }
+            }
+        } catch (e) { }
         return config;
     },
     (error) => Promise.reject(error)

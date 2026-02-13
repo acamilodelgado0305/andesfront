@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useContext } from "react";
 import { FaSearch } from "react-icons/fa";
 import { Input, Button, message } from "antd";
 
@@ -9,22 +9,27 @@ import {
   getStudents, // Este servicio ahora es "polimórfico" gracias a tu backend
   deleteStudent
 } from "../../services/student/studentService";
+import { getOrganizationUsers } from "../../services/organizations/organizationUsersService";
+import { AuthContext } from "../../AuthContext";
 
 const Students = () => {
+  const { user } = useContext(AuthContext);
+
   // --- ESTADOS ---
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [organizationUsers, setOrganizationUsers] = useState([]);
 
   // --- 1. CARGAR ESTUDIANTES (Lógica Simplificada) ---
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
       // Llamamos al endpoint genérico. 
-      // El Backend lee el Token y decide si devolver todos (Admin) o filtrados (Coordinador).
+      // El Backend lee el Token y decide si devolver todos (Admin/SuperAdmin) o filtrados (User).
       const data = await getStudents();
-      
+
       setStudents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching students:", err);
@@ -34,10 +39,23 @@ const Students = () => {
     }
   }, []);
 
+  // --- CARGAR USUARIOS DE LA ORGANIZACIÓN (para filtro de coordinador) ---
+  const fetchOrganizationUsers = useCallback(async () => {
+    const orgId = user?.organization?.id;
+    if (!orgId) return;
+    try {
+      const data = await getOrganizationUsers(orgId, { limit: 100 });
+      setOrganizationUsers(data.users || []);
+    } catch (err) {
+      console.error("Error fetching organization users:", err);
+    }
+  }, [user?.organization?.id]);
+
   // Cargar al montar el componente
   useEffect(() => {
     fetchStudents();
-  }, [fetchStudents]);
+    fetchOrganizationUsers();
+  }, [fetchStudents, fetchOrganizationUsers]);
 
   // --- 2. ELIMINAR ESTUDIANTE ---
   const handleDelete = async (id) => {
@@ -64,7 +82,7 @@ const Students = () => {
     return students.filter((student) => {
       // Unimos nombre y apellido para buscar completo
       const fullName = `${student.nombre || ""} ${student.apellido || ""}`.toLowerCase();
-      
+
       const whatsapp = (student.telefono_whatsapp || "").toLowerCase();
       const llamadas = (student.telefono_llamadas || "").toLowerCase();
       const documento = (student.numero_documento || "").toString().toLowerCase();
@@ -101,10 +119,10 @@ const Students = () => {
           />
         </div>
 
-        <Button 
-            type="primary" 
-            onClick={() => setIsModalOpen(true)}
-            size="large"
+        <Button
+          type="primary"
+          onClick={() => setIsModalOpen(true)}
+          size="large"
         >
           Agregar Estudiante
         </Button>
@@ -115,6 +133,7 @@ const Students = () => {
         students={filteredStudents}
         loading={loading}
         onDelete={handleDelete}
+        organizationUsers={organizationUsers}
       />
 
       {/* Modal de Creación */}

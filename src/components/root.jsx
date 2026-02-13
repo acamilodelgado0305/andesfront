@@ -94,6 +94,7 @@ const MENU_MASTER = [
     requiredModule: 'ADMIN', // <--- Módulo requerido
     children: [
       { key: '/inicio/adminclients', icon: <SettingOutlined />, label: 'Configuración Global', path: '/inicio/adminclients' },
+      { key: '/inicio/organizacion/usuarios', icon: <UsergroupAddOutlined />, label: 'Usuarios Organización', path: '/inicio/organizacion/usuarios' },
     ]
   }
 ];
@@ -109,10 +110,11 @@ const ROLE_CHILD_RESTRICTIONS = {
     user: ['/inicio/students', '/inicio/calificaciones'],
     // docente: ['/inicio/students', '/inicio/calificaciones', '/inicio/evaluaciones'],
   },
-  // Puedes agregar restricciones para otros módulos:
-  // POS: {
-  //   user: ['/inicio/certificados'],
-  // },
+  ADMIN: {
+    // Admin solo ve gestión de su org, NO configuración global
+    admin: ['/inicio/organizacion/usuarios'],
+    // superadmin no está listado → ve TODO (Configuración Global + Usuarios Org)
+  },
 };
 
 const isEducationalPlanUser = (currentUser) => {
@@ -217,7 +219,12 @@ const RootLayout = () => {
     const fetchSubscription = async () => {
       if (user && user.id) {
         try {
-          const response = await axios.get(`${API_URL}/api/subscriptions/expiration/${user.id}`);
+          const response = await axios.get(`${API_URL}/api/subscriptions/expiration/${user.id}`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+              'x-tenant': user?.organization?.slug || user?.organization?.name || ''
+            }
+          });
           if (response.data) {
             setSubscriptionData({
               endDate: response.data.end_date,
@@ -268,9 +275,17 @@ const RootLayout = () => {
       return mapMenuToAntd(buildEducationalMenu());
     }
 
-    // A. Si es SuperAdmin o Admin, devuelve TODO el menú maestro (sin restricciones de hijos)
-    if (user.role === 'superadmin' || user.role === 'admin') {
+    // A. Si es SuperAdmin, devuelve TODO el menú maestro (sin restricciones de hijos)
+    if (user.role === 'superadmin') {
       return mapMenuToAntd(MENU_MASTER);
+    }
+
+    // B. Si es Admin, ve todos los módulos pero con restricciones de hijos
+    if (user.role === 'admin') {
+      const filteredMenu = MENU_MASTER
+        .map(item => applyChildRestrictions(item, user.role))
+        .filter(Boolean);
+      return mapMenuToAntd(filteredMenu);
     }
 
     // B. Si es 'Docente' (Legacy), podemos devolver un subconjunto específico
@@ -330,10 +345,11 @@ const RootLayout = () => {
     try {
       setSwitchingOrgId(organizationId);
       const authToken = localStorage.getItem('authToken');
+      const slug = user?.organization?.slug || user?.organization?.name || '';
       const { data } = await axios.post(
         `${API_URL}/api/organizations/switch`,
         { organization_id: organizationId },
-        { headers: { Authorization: `Bearer ${authToken}` } }
+        { headers: { Authorization: `Bearer ${authToken}`, 'x-tenant': slug } }
       );
 
       if (data?.token) {

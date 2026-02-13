@@ -11,14 +11,23 @@ const coalianzaApi = axios.create({
   },
 });
 
-// Interceptor: Inyecta el token automáticamente en cada petición
+// Interceptor: Inyecta el token y x-tenant automáticamente en cada petición
 coalianzaApi.interceptors.request.use(
   (config) => {
-    // Usamos la misma key que definiste en tu AuthContext
-    const token = localStorage.getItem("authToken"); 
+    const token = localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    try {
+      const storedUser = localStorage.getItem("authUser");
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        const slug = user?.organization?.slug || user?.organization?.name;
+        if (slug) {
+          config.headers["x-tenant"] = slug;
+        }
+      }
+    } catch (e) { }
     return config;
   },
   (error) => Promise.reject(error)

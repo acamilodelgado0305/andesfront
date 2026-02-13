@@ -15,12 +15,25 @@ const backApi = axios.create({
   },
 });
 
-// Interceptor para agregar el token a las solicitudes
+// Interceptor para agregar el token y x-tenant a las solicitudes
 backApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Inyectar x-tenant desde la organización del usuario
+    try {
+      const storedUser = localStorage.getItem("authUser");
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        const slug = user?.organization?.slug || user?.organization?.name;
+        if (slug) {
+          config.headers["x-tenant"] = slug;
+        }
+      }
+    } catch (e) {
+      // silenciar errores de parsing
     }
     return config;
   },

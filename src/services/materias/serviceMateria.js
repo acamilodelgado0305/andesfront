@@ -4,22 +4,32 @@ const API_BASE_URL = import.meta.env.VITE_API_BACKEND;
 
 // Creamos la instancia de axios con la configuración base
 const backApi = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+    baseURL: API_BASE_URL,
+    headers: {
+        "Content-Type": "application/json",
+    },
 });
 
-// Interceptor para añadir el token de autenticación a cada petición
+// Interceptor para añadir el token y x-tenant a cada petición
 backApi.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
+    (config) => {
+        const token = localStorage.getItem("authToken");
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        try {
+            const storedUser = localStorage.getItem("authUser");
+            if (storedUser) {
+                const user = JSON.parse(storedUser);
+                const slug = user?.organization?.slug || user?.organization?.name;
+                if (slug) {
+                    config.headers["x-tenant"] = slug;
+                }
+            }
+        } catch (e) { }
+        return config;
+    },
+    (error) => Promise.reject(error)
 );
 
 // --- SERVICIOS DEL CRUD PARA MATERIAS ---
@@ -29,13 +39,13 @@ backApi.interceptors.request.use(
  * Corresponde a: GET /api/materias
  */
 export const getAllMaterias = async () => {
-  try {
-    const response = await backApi.get("/api/materias");
-    return response.data;
-  } catch (error) {
-    console.error("Error al obtener las materias:", error);
-    throw error;
-  }
+    try {
+        const response = await backApi.get("/api/materias");
+        return response.data;
+    } catch (error) {
+        console.error("Error al obtener las materias:", error);
+        throw error;
+    }
 };
 
 /**
@@ -44,13 +54,13 @@ export const getAllMaterias = async () => {
  * Corresponde a: POST /api/materias
  */
 export const createMateria = async (materiaData) => {
-  try {
-    const response = await backApi.post('/api/materias', materiaData);
-    return response.data;
-  } catch (error) {
-    console.error('Error al crear la materia:', error);
-    throw error;
-  }
+    try {
+        const response = await backApi.post('/api/materias', materiaData);
+        return response.data;
+    } catch (error) {
+        console.error('Error al crear la materia:', error);
+        throw error;
+    }
 };
 
 /**
@@ -60,13 +70,13 @@ export const createMateria = async (materiaData) => {
  * Corresponde a: PUT /api/materias/:id
  */
 export const updateMateria = async (materiaId, materiaData) => {
-  try {
-    const response = await backApi.put(`/api/materias/${materiaId}`, materiaData);
-    return response.data;
-  } catch (error) {
-    console.error(`Error al actualizar la materia con ID ${materiaId}:`, error);
-    throw error;
-  }
+    try {
+        const response = await backApi.put(`/api/materias/${materiaId}`, materiaData);
+        return response.data;
+    } catch (error) {
+        console.error(`Error al actualizar la materia con ID ${materiaId}:`, error);
+        throw error;
+    }
 };
 
 /**
@@ -75,11 +85,11 @@ export const updateMateria = async (materiaId, materiaData) => {
  * Corresponde a: DELETE /api/materias/:id
  */
 export const deleteMateria = async (materiaId) => {
-  try {
-    const response = await backApi.delete(`/api/materias/${materiaId}`);
-    return response.data;
-  } catch (error) {
-    console.error(`Error al eliminar la materia con ID ${materiaId}:`, error);
-    throw error;
-  }
+    try {
+        const response = await backApi.delete(`/api/materias/${materiaId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error al eliminar la materia con ID ${materiaId}:`, error);
+        throw error;
+    }
 };

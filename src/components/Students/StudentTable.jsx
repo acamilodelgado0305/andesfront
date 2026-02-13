@@ -36,7 +36,7 @@ const { RangePicker } = DatePicker;
 
 const STORAGE_KEY = "students_filters";
 
-const StudentTable = ({ onDelete, students = [], loading = false }) => {
+const StudentTable = ({ onDelete, students = [], loading = false, organizationUsers = [] }) => {
   const [filters, setFilters] = useState(() => {
     if (typeof window === "undefined") {
       return {
@@ -83,14 +83,22 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Coordinadores únicos
+  // Coordinadores: usa usuarios de la organización si están disponibles, sino extrae de los datos
   const coordinators = useMemo(() => {
-    return [
+    if (organizationUsers.length > 0) {
+      return organizationUsers.map((u) => ({
+        id: u.id,
+        name: u.name,
+      }));
+    }
+    // Fallback: extraer nombres únicos de los estudiantes
+    const uniqueNames = [
       ...new Set(
         students.map((s) => s.coordinador_nombre).filter(Boolean)
       ),
     ];
-  }, [students]);
+    return uniqueNames.map((name) => ({ id: name, name }));
+  }, [students, organizationUsers]);
   const programOptions = useMemo(() => {
     const set = new Set();
     students.forEach((s) => {
@@ -215,8 +223,8 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
               .join(" ");
           programMatch = programNames
             ? selectedProgram.some((p) =>
-                programNames.toLowerCase().includes(p.toLowerCase())
-              )
+              programNames.toLowerCase().includes(p.toLowerCase())
+            )
             : false;
         }
 
@@ -318,9 +326,8 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
       render: (_, record) => (
         <span
           className="truncate-text"
-          title={`${record.tipo_documento} ${
-            record.numero_documento || "No especificado"
-          }`}
+          title={`${record.tipo_documento} ${record.numero_documento || "No especificado"
+            }`}
         >
           {record.tipo_documento} {record.numero_documento || "No especificado"}
         </span>
@@ -445,8 +452,8 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
         </Tag>
       ),
       filters: coordinators.map((coord) => ({
-        text: coord,
-        value: coord,
+        text: coord.name,
+        value: coord.name,
       })),
       onFilter: (value, record) =>
         record.coordinador_nombre === value,
@@ -606,13 +613,12 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
       render: (_, record) => (
         <Space direction="vertical" size={2}>
           <Tooltip
-            title={`Inscripción: ${
-              record.fecha_inscripcion
-                ? moment(record.fecha_inscripcion).format(
-                    "DD/MM/YYYY"
-                  )
-                : "No especificado"
-            }`}
+            title={`Inscripción: ${record.fecha_inscripcion
+              ? moment(record.fecha_inscripcion).format(
+                "DD/MM/YYYY"
+              )
+              : "No especificado"
+              }`}
           >
             <Text>
               Insc.:{" "}
@@ -805,8 +811,8 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
             }
           >
             {coordinators.map((coord) => (
-              <Option key={coord} value={coord}>
-                {coord}
+              <Option key={coord.id} value={coord.name}>
+                {coord.name}
               </Option>
             ))}
           </Select>
@@ -973,7 +979,7 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
               "No hay estudiantes disponibles que coincidan con los filtros.",
           }}
           onRow={(record) => ({
-          onClick: () =>
+            onClick: () =>
               navigate(`/inicio/students/view/${record.id}`, {
                 state: { from: `${location.pathname}${location.search}` },
               }),

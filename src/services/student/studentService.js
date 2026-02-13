@@ -13,12 +13,25 @@ const studentsApi = axios.create({
   },
 });
 
-// 2. Interceptor: Inyecta el token automáticamente en cada petición
+// 2. Interceptor: Inyecta el token y x-tenant automáticamente en cada petición
 studentsApi.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Inyectar x-tenant desde la organización del usuario
+    try {
+      const storedUser = localStorage.getItem("authUser");
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        const slug = user?.organization?.slug || user?.organization?.name;
+        if (slug) {
+          config.headers["x-tenant"] = slug;
+        }
+      }
+    } catch (e) {
+      // silenciar errores de parsing
     }
     return config;
   },

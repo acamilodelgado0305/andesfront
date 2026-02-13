@@ -45,6 +45,7 @@ import TakeEvaluationPage from "./components/Evaluations/Student/TakeEvaluationP
 import MyStudentEvaluationsPage from "./components/Evaluations/MyStudentEvaluationsPage";
 import RegistroExpress from "./components/PublicForms/RegistroExpress";
 import PedidosDashboard from "./components/pedidos/PedidosDashboard";
+import OrganizationUsers from "./components/organizations/OrganizationUsers";
 
 import Register from "./components/auth/register";
 
@@ -119,6 +120,7 @@ const App = () => (
             <Route path="inventario" element={<Inventario />} />
             <Route path="personas" element={<PersonasDashboard />} />
             <Route path="pedidos" element={<PedidosDashboard />} />
+            <Route path="organizacion/usuarios" element={<OrganizationUsers />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
             <Route path="students/view/:id" element={<StudentInformacion />} />
           </Route>

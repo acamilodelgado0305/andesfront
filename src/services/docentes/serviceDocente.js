@@ -4,22 +4,32 @@ const API_BASE_URL = import.meta.env.VITE_API_BACKEND;
 
 // Creamos la instancia de axios con la configuración base
 const backApi = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+    baseURL: API_BASE_URL,
+    headers: {
+        "Content-Type": "application/json",
+    },
 });
 
-// Interceptor para añadir el token de autenticación a cada petición
+// Interceptor para añadir el token y x-tenant a cada petición
 backApi.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
+    (config) => {
+        const token = localStorage.getItem("authToken");
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        try {
+            const storedUser = localStorage.getItem("authUser");
+            if (storedUser) {
+                const user = JSON.parse(storedUser);
+                const slug = user?.organization?.slug || user?.organization?.name;
+                if (slug) {
+                    config.headers["x-tenant"] = slug;
+                }
+            }
+        } catch (e) { }
+        return config;
+    },
+    (error) => Promise.reject(error)
 );
 
 // --- SERVICIOS DEL CRUD PARA DOCENTES ---
@@ -29,13 +39,13 @@ backApi.interceptors.request.use(
  * Corresponde a: GET /api/docentes
  */
 export const getAllDocentes = async () => {
-  try {
-    const response = await backApi.get("/api/docentes");
-    return response.data;
-  } catch (error) {
-    console.error("Error al obtener los docentes:", error);
-    throw error;
-  }
+    try {
+        const response = await backApi.get("/api/docentes");
+        return response.data;
+    } catch (error) {
+        console.error("Error al obtener los docentes:", error);
+        throw error;
+    }
 };
 
 /**
@@ -44,13 +54,13 @@ export const getAllDocentes = async () => {
  * Corresponde a: GET /api/docentes/:id
  */
 export const getDocenteById = async (docenteId) => {
-  try {
-    const response = await backApi.get(`/api/docentes/${docenteId}`);
-    return response.data;
-  } catch (error) {
-    console.error(`Error al obtener el docente con ID ${docenteId}:`, error);
-    throw error;
-  }
+    try {
+        const response = await backApi.get(`/api/docentes/${docenteId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error al obtener el docente con ID ${docenteId}:`, error);
+        throw error;
+    }
 };
 
 /**
@@ -59,13 +69,13 @@ export const getDocenteById = async (docenteId) => {
  * Corresponde a: POST /api/docentes
  */
 export const createDocente = async (docenteData) => {
-  try {
-    const response = await backApi.post('/api/docentes', docenteData);
-    return response.data;
-  } catch (error) {
-    console.error('Error al crear el docente:', error);
-    throw error;
-  }
+    try {
+        const response = await backApi.post('/api/docentes', docenteData);
+        return response.data;
+    } catch (error) {
+        console.error('Error al crear el docente:', error);
+        throw error;
+    }
 };
 
 /**
@@ -75,13 +85,13 @@ export const createDocente = async (docenteData) => {
  * Corresponde a: PUT /api/docentes/:id
  */
 export const updateDocente = async (docenteId, docenteData) => {
-  try {
-    const response = await backApi.put(`/api/docentes/${docenteId}`, docenteData);
-    return response.data;
-  } catch (error) {
-    console.error(`Error al actualizar el docente con ID ${docenteId}:`, error);
-    throw error;
-  }
+    try {
+        const response = await backApi.put(`/api/docentes/${docenteId}`, docenteData);
+        return response.data;
+    } catch (error) {
+        console.error(`Error al actualizar el docente con ID ${docenteId}:`, error);
+        throw error;
+    }
 };
 
 /**
@@ -90,12 +100,12 @@ export const updateDocente = async (docenteId, docenteData) => {
  * Corresponde a: DELETE /api/docentes/:id
  */
 export const deleteDocente = async (docenteId) => {
-  try {
-    // La respuesta de un DELETE exitoso no suele tener cuerpo, pero la retornamos por si acaso.
-    const response = await backApi.delete(`/api/docentes/${docenteId}`);
-    return response.data;
-  } catch (error) {
-    console.error(`Error al eliminar el docente con ID ${docenteId}:`, error);
-    throw error;
-  }
+    try {
+        // La respuesta de un DELETE exitoso no suele tener cuerpo, pero la retornamos por si acaso.
+        const response = await backApi.delete(`/api/docentes/${docenteId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error al eliminar el docente con ID ${docenteId}:`, error);
+        throw error;
+    }
 };
