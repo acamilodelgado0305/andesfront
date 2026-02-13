@@ -98,7 +98,22 @@ const MENU_MASTER = [
   }
 ];
 
-const EDUCATIONAL_MENU_CHILD_PATHS = ['/inicio/students', '/inicio/calificaciones'];
+// =========================================================
+// 🔒 RESTRICCIONES POR ROL para hijos de cada módulo
+// =========================================================
+// Define qué hijos puede ver cada rol dentro de un módulo.
+// Si un rol NO está listado aquí, verá TODOS los hijos (sin restricción).
+// Si un rol está listado, solo verá los paths indicados.
+const ROLE_CHILD_RESTRICTIONS = {
+  ACADEMICO: {
+    user: ['/inicio/students', '/inicio/calificaciones'],
+    // docente: ['/inicio/students', '/inicio/calificaciones', '/inicio/evaluaciones'],
+  },
+  // Puedes agregar restricciones para otros módulos:
+  // POS: {
+  //   user: ['/inicio/certificados'],
+  // },
+};
 
 const isEducationalPlanUser = (currentUser) => {
   if (!currentUser || currentUser.role !== 'user') return false;
@@ -119,11 +134,36 @@ const isEducationalPlanUser = (currentUser) => {
 const buildEducationalMenu = () => {
   const academicMenu = MENU_MASTER.find(m => m.key === '/academic-management');
   if (!academicMenu) return [];
+  const allowedPaths = ROLE_CHILD_RESTRICTIONS.ACADEMICO?.user || [];
   const filteredChildren = (academicMenu.children || []).filter(child =>
-    EDUCATIONAL_MENU_CHILD_PATHS.includes(child.path)
+    allowedPaths.includes(child.path)
   );
   if (!filteredChildren.length) return [];
   return [{ ...academicMenu, children: filteredChildren }];
+};
+
+/**
+ * Filtra los hijos de un item de menú según el rol del usuario
+ * y las restricciones definidas en ROLE_CHILD_RESTRICTIONS.
+ */
+const applyChildRestrictions = (menuItem, userRole) => {
+  if (!menuItem.children || !menuItem.requiredModule) return menuItem;
+
+  const moduleRestrictions = ROLE_CHILD_RESTRICTIONS[menuItem.requiredModule];
+  if (!moduleRestrictions) return menuItem; // No hay restricciones para este módulo
+
+  const allowedPaths = moduleRestrictions[userRole];
+  if (!allowedPaths) return menuItem; // Este rol no tiene restricciones, ve todo
+
+  // Filtrar los hijos según las rutas permitidas
+  const filteredChildren = menuItem.children.filter(child =>
+    allowedPaths.includes(child.path)
+  );
+
+  // Si no quedan hijos después del filtro, ocultar el grupo completo
+  if (!filteredChildren.length) return null;
+
+  return { ...menuItem, children: filteredChildren };
 };
 
 const RootLayout = () => {
@@ -228,31 +268,33 @@ const RootLayout = () => {
       return mapMenuToAntd(buildEducationalMenu());
     }
 
-    // A. Si es SuperAdmin, devuelve TODO el menú maestro
-    if (user.role === 'superadmin') {
+    // A. Si es SuperAdmin o Admin, devuelve TODO el menú maestro (sin restricciones de hijos)
+    if (user.role === 'superadmin' || user.role === 'admin') {
       return mapMenuToAntd(MENU_MASTER);
     }
 
-    // B. Si es 'Docente' (Legacy), podemos devolver un subconjunto específico 
-    // O mejor, asegurarnos de que el backend le envíe ['ACADEMICO'] en user.modules
+    // B. Si es 'Docente' (Legacy), podemos devolver un subconjunto específico
     // Para compatibilidad total, si no tiene modules pero es docente:
     if (user.role === 'docente' && (!user.modules || user.modules.length === 0)) {
-      // Filtramos manualmente solo la parte académica
       const academicMenu = MENU_MASTER.find(m => m.key === '/academic-management');
       const dashboard = MENU_MASTER.find(m => m.key === '/inicio/dashboard');
-      return mapMenuToAntd([dashboard, academicMenu].filter(Boolean));
+      const restrictedAcademic = academicMenu ? applyChildRestrictions(academicMenu, user.role) : null;
+      return mapMenuToAntd([dashboard, restrictedAcademic].filter(Boolean));
     }
 
-    // C. Filtrado Estándar basado en Módulos (ABAC)
-    const userModules = user.modules || []; // Array ej: ['POS', 'INVENTARIO']
+    // C. Filtrado Estándar basado en Módulos (ABAC) + restricciones por rol
+    const userModules = user.modules || [];
 
-    const filteredMenu = MENU_MASTER.filter(item => {
-      // 1. Si no requiere módulo, es público (ej: Dashboard)
-      if (!item.requiredModule) return true;
-
-      // 2. Si requiere módulo, verificamos si el usuario lo tiene
-      return userModules.includes(item.requiredModule);
-    });
+    const filteredMenu = MENU_MASTER
+      .filter(item => {
+        // 1. Si no requiere módulo, es público (ej: Dashboard)
+        if (!item.requiredModule) return true;
+        // 2. Si requiere módulo, verificamos si el usuario lo tiene
+        return userModules.includes(item.requiredModule);
+      })
+      // 3. Aplicar restricciones de hijos según el rol del usuario
+      .map(item => applyChildRestrictions(item, user.role))
+      .filter(Boolean); // Eliminar items que quedaron null (sin hijos tras filtrar)
 
     return mapMenuToAntd(filteredMenu);
   };
