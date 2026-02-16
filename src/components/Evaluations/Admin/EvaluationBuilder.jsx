@@ -1,10 +1,8 @@
 // src/components/admin/evaluaciones/EvaluationBuilder.jsx
 import React, { useEffect, useState } from "react";
 import {
-  Card,
   Button,
   Space,
-  List,
   Tag,
   Modal,
   Form,
@@ -16,6 +14,8 @@ import {
   Divider,
   Row,
   Col,
+  Tooltip,
+  Spin,
 } from "antd";
 import {
   PlusOutlined,
@@ -23,6 +23,15 @@ import {
   ArrowLeftOutlined,
   SendOutlined,
   EditOutlined,
+  QuestionCircleOutlined,
+  CheckCircleFilled,
+  ClockCircleOutlined,
+  BookOutlined,
+  FileTextOutlined,
+  OrderedListOutlined,
+  CheckOutlined,
+  TeamOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { useParams, useNavigate } from "react-router-dom";
 
@@ -34,7 +43,7 @@ import {
   assignByMainProgram,
   assignByStudentPrograms,
   assignToSelectedStudents,
-  updateQuestion, // 👈 ya está importado
+  updateQuestion,
 } from "../../../services/evaluation/evaluationService";
 
 import { getProgramas } from "../../../services/programas/programasService";
@@ -57,7 +66,6 @@ const EvaluationBuilder = () => {
   const [questionForm] = Form.useForm();
   const [options, setOptions] = useState([{ texto: "", es_correcta: false }]);
 
-  // 👇 NUEVO: estado para saber si estamos editando o creando
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [savingQuestion, setSavingQuestion] = useState(false);
 
@@ -72,7 +80,6 @@ const EvaluationBuilder = () => {
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [assignStudentsLoading, setAssignStudentsLoading] = useState(false);
 
-  // 👉 Observamos el campo tipo_pregunta para reaccionar en caliente
   const tipoPregunta = Form.useWatch("tipo_pregunta", questionForm);
 
   const fetchEvaluation = async () => {
@@ -131,11 +138,9 @@ const EvaluationBuilder = () => {
     setQuestionModalVisible(true);
   };
 
-  // 👇 NUEVO: abrir modal en modo edición
   const openEditQuestionModal = (question) => {
     setEditingQuestion(question || null);
 
-    // Seteamos los valores básicos
     questionForm.setFieldsValue({
       enunciado: question.enunciado,
       tipo_pregunta: question.tipo_pregunta,
@@ -144,13 +149,12 @@ const EvaluationBuilder = () => {
       orden: question.orden,
     });
 
-    // Preparamos las opciones existentes (si las hay)
     let initialOptions = [];
     if (question.opciones && question.opciones.length > 0) {
       initialOptions = question.opciones
         .sort((a, b) => (a.orden || 0) - (b.orden || 0))
         .map((opt) => ({
-          id: opt.id, // 👈 guardamos id para saber cuáles existen ya
+          id: opt.id,
           texto: opt.texto,
           es_correcta: opt.es_correcta,
         }));
@@ -167,12 +171,9 @@ const EvaluationBuilder = () => {
     setQuestionModalVisible(true);
   };
 
-  // 👉 Cada vez que cambia el tipo de pregunta, ajustamos las opciones al instante
   useEffect(() => {
     if (!questionModalVisible) return;
 
-    // Si estamos editando, NO sobreescribimos las opciones que ya trajimos,
-    // a menos que no exista ninguna.
     if (editingQuestion) {
       if (
         (tipoPregunta === "verdadero_falso" ||
@@ -194,7 +195,6 @@ const EvaluationBuilder = () => {
       return;
     }
 
-    // 👉 Comportamiento normal cuando estamos creando
     if (tipoPregunta === "verdadero_falso") {
       setOptions([
         { texto: "Verdadero", es_correcta: false },
@@ -241,7 +241,7 @@ const EvaluationBuilder = () => {
         opcionesToSend = options
           .filter((opt) => opt.texto && opt.texto.trim() !== "")
           .map((opt, idx) => ({
-            id: opt.id, // 👈 si existe, la mandamos para que el backend sepa cuál es
+            id: opt.id,
             texto: opt.texto.trim(),
             es_correcta: !!opt.es_correcta,
             orden: idx + 1,
@@ -249,8 +249,6 @@ const EvaluationBuilder = () => {
       }
 
       if (editingQuestion) {
-        // --------- MODO EDICIÓN ---------
-        // 1. Detectamos opciones eliminadas
         const originalOptionIds = (editingQuestion.opciones || []).map(
           (o) => o.id
         );
@@ -261,8 +259,6 @@ const EvaluationBuilder = () => {
           (id) => !currentOptionIds.includes(id)
         );
 
-        // 2. Actualizamos la pregunta (y las opciones que se manden)
-        //    IMPORTANTE: ajusta si tu servicio usa otra firma
         await updateQuestion(editingQuestion.id, {
           enunciado,
           tipo_pregunta,
@@ -272,7 +268,6 @@ const EvaluationBuilder = () => {
           opciones: opcionesToSend,
         });
 
-        // 3. Eliminamos en backend las opciones que ya no existen
         for (const optId of removedOptionIds) {
           try {
             await deleteOption(optId);
@@ -283,7 +278,6 @@ const EvaluationBuilder = () => {
 
         message.success("Pregunta actualizada");
       } else {
-        // --------- MODO CREACIÓN ---------
         await addQuestionWithOptions(evaluationId, {
           enunciado,
           tipo_pregunta,
@@ -300,7 +294,6 @@ const EvaluationBuilder = () => {
       fetchEvaluation();
     } catch (err) {
       if (err?.errorFields) {
-        // error de validación del form
         return;
       }
       console.error(err);
@@ -317,9 +310,10 @@ const EvaluationBuilder = () => {
   const handleDeleteQuestion = (questionId) => {
     Modal.confirm({
       title: "Eliminar pregunta",
-      content: "¿Seguro que deseas eliminar esta pregunta?",
+      content: "¿Seguro que deseas eliminar esta pregunta y todas sus opciones?",
       okText: "Sí, eliminar",
       cancelText: "Cancelar",
+      okButtonProps: { danger: true },
       onOk: async () => {
         try {
           await deleteQuestion(questionId);
@@ -339,6 +333,7 @@ const EvaluationBuilder = () => {
       content: "¿Seguro que deseas eliminar esta opción?",
       okText: "Sí, eliminar",
       cancelText: "Cancelar",
+      okButtonProps: { danger: true },
       onOk: async () => {
         try {
           await deleteOption(optionId);
@@ -411,273 +406,508 @@ const EvaluationBuilder = () => {
     return `${m.nombre} (${m.tipo_programa || "—"})`;
   };
 
+  const getTypeClass = (tipo) => {
+    if (tipo === "opcion_multiple") return "mc";
+    if (tipo === "verdadero_falso") return "vf";
+    return "open";
+  };
+
+  const getTypeLabel = (tipo) => {
+    if (tipo === "opcion_multiple") return "Opción múltiple";
+    if (tipo === "verdadero_falso") return "Verdadero / Falso";
+    return "Abierta";
+  };
+
+  const totalPuntaje = questions.reduce(
+    (acc, q) => acc + parseFloat(q.puntaje || 0),
+    0
+  );
+
+  if (loading && !evaluation) {
+    return (
+      <div className="eb-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
   return (
-    <div className="gf-page">
-      {/* Barra superior tipo Google Forms */}
-      <div className="gf-header-bar">
-        <div className="gf-header-content">
-          <Button
-            icon={<ArrowLeftOutlined />}
+    <div className="eb-page">
+      {/* ===== HEADER ===== */}
+      <div className="eb-header">
+        <div className="eb-header-inner">
+          <button
+            className="eb-back-btn"
             onClick={() => navigate("/inicio/evaluaciones")}
-            className="gf-back-button"
           >
-            Volver
-          </Button>
-          <div className="gf-header-title">
-            {evaluation?.titulo || "Formulario sin título"}
+            <ArrowLeftOutlined /> Volver a evaluaciones
+          </button>
+
+          <div className="eb-header-row">
+            <div className="eb-header-title">
+              <div className="eb-header-icon">
+                <FileTextOutlined />
+              </div>
+              <div>
+                <h2>{evaluation?.titulo || "Sin título"}</h2>
+                <p className="eb-header-sub">
+                  Constructor de evaluación — Preguntas y asignación
+                </p>
+              </div>
+            </div>
+
+            <div className="eb-stats">
+              <div className="eb-stat">
+                <QuestionCircleOutlined
+                  className="eb-stat-icon"
+                  style={{ color: "#818cf8" }}
+                />
+                <div>
+                  <div className="eb-stat-value">{questions.length}</div>
+                  <div className="eb-stat-label">Preguntas</div>
+                </div>
+              </div>
+              <div className="eb-stat">
+                <OrderedListOutlined
+                  className="eb-stat-icon"
+                  style={{ color: "#fbbf24" }}
+                />
+                <div>
+                  <div className="eb-stat-value">{totalPuntaje}</div>
+                  <div className="eb-stat-label">Puntaje total</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Contenido principal */}
-      <div className="gf-body">
-        <div className="gf-main-column">
-          {/* Card principal con info de la evaluación */}
-          <Card
-            className="gf-form-card"
-            loading={loading}
-            bordered={false}
-            bodyStyle={{ padding: 24 }}
-          >
-            <Input
-              className="gf-form-title-input"
-              value={evaluation?.titulo || ""}
-              readOnly
-            />
-            <Input.TextArea
-              className="gf-form-description-input"
-              value={evaluation?.descripcion || ""}
-              readOnly
-              placeholder="Descripción del formulario"
-              autoSize={{ minRows: 1, maxRows: 3 }}
-            />
+      {/* ===== BODY ===== */}
+      <div className="eb-body">
+        {/* Evaluation info card */}
+        <div className="eb-info-card">
+          <div className="eb-info-card-accent" />
+          <div className="eb-info-card-body">
+            <h3 className="eb-info-title">{evaluation?.titulo}</h3>
+            <p className="eb-info-desc">
+              {evaluation?.descripcion || "Sin descripción"}
+            </p>
 
-            <Divider />
-
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <div className="gf-meta-item">
-                  <span className="gf-meta-label">Tipo destino</span>
-                  <Tag>{evaluation?.tipo_destino || "General"}</Tag>
+            <div className="eb-info-meta">
+              {evaluation?.tipo_destino && (
+                <div className="eb-meta-chip green">
+                  {evaluation.tipo_destino}
                 </div>
-                <div className="gf-meta-item">
-                  <span className="gf-meta-label">Programa</span>
-                  <span className="gf-meta-value">
-                    {resolveProgramLabel(evaluation?.programa_id)}
-                  </span>
+              )}
+              {evaluation?.programa_id && (
+                <div className="eb-meta-chip blue">
+                  <BookOutlined style={{ fontSize: 11 }} />
+                  {resolveProgramLabel(evaluation.programa_id)}
                 </div>
-              </Col>
-              <Col xs={24} md={12}>
-                <div className="gf-meta-item">
-                  <span className="gf-meta-label">Materia</span>
-                  <span className="gf-meta-value">
-                    {resolveMateriaLabel(evaluation?.materia_id)}
-                  </span>
+              )}
+              {evaluation?.materia_id && (
+                <div className="eb-meta-chip purple">
+                  <FileTextOutlined style={{ fontSize: 11 }} />
+                  {resolveMateriaLabel(evaluation.materia_id)}
                 </div>
-                <div className="gf-meta-item">
-                  <span className="gf-meta-label">Tiempo límite</span>
-                  <span className="gf-meta-value">
-                    {evaluation?.tiempo_limite_min
-                      ? `${evaluation.tiempo_limite_min} min`
-                      : "Sin límite"}
-                  </span>
+              )}
+              {evaluation?.tiempo_limite_min && (
+                <div className="eb-meta-chip amber">
+                  <ClockCircleOutlined style={{ fontSize: 11 }} />
+                  {evaluation.tiempo_limite_min} min
                 </div>
-              </Col>
-            </Row>
-          </Card>
+              )}
+              {evaluation?.intentos_max && (
+                <div className="eb-meta-chip amber">
+                  Máx. {evaluation.intentos_max} intentos
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
-          {/* Card de asignación */}
-          <Card
-            className="gf-assign-card"
-            bordered={false}
-            bodyStyle={{ padding: 24 }}
-          >
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <h4 className="gf-section-title">Asignar por programa</h4>
-                <Space direction="vertical" style={{ width: "100%" }}>
-                  <Select
-                    style={{ width: "100%" }}
-                    placeholder="Selecciona un programa"
-                    value={assignProgramId}
-                    onChange={setAssignProgramId}
-                    loading={catalogsLoading}
-                    showSearch
-                    optionFilterProp="children"
-                    allowClear
-                  >
-                    {programs.map((p) => (
-                      <Option key={p.id} value={p.id}>
-                        {p.nombre}{" "}
-                        {p.tipo_programa ? `(${p.tipo_programa})` : ""}
-                      </Option>
-                    ))}
-                  </Select>
-                  <Space wrap>
-                    <Button
-                      type="primary"
-                      icon={<SendOutlined />}
-                      loading={assignLoading}
-                      onClick={() => handleAssign("principal")}
-                    >
-                      Programa principal
-                    </Button>
-                    <Button
-                      icon={<SendOutlined />}
-                      loading={assignLoading}
-                      onClick={() => handleAssign("mm")}
-                    >
-                      estudiante_programas
-                    </Button>
-                  </Space>
-                </Space>
-              </Col>
+        {/* Assignment card */}
+        <div className="eb-assign-card">
+          <h4 className="eb-assign-title">
+            <SendOutlined /> Asignar evaluación
+          </h4>
+          <p className="eb-assign-sub">
+            Asigna esta evaluación a un programa completo o a estudiantes
+            específicos
+          </p>
 
-              <Col xs={24} md={12}>
-                <h4 className="gf-section-title">
-                  Asignar a estudiantes específicos
-                </h4>
-                <Space direction="vertical" style={{ width: "100%" }}>
-                  <Select
-                    mode="multiple"
-                    style={{ width: "100%" }}
-                    placeholder="Selecciona estudiantes"
-                    value={selectedStudentIds}
-                    onChange={setSelectedStudentIds}
-                    loading={catalogsLoading}
-                    showSearch
-                    optionFilterProp="children"
-                  >
-                    {students.map((s) => (
-                      <Option key={s.id} value={s.id}>
-                        {s.name || s.nombre || ""}{" "}
-                        {s.last_name || s.apellido || ""}{" "}
-                        {s.document_number ? ` - ${s.document_number}` : ""}
-                      </Option>
-                    ))}
-                  </Select>
-
+          <div className="eb-assign-grid">
+            {/* By program */}
+            <div>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginBottom: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <TeamOutlined /> Por programa
+              </div>
+              <Space direction="vertical" style={{ width: "100%" }} size={10}>
+                <Select
+                  style={{ width: "100%" }}
+                  placeholder="Selecciona un programa"
+                  value={assignProgramId}
+                  onChange={setAssignProgramId}
+                  loading={catalogsLoading}
+                  showSearch
+                  optionFilterProp="children"
+                  allowClear
+                  size="large"
+                >
+                  {programs.map((p) => (
+                    <Option key={p.id} value={p.id}>
+                      {p.nombre}{" "}
+                      {p.tipo_programa ? `(${p.tipo_programa})` : ""}
+                    </Option>
+                  ))}
+                </Select>
+                <Space wrap>
                   <Button
                     type="primary"
                     icon={<SendOutlined />}
-                    loading={assignStudentsLoading}
-                    onClick={handleAssignToStudents}
+                    loading={assignLoading}
+                    onClick={() => handleAssign("principal")}
+                    style={{
+                      borderRadius: 10,
+                      fontWeight: 600,
+                      background:
+                        "linear-gradient(135deg, #4338ca, #6366f1)",
+                      border: "none",
+                    }}
                   >
-                    Asignar a seleccionados
+                    Programa principal
                   </Button>
-
-                  <small className="gf-help-text">
-                    Ideal para grupos pequeños, recuperaciones o pruebas
-                    piloto.
-                  </small>
-                </Space>
-              </Col>
-            </Row>
-          </Card>
-
-          {/* Lista de preguntas */}
-          <div className="gf-questions-container">
-            {questions.length === 0 && (
-              <div className="gf-empty-questions">
-                Aún no has agregado preguntas. Usa el botón “+” para comenzar.
-              </div>
-            )}
-
-            <List
-              bordered={false}
-              dataSource={questions}
-              renderItem={(q, index) => (
-                <List.Item className="gf-question-card-wrapper">
-                  <Card
-                    className="gf-question-card"
-                    bordered={false}
-                    bodyStyle={{ padding: 20 }}
+                  <Button
+                    icon={<SendOutlined />}
+                    loading={assignLoading}
+                    onClick={() => handleAssign("mm")}
+                    style={{ borderRadius: 10, fontWeight: 500 }}
                   >
-                    <div className="gf-question-header">
-                      <Tag color="blue">Pregunta {index + 1}</Tag>
-                      <Space size="small">
-                        <Tag>{q.tipo_pregunta}</Tag>
-                        {q.es_obligatoria && (
-                          <Tag color="red">Obligatoria</Tag>
-                        )}
-                        <Tag color="gold">Puntaje: {q.puntaje}</Tag>
-                      </Space>
-                    </div>
+                    estudiante_programas
+                  </Button>
+                </Space>
+              </Space>
+            </div>
 
-                    <p className="gf-question-text">
-                      <strong>{q.enunciado}</strong>
-                    </p>
+            {/* By specific students */}
+            <div>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#374151",
+                  marginBottom: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <UserOutlined /> Estudiantes específicos
+              </div>
+              <Space direction="vertical" style={{ width: "100%" }} size={10}>
+                <Select
+                  mode="multiple"
+                  style={{ width: "100%" }}
+                  placeholder="Selecciona estudiantes"
+                  value={selectedStudentIds}
+                  onChange={setSelectedStudentIds}
+                  loading={catalogsLoading}
+                  showSearch
+                  optionFilterProp="children"
+                  size="large"
+                  maxTagCount={3}
+                  maxTagPlaceholder={(omitted) =>
+                    `+${omitted.length} más`
+                  }
+                >
+                  {students.map((s) => (
+                    <Option key={s.id} value={s.id}>
+                      {s.name || s.nombre || ""}{" "}
+                      {s.last_name || s.apellido || ""}
+                      {s.document_number
+                        ? ` - ${s.document_number}`
+                        : ""}
+                    </Option>
+                  ))}
+                </Select>
 
-                    {q.opciones && q.opciones.length > 0 && (
-                      <div className="gf-question-options">
-                        {q.opciones.map((opt) => (
-                          <div key={opt.id} className="gf-option-row">
-                            <div className="gf-option-bullet" />
-                            <span className="gf-option-text">
-                              {opt.es_correcta && (
-                                <Tag
-                                  color="green"
-                                  style={{ marginRight: 8 }}
-                                >
-                                  Correcta
-                                </Tag>
-                              )}
-                              {opt.texto}
-                            </span>
-                            <Button
-                              type="link"
-                              danger
-                              size="small"
-                              onClick={() => handleDeleteOptionInList(opt.id)}
-                            >
-                              eliminar
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                <Button
+                  type="primary"
+                  icon={<SendOutlined />}
+                  loading={assignStudentsLoading}
+                  onClick={handleAssignToStudents}
+                  style={{
+                    borderRadius: 10,
+                    fontWeight: 600,
+                    background:
+                      "linear-gradient(135deg, #4338ca, #6366f1)",
+                    border: "none",
+                  }}
+                >
+                  Asignar a seleccionados
+                </Button>
 
-                    <div className="gf-question-footer">
-                      <Space>
-                        <Button
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={() => openEditQuestionModal(q)}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          danger
-                          size="small"
-                          icon={<DeleteOutlined />}
-                          onClick={() => handleDeleteQuestion(q.id)}
-                        >
-                          Eliminar pregunta
-                        </Button>
-                      </Space>
-                    </div>
-                  </Card>
-                </List.Item>
-              )}
-            />
+                <small style={{ fontSize: 11, color: "#9ca3af" }}>
+                  Ideal para recuperaciones o pruebas piloto
+                </small>
+              </Space>
+            </div>
           </div>
         </div>
+
+        {/* ===== QUESTIONS ===== */}
+        <div className="eb-questions-header">
+          <div className="eb-questions-title">
+            <QuestionCircleOutlined /> Preguntas ({questions.length})
+          </div>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={openQuestionModal}
+            style={{
+              borderRadius: 10,
+              fontWeight: 600,
+              background: "linear-gradient(135deg, #4338ca, #6366f1)",
+              border: "none",
+              boxShadow: "0 4px 14px rgba(99,102,241,0.3)",
+            }}
+          >
+            Agregar Pregunta
+          </Button>
+        </div>
+
+        {questions.length === 0 ? (
+          <div className="eb-empty">
+            <div className="eb-empty-icon">
+              <QuestionCircleOutlined />
+            </div>
+            <p>Aún no has agregado preguntas</p>
+            <small>
+              Haz clic en "Agregar pregunta" o en el botón "+" para comenzar
+            </small>
+          </div>
+        ) : (
+          <div className="eb-questions-list">
+            {questions.map((q, index) => (
+              <div key={q.id} className="eb-q-card">
+                <div
+                  className={`eb-q-card-accent ${getTypeClass(q.tipo_pregunta)}`}
+                />
+                <div className="eb-q-body">
+                  {/* Top row */}
+                  <div className="eb-q-top">
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 12,
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        className={`eb-q-number ${getTypeClass(q.tipo_pregunta)}`}
+                      >
+                        {index + 1}
+                      </div>
+                      <p className="eb-q-enunciado">{q.enunciado}</p>
+                    </div>
+
+                    <div className="eb-q-tags">
+                      <Tag
+                        style={{
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                        }}
+                        color={
+                          q.tipo_pregunta === "opcion_multiple"
+                            ? "blue"
+                            : q.tipo_pregunta === "verdadero_falso"
+                              ? "cyan"
+                              : "orange"
+                        }
+                      >
+                        {getTypeLabel(q.tipo_pregunta)}
+                      </Tag>
+                      <Tag
+                        style={{
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                        }}
+                        color="gold"
+                      >
+                        {q.puntaje} pts
+                      </Tag>
+                      {q.es_obligatoria && (
+                        <Tag
+                          style={{
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: "2px 8px",
+                          }}
+                          color="red"
+                        >
+                          Obligatoria
+                        </Tag>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Options */}
+                  {q.opciones && q.opciones.length > 0 && (
+                    <div className="eb-q-options">
+                      {q.opciones.map((opt) => (
+                        <div
+                          key={opt.id}
+                          className={`eb-q-opt ${opt.es_correcta ? "correct" : ""}`}
+                        >
+                          <div className="eb-q-opt-bullet">
+                            {opt.es_correcta && (
+                              <CheckOutlined className="eb-q-opt-bullet-check" />
+                            )}
+                          </div>
+                          <span className="eb-q-opt-text">{opt.texto}</span>
+                          {opt.es_correcta && (
+                            <Tag
+                              color="success"
+                              style={{
+                                borderRadius: 6,
+                                fontSize: 10,
+                                fontWeight: 600,
+                                margin: 0,
+                              }}
+                            >
+                              Correcta
+                            </Tag>
+                          )}
+                          <Button
+                            type="text"
+                            danger
+                            size="small"
+                            className="eb-q-opt-delete"
+                            icon={<DeleteOutlined />}
+                            onClick={() =>
+                              handleDeleteOptionInList(opt.id)
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  <div className="eb-q-footer">
+                    <Space size="small">
+                      <Button
+                        size="small"
+                        icon={<EditOutlined />}
+                        onClick={() => openEditQuestionModal(q)}
+                        style={{
+                          borderRadius: 8,
+                          fontWeight: 500,
+                          fontSize: 12,
+                        }}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        danger
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleDeleteQuestion(q.id)}
+                        style={{
+                          borderRadius: 8,
+                          fontWeight: 500,
+                          fontSize: 12,
+                        }}
+                      >
+                        Eliminar
+                      </Button>
+                    </Space>
+                    {q.orden && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#9ca3af",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Orden: {q.orden}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Botón flotante "+" tipo Google Forms */}
-      <Button
-        type="primary"
-        shape="circle"
-        icon={<PlusOutlined />}
-        className="gf-fab-add-question"
-        onClick={openQuestionModal}
-      />
+      {/* FAB */}
+      <Tooltip title="Agregar pregunta" placement="left">
+        <Button
+          type="primary"
+          shape="circle"
+          icon={<PlusOutlined />}
+          className="eb-fab"
+          onClick={openQuestionModal}
+        />
+      </Tooltip>
 
-      {/* MODAL PREGUNTA */}
+      {/* ===== QUESTION MODAL ===== */}
       <Modal
         open={questionModalVisible}
-        title={editingQuestion ? "Editar pregunta" : "Nueva pregunta"}
-        okText={editingQuestion ? "Actualizar" : "Guardar"}
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: "linear-gradient(135deg, #4338ca, #6366f1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+                fontSize: 16,
+              }}
+            >
+              {editingQuestion ? <EditOutlined /> : <PlusOutlined />}
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>
+                {editingQuestion ? "Editar Pregunta" : "Nueva Pregunta"}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#9ca3af",
+                  fontWeight: 400,
+                }}
+              >
+                {editingQuestion
+                  ? "Modifica el enunciado, tipo y opciones"
+                  : "Agrega una nueva pregunta a la evaluación"}
+              </div>
+            </div>
+          </div>
+        }
+        okText={editingQuestion ? "Actualizar" : "Guardar Pregunta"}
         cancelText="Cancelar"
         onCancel={() => {
           setQuestionModalVisible(false);
@@ -686,122 +916,159 @@ const EvaluationBuilder = () => {
         onOk={handleSaveQuestion}
         confirmLoading={savingQuestion}
         destroyOnClose
-        className="gf-question-modal"
+        className="eb-q-modal"
+        width={620}
       >
-        <Card bordered={false} className="gf-question-modal-card">
-          <Form
-            form={questionForm}
-            layout="vertical"
-            initialValues={{
-              tipo_pregunta: "opcion_multiple",
-              es_obligatoria: true,
-              puntaje: 1,
-            }}
+        <Form
+          form={questionForm}
+          layout="vertical"
+          initialValues={{
+            tipo_pregunta: "opcion_multiple",
+            es_obligatoria: true,
+            puntaje: 1,
+          }}
+          style={{ marginTop: 12 }}
+        >
+          <Form.Item
+            label={<span style={{ fontWeight: 600 }}>Enunciado</span>}
+            name="enunciado"
+            rules={[{ required: true, message: "Ingresa el enunciado" }]}
           >
-            <Form.Item
-              label="Enunciado"
-              name="enunciado"
-              rules={[{ required: true, message: "Ingresa el enunciado" }]}
-            >
-              <Input.TextArea rows={3} />
-            </Form.Item>
+            <Input.TextArea
+              rows={3}
+              placeholder="Escribe la pregunta aquí..."
+              style={{ borderRadius: 10, fontSize: 14 }}
+            />
+          </Form.Item>
 
-            <Row gutter={12}>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Tipo de pregunta"
-                  name="tipo_pregunta"
-                  rules={[{ required: true }]}
-                >
-                  <Select>
-                    <Option value="opcion_multiple">Opción múltiple</Option>
-                    <Option value="verdadero_falso">Verdadero / Falso</Option>
-                    <Option value="abierta">Abierta</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item
-                  label="Puntaje"
-                  name="puntaje"
-                  rules={[
-                    { required: true, message: "Ingresa el puntaje" },
-                  ]}
-                >
-                  <InputNumber min={0} style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={12}>
-              <Col xs={24} md={12}>
-                <Form.Item label="Orden (opcional)" name="orden">
-                  <InputNumber min={1} style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-              <Col
-                xs={24}
-                md={12}
-                style={{ display: "flex", alignItems: "center" }}
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label={
+                  <span style={{ fontWeight: 600 }}>Tipo de pregunta</span>
+                }
+                name="tipo_pregunta"
+                rules={[{ required: true }]}
               >
-                <Form.Item
-                  label="Obligatoria"
-                  name="es_obligatoria"
-                  valuePropName="checked"
-                  style={{ marginBottom: 0 }}
-                >
-                  <Switch />
-                </Form.Item>
-              </Col>
-            </Row>
-          </Form>
+                <Select size="large" style={{ borderRadius: 10 }}>
+                  <Option value="opcion_multiple">Opción múltiple</Option>
+                  <Option value="verdadero_falso">Verdadero / Falso</Option>
+                  <Option value="abierta">Abierta</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={6}>
+              <Form.Item
+                label={<span style={{ fontWeight: 600 }}>Puntaje</span>}
+                name="puntaje"
+                rules={[
+                  { required: true, message: "Ingresa el puntaje" },
+                ]}
+              >
+                <InputNumber
+                  min={0}
+                  style={{ width: "100%", borderRadius: 10 }}
+                  size="large"
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={6}>
+              <Form.Item
+                label={<span style={{ fontWeight: 600 }}>Orden</span>}
+                name="orden"
+              >
+                <InputNumber
+                  min={1}
+                  style={{ width: "100%", borderRadius: 10 }}
+                  size="large"
+                  placeholder="#"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
 
-          {/* Opciones de respuesta, solo para opción múltiple o VF */}
-          {["opcion_multiple", "verdadero_falso"].includes(
-            tipoPregunta || "opcion_multiple"
-          ) && (
-            <>
-              <Divider />
-              <div className="gf-modal-options-header">
-                Opciones de respuesta
+          <Form.Item
+            name="es_obligatoria"
+            valuePropName="checked"
+            style={{ marginBottom: 8 }}
+          >
+            <Switch
+              checkedChildren="Obligatoria"
+              unCheckedChildren="Opcional"
+            />
+          </Form.Item>
+        </Form>
+
+        {/* Options section */}
+        {["opcion_multiple", "verdadero_falso"].includes(
+          tipoPregunta || "opcion_multiple"
+        ) && (
+            <div className="eb-modal-card">
+              <div className="eb-modal-opts-title">
+                <OrderedListOutlined /> Opciones de respuesta
               </div>
-              {options.map((opt, index) => (
-                <div
-                  key={index}
-                  className="gf-option-row gf-option-row-modal"
-                >
-                  <div className="gf-option-bullet" />
-                  <Input
-                    placeholder={`Opción ${index + 1}`}
-                    value={opt.texto}
-                    onChange={(e) =>
-                      handleOptionChange(index, "texto", e.target.value)
-                    }
-                    disabled={tipoPregunta === "verdadero_falso"} // para no cambiar los textos VF
-                  />
-                  <span className="gf-option-correct-label">Correcta</span>
-                  <Switch
-                    checked={opt.es_correcta}
-                    onChange={(checked) =>
-                      handleOptionChange(index, "es_correcta", checked)
-                    }
-                  />
-                  {options.length > 1 &&
-                    tipoPregunta === "opcion_multiple" && (
-                      <Button
-                        danger
-                        size="small"
-                        onClick={() => handleRemoveOptionField(index)}
-                      >
-                        X
-                      </Button>
-                    )}
-                </div>
-              ))}
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                {options.map((opt, index) => (
+                  <div key={index} className="eb-modal-opt-row">
+                    <div className="eb-modal-opt-bullet" />
+                    <Input
+                      placeholder={`Opción ${index + 1}`}
+                      value={opt.texto}
+                      onChange={(e) =>
+                        handleOptionChange(index, "texto", e.target.value)
+                      }
+                      disabled={tipoPregunta === "verdadero_falso"}
+                      style={{
+                        flex: 1,
+                        borderRadius: 8,
+                        borderColor: opt.es_correcta ? "#10b981" : undefined,
+                        background: opt.es_correcta ? "#ecfdf5" : undefined,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "#6b7280",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Correcta
+                    </span>
+                    <Switch
+                      size="small"
+                      checked={opt.es_correcta}
+                      onChange={(checked) =>
+                        handleOptionChange(index, "es_correcta", checked)
+                      }
+                    />
+                    {options.length > 1 &&
+                      tipoPregunta === "opcion_multiple" && (
+                        <Button
+                          danger
+                          type="text"
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          onClick={() => handleRemoveOptionField(index)}
+                        />
+                      )}
+                  </div>
+                ))}
+              </div>
 
               {tipoPregunta === "opcion_multiple" && (
                 <Button
-                  style={{ marginTop: 8 }}
+                  style={{
+                    marginTop: 12,
+                    borderRadius: 10,
+                    fontWeight: 500,
+                  }}
                   type="dashed"
                   block
                   icon={<PlusOutlined />}
@@ -810,9 +1077,8 @@ const EvaluationBuilder = () => {
                   Agregar opción
                 </Button>
               )}
-            </>
+            </div>
           )}
-        </Card>
       </Modal>
     </div>
   );

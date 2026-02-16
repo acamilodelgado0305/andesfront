@@ -18,7 +18,7 @@ const backApi = axios.create({
 // Interceptor para agregar el token a las solicitudes
 backApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("authToken");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

@@ -7,7 +7,6 @@ import {
   message,
   Space,
   Spin,
-  Card,
   Select,
   Tag,
   Popconfirm,
@@ -18,19 +17,16 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   DeleteOutlined,
   WhatsAppOutlined,
-  EditOutlined,
-  UserOutlined,
   FilePdfOutlined,
   EyeOutlined,
   SearchOutlined,
-  CheckCircleOutlined,
 } from "@ant-design/icons";
 import moment from "moment";
 import axios from "axios";
 import { getStudentById } from "../../services/student/studentService";
 import { generateGradeReportPDF } from "../Utilidades/generateGradeReportPDF";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
@@ -215,8 +211,8 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
               .join(" ");
           programMatch = programNames
             ? selectedProgram.some((p) =>
-                programNames.toLowerCase().includes(p.toLowerCase())
-              )
+              programNames.toLowerCase().includes(p.toLowerCase())
+            )
             : false;
         }
 
@@ -318,9 +314,8 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
       render: (_, record) => (
         <span
           className="truncate-text"
-          title={`${record.tipo_documento} ${
-            record.numero_documento || "No especificado"
-          }`}
+          title={`${record.tipo_documento} ${record.numero_documento || "No especificado"
+            }`}
         >
           {record.tipo_documento} {record.numero_documento || "No especificado"}
         </span>
@@ -606,13 +601,12 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
       render: (_, record) => (
         <Space direction="vertical" size={2}>
           <Tooltip
-            title={`Inscripción: ${
-              record.fecha_inscripcion
-                ? moment(record.fecha_inscripcion).format(
-                    "DD/MM/YYYY"
-                  )
-                : "No especificado"
-            }`}
+            title={`Inscripción: ${record.fecha_inscripcion
+              ? moment(record.fecha_inscripcion).format(
+                "DD/MM/YYYY"
+              )
+              : "No especificado"
+              }`}
           >
             <Text>
               Insc.:{" "}
@@ -722,24 +716,37 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
   ];
 
   return (
-    <div className="p-4">
+    <div>
       {/* Filtros superiores */}
-      <Space
-        direction="vertical"
-        size="large"
-        className="mb-6 w-full"
+      <div
+        style={{
+          padding: '16px 20px',
+          borderBottom: '1px solid #f0f0f0',
+          background: '#fafbfc',
+        }}
       >
-        <Space
-          wrap
-          className="w-full justify-start items-center"
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 12,
+          }}
         >
+          <SearchOutlined style={{ color: '#9ca3af', fontSize: 14 }} />
+          <Text style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>Filtros avanzados</Text>
+          <Text style={{ fontSize: 12, color: '#d1d5db', marginLeft: 4 }}>•</Text>
+          <Text style={{ fontSize: 12, color: '#9ca3af' }}>
+            {totalStudents} resultado{totalStudents !== 1 ? 's' : ''}
+          </Text>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <Select
-            style={{ width: 150 }}
+            style={{ minWidth: 140 }}
             placeholder="Estado"
             allowClear
-            onChange={(value) =>
-              handleFilterChange(value, "selectedStatus")
-            }
+            onChange={(value) => handleFilterChange(value, 'selectedStatus')}
             value={filters.selectedStatus}
           >
             <Option value="activo">Activo</Option>
@@ -748,87 +755,69 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
 
           <Select
             mode="multiple"
-            style={{ width: 220 }}
+            style={{ minWidth: 200 }}
             placeholder="Modalidad"
             allowClear
-            onChange={(value) =>
-              handleFilterChange(value, "selectedModalidad")
-            }
+            onChange={(value) => handleFilterChange(value, 'selectedModalidad')}
             value={filters.selectedModalidad}
           >
             {['Clases en Linea', 'Modulos por WhastApp', ...modalidadOptions].map((m) => (
-              <Option key={m} value={m}>
-                {m}
-              </Option>
+              <Option key={m} value={m}>{m}</Option>
             ))}
           </Select>
 
           <Select
             mode="multiple"
-            style={{ width: 240 }}
+            style={{ minWidth: 220 }}
             placeholder="Programa"
             allowClear
-            onChange={(value) =>
-              handleFilterChange(value, "selectedProgram")
-            }
+            onChange={(value) => handleFilterChange(value, 'selectedProgram')}
             value={filters.selectedProgram}
             showSearch
             optionFilterProp="children"
             filterOption={(input, option) =>
-              (option?.children || "")
-                .toLowerCase()
-                .includes(input.toLowerCase())
+              (option?.children || '').toLowerCase().includes(input.toLowerCase())
             }
           >
             {programOptions.map((p) => (
-              <Option key={p} value={p}>
-                {p}
-              </Option>
+              <Option key={p} value={p}>{p}</Option>
             ))}
           </Select>
 
           <Select
             mode="multiple"
-            style={{ width: 220 }}
+            style={{ minWidth: 200 }}
             placeholder="Coordinador"
             allowClear
-            onChange={(value) =>
-              handleFilterChange(value, "selectedCoordinator")
-            }
+            onChange={(value) => handleFilterChange(value, 'selectedCoordinator')}
             value={filters.selectedCoordinator}
             showSearch
             optionFilterProp="children"
             filterOption={(input, option) =>
-              (option?.children || "")
-                .toLowerCase()
-                .includes(input.toLowerCase())
+              (option?.children || '').toLowerCase().includes(input.toLowerCase())
             }
           >
             {coordinators.map((coord) => (
-              <Option key={coord} value={coord}>
-                {coord}
-              </Option>
+              <Option key={coord} value={coord}>{coord}</Option>
             ))}
           </Select>
+
           <Select
-            style={{ width: 220 }}
+            style={{ minWidth: 190 }}
             placeholder="Posible graduación"
             allowClear
-            onChange={(value) =>
-              handleFilterChange(value, "selectedGraduation")
-            }
+            onChange={(value) => handleFilterChange(value, 'selectedGraduation')}
             value={filters.selectedGraduation}
           >
             <Option value="candidato">Candidatos a grado</Option>
             <Option value="no_candidato">No candidatos</Option>
           </Select>
+
           <Select
-            style={{ width: 200 }}
+            style={{ minWidth: 180 }}
             placeholder="Fecha inscripción"
             allowClear
-            onChange={(value) =>
-              handleFilterChange(value, "predefinedDate")
-            }
+            onChange={(value) => handleFilterChange(value, 'predefinedDate')}
             value={filters.predefinedDate}
           >
             <Option value="week">Última semana</Option>
@@ -838,123 +827,17 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
           </Select>
 
           <RangePicker
-            style={{ width: 300 }}
-            onChange={(dates) =>
-              handleFilterChange(dates, "dateRange")
-            }
+            style={{ minWidth: 260 }}
+            onChange={(dates) => handleFilterChange(dates, 'dateRange')}
             value={filters.dateRange}
             format="DD/MM/YYYY"
-            placeholder={["Fecha inicio", "Fecha fin"]}
-            disabled={
-              filters.predefinedDate !== null &&
-              filters.predefinedDate !== "all"
-            }
+            placeholder={['Fecha inicio', 'Fecha fin']}
+            disabled={filters.predefinedDate !== null && filters.predefinedDate !== 'all'}
           />
-        </Space>
+        </div>
+      </div>
 
-        {/* Resumen métricas */}
-        <Space
-          size="middle"
-          style={{ width: "100%", justifyContent: "center" }}
-        >
-          <Card
-            style={{
-              width: 260,
-              borderRadius: 8,
-              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.06)",
-              border: "1px solid #d9f7be",
-              backgroundColor: "#f6ffed",
-            }}
-            bodyStyle={{ padding: 16 }}
-          >
-            <Space align="center" size="middle">
-              <EditOutlined
-                style={{ fontSize: 32, color: "#155153" }}
-              />
-              <div>
-                <Text style={{ fontSize: 14, color: "#595959" }}>
-                  Total Estudiantes
-                </Text>
-                <Title
-                  level={4}
-                  style={{
-                    margin: 0,
-                    color: "#155153",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {totalStudents}
-                </Title>
-              </div>
-            </Space>
-          </Card>
-
-          <Card
-            style={{
-              width: 260,
-              borderRadius: 8,
-              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.06)",
-              border: "1px solid #e6f4ff",
-              backgroundColor: "#f0f5ff",
-            }}
-            bodyStyle={{ padding: 16 }}
-          >
-            <Space align="center" size="middle">
-              <UserOutlined
-                style={{ fontSize: 32, color: "#1d39c4" }}
-              />
-              <div>
-                <Text style={{ fontSize: 14, color: "#595959" }}>
-                  Estudiantes Activos
-                </Text>
-                <Title
-                  level={4}
-                  style={{
-                    margin: 0,
-                    color: "#1d39c4",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {activeStudents}
-                </Title>
-              </div>
-            </Space>
-          </Card>
-
-          <Card
-            style={{
-              width: 260,
-              borderRadius: 8,
-              boxShadow: "0 4px 8px rgba(0, 0, 0, 0.06)",
-              border: "1px solid #e6f7ff",
-              backgroundColor: "#e6f7ff",
-            }}
-            bodyStyle={{ padding: 16 }}
-          >
-            <Space align="center" size="middle">
-              <CheckCircleOutlined
-                style={{ fontSize: 32, color: "#08979c" }}
-              />
-              <div>
-                <Text style={{ fontSize: 14, color: "#595959" }}>
-                  Candidatos a grado
-                </Text>
-                <Title
-                  level={4}
-                  style={{
-                    margin: 0,
-                    color: "#08979c",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {graduationCandidates}
-                </Title>
-              </div>
-            </Space>
-          </Card>
-        </Space>
-      </Space>
-
+      {/* Tabla */}
       <Spin spinning={loading} tip="Cargando estudiantes...">
         <Table
           columns={columns}
@@ -963,34 +846,45 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
-            pageSizeOptions: ["10", "20", "50", "100"],
+            pageSizeOptions: ['10', '20', '50', '100'],
             showTotal: (total, range) =>
               `Mostrando ${range[0]}-${range[1]} de ${total} estudiantes`,
+            style: { padding: '12px 20px', margin: 0 },
           }}
-          scroll={{ x: "max-content" }}
+          scroll={{ x: 'max-content' }}
           locale={{
-            emptyText:
-              "No hay estudiantes disponibles que coincidan con los filtros.",
+            emptyText: 'No hay estudiantes disponibles que coincidan con los filtros.',
           }}
           onRow={(record) => ({
-          onClick: () =>
+            onClick: () =>
               navigate(`/inicio/students/view/${record.id}`, {
                 state: { from: `${location.pathname}${location.search}` },
               }),
           })}
           rowClassName="cursor-pointer"
-          bordered
           size="middle"
         />
       </Spin>
 
-      <style jsx>{`
+      <style>{`
         .ant-table-cell {
-          padding: 10px 8px !important;
+          padding: 10px 12px !important;
           font-size: 13px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+        .ant-table-thead > tr > th {
+          background: #f8fafb !important;
+          font-weight: 600 !important;
+          font-size: 12px !important;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          color: #4b5563 !important;
+          border-bottom: 2px solid #e5e7eb !important;
+        }
+        .ant-table-tbody > tr:hover > td {
+          background: #f0f7f7 !important;
         }
         .truncate-text {
           white-space: nowrap;
@@ -1001,6 +895,9 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
         }
         .cursor-pointer {
           cursor: pointer;
+        }
+        .ant-table-tbody > tr {
+          transition: background-color 0.2s ease;
         }
       `}</style>
     </div>

@@ -1,70 +1,71 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Table, InputNumber, Button, message, Input, Modal, Space } from 'antd';
-import axios from 'axios';
+import { Typography, Table, InputNumber, Button, message, Input, Modal, Space, Spin, Tag, Tooltip } from 'antd';
+import {
+  SearchOutlined,
+  SaveOutlined,
+  UndoOutlined,
+  ClearOutlined,
+  TrophyOutlined,
+  TeamOutlined,
+  BookOutlined,
+  ArrowLeftOutlined,
+  CheckCircleOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { getStudentsByType } from '../../services/student/studentService';
+import { getAllGrades, saveGrades } from '../../services/gardes/gradesService';
 import { getAllMaterias } from '../../services/materias/serviceMateria';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Search } = Input;
 
-// Lista de materias
-const materias = [
-  'Matemáticas',
-  'Español',
-  'Bioquímica',
-  'Inglés',
-  'Informática',
-];
-
-const API_URL = import.meta.env.VITE_API_BACKEND;
-
 function Bachillerato() {
-   const [materias, setMaterias] = useState([]);
+  const navigate = useNavigate();
+  const [materias, setMaterias] = useState([]);
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [grades, setGrades] = useState({});
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [initialGradesBackup, setInitialGradesBackup] = useState({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
- useEffect(() => {
+  useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // -- CAMBIO: Usamos Promise.all para cargar todo en paralelo
-        const [studentsResponse, gradesResponse, allMateriasResponse] = await Promise.all([
-            axios.get(`${API_URL}/students/type/bachillerato`),
-            axios.get(`${API_URL}/grades`),
-            getAllMaterias() // <-- Llamada al servicio de materias
+        const [studentsData, gradesData, allMateriasResponse] = await Promise.all([
+          getStudentsByType('bachillerato'),
+          getAllGrades(),
+          getAllMaterias(),
         ]);
-        
-        // -- CAMBIO: Filtramos las materias y las guardamos en el estado
+
         const bachilleratoMaterias = allMateriasResponse
-          .filter(m => m.tipo_programa === 'Validacion de Bachillerato' && m.activa)
-          .map(m => m.nombre); // Extraemos solo los nombres para mantener la lógica existente
+          .filter((m) => m.tipo_programa === 'Validacion de Bachillerato' && m.activa)
+          .map((m) => m.nombre);
         setMaterias(bachilleratoMaterias);
 
-        const studentsData = studentsResponse.data;
         setStudents(studentsData);
         setFilteredStudents(studentsData);
 
-        const gradesData = gradesResponse.data;
         const initialGrades = {};
         studentsData.forEach((student) => {
           initialGrades[student.id] = {};
-          // -- CAMBIO: Usamos la lista de materias recién cargada y filtrada
           bachilleratoMaterias.forEach((materia) => {
             const existingGrade = gradesData.find(
               (grade) => grade.student_id === student.id && grade.materia === materia
             );
-            initialGrades[student.id][materia] = existingGrade ? parseFloat(existingGrade.nota) : null;
+            initialGrades[student.id][materia] = existingGrade
+              ? parseFloat(existingGrade.nota)
+              : null;
           });
         });
         setGrades(initialGrades);
         setInitialGradesBackup(JSON.parse(JSON.stringify(initialGrades)));
-
       } catch (error) {
         message.error('Error al cargar los datos');
-        console.error("Error en fetchData:", error);
+        console.error('Error en fetchData:', error);
       } finally {
         setLoading(false);
       }
@@ -72,16 +73,27 @@ function Bachillerato() {
     fetchData();
   }, []);
 
- const handleSearch = (value) => {
+  const handleSearch = (value) => {
     setSearchText(value);
-    const filtered = students.filter((student) =>
-      `${student.nombre} ${student.apellido}`.toLowerCase().includes(value.toLowerCase())
-    );
+    if (!value.trim()) {
+      setFilteredStudents(students);
+      return;
+    }
+    const normalizedSearch = value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const searchTerms = normalizedSearch.split(' ').filter((t) => t);
+    const filtered = students.filter((student) => {
+      const studentText = `${student.nombre} ${student.apellido}`
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      return searchTerms.every((term) => studentText.includes(term));
+    });
     setFilteredStudents(filtered);
   };
 
- const handleGradeChange = (studentId, materia, value) => {
-    let numericValue = value === '' || value === null || value === undefined ? null : parseFloat(value);
+  const handleGradeChange = (studentId, materia, value) => {
+    let numericValue =
+      value === '' || value === null || value === undefined ? null : parseFloat(value);
     let roundedValue = null;
     if (numericValue !== null) {
       roundedValue = Math.round(numericValue * 10) / 10;
@@ -94,91 +106,156 @@ function Bachillerato() {
       ...prevGrades,
       [studentId]: { ...prevGrades[studentId], [materia]: roundedValue },
     }));
+    setHasUnsavedChanges(true);
   };
 
-const handleSaveGrades = async () => {
+  const handleSaveGrades = async () => {
     setLoading(true);
     try {
-      // -- CAMBIO: Añadimos el campo "programa" con el valor correspondiente
       const payload = Object.keys(grades).map((studentId) => ({
         studentId: parseInt(studentId),
-        programa: "Validacion de Bachillerato", // <-- Valor fijo para esta vista
+        programa: 'Validacion de Bachillerato',
         grades: grades[studentId],
       }));
 
-      // La URL de tu API para guardar notas. Asegúrate que sea la correcta.
-      await axios.post(`${API_URL}/grades`, payload); 
-      
+      await saveGrades(payload);
+
       message.success('Notas guardadas exitosamente');
       setInitialGradesBackup(JSON.parse(JSON.stringify(grades)));
+      setHasUnsavedChanges(false);
     } catch (error) {
       message.error('Error al guardar las notas');
-      console.error("Error en handleSaveGrades:", error.response ? error.response.data : error.message);
+      console.error(
+        'Error en handleSaveGrades:',
+        error.response ? error.response.data : error.message
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // MODIFICADO: Restablecer todas las notas a 0.0 (en la vista)
   const handleResetAllGradesView = () => {
     Modal.confirm({
       title: 'Establecer todas las notas a 0.0',
-      content: '¿Está seguro de que desea establecer todas las notas a 0.0 en la vista? Los cambios no se guardarán en el servidor hasta que presione "Guardar Notas".',
+      content:
+        '¿Está seguro de que desea establecer todas las notas a 0.0 en la vista? Los cambios no se guardarán en el servidor hasta que presione "Guardar Notas".',
       okText: 'Sí, poner en 0.0',
       okType: 'danger',
       cancelText: 'Cancelar',
       onOk: () => {
-        setGrades(prevGrades => {
+        setGrades((prevGrades) => {
           const newGrades = { ...prevGrades };
-          students.forEach(student => {
-            newGrades[student.id] = { ...prevGrades[student.id] }; // Copiar notas existentes del estudiante o inicializar si no existe
-            materias.forEach(materia => {
-              newGrades[student.id][materia] = 0.0; // Establecer a 0.0
+          students.forEach((student) => {
+            newGrades[student.id] = { ...prevGrades[student.id] };
+            materias.forEach((materia) => {
+              newGrades[student.id][materia] = 0.0;
             });
           });
           return newGrades;
         });
-        message.info('Todas las notas en la vista han sido establecidas a 0.0. Guarde los cambios para aplicarlos.');
+        setHasUnsavedChanges(true);
+        message.info(
+          'Todas las notas en la vista han sido establecidas a 0.0. Guarde los cambios para aplicarlos.'
+        );
       },
     });
   };
-  
+
   const handleRevertToOriginalGrades = () => {
     Modal.confirm({
       title: 'Revertir a notas originales',
-      content: '¿Está seguro de que desea revertir todas las notas a los valores cargados originalmente desde el servidor? Se perderán los cambios no guardados.',
+      content:
+        '¿Está seguro de que desea revertir todas las notas a los valores cargados originalmente desde el servidor? Se perderán los cambios no guardados.',
       okText: 'Sí, revertir',
       cancelText: 'Cancelar',
       onOk: () => {
         setGrades(JSON.parse(JSON.stringify(initialGradesBackup)));
+        setHasUnsavedChanges(false);
         message.info('Las notas han sido revertidas a los valores originales cargados.');
       },
     });
   };
 
-  const getInputStyle = (value) => {
-    if (value === null || value === undefined || value === '') return { width: 80, textAlign: 'right' };
-    const numericValue = parseFloat(value);
-    return {
+  const getGradeStyle = (value) => {
+    const base = {
       width: 80,
       textAlign: 'right',
-      backgroundColor: numericValue >= 3.0 ? '#e6f4ea' : (numericValue < 0 ? '#fff1f0' : (numericValue === 0.0 ? '#fafafa' : '#fff1f0')), // Color diferente para 0.0 si se desea, o mantener el de reprobado
-      borderColor: numericValue >= 3.0 ? '#155153' : (numericValue < 0 ? '#ff4d4f' : (numericValue === 0.0 ? '#d9d9d9' : '#ff4d4f')),
+      borderRadius: 8,
+      fontSize: 14,
+      fontWeight: 600,
     };
+    if (value === null || value === undefined || value === '') return { ...base, borderColor: '#e5e7eb' };
+    const numericValue = parseFloat(value);
+    if (numericValue >= 3.0) {
+      return { ...base, backgroundColor: '#ecfdf5', borderColor: '#10b981', color: '#065f46' };
+    }
+    if (numericValue === 0.0) {
+      return { ...base, backgroundColor: '#fafafa', borderColor: '#d1d5db', color: '#6b7280' };
+    }
+    return { ...base, backgroundColor: '#fef2f2', borderColor: '#ef4444', color: '#991b1b' };
   };
 
-const columns = [
+  const columns = [
     {
-      title: 'Estudiante',
+      title: () => (
+        <span style={{ fontWeight: 700, fontSize: 13, color: '#374151' }}>
+          Estudiante
+        </span>
+      ),
       dataIndex: 'nombre',
       key: 'nombre',
       fixed: 'left',
-      width: 200,
-      render: (_, record) => `${record.nombre} ${record.apellido}`,
+      width: 220,
+      render: (_, record) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: 'linear-gradient(135deg, #155153, #28a5a5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            {record.nombre?.[0]}
+            {record.apellido?.[0]}
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, color: '#1f2937', fontSize: 13, lineHeight: 1.3 }}>
+              {record.nombre} {record.apellido}
+            </div>
+            <div style={{ fontSize: 11, color: '#9ca3af' }}>
+              {record.numero_documento || 'Sin doc.'}
+            </div>
+          </div>
+        </div>
+      ),
     },
-    // El mapeo de columnas ahora usa el estado 'materias' dinámico
     ...materias.map((materia) => ({
-      title: materia,
+      title: () => (
+        <Tooltip title={materia}>
+          <span
+            style={{
+              fontWeight: 600,
+              fontSize: 12,
+              color: '#4b5563',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: 100,
+              display: 'inline-block',
+            }}
+          >
+            {materia}
+          </span>
+        </Tooltip>
+      ),
       key: materia,
       width: 110,
       align: 'center',
@@ -186,13 +263,19 @@ const columns = [
         const studentGrade = grades[record.id]?.[materia];
         return (
           <InputNumber
-            min={0} max={5} step={0.1}
+            min={0}
+            max={5}
+            step={0.1}
             value={studentGrade === null || studentGrade === undefined ? '' : studentGrade}
             onChange={(value) => handleGradeChange(record.id, materia, value)}
-            placeholder="0.0-5.0"
-            style={getInputStyle(studentGrade)}
-            formatter={(value) => value === '' || value === null || value === undefined ? '' : parseFloat(value).toFixed(1)}
-            parser={(value) => value === '' ? null : parseFloat(value)}
+            placeholder="—"
+            style={getGradeStyle(studentGrade)}
+            formatter={(value) =>
+              value === '' || value === null || value === undefined
+                ? ''
+                : parseFloat(value).toFixed(1)
+            }
+            parser={(value) => (value === '' ? null : parseFloat(value))}
             onFocus={(e) => e.target.select()}
           />
         );
@@ -200,54 +283,265 @@ const columns = [
     })),
   ];
 
-
   const paginationConfig = {
     pageSize: 100,
     showSizeChanger: false,
     position: ['topRight', 'bottomRight'],
+    showTotal: (total) => (
+      <span style={{ color: '#6b7280', fontSize: 13 }}>
+        Total: <strong>{total}</strong> estudiantes
+      </span>
+    ),
   };
 
   return (
-    <div className="flex justify-start items-start min-h-screen bg-gray-100 p-4">
-      <Card className="w-full shadow-lg">
-        <Title level={2}>Boletín - Validación de Bachillerato</Title>
-        <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+    <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      {/* ===== Header ===== */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #0d3b3d 0%, #155153 40%, #1e8a8a 100%)',
+          borderRadius: 20,
+          padding: '32px 36px 28px',
+          marginBottom: 28,
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Decorative elements */}
+        <div
+          style={{
+            position: 'absolute',
+            width: 150,
+            height: 150,
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.04)',
+            top: -40,
+            right: -20,
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            width: 80,
+            height: 80,
+            borderRadius: '50%',
+            background: 'rgba(40,165,165,0.12)',
+            bottom: -20,
+            right: 100,
+          }}
+        />
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          {/* Back button */}
+          <button
+            onClick={() => navigate('/inicio/calificaciones')}
+            style={{
+              background: 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 10,
+              padding: '6px 14px',
+              color: 'rgba(255,255,255,0.8)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 500,
+              marginBottom: 18,
+              transition: 'all 0.2s ease',
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.18)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+            }}
+          >
+            <ArrowLeftOutlined /> Volver
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 14,
+                    background: 'rgba(255,255,255,0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 22,
+                    color: '#fff',
+                  }}
+                >
+                  <TrophyOutlined />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>
+                    Boletín – Validación de Bachillerato
+                  </h2>
+                  <p style={{ margin: '4px 0 0', fontSize: 14, color: 'rgba(255,255,255,0.5)' }}>
+                    Registro y gestión de calificaciones por materia
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats pills */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 12,
+                  padding: '8px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <TeamOutlined style={{ color: '#5ce0d8', fontSize: 16 }} />
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1.1 }}>
+                    {students.length}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                    Estudiantes
+                  </div>
+                </div>
+              </div>
+              <div
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 12,
+                  padding: '8px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <BookOutlined style={{ color: '#5ce0d8', fontSize: 16 }} />
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1.1 }}>
+                    {materias.length}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                    Materias
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ===== Toolbar ===== */}
+      <div
+        style={{
+          background: '#fff',
+          borderRadius: 16,
+          padding: '16px 24px',
+          marginBottom: 20,
+          border: '1px solid #f0f0f0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+          boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Search
-            placeholder="Buscar por nombre o apellido"
+            placeholder="Buscar por nombre o apellido..."
             allowClear
+            prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
             onSearch={handleSearch}
             onChange={(e) => {
               setSearchText(e.target.value);
               handleSearch(e.target.value);
             }}
             value={searchText}
-            style={{ width: 300 }}
+            style={{ width: 280 }}
+            size="large"
           />
-          <Space wrap>
-            <Button onClick={handleRevertToOriginalGrades} size="large">
-              Revertir Cambios
-            </Button>
-            {/* El botón sigue llamando a handleResetAllGradesView, que ahora pone 0.0 */}
-            <Button type="dashed" danger onClick={handleResetAllGradesView} size="large">
-              Borrar Notas (a 0.0) 
-            </Button>
-            <Button type="primary" onClick={handleSaveGrades} size="large" loading={loading}>
-              Guardar Notas
-            </Button>
-          </Space>
+          {hasUnsavedChanges && (
+            <Tag
+              icon={<WarningOutlined />}
+              color="warning"
+              style={{ borderRadius: 8, padding: '4px 12px', fontSize: 12 }}
+            >
+              Cambios sin guardar
+            </Tag>
+          )}
         </div>
+
+        <Space wrap>
+          <Button
+            icon={<UndoOutlined />}
+            onClick={handleRevertToOriginalGrades}
+            size="large"
+            style={{ borderRadius: 10, fontWeight: 500 }}
+          >
+            Revertir
+          </Button>
+          <Button
+            icon={<ClearOutlined />}
+            type="dashed"
+            danger
+            onClick={handleResetAllGradesView}
+            size="large"
+            style={{ borderRadius: 10, fontWeight: 500 }}
+          >
+            Notas a 0.0
+          </Button>
+          <Button
+            icon={<SaveOutlined />}
+            type="primary"
+            onClick={handleSaveGrades}
+            size="large"
+            loading={loading}
+            style={{
+              borderRadius: 10,
+              fontWeight: 600,
+              background: 'linear-gradient(135deg, #155153, #1e8a8a)',
+              border: 'none',
+              boxShadow: '0 4px 14px rgba(21, 81, 83, 0.3)',
+              paddingLeft: 24,
+              paddingRight: 24,
+            }}
+          >
+            Guardar Notas
+          </Button>
+        </Space>
+      </div>
+
+      {/* ===== Table ===== */}
+      <div
+        style={{
+          background: '#fff',
+          borderRadius: 16,
+          border: '1px solid #f0f0f0',
+          overflow: 'hidden',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        }}
+      >
         <Table
           columns={columns}
           dataSource={filteredStudents}
           rowKey="id"
           loading={loading}
           pagination={paginationConfig}
-          scroll={{ x: materias.length * 110 + 200 }}
+          scroll={{ x: materias.length * 110 + 220 }}
           bordered
-          className="mt-4"
           size="small"
+          style={{ fontSize: 13 }}
+          rowClassName={(_, index) => (index % 2 === 0 ? '' : '')}
         />
-      </Card>
+      </div>
     </div>
   );
 }

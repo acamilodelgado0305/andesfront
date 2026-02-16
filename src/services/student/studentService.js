@@ -79,6 +79,17 @@ export const getStudents = async () => {
   }
 };
 
+// Obtener estudiantes por tipo (bachillerato, tecnicos)
+export const getStudentsByType = async (type) => {
+  try {
+    const response = await backApi.get(`/api/students/type/${type}`);
+    return response.data;
+  } catch (error) {
+    logApiError(`Error al obtener los estudiantes de tipo ${type}`, error);
+    throw error;
+  }
+};
+
 // Obtener estudiantes por coordinador
 export const getStudentsByCoordinator = async (coordinatorId) => {
   try {
