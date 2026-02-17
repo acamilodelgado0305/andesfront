@@ -12,8 +12,9 @@ import {
 
 // SERVICIOS
 import {
-    getPedidos, updateEstadoPedido, getOrderStats, realizarCierre, getCierres
+    getPedidos, updateEstadoPedido, getOrderStats, realizarCierre, getCierres, getPedidoById
 } from "../../services/pedido/pedidoService";
+import { getPersonaById } from "../../services/person/personaService";
 import { cuentaOptions } from "../Certificados/options";
 
 // COMPONENTES HIJOS
@@ -198,168 +199,206 @@ const PedidosDashboard = () => {
         doc.save(`Cierre_${infoCierreSeleccionado.id}.pdf`);
     };
 
-    const generarReciboPDF = (pedido) => {
-        const doc = new jsPDF();
-
-        // Parseamos los items del pedido
-        let items = [];
+    const generarReciboPDF = async (pedidoResumen) => {
+        const loadingMsg = message.loading("Generando factura...", 0);
         try {
-            items = typeof pedido.items_detalle === 'string'
-                ? JSON.parse(pedido.items_detalle)
-                : (pedido.items_detalle || []);
-        } catch (e) {
-            items = [];
-        }
+            // 1. Obtener detalles completos del pedido (para asegurar items y observaciones)
+            const dataPedido = await getPedidoById(pedidoResumen.id);
+            const pedidoCompleto = dataPedido.pedido || dataPedido; // Ajuste según respuesta del backend
+            const items = dataPedido.items || dataPedido.items_detalle || []; // Ajuste según respuesta
 
-        // ENCABEZADO
-        doc.setFontSize(20);
-        doc.setTextColor(21, 81, 83);
+            // 2. Obtener datos del cliente (Nombre completo)
+            let clienteNombre = pedidoCompleto.cliente_nombre || "Cliente General";
+            let clienteTelefono = pedidoCompleto.cliente_telefono || "";
+            let clienteDireccion = "";
+            let clienteDocumento = "";
 
+            if (pedidoCompleto.persona_id) {
+                try {
+                    const persona = await getPersonaById(pedidoCompleto.persona_id);
+                    if (persona) {
+                        clienteNombre = `${persona.nombre || ""} ${persona.apellido || ""}`.trim() || clienteNombre;
+                        clienteTelefono = persona.celular || clienteTelefono;
+                        clienteDocumento = persona.numero_documento || "";
+                        clienteDireccion = persona.direccion || "";
+                    }
+                } catch (error) {
+                    console.warn("No se pudo obtener datos extra del cliente", error);
+                }
+            }
 
-        doc.setFontSize(14);
-        doc.text("FACTURA", 105, 30, null, null, "center");
+            const doc = new jsPDF();
 
-        // Línea separadora
-        doc.setDrawColor(21, 81, 83);
-        doc.setLineWidth(0.5);
-        doc.line(20, 35, 190, 35);
+            // ENCABEZADO
+            doc.setFontSize(22);
+            doc.setTextColor(21, 81, 83); // Color corporativo
+            doc.text("FACTURA DE VENTA", 105, 20, null, null, "center");
 
-        // INFORMACIÓN DEL PEDIDO
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text("Documento Oficial de Transacción", 105, 26, null, null, "center");
 
-        const fechaPedido = pedido.fecha_creacion
-            ? new Date(pedido.fecha_creacion).toLocaleDateString('es-CO', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            })
-            : new Date().toLocaleDateString('es-CO', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
+            // Línea separadora
+            doc.setDrawColor(21, 81, 83);
+            doc.setLineWidth(0.5);
+            doc.line(20, 32, 190, 32);
+
+            // DATOS GENERALES (2 columnas)
+            const startY = 40;
+
+            // Columna Izquierda: Datos del Cliente
+            doc.setFontSize(11);
+            doc.setTextColor(21, 81, 83);
+            doc.setFont(undefined, 'bold');
+            doc.text("DATOS DEL CLIENTE", 20, startY);
+
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(10);
+            doc.text(`Nombre: ${clienteNombre}`, 20, startY + 7);
+            if (clienteDocumento) doc.text(`CC/NIT: ${clienteDocumento}`, 20, startY + 12);
+            if (clienteTelefono) doc.text(`Teléfono: ${clienteTelefono}`, 20, startY + 17);
+            if (clienteDireccion) doc.text(`Dirección: ${clienteDireccion}`, 20, startY + 22);
+
+            // Columna Derecha: Datos de la Factura
+            doc.setFontSize(11);
+            doc.setTextColor(21, 81, 83);
+            doc.setFont(undefined, 'bold');
+            doc.text("DETALLES DE FACTURA", 120, startY);
+
+            doc.setFont(undefined, 'normal');
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(10);
+
+            const fechaValida = pedidoCompleto.fecha_creacion ? new Date(pedidoCompleto.fecha_creacion) : new Date();
+            const fechaStr = fechaValida.toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+            const horaStr = fechaValida.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+
+            doc.text(`N° Factura:`, 120, startY + 7);
+            doc.text(`#${pedidoCompleto.id}`, 155, startY + 7);
+
+            doc.text(`Fecha:`, 120, startY + 12);
+            doc.text(fechaStr, 155, startY + 12);
+
+            doc.text(`Hora:`, 120, startY + 17);
+            doc.text(horaStr, 155, startY + 17);
+
+            doc.text(`Estado:`, 120, startY + 22);
+            doc.setTextColor(pedidoCompleto.estado === 'PAGADO' ? 'green' : (pedidoCompleto.estado === 'ANULADO' ? 'red' : 'black'));
+            doc.text(pedidoCompleto.estado || 'PENDIENTE', 155, startY + 22);
+            doc.setTextColor(0, 0, 0); // Reset color
+
+            // TABLA DE PRODUCTOS
+            const productosParaTabla = items.map((item, index) => {
+                // Ajustar acceso a propiedades dependiendo de si viene de items o items_detalle string
+                const nombreProducto = item.producto_nombre || item.producto || item.nombre || 'Producto';
+                const cantidad = Number(item.cantidad) || 0;
+                const precioUnitario = Number(item.precio_unitario || item.precio || item.monto) || 0;
+                const subtotal = cantidad * precioUnitario;
+
+                return [
+                    index + 1,
+                    nombreProducto,
+                    cantidad,
+                    formatCurrency(precioUnitario),
+                    formatCurrency(subtotal)
+                ];
             });
 
-        doc.setFontSize(9);
-        doc.setTextColor(100, 100, 100);
-        doc.text("Factura No:", 20, 45);
-        doc.text("Fecha:", 20, 52);
-        doc.text("Estado:", 20, 59);
+            autoTable(doc, {
+                startY: startY + 35,
+                head: [['#', 'Descripción', 'Cant.', 'Precio Unit.', 'Total']],
+                body: productosParaTabla,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [21, 81, 83],
+                    textColor: [255, 255, 255],
+                    fontSize: 10,
+                    fontStyle: 'bold',
+                    halign: 'center'
+                },
+                columnStyles: {
+                    0: { cellWidth: 10, halign: 'center' },
+                    1: { cellWidth: 80 },
+                    2: { cellWidth: 20, halign: 'center' },
+                    3: { cellWidth: 35, halign: 'right' },
+                    4: { cellWidth: 35, halign: 'right' }
+                },
+                styles: {
+                    fontSize: 9,
+                    cellPadding: 3,
+                    valign: 'middle'
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245]
+                }
+            });
 
-        doc.setTextColor(0, 0, 0);
-        doc.setFont(undefined, 'bold');
-        doc.text(`#${pedido.id}`, 50, 45);
-        doc.text(fechaPedido, 50, 52);
-        doc.text(pedido.estado || 'PENDIENTE', 50, 59);
-        doc.setFont(undefined, 'normal');
+            // TOTALES Y OBSERVACIONES
+            const finalY = doc.lastAutoTable.finalY || 100;
+            let currentY = finalY + 10;
 
-        // INFORMACIÓN DEL CLIENTE
-        doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
-        doc.text("CLIENTE:", 20, 70);
-        doc.setFont(undefined, 'normal');
-        doc.setFontSize(10);
-        doc.text(pedido.cliente_nombre || 'Cliente General', 20, 77);
+            // Totales a la derecha
+            const subtotal = Number(pedidoCompleto.total) || 0;
+            const iva = 0; // Ajustar si hay lógica de impuestos
+            const total = subtotal + iva;
 
-        if (pedido.cliente_telefono) {
-            doc.setFontSize(9);
-            doc.setTextColor(100, 100, 100);
-            doc.text(`Tel: ${pedido.cliente_telefono}`, 20, 83);
-            doc.setTextColor(0, 0, 0);
-        }
+            const startXTotales = 130;
 
-        // TABLA DE PRODUCTOS
-        const productosParaTabla = items.map((item, index) => {
-            const nombreProducto = item.producto || item.nombre || 'Producto';
-            const cantidad = Number(item.cantidad) || 0;
-            const precioUnitario = Number(item.precio) || 0;
-            const subtotal = cantidad * precioUnitario;
+            // Fondo gris para totales
+            doc.setFillColor(240, 240, 240);
+            doc.rect(startXTotales - 5, currentY - 5, 70, 30, 'F');
 
-            return [
-                index + 1,
-                nombreProducto,
-                cantidad,
-                precioUnitario > 0 ? formatCurrency(precioUnitario) : '-',
-                precioUnitario > 0 ? formatCurrency(subtotal) : '-'
-            ];
-        });
+            doc.setFontSize(10);
+            doc.text("Subtotal:", startXTotales, currentY);
+            doc.text(formatCurrency(subtotal), 190, currentY, null, null, "right");
 
-        autoTable(doc, {
-            startY: 90,
-            head: [['#', 'Producto', 'Cant.', 'Precio Unit.', 'Subtotal']],
-            body: productosParaTabla,
-            theme: 'striped',
-            headStyles: {
-                fillColor: [21, 81, 83],
-                textColor: [255, 255, 255],
-                fontSize: 10,
-                fontStyle: 'bold'
-            },
-            columnStyles: {
-                0: { cellWidth: 10, halign: 'center' },
-                1: { cellWidth: 80 },
-                2: { cellWidth: 20, halign: 'center' },
-                3: { cellWidth: 35, halign: 'right' },
-                4: { cellWidth: 35, halign: 'right' }
-            },
-            styles: {
-                fontSize: 9,
-                cellPadding: 3
-            },
-            alternateRowStyles: {
-                fillColor: [245, 245, 245]
-            }
-        });
-
-        // CÁLCULOS FINALES
-        const finalY = doc.lastAutoTable.finalY || 90;
-        const subtotal = Number(pedido.total) || 0;
-        const iva = 0; // Puedes calcular IVA si es necesario: subtotal * 0.19
-        const total = subtotal + iva;
-
-        // RESUMEN DE TOTALES (alineado a la derecha)
-        const startXTotales = 130;
-        let currentY = finalY + 10;
-
-        doc.setDrawColor(200, 200, 200);
-        doc.line(startXTotales, currentY - 5, 190, currentY - 5);
-
-        doc.setFontSize(10);
-        doc.text("Subtotal:", startXTotales, currentY);
-        doc.text(formatCurrency(subtotal), 190, currentY, null, null, "right");
-
-        if (iva > 0) {
+            /* Si hubiera IVA
             currentY += 7;
             doc.text("IVA (19%):", startXTotales, currentY);
             doc.text(formatCurrency(iva), 190, currentY, null, null, "right");
+            */
+
+            currentY += 10;
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(21, 81, 83);
+            doc.text("TOTAL A PAGAR:", startXTotales, currentY);
+            doc.text(formatCurrency(total), 190, currentY, null, null, "right");
+
+            // Observaciones a la izquierda (si existen)
+            if (pedidoCompleto.observaciones) {
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                doc.setFont(undefined, 'bold');
+                doc.text("Observaciones:", 20, finalY + 10);
+
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(80, 80, 80);
+                const splitObservaciones = doc.splitTextToSize(pedidoCompleto.observaciones, 100);
+                doc.text(splitObservaciones, 20, finalY + 16);
+            }
+
+            // PIE DE PÁGINA
+            const footerY = 280;
+            doc.setDrawColor(200, 200, 200);
+            doc.line(20, footerY - 5, 190, footerY - 5);
+
+            doc.setFontSize(9);
+            doc.setTextColor(150, 150, 150);
+            doc.text("¡Gracias por su preferencia!", 105, footerY, null, null, "center");
+            doc.text("Generado automáticamente por el sistema", 105, footerY + 5, null, null, "center");
+
+            // Guardar PDF
+            doc.save(`Factura_${pedidoCompleto.id}_${clienteNombre.replace(/\s+/g, '_')}.pdf`);
+            message.success('Factura generada exitosamente');
+
+        } catch (error) {
+            console.error(error);
+            message.error("Error al generar la factura. Intente nuevamente.");
+        } finally {
+            loadingMsg(); // Cerrar loading message
         }
-
-        currentY += 7;
-        doc.setDrawColor(21, 81, 83);
-        doc.setLineWidth(0.5);
-        doc.line(startXTotales, currentY - 3, 190, currentY - 3);
-
-        doc.setFont(undefined, 'bold');
-        doc.setFontSize(12);
-        doc.text("TOTAL:", startXTotales, currentY + 3);
-        doc.text(formatCurrency(total), 190, currentY + 3, null, null, "right");
-        doc.setFont(undefined, 'normal');
-
-        // PIE DE PÁGINA
-        doc.setFontSize(9);
-        doc.setTextColor(100, 100, 100);
-        const footerY = 270;
-        doc.text("¡Gracias por su compra!", 105, footerY, null, null, "center");
-        doc.setFontSize(8);
-
-
-        // Guardar PDF
-        doc.save(`Factura_${pedido.id}.pdf`);
-        message.success('Factura descargada exitosamente');
     };
 
     const generarReporteControlActual = () => {
