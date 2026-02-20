@@ -1,66 +1,65 @@
-// src/services/adminService.js
+import axios from 'axios';
 
-import axios from "axios";
-const API_BASE_URL = import.meta.env.VITE_API_BACKEND;
+const API_URL = import.meta.env.VITE_API_AUTH_SERVICE;
 
-const backApi = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("authToken");
+  return { headers: { Authorization: `Bearer ${token}` } };
+};
+
+export const adminService = {
+  // Suscripciones
+  getSubscriptions: async () => {
+    const { data } = await axios.get(`${API_URL}/api/admin/subscriptions`, getAuthHeaders());
+    return data; // Retorna lista de negocios con estado de suscripción
   },
-});
 
-backApi.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
+  getClientDetails: async (businessId) => {
+    const { data } = await axios.get(`${API_URL}/api/admin/client-details/${businessId}`, getAuthHeaders());
+    return data;
   },
-  (error) => Promise.reject(error)
-);
 
-export const getAllClientsApi = async () => {
-  try {
-    const response = await backApi.get("/clients");
-    return response.data;
-  } catch (error) {
-    console.error("Error al obtener los clientes:", error);
-    throw error;
+  createSubscription: async (subscriptionData) => {
+    // subscriptionData espera: { businessId, planId, amountPaid, durationMonths, description }
+    const { data } = await axios.post(`${API_URL}/api/admin/subscriptions`, subscriptionData, getAuthHeaders());
+    return data;
+  },
+
+  renewSubscription: async (renewalData) => {
+    // renewalData espera: { businessId, planId, description }
+    const { data } = await axios.post(`${API_URL}/api/admin/subscriptions/renew`, renewalData, getAuthHeaders());
+    return data;
+  },
+
+  updateSubscription: async (subscriptionId, updateData) => {
+    // updateData espera: { planId, amountPaid, description }
+    const { data } = await axios.put(`${API_URL}/api/admin/subscriptions/${subscriptionId}`, updateData, getAuthHeaders());
+    return data;
+  },
+
+  // Planes
+  getPublicPlans: async () => {
+    const { data } = await axios.get(`${API_URL}/api/admin/plans`, getAuthHeaders());
+    return data;
+  },
+
+  getAdminPlans: async () => {
+    const { data } = await axios.get(`${API_URL}/api/admin/plans-admin`, getAuthHeaders());
+    return data;
+  },
+
+  createPlan: async (planData) => {
+    const { data } = await axios.post(`${API_URL}/api/admin/plans`, planData, getAuthHeaders());
+    return data;
+  },
+
+  updatePlan: async (id, planData) => {
+    const { data } = await axios.put(`${API_URL}/api/admin/plans/${id}`, planData, getAuthHeaders());
+    return data;
+  },
+
+  togglePlanStatus: async (id) => {
+    const { data } = await axios.patch(`${API_URL}/api/admin/plans/${id}/status`, {}, getAuthHeaders());
+    return data;
   }
-};
-
-export const getClientDetailsApi = async (userId) => {
-  try {
-    const response = await backApi.get(`/clients/${userId}`);
-    return response.data;
-  } catch (error) {
-    console.error(`Error al obtener los detalles del cliente ${userId}:`, error);
-    throw error;
-  }
-};
-
-export const createSubscriptionApi = async (subscriptionData) => {
-  try {
-    const response = await backApi.post('/api/subscriptions', subscriptionData);
-    return response.data;
-  } catch (error) {
-    console.error('Error al crear la suscripción:', error);
-    throw error;
-  }
-};
-
-/**
- * Crea un nuevo cargo extra para una suscripción.
- * Corresponde a: POST /admin/extra-charges
- */
-export const createExtraChargeApi = async (chargeData) => {
-    try {
-        const response = await backApi.post('/extra-charges', chargeData);
-        return response.data;
-    } catch (error) {
-        console.error('Error al crear el cargo extra:', error);
-        throw error;
-    }
 };
