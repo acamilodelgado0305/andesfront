@@ -29,6 +29,7 @@ import StudentLoginForm from "./components/PublicForms/StudentLoginForm";
 import Sales from "./sales/Sales";
 import Generacion from "./components/Certificados/Generacion";
 import DashboardClients from "./components/admin/DashboardClients";
+import UsersDashboard from "./components/admin/UsersDashboard";
 import Inventario from "./components/inventario/Inventario";
 import PersonasDashboard from "./components/personas/PersonasDashboard";
 import Verificacion from "./components/Calificaciones/Verificacion";
@@ -102,12 +103,10 @@ const App = () => (
 
             {/* 🔹 Admin evaluaciones */}
             <Route path="evaluaciones" element={<AdminEvaluationPage />} />
-            <Route
-              path="evaluaciones/:evaluationId/builder"
-              element={<EvaluationBuilder />}
-            />
+            <Route path="evaluaciones/:evaluationId/builder" element={<EvaluationBuilder />} />
 
             <Route path="adminclients" element={<DashboardClients />} />
+            <Route path="usuarios-negocio" element={<UsersDashboard />} />
             <Route path="calificaciones" element={<Calificaciones />} />
             <Route path="calificaciones/bachillerato" element={<Bachillerato />} />
             <Route

@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Typography, Dropdown, ConfigProvider, Spin } from 'antd';
+import { Layout, Menu, Button, Avatar, Typography, Dropdown, ConfigProvider, Spin, Modal, List, message } from 'antd';
 import {
   DashboardOutlined,
   TeamOutlined,
@@ -28,6 +28,7 @@ const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
 
 const API_URL = import.meta.env.VITE_API_BACKEND;
+const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
 const PRIMARY_COLOR = '#155153';
 
 // =========================================================
@@ -90,10 +91,21 @@ const MENU_MASTER = [
   {
     key: '/admin-sistema',
     icon: <SettingOutlined />,
-    label: 'Administración',
-    requiredModule: 'ADMIN', // <--- Módulo requerido
+    label: 'Administración Global',
+    requiredRole: ['superadmin'], // <--- Solo superadmin
     children: [
-      { key: '/inicio/adminclients', icon: <SettingOutlined />, label: 'Configuración Global', path: '/inicio/adminclients' },
+      { key: '/inicio/adminclients', icon: <SettingOutlined />, label: 'Configurador General', path: '/inicio/adminclients' },
+    ]
+  },
+
+  // --- 6. CONFIGURACIÓN DEL NEGOCIO ---
+  {
+    key: '/configuracion-negocio',
+    icon: <SettingOutlined />,
+    label: 'Configuración',
+    requiredRole: ['admin', 'superadmin'], // <--- Solo admin del negocio
+    children: [
+      { key: '/inicio/usuarios-negocio', icon: <TeamOutlined />, label: 'Usuarios y Accesos', path: '/inicio/usuarios-negocio' },
     ]
   }
 ];
@@ -168,7 +180,7 @@ const applyChildRestrictions = (menuItem, userRole) => {
 
 const RootLayout = () => {
   // 1. OBTENER USUARIO DEL CONTEXTO
-  const { user, logout, loading: authLoading } = useContext(AuthContext);
+  const { user, login, logout, loading: authLoading } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [isSiderCollapsed, setIsSiderCollapsed] = useState(true);
@@ -217,7 +229,7 @@ const RootLayout = () => {
     const fetchSubscription = async () => {
       if (user && user.id) {
         try {
-          const response = await axios.get(`${API_URL}/api/subscriptions/expiration/${user.id}`);
+          const response = await axios.get(`${API_AUTH_URL}/api/subscriptions/expiration/${user.id}`);
           if (response.data) {
             setSubscriptionData({
               endDate: response.data.end_date,
@@ -268,9 +280,14 @@ const RootLayout = () => {
       return mapMenuToAntd(buildEducationalMenu());
     }
 
-    // A. Si es SuperAdmin o Admin, devuelve TODO el menú maestro (sin restricciones de hijos)
-    if (user.role === 'superadmin' || user.role === 'admin') {
-      return mapMenuToAntd(MENU_MASTER);
+    // A. Si es SuperAdmin, devuelve TODO el menú maestro (sin restricciones de hijos),
+    // pero respetando roles explícitos (ej. superadmin-only)
+    if (user.role === 'superadmin') {
+      const superAdminMenu = MENU_MASTER.filter(item => {
+        if (item.requiredRole && !item.requiredRole.includes(user.role)) return false;
+        return true;
+      });
+      return mapMenuToAntd(superAdminMenu);
     }
 
     // B. Si es 'Docente' (Legacy), podemos devolver un subconjunto específico
@@ -287,7 +304,10 @@ const RootLayout = () => {
 
     const filteredMenu = MENU_MASTER
       .filter(item => {
-        // 1. Si no requiere módulo, es público (ej: Dashboard)
+        // 0. Filtrado por rol específico si está definido en el item (ej: Configuración de Usuarios)
+        if (item.requiredRole && !item.requiredRole.includes(user.role)) return false;
+
+        // 1. Si no requiere módulo, pasa (salvo que ya haya fallado el rol)
         if (!item.requiredModule) return true;
         // 2. Si requiere módulo, verificamos si el usuario lo tiene
         return userModules.includes(item.requiredModule);
@@ -323,6 +343,72 @@ const RootLayout = () => {
       { type: 'divider' },
       { key: '3', icon: <LogoutOutlined />, label: 'Cerrar Sesión', onClick: logout, danger: true },
     ]} />
+  );
+
+  // --- 4. DROPDOWN DE NEGOCIOS ---
+  const handleBusinessSelect = async (business) => {
+    if (user.bid === business.id) return;
+
+    try {
+      const { switchBusiness } = await import('../services/auth/authService');
+      const response = await switchBusiness(business.id);
+
+      if (response.token) {
+        login(response.token, response.user);
+        message.success(`Cambiado a ${business.name}`);
+        navigate('/inicio');
+      }
+    } catch (error) {
+      console.error("Error cambiando negocio", error);
+      message.error("Error al cambiar de negocio.");
+    }
+  };
+
+  const currentBusinessName = user?.business_name || 'Mi Negocio';
+  const availableBusinesses = user?.businesses || [];
+
+  const businessMenu = (
+    <div className="bg-white rounded-lg shadow-xl border border-gray-200 w-80 py-2 mt-2">
+      <div className="px-4 py-2 border-b border-gray-100 mb-1 flex justify-between items-center">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Mis Negocios</span>
+        <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-md">{availableBusinesses.length}</span>
+      </div>
+      <div className="max-h-[300px] overflow-y-auto px-2">
+        {availableBusinesses.map((business) => (
+          <div
+            key={business.id}
+            onClick={() => handleBusinessSelect(business)}
+            className={`flex items-center gap-3 p-2.5 mb-1 rounded-md cursor-pointer transition-all duration-200 group
+              ${user.bid === business.id
+                ? 'bg-[#155153]/5 border border-[#155153]/10'
+                : 'hover:bg-gray-50 border border-transparent'}
+            `}
+          >
+            <Avatar
+              shape="square"
+              size={40}
+              icon={<ShopOutlined />}
+              style={user.bid === business.id ? { backgroundColor: PRIMARY_COLOR } : {}}
+              className={`rounded-md flex-shrink-0 transition-colors shadow-sm ${user.bid === business.id ? '' : 'bg-gray-200 group-hover:bg-gray-300'}`}
+            />
+            <div className="flex flex-col min-w-0">
+              <span className={`text-sm font-bold truncate leading-tight ${user.bid === business.id ? 'text-[#155153]' : 'text-gray-700'}`}>
+                {business.name}
+              </span>
+              <span className="text-[11px] text-gray-500 capitalize mt-0.5">
+                {business.role === 'admin' ? 'Administrador' : 'Colaborador'}
+              </span>
+            </div>
+            {user.bid === business.id && (
+              <div className="ml-auto w-2 h-2 rounded-full" style={{ backgroundColor: PRIMARY_COLOR }}></div>
+            )}
+          </div>
+        ))}
+        {availableBusinesses.length === 0 && (
+          <div className="text-center py-4 text-gray-400 text-xs">Sin negocios disponibles</div>
+        )}
+      </div>
+    </div>
   );
 
   // --- RENDER ---
@@ -366,6 +452,8 @@ const RootLayout = () => {
             style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.45)', zIndex: 999, transition: 'opacity 0.3s' }}
           />
         )}
+
+
 
         <Sider
           collapsible
@@ -432,6 +520,22 @@ const RootLayout = () => {
                 onClick={() => isMobile ? setMobileDrawerOpen(!mobileDrawerOpen) : setIsSiderCollapsed(!isSiderCollapsed)}
                 style={{ fontSize: '18px', width: 48, height: 48 }}
               />
+
+              {/* SELECTOR DE NEGOCIO */}
+              <Dropdown overlay={businessMenu} trigger={['click']} placement="bottomLeft">
+                <div
+                  className="hidden md:flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1.5 rounded-md transition-all border border-transparent hover:border-gray-200"
+                >
+                  <Avatar shape="square" size="small" icon={<ShopOutlined />} style={{ backgroundColor: '#e6f4f4', color: PRIMARY_COLOR }} className="rounded-md" />
+                  <div className="flex flex-col leading-none">
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Negocio</span>
+                    <span className="text-sm font-bold text-gray-700 truncate max-w-[150px]">{currentBusinessName}</span>
+                  </div>
+                  {availableBusinesses.length > 1 && (
+                    <span className="text-[10px] text-gray-400">▼</span>
+                  )}
+                </div>
+              </Dropdown>
             </div>
 
             <Dropdown overlay={profileMenu} trigger={['click']}>
