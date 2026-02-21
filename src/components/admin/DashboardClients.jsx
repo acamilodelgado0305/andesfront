@@ -7,21 +7,19 @@ import {
     UserOutlined, SearchOutlined, PlusOutlined, SaveOutlined,
     HistoryOutlined, CheckCircleFilled, ClockCircleOutlined,
     CalendarOutlined, SettingOutlined, EditOutlined, DeleteOutlined,
-    ArrowLeftOutlined // Nuevo icono para volver atrás en móvil
+    ArrowLeftOutlined
 } from '@ant-design/icons';
-import axios from 'axios';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { NumericFormat } from 'react-number-format';
+import { adminService } from '../../services/adminService';
 
 dayjs.locale('es');
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
-const { useBreakpoint } = Grid; // Hook para detectar tamaño de pantalla
-
-const API_URL = import.meta.env.VITE_API_BACKEND;
+const { useBreakpoint } = Grid;
 
 // --- CONSTANTES ---
 const MODULE_COLORS = {
@@ -34,13 +32,7 @@ const MODULE_COLORS = {
 
 const MODULE_OPTIONS = ['POS', 'ACADEMICO', 'INVENTARIO', 'GENERACION', 'ADMIN'];
 
-const getAuthHeaders = () => {
-    const token = localStorage.getItem("authToken");
-    return { headers: { Authorization: `Bearer ${token}` } };
-};
-
 function DashboardClients() {
-    // Detectar tamaño de pantalla (md = true si es tablet/desktop)
     const screens = useBreakpoint();
 
     // ==========================================
@@ -59,6 +51,11 @@ function DashboardClients() {
     const [subForm] = Form.useForm();
     const [publicPlans, setPublicPlans] = useState([]);
 
+    // Modal Editar Suscripción
+    const [isEditSubModalVisible, setIsEditSubModalVisible] = useState(false);
+    const [selectedSubscription, setSelectedSubscription] = useState(null);
+    const [editSubForm] = Form.useForm();
+
     // Gestión de Planes
     const [isPlanDrawerVisible, setIsPlanDrawerVisible] = useState(false);
     const [isPlanFormVisible, setIsPlanFormVisible] = useState(false);
@@ -72,7 +69,7 @@ function DashboardClients() {
     // ==========================================
     const fetchClients = useCallback(async () => {
         try {
-            const { data } = await axios.get(`${API_URL}/api/subscriptions`, getAuthHeaders());
+            const data = await adminService.getSubscriptions();
             setClients(data);
             setFilteredClients(data);
         } catch (err) {
@@ -83,7 +80,7 @@ function DashboardClients() {
 
     const fetchPublicPlans = useCallback(async () => {
         try {
-            const { data } = await axios.get(`${API_URL}/api/plans`, getAuthHeaders());
+            const data = await adminService.getPublicPlans();
             setPublicPlans(data);
         } catch (err) {
             console.error(err);
@@ -93,7 +90,7 @@ function DashboardClients() {
     const fetchAdminPlans = useCallback(async () => {
         setLoadingPlans(true);
         try {
-            const { data } = await axios.get(`${API_URL}/api/plans-admin`, getAuthHeaders());
+            const data = await adminService.getAdminPlans();
             setAdminPlans(data);
         } catch (err) {
             message.error("Error cargando gestión de planes");
@@ -116,7 +113,6 @@ function DashboardClients() {
     // ==========================================
     const handleSelectClient = async (client) => {
         setSelectedClient(client);
-        // Si estamos en móvil, el usuario "navega" al detalle, así que hacemos scroll top
         if (!screens.md) window.scrollTo(0, 0);
 
         if (client.subscription_status === 'no_subscription') {
@@ -125,7 +121,7 @@ function DashboardClients() {
         }
         setLoadingDetails(true);
         try {
-            const { data } = await axios.get(`${API_URL}/api/client-details/${client.id}`, getAuthHeaders());
+            const data = await adminService.getClientDetails(client.id);
             setClientDetails(data);
         } catch (err) {
             message.error("Error al cargar historial.");
@@ -141,30 +137,71 @@ function DashboardClients() {
 
     const handleSearch = (e) => {
         const query = e.target.value.toLowerCase();
-        setFilteredClients(clients.filter(c =>
-            c.name.toLowerCase().includes(query) ||
-            c.email.toLowerCase().includes(query)
-        ));
+        setFilteredClients(clients.filter(c => {
+            const nameMatch = c.name && c.name.toLowerCase().includes(query);
+            const emailMatch = c.email && c.email.toLowerCase().includes(query);
+            return nameMatch || emailMatch;
+        }));
     };
 
     const handleSubscriptionSubmit = async (values) => {
         setIsSubmitting(true);
         try {
-            await axios.post(`${API_URL}/api/subscriptions/renew`, {
-                userId: selectedClient.id,
-                planId: values.planId,
-                description: values.description
-            }, getAuthHeaders());
-
-            message.success(`Plan asignado a ${selectedClient.name} correctamente.`);
-            setIsSubModalVisible(false);
-            await fetchClients();
-            if (selectedClient) {
-                const updated = clients.find(c => c.id === selectedClient.id);
-                if (updated) setSelectedClient({ ...updated });
+            const selectedPlan = publicPlans.find(p => p.id === values.planId);
+            if (!selectedPlan) {
+                message.error("Plan no válido.");
+                return;
             }
+
+            // Usamos createSubscription para asignar/renovar forzadamente
+            await adminService.createSubscription({
+                businessId: selectedClient.id,
+                planId: values.planId,
+                amountPaid: selectedPlan.price,
+                durationMonths: selectedPlan.duration_months,
+                description: values.description
+            });
+
+            message.success(`Plan asignado a ${selectedClient.name || selectedClient.business_name} correctamente.`);
+            setIsSubModalVisible(false);
+            subForm.resetFields();
+            if (selectedClient) {
+                await handleSelectClient(selectedClient);
+            }
+            await fetchClients();
         } catch (err) {
+            console.error(err);
             const errorMsg = err.response?.data?.error || "Error al procesar suscripción.";
+            message.error(errorMsg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleOpenEditSubscription = (sub) => {
+        setSelectedSubscription(sub);
+        editSubForm.setFieldsValue({
+            planId: sub.plan_id,
+            amountPaid: sub.amount_paid,
+            description: sub.description
+        });
+        setIsEditSubModalVisible(true);
+    };
+
+    const handleEditSubscriptionSubmit = async (values) => {
+        setIsSubmitting(true);
+        try {
+            await adminService.updateSubscription(selectedSubscription.id, values);
+            message.success("Suscripción actualizada correctamente.");
+            setIsEditSubModalVisible(false);
+            editSubForm.resetFields();
+            if (selectedClient) {
+                await handleSelectClient(selectedClient);
+            }
+            await fetchClients();
+        } catch (err) {
+            console.error(err);
+            const errorMsg = err.response?.data?.error || "Error al actualizar la suscripción.";
             message.error(errorMsg);
         } finally {
             setIsSubmitting(false);
@@ -207,15 +244,19 @@ function DashboardClients() {
         setIsSubmitting(true);
         try {
             if (editingPlan) {
-                await axios.put(`${API_URL}/api/plans/${editingPlan.id}`, values, getAuthHeaders());
+                await adminService.updatePlan(editingPlan.id, values);
                 message.success("Plan actualizado");
             } else {
-                await axios.post(`${API_URL}/api/plans`, values, getAuthHeaders());
+                await adminService.createPlan(values);
                 message.success("Plan creado");
             }
             setIsPlanFormVisible(false);
-            fetchAdminPlans();
-            fetchPublicPlans();
+            await fetchAdminPlans();
+            await fetchPublicPlans();
+            await fetchClients();
+            if (selectedClient) {
+                await handleSelectClient(selectedClient);
+            }
         } catch (error) {
             console.error(error);
             message.error("Error al guardar el plan");
@@ -226,10 +267,11 @@ function DashboardClients() {
 
     const handleToggleStatus = async (plan) => {
         try {
-            await axios.patch(`${API_URL}/api/plans/${plan.id}/status`, {}, getAuthHeaders());
+            await adminService.togglePlanStatus(plan.id);
             message.success(`Plan ${plan.is_active ? 'desactivado' : 'activado'}`);
-            fetchAdminPlans();
-            fetchPublicPlans();
+            await fetchAdminPlans();
+            await fetchPublicPlans();
+            await fetchClients();
         } catch (error) {
             message.error("Error al cambiar estado");
         }
@@ -335,9 +377,13 @@ function DashboardClients() {
                                         <p className="text-xs text-gray-400 m-0 truncate">{client.email}</p>
                                     </div>
                                     <div className="text-right whitespace-nowrap">
-                                        <Text strong className="text-emerald-600 block">
-                                            <NumericFormat value={client.total_paid || 0} displayType={'text'} thousandSeparator="." decimalSeparator="," prefix="$" decimalScale={0} />
-                                        </Text>
+                                        {client.subscription_status !== 'no_subscription' && client.amount_paid !== null ? (
+                                            <Text strong className="text-emerald-600 block">
+                                                <NumericFormat value={client.amount_paid} displayType={'text'} thousandSeparator="." decimalSeparator="," prefix="$" decimalScale={0} />
+                                            </Text>
+                                        ) : (
+                                            <Text type="secondary" className="block text-xs">Sin plan</Text>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="mt-2 flex flex-wrap gap-1 justify-between items-center">
@@ -413,9 +459,19 @@ function DashboardClients() {
                                                         {dayjs(sub.end_date).isAfter(dayjs()) ? 'Vigente' : 'Finalizada'}
                                                     </Tag>
                                                 </div>
-                                                <Text strong className="text-lg text-gray-700">
-                                                    <NumericFormat value={sub.amount_paid} displayType={'text'} thousandSeparator="." decimalSeparator="," prefix="$ " />
-                                                </Text>
+                                                <div className="flex items-center gap-2">
+                                                    <Text strong className="text-lg text-gray-700">
+                                                        <NumericFormat value={sub.amount_paid} displayType={'text'} thousandSeparator="." decimalSeparator="," prefix="$ " />
+                                                    </Text>
+                                                    <Button
+                                                        type="text"
+                                                        icon={<EditOutlined />}
+                                                        onClick={() => handleOpenEditSubscription(sub)}
+                                                        className="text-blue-600 ml-2 border border-blue-200"
+                                                        size="small"
+                                                        title="Editar Plan o Fechas"
+                                                    />
+                                                </div>
                                             </div>
                                             <div className="flex justify-between text-gray-500 text-sm">
                                                 <span className="flex items-center gap-1">
@@ -542,6 +598,53 @@ function DashboardClients() {
                     <div className="flex justify-end gap-2 mt-6">
                         <Button onClick={() => setIsSubModalVisible(false)}>Cancelar</Button>
                         <Button type="primary" htmlType="submit" loading={isSubmitting} style={{ backgroundColor: '#155153' }}>Guardar</Button>
+                    </div>
+                </Form>
+            </Modal>
+
+            {/* MODAL: EDITAR SUSCRIPCIÓN */}
+            <Modal
+                title="Editar Suscripción (Manteniendo Fechas)"
+                open={isEditSubModalVisible}
+                onCancel={() => setIsEditSubModalVisible(false)}
+                footer={null}
+                destroyOnClose
+                width={screens.md ? 600 : '95%'}
+                style={{ top: 20 }}
+            >
+                <Form form={editSubForm} layout="vertical" onFinish={handleEditSubscriptionSubmit}>
+                    <Form.Item name="planId" label="Plan" rules={[{ required: true, message: 'Seleccione un plan' }]}>
+                        <Select
+                            placeholder="Elige..."
+                            optionLabelProp="label"
+                            dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}
+                            onChange={(value) => {
+                                const newPlan = publicPlans.find(p => p.id === value);
+                                if (newPlan) {
+                                    editSubForm.setFieldsValue({ amountPaid: newPlan.price });
+                                }
+                            }}
+                        >
+                            {publicPlans.map(plan => (
+                                <Option key={plan.id} value={plan.id} label={plan.name}>
+                                    <div className="flex flex-col py-1 border-b border-gray-100 last:border-0">
+                                        <div className="flex justify-between font-semibold">
+                                            <span>{plan.name}</span>
+                                        </div>
+                                    </div>
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                    <Form.Item name="amountPaid" label="Monto Pagado">
+                        <InputNumber min={0} className="w-full" prefix="$" />
+                    </Form.Item>
+                    <Form.Item name="description" label="Notas Adicionales">
+                        <TextArea rows={2} />
+                    </Form.Item>
+                    <div className="flex justify-end gap-2 mt-6">
+                        <Button onClick={() => setIsEditSubModalVisible(false)}>Cancelar</Button>
+                        <Button type="primary" htmlType="submit" loading={isSubmitting}>Guardar Cambios</Button>
                     </div>
                 </Form>
             </Modal>

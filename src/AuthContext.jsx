@@ -1,25 +1,18 @@
 // src/AuthContext.jsx
 import React, { createContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+    getToken,
+    setToken as saveToken,
+    getUser,
+    setUser as saveUser,
+    removeToken,
+    removeUser,
+    decodeToken,
+    logout as logoutService,
+} from "./services/auth/authService";
 
 export const AuthContext = createContext(null);
-
-const STORAGE_TOKEN_KEY = "authToken";
-const STORAGE_USER_KEY = "authUser";
-
-const decodeToken = (token) => {
-    try {
-        const payloadBase64 = token.split(".")[1];
-        // Truco para caracteres especiales (tildes/ñ) en base64
-        const payloadJson = decodeURIComponent(atob(payloadBase64).split('').map(function (c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        return JSON.parse(payloadJson);
-    } catch (error) {
-        console.error("Error al decodificar el token:", error);
-        return null;
-    }
-};
 
 export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(null);
@@ -28,10 +21,10 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
 
-    // Cargar datos desde localStorage al inicio
+    // Cargar datos desde localStorage al inicio (usando authService)
     useEffect(() => {
-        const storedToken = localStorage.getItem(STORAGE_TOKEN_KEY);
-        const storedUser = localStorage.getItem(STORAGE_USER_KEY);
+        const storedToken = getToken();
+        const storedUser = getUser();
 
         if (storedToken) {
             const payload = decodeToken(storedToken);
@@ -42,17 +35,11 @@ export const AuthProvider = ({ children }) => {
                 setIsAuthenticated(true);
 
                 if (storedUser) {
-                    try {
-                        const parsedUser = JSON.parse(storedUser);
-                        // Aseguramos que si el token trae módulos nuevos y el localStorage es viejo,
-                        // actualizamos con la info del token
-                        if (!parsedUser.modules && payload.modules) {
-                            parsedUser.modules = payload.modules;
-                        }
-                        setUser(parsedUser);
-                    } catch {
-                        setUser(null);
+                    // Si el token trae módulos nuevos y el localStorage es viejo, actualizamos
+                    if (!storedUser.modules && payload.modules) {
+                        storedUser.modules = payload.modules;
                     }
+                    setUser(storedUser);
                 } else {
                     // RECONSTRUCCIÓN SI NO HAY DATOS EN LOCALSTORAGE
                     const reconstructedUser = {
@@ -61,28 +48,25 @@ export const AuthProvider = ({ children }) => {
                         role: payload.role,
                         bid: payload.bid,
                         app: payload.scope, // O payload.app
-                        // <--- IMPORTANTE: RECUPERAR LOS MÓDULOS DEL TOKEN
-                        modules: payload.modules || []
+                        modules: payload.modules || [],
+                        business_name: payload.business_name,
+                        businesses: payload.businesses || []
                     };
                     setUser(reconstructedUser);
-                    localStorage.setItem(
-                        STORAGE_USER_KEY,
-                        JSON.stringify(reconstructedUser)
-                    );
+                    saveUser(reconstructedUser);
                 }
             } else {
-                localStorage.removeItem(STORAGE_TOKEN_KEY);
-                localStorage.removeItem(STORAGE_USER_KEY);
+                // Token expirado
+                logoutService();
             }
         }
-
         setLoading(false);
     }, []);
 
     const login = (newToken, userFromApi) => {
         const payload = decodeToken(newToken);
 
-        localStorage.setItem(STORAGE_TOKEN_KEY, newToken);
+        saveToken(newToken);
         setToken(newToken);
         setIsAuthenticated(true);
 
@@ -96,25 +80,35 @@ export const AuthProvider = ({ children }) => {
                 role: payload.role,
                 bid: payload.bid,
                 app: payload.scope,
-                // <--- IMPORTANTE: MAPEAR MÓDULOS AQUÍ TAMBIÉN
-                modules: payload.modules || []
+                modules: payload.modules || [],
+                business_name: payload.business_name,
+                businesses: payload.businesses || []
             };
         }
 
         // Si el user viene de la API, nos aseguramos que traiga módulos, sino miramos el token
-        if (finalUser && !finalUser.modules && payload && payload.modules) {
-            finalUser.modules = payload.modules;
+        if (finalUser) {
+            if (!finalUser.modules && payload && payload.modules) {
+                finalUser.modules = payload.modules;
+            }
+            // Normalizar business_id a bid para consistencia
+            if (!finalUser.bid && payload && payload.bid) {
+                finalUser.bid = payload.bid;
+            } else if (!finalUser.bid && finalUser.business_id) {
+                finalUser.bid = finalUser.business_id;
+            } else if (!finalUser.bid && payload && payload.business_id) {
+                finalUser.bid = payload.business_id;
+            }
         }
 
         if (finalUser) {
-            localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(finalUser));
+            saveUser(finalUser);
             setUser(finalUser);
         }
     };
 
     const logout = () => {
-        localStorage.removeItem(STORAGE_TOKEN_KEY);
-        localStorage.removeItem(STORAGE_USER_KEY);
+        logoutService();
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);

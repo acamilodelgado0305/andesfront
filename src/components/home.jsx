@@ -69,7 +69,7 @@ const MENU_MASTER = [
     key: '/admin-sistema',
     icon: <SettingOutlined />,
     label: 'Administracion',
-    requiredModule: 'ADMIN',
+    requiredRole: ['superadmin'],
     children: [
       { key: '/inicio/adminclients', icon: <SettingOutlined />, label: 'Configuracion Global', path: '/inicio/adminclients' },
     ]
@@ -138,6 +138,7 @@ const Home = () => {
 
     const userModules = user.modules || [];
     return MENU_MASTER.filter(item => {
+      if (item.requiredRole && !item.requiredRole.includes(user.role)) return false;
       if (!item.requiredModule) return true;
       return userModules.includes(item.requiredModule);
     });

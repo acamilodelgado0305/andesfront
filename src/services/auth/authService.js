@@ -1,32 +1,110 @@
-// src/services/authService.js
-import backApi from "../backApi";
+// src/services/auth/authService.js
 import axios from "axios";
 
-const BACK_URL = import.meta.env.VITE_API_BACKEND;
+// Access environment variable for backend URL
+const BACK_URL = import.meta.env.VITE_API_BACKEND || "http://localhost:3002";
+// Access environment variable for Auth Service URL
+const AUTH_SERVICE_URL = import.meta.env.VITE_API_AUTH_SERVICE || "http://localhost:3001";
 
-// Opcional: si quieres login SIN interceptor ni token:
-export const rawLogin = async (email, password) => {
-  try {
-    const response = await axios.post(`${BACK_URL}/login`, {
-      email,
-      password,
-    });
-    return response.data;
-  } catch (error) {
-    console.error("Error al iniciar sesión (rawLogin):", error);
-    throw error;
+// Define storage keys to ensure consistency across the application
+export const TOKEN_KEY = "authToken";
+export const USER_KEY = "authUser";
+
+/**
+ * Set the authentication token in local storage.
+ * @param {string} token - The JWT token.
+ */
+export const setToken = (token) => {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
   }
 };
 
-// Login usando backApi (normalmente igual al anterior, pero pasando por interceptor)
+/**
+ * Get the authentication token from local storage.
+ * @returns {string|null} The JWT token or null.
+ */
+export const getToken = () => {
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+/**
+ * Remove the authentication token from local storage.
+ */
+export const removeToken = () => {
+  localStorage.removeItem(TOKEN_KEY);
+};
+
+/**
+ * Set the user data in local storage.
+ * @param {object} user - The user object.
+ */
+export const setUser = (user) => {
+  if (user) {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+};
+
+/**
+ * Get the user data from local storage.
+ * @returns {object|null} The user object or null.
+ */
+export const getUser = () => {
+  const userStr = localStorage.getItem(USER_KEY);
+  try {
+    return userStr ? JSON.parse(userStr) : null;
+  } catch (e) {
+    console.error("Error parsing user from storage", e);
+    return null;
+  }
+};
+
+/**
+ * Remove the user data from local storage.
+ */
+export const removeUser = () => {
+  localStorage.removeItem(USER_KEY);
+};
+
+/**
+ * Decode part of the JWT token.
+ * @param {string} token 
+ * @returns {object|null}
+ */
+export const decodeToken = (token) => {
+  try {
+    const payloadBase64 = token.split(".")[1];
+    // Fix for special characters in base64
+    const payloadJson = decodeURIComponent(
+      atob(payloadBase64)
+        .split("")
+        .map(function (c) {
+          return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join("")
+    );
+    return JSON.parse(payloadJson);
+  } catch (error) {
+    console.error("Error al decodificar el token:", error);
+    return null;
+  }
+};
+
+/**
+ * Perform login request to the Auth Service.
+ * Returns the response data { token, user, message }.
+ * Note: This function does NOT automatically save to localStorage. 
+ * The consumer (e.g., AuthContext or Component) should handle storage or use helper methods.
+ * 
+ * @param {string} email 
+ * @param {string} password 
+ */
 export const login = async (email, password) => {
   try {
-    // IMPORTANTE: aquí voy directo al endpoint real de login del backend
-    const { data } = await axios.post(`${BACK_URL}/api/login`, {
+    const { data } = await axios.post(`${AUTH_SERVICE_URL}/api/auth/login`, {
       email,
       password,
     });
-    // data = { token, user, message }
     return data;
   } catch (error) {
     console.error("Error al iniciar sesión:", error);
@@ -34,21 +112,51 @@ export const login = async (email, password) => {
   }
 };
 
-// Helper opcional para cerrar sesión
+/**
+ * Helper to clear session data (token and user).
+ */
 export const logout = () => {
-  localStorage.removeItem("token");
-  // aquí también puedes limpiar más cosas (usuario, rol, etc.)
+  removeToken();
+  removeUser();
 };
 
-
+/**
+ * Register a new user via Auth Service.
+ * @param {object} userData - { name, email, password }
+ */
 export const register = async (userData) => {
   try {
-    // userData debe ser objeto: { name, email, password }
-    const { data } = await axios.post(`${BACK_URL}/api/registro/auth`, userData);
+    const { data } = await axios.post(`${AUTH_SERVICE_URL}/api/auth/register`, userData);
     return data;
   } catch (error) {
-    // Capturamos el error del backend para mostrar mensajes claros
     console.error("Error en registro:", error);
+    throw error;
+  }
+};
+
+/**
+ * Switch business context.
+ * @param {number} businessId
+ * @param {string} currentToken - Optional if using axios interceptor, but good to specific
+ */
+export const switchBusiness = async (businessId, currentToken) => {
+  try {
+    const headers = {};
+    if (currentToken) {
+      headers['Authorization'] = `Bearer ${currentToken}`;
+    } else {
+      const storedToken = getToken();
+      if (storedToken) headers['Authorization'] = `Bearer ${storedToken}`;
+    }
+
+    const { data } = await axios.post(
+      `${AUTH_SERVICE_URL}/api/auth/switch-business`,
+      { businessId },
+      { headers }
+    );
+    return data;
+  } catch (error) {
+    console.error("Error al cambiar de negocio:", error);
     throw error;
   }
 };
