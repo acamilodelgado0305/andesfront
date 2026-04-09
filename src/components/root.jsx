@@ -346,9 +346,12 @@ const RootLayout = () => {
   );
 
   // --- 4. DROPDOWN DE NEGOCIOS ---
-  const handleBusinessSelect = async (business) => {
-    if (user.bid === business.id) return;
+  const [switchingBusiness, setSwitchingBusiness] = useState(false);
 
+  const handleBusinessSelect = async (business) => {
+    if (user.bid === business.id || switchingBusiness) return;
+
+    setSwitchingBusiness(true);
     try {
       const { switchBusiness } = await import('../services/auth/authService');
       const response = await switchBusiness(business.id);
@@ -356,11 +359,13 @@ const RootLayout = () => {
       if (response.token) {
         login(response.token, response.user);
         message.success(`Cambiado a ${business.name}`);
-        navigate('/inicio');
+        // Forzar recarga completa para limpiar todo el estado cacheado
+        window.location.replace('/inicio');
       }
     } catch (error) {
       console.error("Error cambiando negocio", error);
       message.error("Error al cambiar de negocio.");
+      setSwitchingBusiness(false);
     }
   };
 
@@ -374,7 +379,12 @@ const RootLayout = () => {
         <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-md">{availableBusinesses.length}</span>
       </div>
       <div className="max-h-[300px] overflow-y-auto px-2">
-        {availableBusinesses.map((business) => (
+        {switchingBusiness && (
+          <div className="flex items-center justify-center py-4 gap-2 text-gray-500 text-xs">
+            <Spin size="small" /> Cambiando negocio...
+          </div>
+        )}
+        {!switchingBusiness && availableBusinesses.map((business) => (
           <div
             key={business.id}
             onClick={() => handleBusinessSelect(business)}

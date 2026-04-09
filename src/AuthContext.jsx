@@ -86,18 +86,20 @@ export const AuthProvider = ({ children }) => {
             };
         }
 
-        // Si el user viene de la API, nos aseguramos que traiga módulos, sino miramos el token
-        if (finalUser) {
-            if (!finalUser.modules && payload && payload.modules) {
+        // Completar campos faltantes desde el token
+        if (finalUser && payload) {
+            if (!finalUser.modules && payload.modules) {
                 finalUser.modules = payload.modules;
             }
-            // Normalizar business_id a bid para consistencia
-            if (!finalUser.bid && payload && payload.bid) {
-                finalUser.bid = payload.bid;
-            } else if (!finalUser.bid && finalUser.business_id) {
-                finalUser.bid = finalUser.business_id;
-            } else if (!finalUser.bid && payload && payload.business_id) {
-                finalUser.bid = payload.business_id;
+            if (!finalUser.businesses && payload.businesses) {
+                finalUser.businesses = payload.businesses;
+            }
+            if (!finalUser.business_name && payload.business_name) {
+                finalUser.business_name = payload.business_name;
+            }
+            // Normalizar bid: prioridad token > business_id del user object
+            if (!finalUser.bid) {
+                finalUser.bid = payload.bid || finalUser.business_id || null;
             }
         }
 
