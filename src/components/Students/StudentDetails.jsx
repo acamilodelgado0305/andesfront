@@ -289,21 +289,24 @@ const StudentDetails = ({ studentId }) => {
         if (!student) return;
         Modal.confirm({
             title: "¿Confirmar graduación del estudiante?",
-            content: "Esta acción marcará al estudiante como graduado.",
+            content: "Esta acción marcará al estudiante como graduado y lo desactivará.",
+            okText: "Sí, graduar",
+            cancelText: "Cancelar",
+            okButtonProps: { type: "primary" },
             onOk: async () => {
                 try {
+                    const token = localStorage.getItem("authToken");
                     await axios.put(
-                        `${API_URL}/api/students/${student.id}/graduate`
+                        `${API_URL}/api/students/${student.id}/graduate`,
+                        {},
+                        { headers: { Authorization: `Bearer ${token}` } }
                     );
                     message.success("Estudiante graduado exitosamente");
-                    setStudent((prev) => ({
-                        ...prev,
-                        fecha_graduacion: new Date().toISOString(),
-                    }));
                     fetchStudentData();
                 } catch (error) {
                     console.error("Error al graduar el estudiante:", error);
-                    message.error("Error al graduar el estudiante");
+                    const msg = error.response?.data?.error || "Error al graduar el estudiante";
+                    message.error(msg);
                 }
             },
         });
