@@ -69,8 +69,6 @@ export const createStudentPublic = async (studentData) => {
 // Obtener todos los estudiantes
 export const getStudents = async () => {
   try {
-    // Ya no necesitas lógica condicional aquí. 
-    // Si eres Admin, el backend devuelve todos. Si eres Coordinador, devuelve los tuyos.
     const response = await studentsApi.get("/api/students");
     return response.data;
   } catch (error) {

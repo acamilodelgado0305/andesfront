@@ -32,7 +32,7 @@ const { RangePicker } = DatePicker;
 
 const STORAGE_KEY = "students_filters";
 
-const StudentTable = ({ onDelete, students = [], loading = false }) => {
+const StudentTable = ({ onDelete, students = [], loading = false, onFilteredDataChange }) => {
   const [filters, setFilters] = useState(() => {
     if (typeof window === "undefined") {
       return {
@@ -282,6 +282,11 @@ const StudentTable = ({ onDelete, students = [], loading = false }) => {
           moment(a.fecha_inscripcion || 0).unix()
       );
   }, [students, filters]);
+
+  // Notificar al padre cada vez que cambia la lista filtrada
+  useEffect(() => {
+    if (onFilteredDataChange) onFilteredDataChange(filteredData);
+  }, [filteredData, onFilteredDataChange]);
 
   const totalStudents = filteredData.length;
   const activeStudents = filteredData.filter((s) => s.activo).length;

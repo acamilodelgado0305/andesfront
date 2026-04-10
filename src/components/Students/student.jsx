@@ -24,6 +24,7 @@ const PRIMARY_COLOR = "#155153";
 const Students = () => {
   // --- ESTADOS ---
   const [students, setStudents] = useState([]);
+  const [filteredTableData, setFilteredTableData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -84,15 +85,16 @@ const Students = () => {
     message.success("Estudiante añadido correctamente");
   };
 
-  // --- STATS ---
+  // --- STATS — se basan en los datos YA filtrados por la tabla (todos los filtros activos) ---
   const stats = useMemo(() => {
-    const total = filteredStudents.length;
-    const active = filteredStudents.filter((s) => s.activo).length;
+    const source = filteredTableData.length > 0 ? filteredTableData : filteredStudents;
+    const total = source.length;
+    const active = source.filter((s) => s.activo === 'activo' || s.activo === true).length;
     const inactive = total - active;
-    const candidates = filteredStudents.filter((s) => s.posible_graduacion).length;
-    const pendingPayment = filteredStudents.filter((s) => !s.estado_matricula).length;
+    const candidates = source.filter((s) => s.posible_graduacion).length;
+    const pendingPayment = source.filter((s) => !s.estado_matricula).length;
     return { total, active, inactive, candidates, pendingPayment };
-  }, [filteredStudents]);
+  }, [filteredTableData, filteredStudents]);
 
   const statCards = [
     {
@@ -255,6 +257,7 @@ const Students = () => {
           students={filteredStudents}
           loading={loading}
           onDelete={handleDelete}
+          onFilteredDataChange={setFilteredTableData}
         />
       </div>
 
