@@ -7,8 +7,10 @@ import moment from 'moment'; // Importa moment para el manejo de fechas
 const { Option } = Select;
 const { Step } = Steps;
 
-// --- Definir el ID del coordinador predeterminado (ID 3) ---
+// --- Definir el ID del coordinador predeterminado ---
 const DEFAULT_COORDINATOR_ID = 5;
+// --- Business al que pertenece este formulario público ---
+const DEFAULT_BUSINESS_ID = 1;
 
 // --- Función auxiliar para obtener el inventario del usuario ---
 // Esta función es la que realiza la petición a /api/inventario/user/:userId.
@@ -278,7 +280,8 @@ const StudentRegistrationFormMauricio = ({ onStudentRegistered }) => {
 
                 // Campos relacionados con programas/modalidad/curso
                 programasIds: programasIdsFormatted, // Usar el array de IDs formateado aquí (debería funcionar)
-                coordinador_id: DEFAULT_COORDINATOR_ID, // ID del coordinador fijo (3)
+                coordinador_id: DEFAULT_COORDINATOR_ID,
+                business_id: DEFAULT_BUSINESS_ID,
                 modalidad_estudio: values.modalidad_estudio,
                 ultimo_curso_visto: values.ultimoCursoVisto, // Asegurar que el nombre de la propiedad coincida con la DB
                 estado_matricula: false, // El backend espera booleano para 'estado_matricula'

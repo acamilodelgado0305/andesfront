@@ -33,7 +33,7 @@ const getInventarioPublico = async () => {
   }
 };
 
-const StudentRegistrationForm = ({ onStudentRegistered, coordinatorId = 3 }) => {
+const StudentRegistrationForm = ({ onStudentRegistered, coordinatorId = 3, businessId = 1 }) => {
   const [form] = Form.useForm();
   const [programas, setProgramas] = useState([]);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
@@ -184,8 +184,9 @@ const StudentRegistrationForm = ({ onStudentRegistered, coordinatorId = 3 }) => 
         // ✅ CORRECCIÓN: Mapeamos el campo camelCase (Front) al snake_case (DB)
         ultimo_curso_visto: values.ultimoCursoVisto,
 
-        // Asignamos el coordinador
+        // Asignamos el coordinador y el negocio
         coordinador_id: coordinatorId,
+        business_id: businessId,
 
         // Valores por defecto
         simat: false,
