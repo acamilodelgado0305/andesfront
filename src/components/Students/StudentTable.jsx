@@ -12,6 +12,8 @@ import {
   Popconfirm,
   DatePicker,
   Tooltip,
+  Modal,
+  Radio,
 } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -20,10 +22,13 @@ import {
   FilePdfOutlined,
   EyeOutlined,
   SearchOutlined,
+  SwapOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
 import moment from "moment";
 import axios from "axios";
-import { getStudentById } from "../../services/student/studentService";
+import { getStudentById, bulkMoveToPrograma } from "../../services/student/studentService";
+import { getProgramas } from "../../services/programas/programasService";
 import { generateGradeReportPDF } from "../Utilidades/generateGradeReportPDF";
 
 const { Text } = Typography;
@@ -32,7 +37,14 @@ const { RangePicker } = DatePicker;
 
 const STORAGE_KEY = "students_filters";
 
-const StudentTable = ({ onDelete, students = [], loading = false, onFilteredDataChange }) => {
+const StudentTable = ({ onDelete, students = [], loading = false, onFilteredDataChange, onStudentsMoved }) => {
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [moveModal, setMoveModal] = useState(false);
+  const [moveProgramaId, setMoveProgramaId] = useState(null);
+  const [moveReplace, setMoveReplace] = useState(true);
+  const [programas, setProgramas] = useState([]);
+  const [movingStudents, setMovingStudents] = useState(false);
+
   const [filters, setFilters] = useState(() => {
     if (typeof window === "undefined") {
       return {
@@ -308,6 +320,33 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
     } catch (err) {
       console.error("Error downloading grades:", err);
       message.error("Error al descargar el boletín");
+    }
+  };
+
+  // Load programas once on mount
+  useEffect(() => {
+    getProgramas().then(setProgramas).catch(() => {});
+  }, []);
+
+  const openMoveModal = () => {
+    setMoveProgramaId(null);
+    setMoveReplace(true);
+    setMoveModal(true);
+  };
+
+  const handleBulkMove = async () => {
+    if (!moveProgramaId) { message.warning("Selecciona un programa destino."); return; }
+    setMovingStudents(true);
+    try {
+      const result = await bulkMoveToPrograma(selectedRowKeys, moveProgramaId, moveReplace);
+      message.success(result.message);
+      setMoveModal(false);
+      setSelectedRowKeys([]);
+      if (onStudentsMoved) onStudentsMoved();
+    } catch (err) {
+      message.error(err.response?.data?.error || "Error al mover estudiantes.");
+    } finally {
+      setMovingStudents(false);
     }
   };
 
@@ -720,8 +759,44 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
     },
   ];
 
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: setSelectedRowKeys,
+    preserveSelectedRowKeys: true,
+  };
+
   return (
-    <div>
+    <div translate="no">
+      {/* Barra de selección masiva — siempre presente para evitar salto de layout */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '10px 20px',
+        background: selectedRowKeys.length > 0 ? '#eff6ff' : 'transparent',
+        borderBottom: selectedRowKeys.length > 0 ? '1px solid #bfdbfe' : '1px solid transparent',
+        minHeight: 48,
+        transition: 'background 0.2s',
+        visibility: selectedRowKeys.length > 0 ? 'visible' : 'hidden',
+      }}>
+        <Tag color="blue" style={{ fontSize: 13, padding: '2px 10px' }}>
+          {selectedRowKeys.length} estudiante{selectedRowKeys.length !== 1 ? 's' : ''} seleccionado{selectedRowKeys.length !== 1 ? 's' : ''}
+        </Tag>
+        <Button
+          type="primary"
+          icon={<SwapOutlined />}
+          onClick={openMoveModal}
+          style={{ background: '#155153', borderColor: '#155153' }}
+        >
+          Mover a programa
+        </Button>
+        <Button
+          icon={<CloseOutlined />}
+          onClick={() => setSelectedRowKeys([])}
+          size="small"
+        >
+          Limpiar selección
+        </Button>
+      </div>
+
       {/* Filtros superiores */}
       <div
         style={{
@@ -845,6 +920,7 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
       {/* Tabla */}
       <Spin spinning={loading} tip="Cargando estudiantes...">
         <Table
+          rowSelection={rowSelection}
           columns={columns}
           dataSource={filteredData}
           rowKey={(record) => record.id}
@@ -870,6 +946,52 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
           size="middle"
         />
       </Spin>
+
+      {/* Modal mover a programa */}
+      <Modal
+        open={moveModal}
+        title={`Mover ${selectedRowKeys.length} estudiante${selectedRowKeys.length !== 1 ? 's' : ''} a otro programa`}
+        okText="Mover"
+        cancelText="Cancelar"
+        onOk={handleBulkMove}
+        onCancel={() => setMoveModal(false)}
+        confirmLoading={movingStudents}
+        okButtonProps={{ style: { background: '#155153', borderColor: '#155153' }, disabled: !moveProgramaId }}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontWeight: 500, marginBottom: 8 }}>Programa destino</div>
+          <Select
+            style={{ width: '100%' }}
+            placeholder="Selecciona el programa..."
+            value={moveProgramaId}
+            onChange={setMoveProgramaId}
+            showSearch
+            filterOption={(input, opt) =>
+              (opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
+            }
+            options={programas.map(p => ({ value: p.id, label: p.nombre }))}
+          />
+        </div>
+        <div>
+          <div style={{ fontWeight: 500, marginBottom: 8 }}>Tipo de movimiento</div>
+          <Radio.Group value={moveReplace} onChange={e => setMoveReplace(e.target.value)}>
+            <Space direction="vertical">
+              <Radio value={true}>
+                <span style={{ fontWeight: 500 }}>Reemplazar</span>
+                <span style={{ color: '#888', fontSize: 12, display: 'block', paddingLeft: 24 }}>
+                  El nuevo programa reemplaza todos los programas actuales del estudiante.
+                </span>
+              </Radio>
+              <Radio value={false}>
+                <span style={{ fontWeight: 500 }}>Agregar</span>
+                <span style={{ color: '#888', fontSize: 12, display: 'block', paddingLeft: 24 }}>
+                  El nuevo programa se agrega sin quitar los programas que ya tiene.
+                </span>
+              </Radio>
+            </Space>
+          </Radio.Group>
+        </div>
+      </Modal>
 
       <style>{`
         .ant-table-cell {

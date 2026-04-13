@@ -141,6 +141,15 @@ export const getStudentByDocument = async (numeroDocumento) => {
 };
 
 // Actualizar estudiante (datos generales)
+export const bulkMoveToPrograma = async (estudianteIds, programaId, replace = true) => {
+  const response = await studentsApi.post('/api/students/bulk-move-programa', {
+    estudiante_ids: estudianteIds,
+    programa_id: programaId,
+    replace,
+  });
+  return response.data;
+};
+
 export const updateStudent = async (id, studentData) => {
   try {
     const response = await backApi.put(`/api/students/${id}`, studentData);

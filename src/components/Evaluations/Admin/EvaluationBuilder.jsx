@@ -16,6 +16,10 @@ import {
   Col,
   Tooltip,
   Spin,
+  Table,
+  Badge,
+  Popconfirm,
+  Alert,
 } from "antd";
 import {
   PlusOutlined,
@@ -32,6 +36,9 @@ import {
   CheckOutlined,
   TeamOutlined,
   UserOutlined,
+  UserDeleteOutlined,
+  ReloadOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import { useParams, useNavigate } from "react-router-dom";
 
@@ -40,15 +47,14 @@ import {
   addQuestionWithOptions,
   deleteQuestion,
   deleteOption,
-  assignByMainProgram,
   assignByStudentPrograms,
-  assignToSelectedStudents,
+  getEvaluationAssignments,
+  removeAssignment,
   updateQuestion,
 } from "../../../services/evaluation/evaluationService";
 
 import { getProgramas } from "../../../services/programas/programasService";
 import { getAllMaterias } from "../../../services/materias/serviceMateria";
-import { getStudents } from "../../../services/student/studentService";
 
 import "./evaluationBuilder.css";
 
@@ -74,11 +80,13 @@ const EvaluationBuilder = () => {
 
   const [programs, setPrograms] = useState([]);
   const [materias, setMaterias] = useState([]);
-  const [students, setStudents] = useState([]);
   const [catalogsLoading, setCatalogsLoading] = useState(false);
 
-  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
-  const [assignStudentsLoading, setAssignStudentsLoading] = useState(false);
+  // Asignaciones actuales
+  const [assignments, setAssignments] = useState([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [assignmentSearch, setAssignmentSearch] = useState("");
+  const [removingId, setRemovingId] = useState(null);
 
   const tipoPregunta = Form.useWatch("tipo_pregunta", questionForm);
 
@@ -99,26 +107,36 @@ const EvaluationBuilder = () => {
   const fetchCatalogs = async () => {
     try {
       setCatalogsLoading(true);
-      const [invRes, matRes, stuRes] = await Promise.all([
+      const [invRes, matRes] = await Promise.all([
         getProgramas(),
         getAllMaterias(),
-        getStudents(),
       ]);
-
       setPrograms(invRes.data || invRes || []);
       setMaterias(matRes.data || matRes || []);
-      setStudents(stuRes.data || stuRes || []);
     } catch (err) {
       console.error(err);
-      message.error("Error al cargar programas / materias / estudiantes");
+      message.error("Error al cargar programas / materias");
     } finally {
       setCatalogsLoading(false);
+    }
+  };
+
+  const fetchAssignments = async () => {
+    try {
+      setAssignmentsLoading(true);
+      const data = await getEvaluationAssignments(evaluationId);
+      setAssignments(data.asignaciones || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAssignmentsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchEvaluation();
     fetchCatalogs();
+    fetchAssignments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evaluationId]);
 
@@ -347,23 +365,17 @@ const EvaluationBuilder = () => {
     });
   };
 
-  const handleAssign = async (mode) => {
+  const handleAssign = async () => {
     if (!assignProgramId) {
       message.warning("Selecciona un programa primero");
       return;
     }
     try {
       setAssignLoading(true);
-      if (mode === "principal") {
-        await assignByMainProgram(evaluationId, {
-          programa_id: assignProgramId,
-        });
-      } else {
-        await assignByStudentPrograms(evaluationId, {
-          programa_id: assignProgramId,
-        });
-      }
-      message.success("Evaluación asignada correctamente");
+      const res = await assignByStudentPrograms(evaluationId, { programa_id: assignProgramId });
+      message.success(res.message || "Evaluación asignada correctamente");
+      setAssignProgramId(null);
+      fetchAssignments();
     } catch (err) {
       console.error(err);
       message.error("Error al asignar evaluación");
@@ -372,23 +384,17 @@ const EvaluationBuilder = () => {
     }
   };
 
-  const handleAssignToStudents = async () => {
-    if (!selectedStudentIds || selectedStudentIds.length === 0) {
-      message.warning("Selecciona al menos un estudiante");
-      return;
-    }
-
+  const handleRemoveAssignment = async (estudianteId) => {
     try {
-      setAssignStudentsLoading(true);
-      await assignToSelectedStudents(evaluationId, {
-        estudiante_ids: selectedStudentIds,
-      });
-      message.success("Evaluación asignada a estudiantes seleccionados");
+      setRemovingId(estudianteId);
+      await removeAssignment(evaluationId, estudianteId);
+      message.success("Asignación eliminada");
+      fetchAssignments();
     } catch (err) {
       console.error(err);
-      message.error("Error al asignar evaluación a estudiantes");
+      message.error("Error al eliminar asignación");
     } finally {
-      setAssignStudentsLoading(false);
+      setRemovingId(null);
     }
   };
 
@@ -477,6 +483,16 @@ const EvaluationBuilder = () => {
                   <div className="eb-stat-label">Puntaje total</div>
                 </div>
               </div>
+              <div className="eb-stat">
+                <TeamOutlined
+                  className="eb-stat-icon"
+                  style={{ color: "#34d399" }}
+                />
+                <div>
+                  <div className="eb-stat-value">{assignments.length}</div>
+                  <div className="eb-stat-label">Asignados</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -528,141 +544,189 @@ const EvaluationBuilder = () => {
 
         {/* Assignment card */}
         <div className="eb-assign-card">
-          <h4 className="eb-assign-title">
-            <SendOutlined /> Asignar evaluación
-          </h4>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <h4 className="eb-assign-title" style={{ margin: 0 }}>
+              <SendOutlined /> Asignaciones
+            </h4>
+            <Badge
+              count={assignments.length}
+              showZero
+              style={{ backgroundColor: assignments.length > 0 ? "#4338ca" : "#9ca3af" }}
+            >
+              <span style={{ fontSize: 12, color: "#6b7280", paddingRight: 8 }}>estudiantes asignados</span>
+            </Badge>
+          </div>
           <p className="eb-assign-sub">
-            Asigna esta evaluación a un programa completo o a estudiantes
-            específicos
+            Asigna esta evaluación a todos los estudiantes de un programa. Los ya asignados no se duplican.
           </p>
 
-          <div className="eb-assign-grid">
-            {/* By program */}
-            <div>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <TeamOutlined /> Por programa
+          {/* Assign by program row */}
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 20 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+                <TeamOutlined /> Programa
               </div>
-              <Space direction="vertical" style={{ width: "100%" }} size={10}>
-                <Select
-                  style={{ width: "100%" }}
-                  placeholder="Selecciona un programa"
-                  value={assignProgramId}
-                  onChange={setAssignProgramId}
-                  loading={catalogsLoading}
-                  showSearch
-                  optionFilterProp="children"
-                  allowClear
-                  size="large"
-                >
-                  {programs.map((p) => (
-                    <Option key={p.id} value={p.id}>
-                      {p.nombre}{" "}
-                      {p.tipo_programa ? `(${p.tipo_programa})` : ""}
-                    </Option>
-                  ))}
-                </Select>
-                <Space wrap>
-                  <Button
-                    type="primary"
-                    icon={<SendOutlined />}
-                    loading={assignLoading}
-                    onClick={() => handleAssign("principal")}
-                    style={{
-                      borderRadius: 10,
-                      fontWeight: 600,
-                      background:
-                        "linear-gradient(135deg, #4338ca, #6366f1)",
-                      border: "none",
-                    }}
-                  >
-                    Programa principal
-                  </Button>
-                  <Button
-                    icon={<SendOutlined />}
-                    loading={assignLoading}
-                    onClick={() => handleAssign("mm")}
-                    style={{ borderRadius: 10, fontWeight: 500 }}
-                  >
-                    estudiante_programas
-                  </Button>
-                </Space>
-              </Space>
-            </div>
-
-            {/* By specific students */}
-            <div>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
+              <Select
+                style={{ width: "100%" }}
+                placeholder="Selecciona un programa para asignar"
+                value={assignProgramId}
+                onChange={setAssignProgramId}
+                loading={catalogsLoading}
+                showSearch
+                optionFilterProp="children"
+                allowClear
+                size="large"
               >
-                <UserOutlined /> Estudiantes específicos
-              </div>
-              <Space direction="vertical" style={{ width: "100%" }} size={10}>
-                <Select
-                  mode="multiple"
-                  style={{ width: "100%" }}
-                  placeholder="Selecciona estudiantes"
-                  value={selectedStudentIds}
-                  onChange={setSelectedStudentIds}
-                  loading={catalogsLoading}
-                  showSearch
-                  optionFilterProp="children"
-                  size="large"
-                  maxTagCount={3}
-                  maxTagPlaceholder={(omitted) =>
-                    `+${omitted.length} más`
-                  }
-                >
-                  {students.map((s) => (
-                    <Option key={s.id} value={s.id}>
-                      {s.name || s.nombre || ""}{" "}
-                      {s.last_name || s.apellido || ""}
-                      {s.document_number
-                        ? ` - ${s.document_number}`
-                        : ""}
-                    </Option>
-                  ))}
-                </Select>
-
-                <Button
-                  type="primary"
-                  icon={<SendOutlined />}
-                  loading={assignStudentsLoading}
-                  onClick={handleAssignToStudents}
-                  style={{
-                    borderRadius: 10,
-                    fontWeight: 600,
-                    background:
-                      "linear-gradient(135deg, #4338ca, #6366f1)",
-                    border: "none",
-                  }}
-                >
-                  Asignar a seleccionados
-                </Button>
-
-                <small style={{ fontSize: 11, color: "#9ca3af" }}>
-                  Ideal para recuperaciones o pruebas piloto
-                </small>
-              </Space>
+                {programs.map((p) => (
+                  <Option key={p.id} value={p.id}>
+                    {p.nombre}{p.tipo_programa ? ` · ${p.tipo_programa}` : ""}
+                  </Option>
+                ))}
+              </Select>
             </div>
+            <Button
+              type="primary"
+              icon={<SendOutlined />}
+              loading={assignLoading}
+              onClick={handleAssign}
+              disabled={!assignProgramId}
+              size="large"
+              style={{
+                borderRadius: 10,
+                fontWeight: 600,
+                background: "linear-gradient(135deg, #4338ca, #6366f1)",
+                border: "none",
+                minWidth: 120,
+              }}
+            >
+              Asignar
+            </Button>
           </div>
+
+          <Divider style={{ margin: "0 0 16px" }} />
+
+          {/* Assigned students table */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+              <UserOutlined style={{ marginRight: 6 }} />
+              Estudiantes asignados ({assignments.length})
+            </span>
+            <Space size={8}>
+              <Input
+                size="small"
+                placeholder="Buscar estudiante..."
+                prefix={<SearchOutlined style={{ color: "#9ca3af" }} />}
+                value={assignmentSearch}
+                onChange={(e) => setAssignmentSearch(e.target.value)}
+                style={{ width: 200, borderRadius: 8 }}
+                allowClear
+              />
+              <Tooltip title="Recargar">
+                <Button
+                  size="small"
+                  icon={<ReloadOutlined />}
+                  onClick={fetchAssignments}
+                  loading={assignmentsLoading}
+                  style={{ borderRadius: 8 }}
+                />
+              </Tooltip>
+            </Space>
+          </div>
+
+          {assignments.length === 0 && !assignmentsLoading ? (
+            <Alert
+              message="Ningún estudiante asignado aún"
+              description="Selecciona un programa arriba para asignar la evaluación a todos sus estudiantes."
+              type="info"
+              showIcon
+              style={{ borderRadius: 10 }}
+            />
+          ) : (
+            <Table
+              dataSource={assignments.filter((a) => {
+                if (!assignmentSearch.trim()) return true;
+                const q = assignmentSearch.toLowerCase();
+                return (
+                  `${a.nombre} ${a.apellido}`.toLowerCase().includes(q) ||
+                  (a.numero_documento || "").toLowerCase().includes(q)
+                );
+              })}
+              rowKey="estudiante_id"
+              loading={assignmentsLoading}
+              size="small"
+              pagination={{ pageSize: 8, showSizeChanger: false, size: "small" }}
+              columns={[
+                {
+                  title: "Estudiante",
+                  key: "nombre",
+                  render: (_, r) => (
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                        {r.nombre} {r.apellido}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#9ca3af" }}>{r.numero_documento}</div>
+                    </div>
+                  ),
+                },
+                {
+                  title: "Programa",
+                  dataIndex: "programa_nombre",
+                  key: "programa",
+                  render: (v) => v ? <Tag style={{ fontSize: 11 }}>{v}</Tag> : <span style={{ color: "#d1d5db" }}>—</span>,
+                },
+                {
+                  title: "Estado",
+                  dataIndex: "estado",
+                  key: "estado",
+                  width: 110,
+                  render: (v) => {
+                    const map = {
+                      pendiente: { color: "default", label: "Pendiente" },
+                      en_progreso: { color: "processing", label: "En progreso" },
+                      finalizada: { color: "success", label: "Finalizada" },
+                    };
+                    const cfg = map[v] || { color: "default", label: v };
+                    return <Badge status={cfg.color} text={<span style={{ fontSize: 12 }}>{cfg.label}</span>} />;
+                  },
+                },
+                {
+                  title: "Nota",
+                  dataIndex: "calificacion",
+                  key: "calificacion",
+                  width: 70,
+                  render: (v) => v != null
+                    ? <Tag color={v >= 3 ? "success" : "error"} style={{ fontWeight: 700 }}>{parseFloat(v).toFixed(1)}</Tag>
+                    : <span style={{ color: "#d1d5db" }}>—</span>,
+                },
+                {
+                  title: "",
+                  key: "actions",
+                  width: 50,
+                  render: (_, r) => (
+                    <Popconfirm
+                      title="¿Quitar esta asignación?"
+                      description="Se eliminará el acceso del estudiante a esta evaluación."
+                      okText="Sí, quitar"
+                      cancelText="Cancelar"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => handleRemoveAssignment(r.estudiante_id)}
+                    >
+                      <Tooltip title="Quitar asignación">
+                        <Button
+                          type="text"
+                          danger
+                          size="small"
+                          icon={<UserDeleteOutlined />}
+                          loading={removingId === r.estudiante_id}
+                        />
+                      </Tooltip>
+                    </Popconfirm>
+                  ),
+                },
+              ]}
+            />
+          )}
         </div>
 
         {/* ===== QUESTIONS ===== */}

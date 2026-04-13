@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Input, Button, message, Typography, Spin } from "antd";
+import { Input, Button, message, Spin } from "antd";
 import {
   PlusOutlined,
   TeamOutlined,
@@ -13,12 +13,12 @@ import {
 // Componentes y Servicios
 import CreateStudentModal from "./addStudent";
 import StudentTable from "./StudentTable";
+import StudentTableErrorBoundary from "./StudentTableErrorBoundary";
 import {
   getStudents,
   deleteStudent,
 } from "../../services/student/studentService";
 
-const { Title, Text } = Typography;
 const PRIMARY_COLOR = "#155153";
 
 const Students = () => {
@@ -133,36 +133,6 @@ const Students = () => {
 
   return (
     <div style={{ padding: "8px 0" }}>
-      {/* ===== HEADER ===== */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: "linear-gradient(135deg, #155153, #28a5a5)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 22,
-              color: "#fff",
-              boxShadow: "0 4px 12px rgba(21, 81, 83, 0.3)",
-            }}
-          >
-            <TeamOutlined />
-          </div>
-          <div>
-            <Title level={2} style={{ margin: 0, color: "#1a1a2e", letterSpacing: "-0.5px" }}>
-              Gestión de Estudiantes
-            </Title>
-            <Text style={{ color: "#6b7280", fontSize: 15 }}>
-              Administra, busca y gestiona la información de tus estudiantes
-            </Text>
-          </div>
-        </div>
-      </div>
-
       {/* ===== STAT CARDS ===== */}
       <div
         style={{
@@ -253,12 +223,15 @@ const Students = () => {
           overflow: "hidden",
         }}
       >
-        <StudentTable
-          students={filteredStudents}
-          loading={loading}
-          onDelete={handleDelete}
-          onFilteredDataChange={setFilteredTableData}
-        />
+        <StudentTableErrorBoundary>
+          <StudentTable
+            students={filteredStudents}
+            loading={loading}
+            onDelete={handleDelete}
+            onFilteredDataChange={setFilteredTableData}
+            onStudentsMoved={fetchStudents}
+          />
+        </StudentTableErrorBoundary>
       </div>
 
       {/* Modal */}

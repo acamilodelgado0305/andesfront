@@ -15,6 +15,7 @@ import {
   BookOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
+  CalendarOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -34,6 +35,7 @@ import StudentInfoTab from "./StudentInfoTab";
 import StudentEvaluationsTab from "./StudentEvaluationsTab";
 import StudentGradesTab from "./StudentGradesTab";
 import StudentCertificationsTab from "./StudentCertificationsTab";
+import StudentHorarioTab from "./StudentHorarioTab";
 
 const { Text } = Typography;
 
@@ -361,6 +363,19 @@ function StudentPortal() {
                         documentNumber={documentNumber}
                         currentStudentId={currentStudentId}
                       />
+                    </div>
+                  ),
+                },
+                {
+                  key: "horario",
+                  label: (
+                    <span style={styles.tabLabel}>
+                      <CalendarOutlined /> Horario
+                    </span>
+                  ),
+                  children: (
+                    <div style={styles.tabContent}>
+                      <StudentHorarioTab currentStudentId={currentStudentId} />
                     </div>
                   ),
                 },

@@ -131,6 +131,18 @@ export const assignToSelectedStudents = async (evaluationId, payload) => {
   return response.data;
 };
 
+// Obtener todos los estudiantes asignados a una evaluación (admin)
+export const getEvaluationAssignments = async (evaluationId) => {
+  const response = await backApi.get(`/api/evaluaciones/${evaluationId}/asignaciones`);
+  return response.data;
+};
+
+// Eliminar asignación de un estudiante a una evaluación
+export const removeAssignment = async (evaluationId, estudianteId) => {
+  const response = await backApi.delete(`/api/evaluaciones/${evaluationId}/asignaciones/${estudianteId}`);
+  return response.data;
+};
+
 /* ===================== PARTE ESTUDIANTE ===================== */
 
 // Obtener evaluaciones asignadas a un estudiante

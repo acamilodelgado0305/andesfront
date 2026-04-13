@@ -19,3 +19,10 @@ export const saveGrades = async (payload) => {
   const response = await backApi.post("/api/grades", payload);
   return response.data;
 };
+
+// Obtener estudiantes + calificaciones de un programa (role-aware)
+// Respuesta: { programa, students, grades }
+export const getGradesByPrograma = async (programaId) => {
+  const response = await backApi.get(`/api/grades/programa/${programaId}`);
+  return response.data;
+};

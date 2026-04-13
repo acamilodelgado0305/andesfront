@@ -6,12 +6,13 @@ import {
 import {
   DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined,
   ReloadOutlined, BookOutlined, CheckCircleOutlined, CloseCircleOutlined,
-  UnorderedListOutlined, SwapOutlined, CopyOutlined,
+  UnorderedListOutlined, SwapOutlined, CopyOutlined, ScheduleOutlined,
 } from "@ant-design/icons";
 import { getPrograms, deleteProgram } from "../../services/programs/programService";
 import { getMateriasByPrograma, createMateria, updateMateria, deleteMateria } from "../../services/materias/serviceMateria";
 import { getAllDocentes } from "../../services/docentes/serviceDocente";
 import CreateProgramModal from "./addProgram";
+import HorarioDrawer from "../Horarios/HorarioDrawer";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -28,6 +29,9 @@ function MateriasDrawer({ programa, programas, onClose }) {
   const [editingMateria, setEditingMateria] = useState(null);
   const [savingMateria, setSavingMateria] = useState(false);
   const [form] = Form.useForm();
+
+  // Horario
+  const [horarioMateria, setHorarioMateria] = useState(null);
 
   // Mover / Duplicar
   const [transferModal, setTransferModal] = useState(null); // { materia, mode: 'mover'|'duplicar' }
@@ -195,9 +199,12 @@ function MateriasDrawer({ programa, programas, onClose }) {
       title: "",
       key: "acciones",
       align: "center",
-      width: 120,
+      width: 150,
       render: (_, record) => (
         <Space size={2}>
+          <Tooltip title="Horarios">
+            <Button type="text" size="small" icon={<ScheduleOutlined />} onClick={() => setHorarioMateria(record)} style={{ color: "#059669" }} />
+          </Tooltip>
           <Tooltip title="Editar">
             <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
           </Tooltip>
@@ -320,6 +327,13 @@ function MateriasDrawer({ programa, programas, onClose }) {
           />
         )}
       </Spin>
+
+      {/* ── Horario drawer ── */}
+      <HorarioDrawer
+        materia={horarioMateria}
+        programa={programa}
+        onClose={() => setHorarioMateria(null)}
+      />
 
       {/* ── Mover / Duplicar modal ── */}
       <Modal

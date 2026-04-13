@@ -165,7 +165,6 @@ const AdminEvaluationsPage = () => {
     form.setFieldsValue({
       titulo: record.titulo,
       descripcion: record.descripcion,
-      tipo_destino: record.tipo_destino || undefined,
       programa_id: record.programa_id || undefined,
       materia_id: record.materia_id || undefined,
       intentos_max: record.intentos_max || undefined,
@@ -205,7 +204,6 @@ const AdminEvaluationsPage = () => {
       const payload = {
         titulo: values.titulo,
         descripcion: values.descripcion || null,
-        tipo_destino: values.tipo_destino || null,
         programa_id: values.programa_id || null,
         materia_id: values.materia_id || null,
         intentos_max: values.intentos_max || null,
@@ -248,23 +246,12 @@ const AdminEvaluationsPage = () => {
     0
   );
 
-  // ===== Filtered materias by selected tipo_destino in form =====
-  const formTipoDestino = Form.useWatch("tipo_destino", form);
+  // Filtrar materias según el programa seleccionado en el formulario
+  const formProgramaId = Form.useWatch("programa_id", form);
   const filteredMateriasForForm = useMemo(() => {
-    if (!formTipoDestino) return materias;
-    const mappedType =
-      formTipoDestino === "Tecnico" ? "Tecnicos" : "Validacion de Bachillerato";
-    return materias.filter(
-      (m) => m.tipo_programa === mappedType || m.tipo_programa === formTipoDestino
-    );
-  }, [materias, formTipoDestino]);
-
-  const filteredProgramsForForm = useMemo(() => {
-    if (!formTipoDestino) return programs;
-    return programs.filter(
-      (p) => p.tipo_programa === formTipoDestino
-    );
-  }, [programs, formTipoDestino]);
+    if (!formProgramaId) return [];
+    return materias.filter((m) => m.programa_id === formProgramaId);
+  }, [materias, formProgramaId]);
 
   return (
     <div
@@ -745,69 +732,45 @@ const AdminEvaluationsPage = () => {
             />
           </Form.Item>
 
-          <div style={{ display: "flex", gap: 16 }}>
-            <Form.Item
-              label={
-                <span style={{ fontWeight: 600 }}>Tipo de destino</span>
-              }
-              name="tipo_destino"
-              style={{ flex: 1 }}
-            >
-              <Select
-                allowClear
-                placeholder="Selecciona tipo"
-                size="large"
-                style={{ borderRadius: 10 }}
-              >
-                <Option value="Tecnico">Técnico</Option>
-                <Option value="Validacion">Validación</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              label={<span style={{ fontWeight: 600 }}>Programa</span>}
-              name="programa_id"
-              style={{ flex: 1 }}
-            >
-              <Select
-                allowClear
-                loading={loadingCatalogs}
-                placeholder="Selecciona programa"
-                optionFilterProp="children"
-                showSearch
-                size="large"
-              >
-                {filteredProgramsForForm.map((p) => (
-                  <Option key={p.id} value={p.id}>
-                    {p.nombre}{" "}
-                    {p.tipo_programa ? `(${p.tipo_programa})` : ""}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </div>
-
           <Form.Item
-            label={<span style={{ fontWeight: 600 }}>Materia</span>}
-            name="materia_id"
-            rules={[
-              {
-                required: true,
-                message: "Selecciona la materia asociada",
-              },
-            ]}
+            label={<span style={{ fontWeight: 600 }}>Programa</span>}
+            name="programa_id"
+            rules={[{ required: true, message: "Selecciona el programa" }]}
           >
             <Select
               allowClear
               loading={loadingCatalogs}
-              placeholder="Selecciona la materia"
+              placeholder="Selecciona el programa"
               optionFilterProp="children"
               showSearch
               size="large"
+              onChange={() => form.setFieldValue("materia_id", undefined)}
+            >
+              {programs.map((p) => (
+                <Option key={p.id} value={p.id}>
+                  {p.nombre}{p.tipo_programa ? ` · ${p.tipo_programa}` : ""}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label={<span style={{ fontWeight: 600 }}>Materia</span>}
+            name="materia_id"
+            rules={[{ required: true, message: "Selecciona la materia" }]}
+          >
+            <Select
+              allowClear
+              loading={loadingCatalogs}
+              placeholder={formProgramaId ? "Selecciona la materia" : "Primero selecciona un programa"}
+              optionFilterProp="children"
+              showSearch
+              size="large"
+              disabled={!formProgramaId}
             >
               {filteredMateriasForForm.map((m) => (
                 <Option key={m.id} value={m.id}>
-                  {m.nombre} {m.tipo_programa ? `(${m.tipo_programa})` : ""}
+                  {m.nombre}
                 </Option>
               ))}
             </Select>

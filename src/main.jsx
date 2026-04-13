@@ -22,8 +22,7 @@ import StudentRegistrationFormJesus from "./components/PublicForms/formJesus";
 import Certificados from "./components/Certificados/Certificados";
 import StudentInformacion from "./components/Students/StudentInformacion";
 import Calificaciones from "./components/Calificaciones/Calificaciones";
-import Bachillerato from "./components/Calificaciones/Bachillerato";
-import CursosTecnicos from "./components/Calificaciones/CursosTecnicos";
+import CalificacionesPrograma from "./components/Calificaciones/CalificacionesPrograma";
 import StudentReportPortal from "./components/PublicForms/StudentReportPortal";
 import StudentLoginForm from "./components/PublicForms/StudentLoginForm";
 import Sales from "./sales/Sales";
@@ -106,11 +105,7 @@ const App = () => (
             <Route path="adminclients" element={<DashboardClients />} />
             <Route path="usuarios-negocio" element={<UsersDashboard />} />
             <Route path="calificaciones" element={<Calificaciones />} />
-            <Route path="calificaciones/bachillerato" element={<Bachillerato />} />
-            <Route
-              path="calificaciones/cursos-tecnicos"
-              element={<CursosTecnicos />}
-            />
+            <Route path="calificaciones/:programaId" element={<CalificacionesPrograma />} />
             <Route path="certificados" element={<Certificados />} />
             <Route path="generacion" element={<Generacion />} />
             <Route path="inventario" element={<Inventario />} />

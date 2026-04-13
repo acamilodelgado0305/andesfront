@@ -36,6 +36,7 @@ import {
     getStudentDocuments,
     deleteStudentDocument,
 } from "../../services/student/studentService";
+import StudentHorario from "../Horarios/StudentHorario";
 
 const API_URL = import.meta.env.VITE_API_BACKEND;
 
@@ -1006,6 +1007,15 @@ const StudentDetails = ({ studentId }) => {
                                 </div>
                             </div>
                         </InfoSection>
+
+                        <div className="bg-white border border-slate-200 rounded-md shadow-sm">
+                            <h3 className="text-sm font-semibold text-slate-800 bg-slate-50 px-4 py-2 border-b border-slate-200 rounded-t-md">
+                                Horario Semanal
+                            </h3>
+                            <div className="p-4">
+                                <StudentHorario studentId={studentId} compact={true} hideEmpty={true} />
+                            </div>
+                        </div>
 
                         <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm">
                             <h3 className="text-sm font-semibold text-slate-800 mb-4">
