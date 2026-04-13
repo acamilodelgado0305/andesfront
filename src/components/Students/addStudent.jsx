@@ -299,8 +299,12 @@ const CreateStudentModal = ({ isOpen, onClose, onStudentAdded }) => {
     try {
       const base = import.meta.env.VITE_API_BACKEND
         || "https://clasit-backend-api-570877385695.us-central1.run.app";
+      const token = localStorage.getItem("authToken");
       const res = await fetch(`${base}/api/programas`, {
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
       if (res.ok) setProgramas(await res.json());
       else message.error("No se pudieron cargar los programas.");

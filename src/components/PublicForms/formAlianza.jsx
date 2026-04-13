@@ -15,10 +15,13 @@ const { Title, Text } = Typography;
 const MICROSOFT_TEAL = "#080761ff";
 
 // --- Servicio Local para Cargar Programas (Opcional: Mover a studentsService) ---
-const getInventarioPublico = async () => {
+const getInventarioPublico = async (businessId) => {
   try {
     const API_BASE_URL = import.meta.env.VITE_API_BACKEND || "http://localhost:3000";
-    const response = await fetch(`${API_BASE_URL}/api/programas`, {
+    const url = businessId
+      ? `${API_BASE_URL}/api/programas?business_id=${businessId}`
+      : `${API_BASE_URL}/api/programas`;
+    const response = await fetch(url, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -45,7 +48,7 @@ const StudentRegistrationForm = ({ onStudentRegistered, coordinatorId = 8, busin
   useEffect(() => {
     const fetchProgramsData = async () => {
       setLoadingPrograms(true);
-      const data = await getInventarioPublico();
+      const data = await getInventarioPublico(businessId);
       setProgramas(data);
       setLoadingPrograms(false);
     };

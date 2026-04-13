@@ -21,7 +21,7 @@ const getInventarioByUser = async (userId) => {
     const API_BASE_URL = import.meta.env.VITE_API_BACKEND || "https://back.app.validaciondebachillerato.com.co";
     try {
         console.log(`Intentando cargar inventario para user ID: ${userId} desde ${API_BASE_URL}/api/programas`);
-        const response = await fetch(`${API_BASE_URL}/api/programas`, {
+        const response = await fetch(`${API_BASE_URL}/api/programas?business_id=${DEFAULT_BUSINESS_ID}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",

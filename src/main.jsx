@@ -33,7 +33,6 @@ import UsersDashboard from "./components/admin/UsersDashboard";
 import Inventario from "./components/inventario/Inventario";
 import PersonasDashboard from "./components/personas/PersonasDashboard";
 import Verificacion from "./components/Calificaciones/Verificacion";
-import Materias from "./GestionAcademica/Materias/Materias";
 import Docentes from "./GestionAcademica/Docentes/Docentes";
 import ConsultaPreRegistro from "./components/Calificaciones/ConsultaPreRegistro";
 import StudentAlianza from "./components/PublicForms/formAlianza";
@@ -98,7 +97,6 @@ const App = () => (
             <Route path="dashboard" element={<Home />} />
             <Route path="students" element={<Students />} />
             <Route path="programas" element={<Programs />} />
-            <Route path="materias" element={<Materias />} />
             <Route path="docentes" element={<Docentes />} />
 
             {/* 🔹 Admin evaluaciones */}
