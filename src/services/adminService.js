@@ -61,5 +61,12 @@ export const adminService = {
   togglePlanStatus: async (id) => {
     const { data } = await axios.patch(`${API_URL}/api/admin/plans/${id}/status`, {}, getAuthHeaders());
     return data;
-  }
+  },
+
+  // Negocios
+  createBusiness: async (businessData) => {
+    // businessData: { businessName, adminName, adminEmail, adminPassword, planId }
+    const { data } = await axios.post(`${API_URL}/api/admin/businesses`, businessData, getAuthHeaders());
+    return data;
+  },
 };

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Tag, Popconfirm, message, Typography, Space, Tooltip, ConfigProvider, theme } from 'antd';
-import { PlusOutlined, DeleteOutlined, KeyOutlined, UserOutlined, MailOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { Table, Button, Modal, Form, Input, Select, Tag, Popconfirm, message, Typography, Space, Tooltip, ConfigProvider, theme, Divider } from 'antd';
+import { PlusOutlined, DeleteOutlined, KeyOutlined, UserOutlined, MailOutlined, SafetyCertificateOutlined, EditOutlined, SaveOutlined, CloseOutlined, WarningOutlined, ShopOutlined } from '@ant-design/icons';
 import axios from 'axios';
+import { AuthContext } from '../../AuthContext';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -15,8 +16,51 @@ const getAuthHeaders = () => {
 };
 
 const UsersDashboard = () => {
+    const { user, login } = useContext(AuthContext);
+
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    // Business config
+    const [nameForm] = Form.useForm();
+    const [editingName, setEditingName] = useState(false);
+    const [savingName, setSavingName] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [deletingBusiness, setDeletingBusiness] = useState(false);
+    const DELETE_KEYWORD = 'ELIMINAR';
+
+    const handleRenameSubmit = async (values) => {
+        setSavingName(true);
+        try {
+            await axios.put(`${API_AUTH_URL}/api/businesses/my`, { name: values.name }, getAuthHeaders());
+            message.success('Nombre actualizado correctamente.');
+            setEditingName(false);
+            const { switchBusiness } = await import('../../services/auth/authService');
+            const response = await switchBusiness(user.bid);
+            if (response.token) {
+                login(response.token, response.user);
+                window.location.replace('/inicio/usuarios-negocio');
+            }
+        } catch (err) {
+            message.error(err.response?.data?.error || 'Error al actualizar el nombre.');
+            setSavingName(false);
+        }
+    };
+
+    const handleDeleteBusiness = async () => {
+        if (deleteConfirmText !== DELETE_KEYWORD) return;
+        setDeletingBusiness(true);
+        try {
+            await axios.delete(`${API_AUTH_URL}/api/businesses/my`, getAuthHeaders());
+            message.success('Negocio eliminado.');
+            const { logout } = await import('../../services/auth/authService');
+            logout();
+            window.location.replace('/login');
+        } catch (err) {
+            message.error(err.response?.data?.error || 'Error al eliminar el negocio.');
+            setDeletingBusiness(false);
+        }
+    };
 
     // Create User Modal
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -170,24 +214,71 @@ const UsersDashboard = () => {
         <ConfigProvider theme={{ token: { colorPrimary: PRIMARY_COLOR } }}>
             <div className="p-4 md:p-8 max-w-6xl mx-auto bg-slate-50 min-h-[calc(100vh-64px)] overflow-auto relative">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <Title level={3} style={{ color: PRIMARY_COLOR, margin: 0 }}>Usuarios del Negocio</Title>
-                            <Text type="secondary">Administra los accesos y credenciales de los miembros de tu equipo.</Text>
-                        </div>
-                        <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={() => setIsCreateModalOpen(true)}
-                            size="large"
-                            className="bg-[#155153] shadow-md shadow-[#155153]/20 border-none"
-                        >
-                            Nuevo Usuario
-                        </Button>
-                    </div>
+                    <Title level={3} style={{ color: PRIMARY_COLOR, margin: 0 }}>Administra tu Negocio</Title>
+                    <Text type="secondary">Gestiona los accesos, credenciales y configuración de tu negocio.</Text>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                {/* ── Nombre del negocio ── */}
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
+                    <div className="flex items-center gap-2 mb-1">
+                        <ShopOutlined style={{ color: PRIMARY_COLOR }} />
+                        <span className="font-semibold text-gray-700">Nombre del Negocio</span>
+                    </div>
+                    <Text type="secondary" className="block text-sm mb-4">
+                        Nombre que aparece en la plataforma para este negocio.
+                    </Text>
+                    <Form
+                        form={nameForm}
+                        layout="inline"
+                        initialValues={{ name: user?.business_name || '' }}
+                        onFinish={handleRenameSubmit}
+                    >
+                        <Form.Item
+                            name="name"
+                            rules={[{ required: true, message: 'Ingresa un nombre' }]}
+                            style={{ flex: 1, minWidth: 220 }}
+                        >
+                            <Input
+                                disabled={!editingName}
+                                style={{ backgroundColor: editingName ? '#fff' : '#f9fafb', color: '#111827', cursor: editingName ? 'text' : 'default' }}
+                            />
+                        </Form.Item>
+                        <Form.Item>
+                            {!editingName ? (
+                                <Button
+                                    icon={<EditOutlined />}
+                                    onClick={() => setEditingName(true)}
+                                >
+                                    Editar
+                                </Button>
+                            ) : (
+                                <Space>
+                                    <Button
+                                        icon={<CloseOutlined />}
+                                        onClick={() => {
+                                            setEditingName(false);
+                                            nameForm.setFieldsValue({ name: user?.business_name || '' });
+                                        }}
+                                    >
+                                        Cancelar
+                                    </Button>
+                                    <Button
+                                        type="primary"
+                                        htmlType="submit"
+                                        icon={<SaveOutlined />}
+                                        loading={savingName}
+                                        style={{ backgroundColor: PRIMARY_COLOR }}
+                                    >
+                                        Guardar
+                                    </Button>
+                                </Space>
+                            )}
+                        </Form.Item>
+                    </Form>
+                </div>
+
+                {/* ── Tabla de usuarios ── */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
                     <Table
                         dataSource={users}
                         columns={columns}
@@ -195,7 +286,53 @@ const UsersDashboard = () => {
                         loading={loading}
                         pagination={{ pageSize: 15 }}
                         scroll={{ x: 600 }}
+                        title={() => (
+                            <div className="flex justify-between items-center">
+                                <span className="font-semibold text-gray-700 flex items-center gap-2">
+                                    <UserOutlined style={{ color: PRIMARY_COLOR }} /> Usuarios
+                                </span>
+                                <Button
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={() => setIsCreateModalOpen(true)}
+                                    style={{ backgroundColor: PRIMARY_COLOR }}
+                                >
+                                    Nuevo Usuario
+                                </Button>
+                            </div>
+                        )}
                     />
+                </div>
+
+                {/* ── Zona de Peligro: eliminar negocio ── */}
+                <div className="bg-white rounded-xl border border-red-200 shadow-sm p-6">
+                    <div className="flex items-center gap-2 mb-1">
+                        <WarningOutlined className="text-red-500" />
+                        <span className="font-semibold text-red-600">Zona de Peligro</span>
+                    </div>
+                    <Text type="secondary" className="block text-sm mb-4">
+                        Eliminar el negocio es <strong>irreversible</strong>. Se borrarán todas las suscripciones y vínculos de usuarios.
+                        Escribe <strong className="text-red-600">{DELETE_KEYWORD}</strong> para confirmar.
+                    </Text>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Input
+                            value={deleteConfirmText}
+                            onChange={(e) => setDeleteConfirmText(e.target.value.toUpperCase())}
+                            placeholder={DELETE_KEYWORD}
+                            style={{ width: 180 }}
+                            status={deleteConfirmText && deleteConfirmText !== DELETE_KEYWORD ? 'error' : ''}
+                        />
+                        <Button
+                            danger
+                            type="primary"
+                            icon={<DeleteOutlined />}
+                            disabled={deleteConfirmText !== DELETE_KEYWORD}
+                            loading={deletingBusiness}
+                            onClick={handleDeleteBusiness}
+                        >
+                            Eliminar Negocio Permanentemente
+                        </Button>
+                    </div>
                 </div>
 
                 {/* MODAL CREAR USUARIO */}

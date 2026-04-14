@@ -46,6 +46,7 @@ import RegistroExpress from "./components/PublicForms/RegistroExpress";
 import PedidosDashboard from "./components/pedidos/PedidosDashboard";
 
 import Register from "./components/auth/register";
+import Configuracion from "./components/Configuracion/Configuracion";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -113,6 +114,7 @@ const App = () => (
             <Route path="pedidos" element={<PedidosDashboard />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
             <Route path="students/view/:id" element={<StudentInformacion />} />
+            <Route path="configuracion" element={<Configuracion />} />
           </Route>
 
           {/* Ruta de error */}

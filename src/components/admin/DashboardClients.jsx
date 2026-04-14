@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Spin, Typography, Input, Form, Select, Button, Tag, message, Modal,
-    Empty, Card, Drawer, Table, Space, InputNumber, Checkbox, Switch, Popconfirm, Tooltip, Grid
+    Empty, Card, Drawer, Table, Space, InputNumber, Checkbox, Switch, Popconfirm, Tooltip, Grid, Divider
 } from 'antd';
 import {
     UserOutlined, SearchOutlined, PlusOutlined, SaveOutlined,
     HistoryOutlined, CheckCircleFilled, ClockCircleOutlined,
     CalendarOutlined, SettingOutlined, EditOutlined, DeleteOutlined,
-    ArrowLeftOutlined
+    ArrowLeftOutlined, ShopOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -55,6 +55,10 @@ function DashboardClients() {
     const [isEditSubModalVisible, setIsEditSubModalVisible] = useState(false);
     const [selectedSubscription, setSelectedSubscription] = useState(null);
     const [editSubForm] = Form.useForm();
+
+    // Modal Crear Negocio
+    const [isCreateBusinessModalVisible, setIsCreateBusinessModalVisible] = useState(false);
+    const [createBusinessForm] = Form.useForm();
 
     // Gestión de Planes
     const [isPlanDrawerVisible, setIsPlanDrawerVisible] = useState(false);
@@ -142,6 +146,29 @@ function DashboardClients() {
             const emailMatch = c.email && c.email.toLowerCase().includes(query);
             return nameMatch || emailMatch;
         }));
+    };
+
+    const handleCreateBusiness = async (values) => {
+        setIsSubmitting(true);
+        try {
+            await adminService.createBusiness({
+                businessName: values.businessName,
+                adminName: values.adminName,
+                adminEmail: values.adminEmail,
+                adminPassword: values.adminPassword,
+                planId: values.planId,
+            });
+            message.success(`Negocio "${values.businessName}" creado exitosamente.`);
+            setIsCreateBusinessModalVisible(false);
+            createBusinessForm.resetFields();
+            await fetchClients();
+        } catch (err) {
+            console.error(err);
+            const errorMsg = err.response?.data?.error || "Error al crear el negocio.";
+            message.error(errorMsg);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleSubscriptionSubmit = async (values) => {
@@ -344,9 +371,18 @@ function DashboardClients() {
                 {/* Header del Sidebar */}
                 <div className="p-4 border-b border-gray-100 bg-gray-50 flex gap-2 flex-col">
                     <Button
+                        type="primary"
+                        icon={<ShopOutlined />}
+                        onClick={() => setIsCreateBusinessModalVisible(true)}
+                        className="w-full"
+                        style={{ backgroundColor: '#155153' }}
+                    >
+                        Crear Negocio
+                    </Button>
+                    <Button
                         icon={<SettingOutlined />}
                         onClick={openPlanManager}
-                        className="w-full mb-2 border-dashed border-emerald-600 text-emerald-700 hover:text-emerald-500"
+                        className="w-full border-dashed border-emerald-600 text-emerald-700 hover:text-emerald-500"
                     >
                         Gestionar Planes
                     </Button>
@@ -645,6 +681,77 @@ function DashboardClients() {
                     <div className="flex justify-end gap-2 mt-6">
                         <Button onClick={() => setIsEditSubModalVisible(false)}>Cancelar</Button>
                         <Button type="primary" htmlType="submit" loading={isSubmitting}>Guardar Cambios</Button>
+                    </div>
+                </Form>
+            </Modal>
+
+            {/* MODAL: CREAR NEGOCIO */}
+            <Modal
+                title={<span className="flex items-center gap-2"><ShopOutlined /> Crear Nuevo Negocio</span>}
+                open={isCreateBusinessModalVisible}
+                onCancel={() => { setIsCreateBusinessModalVisible(false); createBusinessForm.resetFields(); }}
+                footer={null}
+                destroyOnClose
+                width={screens.md ? 560 : '95%'}
+                style={{ top: 20 }}
+            >
+                <Form form={createBusinessForm} layout="vertical" onFinish={handleCreateBusiness}>
+                    <Divider orientation="left" orientationMargin={0} className="text-xs text-gray-500">Datos del Negocio</Divider>
+                    <Form.Item name="businessName" label="Nombre del Negocio" rules={[{ required: true, message: 'Ingresa el nombre del negocio' }]}>
+                        <Input placeholder="Ej: Colegio Los Andes" />
+                    </Form.Item>
+
+                    <Divider orientation="left" orientationMargin={0} className="text-xs text-gray-500">Administrador</Divider>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                        <Form.Item name="adminName" label="Nombre Completo" rules={[{ required: true, message: 'Ingresa el nombre del admin' }]}>
+                            <Input placeholder="Ej: Carlos Gómez" />
+                        </Form.Item>
+                        <Form.Item
+                            name="adminEmail"
+                            label="Correo Electrónico"
+                            rules={[
+                                { required: true, message: 'Ingresa el correo' },
+                                { type: 'email', message: 'Correo inválido' }
+                            ]}
+                        >
+                            <Input placeholder="admin@negocio.com" />
+                        </Form.Item>
+                    </div>
+                    <Form.Item
+                        name="adminPassword"
+                        label="Contraseña"
+                        rules={[
+                            { required: true, message: 'Ingresa la contraseña' },
+                            { min: 6, message: 'Mínimo 6 caracteres' }
+                        ]}
+                    >
+                        <Input.Password placeholder="Mínimo 6 caracteres" />
+                    </Form.Item>
+
+                    <Divider orientation="left" orientationMargin={0} className="text-xs text-gray-500">Plan Inicial</Divider>
+                    <Form.Item name="planId" label="Plan" rules={[{ required: true, message: 'Selecciona un plan' }]}>
+                        <Select placeholder="Elige un plan..." optionLabelProp="label" dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}>
+                            {publicPlans.map(plan => (
+                                <Option key={plan.id} value={plan.id} label={plan.name}>
+                                    <div className="flex justify-between items-center py-1">
+                                        <span className="font-semibold">{plan.name}</span>
+                                        <span className="text-emerald-600 text-sm">
+                                            ${plan.price} / {plan.duration_months} mes(es)
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 pb-1">
+                                        {plan.modules?.map(m => <Tag key={m} color={MODULE_COLORS[m]} style={{ fontSize: '10px', lineHeight: '16px' }}>{m}</Tag>)}
+                                    </div>
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+
+                    <div className="flex justify-end gap-2 mt-6">
+                        <Button onClick={() => { setIsCreateBusinessModalVisible(false); createBusinessForm.resetFields(); }}>Cancelar</Button>
+                        <Button type="primary" htmlType="submit" loading={isSubmitting} icon={<ShopOutlined />} style={{ backgroundColor: '#155153' }}>
+                            Crear Negocio
+                        </Button>
                     </div>
                 </Form>
             </Modal>

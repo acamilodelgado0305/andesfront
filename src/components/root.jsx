@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Typography, Dropdown, ConfigProvider, Spin, Modal, List, message } from 'antd';
+import { Layout, Menu, Button, Avatar, Typography, Dropdown, ConfigProvider, Spin, Modal, List, message, Form, Input, Select, Tag, Divider, Switch } from 'antd';
 import {
   DashboardOutlined,
   TeamOutlined,
@@ -18,7 +18,8 @@ import {
   BuildOutlined,
   ShopOutlined,      // Icono POS
   AppstoreOutlined,  // Icono Otros
-  UsergroupAddOutlined // Icono Personas
+  UsergroupAddOutlined, // Icono Personas
+  PlusOutlined,
 } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
 import axios from 'axios';
@@ -104,7 +105,7 @@ const MENU_MASTER = [
     label: 'Configuración',
     requiredRole: ['admin', 'superadmin'], // <--- Solo admin del negocio
     children: [
-      { key: '/inicio/usuarios-negocio', icon: <TeamOutlined />, label: 'Usuarios y Accesos', path: '/inicio/usuarios-negocio' },
+      { key: '/inicio/usuarios-negocio', icon: <TeamOutlined />, label: 'Administración', path: '/inicio/usuarios-negocio' },
     ]
   }
 ];
@@ -346,6 +347,64 @@ const RootLayout = () => {
 
   // --- 4. DROPDOWN DE NEGOCIOS ---
   const [switchingBusiness, setSwitchingBusiness] = useState(false);
+  const [isCreateBusinessOpen, setIsCreateBusinessOpen] = useState(false);
+  const [createBusinessLoading, setCreateBusinessLoading] = useState(false);
+  const [publicPlans, setPublicPlans] = useState([]);
+  const [useCurrentUser, setUseCurrentUser] = useState(true);
+  const [createBusinessForm] = Form.useForm();
+
+  const MODULE_COLORS = { POS: 'green', ACADEMICO: 'blue', INVENTARIO: 'cyan', GENERACION: 'magenta', ADMIN: 'red' };
+
+  const openCreateBusiness = async () => {
+    if (publicPlans.length === 0) {
+      try {
+        const { data } = await axios.get(`${API_AUTH_URL}/api/admin/plans`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
+        });
+        setPublicPlans(data);
+      } catch (e) {
+        message.error('No se pudieron cargar los planes.');
+        return;
+      }
+    }
+    setUseCurrentUser(true);
+    createBusinessForm.resetFields();
+    setIsCreateBusinessOpen(true);
+  };
+
+  const handleCreateBusiness = async (values) => {
+    setCreateBusinessLoading(true);
+    try {
+      const { data: created } = await axios.post(
+        `${API_AUTH_URL}/api/admin/businesses`,
+        {
+          businessName: values.businessName,
+          planId: values.planId,
+          useCurrentUser,
+          adminName: useCurrentUser ? undefined : values.adminName,
+          adminEmail: useCurrentUser ? undefined : values.adminEmail,
+          adminPassword: useCurrentUser ? undefined : values.adminPassword,
+        },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+      );
+
+      message.success(`Negocio "${values.businessName}" creado. Cambiando contexto...`);
+      setIsCreateBusinessOpen(false);
+      createBusinessForm.resetFields();
+
+      // Cambiar al nuevo negocio para renovar el token (incluye el negocio en la lista)
+      const { switchBusiness } = await import('../services/auth/authService');
+      const response = await switchBusiness(created.business.id);
+      if (response.token) {
+        login(response.token, response.user);
+        window.location.replace('/inicio');
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Error al crear el negocio.';
+      message.error(errorMsg);
+      setCreateBusinessLoading(false);
+    }
+  };
 
   const handleBusinessSelect = async (business) => {
     if (user.bid === business.id || switchingBusiness) return;
@@ -417,6 +476,16 @@ const RootLayout = () => {
           <div className="text-center py-4 text-gray-400 text-xs">Sin negocios disponibles</div>
         )}
       </div>
+      {user?.role === 'superadmin' && (
+        <div className="px-2 pt-2 pb-1 border-t border-gray-100 mt-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); openCreateBusiness(); }}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-md text-xs font-semibold text-[#155153] border border-dashed border-[#155153]/40 hover:bg-[#155153]/5 transition-colors"
+          >
+            <PlusOutlined /> Crear Nuevo Negocio
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -579,6 +648,95 @@ const RootLayout = () => {
           </Content>
         </Layout>
       </Layout>
+
+      {/* MODAL: CREAR NEGOCIO (superadmin) */}
+      <Modal
+        title={<span className="flex items-center gap-2"><ShopOutlined /> Crear Nuevo Negocio</span>}
+        open={isCreateBusinessOpen}
+        onCancel={() => { setIsCreateBusinessOpen(false); createBusinessForm.resetFields(); }}
+        footer={null}
+        destroyOnClose
+        width={520}
+        style={{ top: 20 }}
+      >
+        <Form form={createBusinessForm} layout="vertical" onFinish={handleCreateBusiness}>
+          <Divider orientation="left" orientationMargin={0} className="text-xs text-gray-500">Datos del Negocio</Divider>
+          <Form.Item name="businessName" label="Nombre del Negocio" rules={[{ required: true, message: 'Ingresa el nombre del negocio' }]}>
+            <Input placeholder="Ej: Colegio Los Andes" />
+          </Form.Item>
+
+          <Divider orientation="left" orientationMargin={0} className="text-xs text-gray-500">Administrador</Divider>
+
+          {/* Toggle: mi usuario o usuario nuevo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '10px 12px', background: useCurrentUser ? '#f0f9f9' : '#fafafa', borderRadius: 8, border: '1px solid', borderColor: useCurrentUser ? '#155153' + '33' : '#e5e7eb' }}>
+            <Switch
+              checked={useCurrentUser}
+              onChange={(val) => {
+                setUseCurrentUser(val);
+                createBusinessForm.resetFields(['adminName', 'adminEmail', 'adminPassword']);
+              }}
+              style={{ backgroundColor: useCurrentUser ? PRIMARY_COLOR : undefined }}
+            />
+            <div style={{ lineHeight: 1.3 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: useCurrentUser ? PRIMARY_COLOR : '#374151' }}>
+                {useCurrentUser ? `Usar mi usuario (${user?.name})` : 'Crear nuevo usuario admin'}
+              </div>
+              <div style={{ fontSize: 11, color: '#6b7280' }}>
+                {useCurrentUser ? 'Este negocio quedará asociado a tu cuenta' : 'Se creará un usuario administrador independiente'}
+              </div>
+            </div>
+          </div>
+
+          {/* Campos solo si crea usuario nuevo */}
+          {!useCurrentUser && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+                <Form.Item name="adminName" label="Nombre Completo" rules={[{ required: true, message: 'Requerido' }]}>
+                  <Input placeholder="Ej: Carlos Gómez" />
+                </Form.Item>
+                <Form.Item
+                  name="adminEmail"
+                  label="Correo Electrónico"
+                  rules={[{ required: true, message: 'Requerido' }, { type: 'email', message: 'Correo inválido' }]}
+                >
+                  <Input placeholder="admin@negocio.com" />
+                </Form.Item>
+              </div>
+              <Form.Item
+                name="adminPassword"
+                label="Contraseña"
+                rules={[{ required: true, message: 'Requerido' }, { min: 6, message: 'Mínimo 6 caracteres' }]}
+              >
+                <Input.Password placeholder="Mínimo 6 caracteres" />
+              </Form.Item>
+            </>
+          )}
+
+          <Divider orientation="left" orientationMargin={0} className="text-xs text-gray-500">Plan Inicial</Divider>
+          <Form.Item name="planId" label="Plan" rules={[{ required: true, message: 'Selecciona un plan' }]}>
+            <Select placeholder="Elige un plan..." optionLabelProp="label" dropdownStyle={{ maxHeight: 400, overflow: 'auto' }}>
+              {publicPlans.map(plan => (
+                <Select.Option key={plan.id} value={plan.id} label={plan.name}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
+                    <span style={{ fontWeight: 600 }}>{plan.name}</span>
+                    <span style={{ color: '#155153', fontSize: 12 }}>${plan.price} / {plan.duration_months} mes(es)</span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, paddingBottom: 4 }}>
+                    {plan.modules?.map(m => <Tag key={m} color={MODULE_COLORS[m]} style={{ fontSize: 10, lineHeight: '16px' }}>{m}</Tag>)}
+                  </div>
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+            <Button onClick={() => { setIsCreateBusinessOpen(false); createBusinessForm.resetFields(); }}>Cancelar</Button>
+            <Button type="primary" htmlType="submit" loading={createBusinessLoading} icon={<PlusOutlined />} style={{ backgroundColor: PRIMARY_COLOR }}>
+              Crear Negocio
+            </Button>
+          </div>
+        </Form>
+      </Modal>
     </ConfigProvider>
   );
 };
