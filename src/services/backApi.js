@@ -5,9 +5,6 @@ import axios from "axios";
 const BACK_URL =
   import.meta.env.VITE_API_BACKEND || "http://localhost:3002";
 
-// Si quisieras apuntar directamente a /api, podrías usar VITE_API en vez de VITE_API_BACKEND
-// const BACK_URL = import.meta.env.VITE_API || "http://localhost:3002/api";
-
 const backApi = axios.create({
   baseURL: BACK_URL,
   headers: {
@@ -16,9 +13,15 @@ const backApi = axios.create({
 });
 
 // Interceptor para agregar el token a las solicitudes
+// Prioridad: 1) authToken (admin/usuario principal)  2) student_portal_token (portal estudiante)
 backApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("authToken");
+    const adminToken = localStorage.getItem("authToken");
+    const studentToken = localStorage.getItem("student_portal_token");
+
+    // Usa el token de admin si existe, si no usa el de estudiante
+    const token = adminToken || studentToken;
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -28,3 +31,4 @@ backApi.interceptors.request.use(
 );
 
 export default backApi;
+
