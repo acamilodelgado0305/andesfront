@@ -1,13 +1,21 @@
 import React, { useState, useEffect, useContext,useMemo } from 'react';
 import { Card, Tabs, Typography, Button, message, Spin } from 'antd';
-import { DollarOutlined, AuditOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons';
+import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import 'moment/locale/es';
+import axios from 'axios';
 
 import { AuthContext } from '../../AuthContext';
 
 // Importamos SOLO las funciones de lectura para la tabla principal
 import { getAllIngresos, getAllEgresos } from '../../services/controlapos/posService';
+import { getInventario } from '../../services/inventario/inventarioService';
+
+const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('authToken');
+  return { headers: { Authorization: `Bearer ${token}` } };
+};
 
 // Importamos los Drawers "Inteligentes"
 import IngresoDrawer from './components/IngresoDrawer';
@@ -41,7 +49,11 @@ function Certificados() {
   const [filters, setFilters] = useState({
     payment: null,
     product: null,
+    vendedor: null,
   });
+
+  const [inventario, setInventario] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
 
   // --- CARGA DE DATOS (REFRESH) ---
   // Siempre recibe el rango activo para filtrar en el backend (no solo en cliente)
@@ -53,9 +65,12 @@ function Certificados() {
         getAllIngresos({
           fecha_inicio: range[0].clone().startOf('day').toISOString(),
           fecha_fin:    range[1].clone().endOf('day').toISOString(),
-          limit: 5000,   // traer todos los del rango, sin corte de paginación
+          limit: 5000,
         }),
-        getAllEgresos()
+        getAllEgresos({
+          fecha_inicio: range[0].clone().startOf('day').toISOString(),
+          fecha_fin:    range[1].clone().endOf('day').toISOString(),
+        }),
       ]);
 
       const safeIngresos = Array.isArray(ingresosData) ? ingresosData : (ingresosData.data || []);
@@ -79,7 +94,28 @@ function Certificados() {
 
   useEffect(() => {
     fetchTransactions();
+    fetchInventario();
+    fetchVendedores();
   }, [user]);
+
+  const fetchInventario = async () => {
+    try {
+      const data = await getInventario();
+      const items = Array.isArray(data) ? data : (data?.data || []);
+      setInventario(items);
+    } catch (e) {
+      console.error('Error cargando inventario', e);
+    }
+  };
+
+  const fetchVendedores = async () => {
+    try {
+      const { data } = await axios.get(`${API_AUTH_URL}/api/businesses/my/users`, getAuthHeaders());
+      setVendedores(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error('Error cargando vendedores', e);
+    }
+  };
 
   // --- FILTRADO POR USUARIO (Opcional según tu lógica de negocio) ---
   const myIngresos = useMemo(() => {
@@ -110,7 +146,7 @@ function Certificados() {
   if (!user) return <div className="p-10 flex justify-center"><Spin size="large" /></div>;
 
   return (
-    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 md:p-6">
       
       {/* Header */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
@@ -119,19 +155,65 @@ function Certificados() {
             <Title level={4} style={{ margin: 0, color: '#155153' }}>Panel Financiero</Title>
             <div className="flex items-center gap-2 text-gray-500 text-sm"><UserOutlined /> {user.name}</div>
           </div>
-          <Button icon={<ReloadOutlined />} onClick={() => fetchTransactions(dateRange)} loading={loading} shape="circle" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={() => openDrawer('ingreso')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '10px 20px',
+                background: '#166534',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'opacity 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            >
+              <PlusOutlined style={{ fontSize: 11 }} />
+              Ingreso
+            </button>
+
+            <button
+              onClick={() => openDrawer('egreso')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '10px 20px',
+                background: '#dc2626',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'opacity 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            >
+              <MinusOutlined style={{ fontSize: 11 }} />
+              Egreso
+            </button>
+
+            <Button icon={<ReloadOutlined />} onClick={() => fetchTransactions(dateRange)} loading={loading} shape="circle" />
+          </div>
         </div>
       </div>
 
-      <DashboardStats ingresos={myIngresos} egresos={myEgresos} dateRange={dateRange} filters={filters} />
-      <div className="h-6" />
-
-      {/* Tablas */}
+      {/* Tabla + Stats integrados */}
       <Card className="shadow-md rounded-xl border-0 overflow-hidden" bodyStyle={{ padding: 0 }}>
         <Tabs defaultActiveKey="ingresos" size="large" tabBarStyle={{ padding: '0 24px', backgroundColor: '#fff', marginBottom: 0 }}>
-          
-          <TabPane tab={<span><DollarOutlined /> Ventas</span>} key="ingresos">
+
+          <TabPane tab={<span style={{ fontWeight: 600 }}><ArrowUpOutlined style={{ color: '#16a34a' }} /> Ingresos</span>} key="ingresos">
             <div className="p-4">
+              <div className="mb-4">
+                <DashboardStats ingresos={myIngresos} egresos={myEgresos} dateRange={dateRange} filters={filters} />
+              </div>
               <TransactionTable
                 type="ingresos"
                 data={myIngresos}
@@ -143,12 +225,17 @@ function Certificados() {
                 onDateRangeChange={handleDateRangeChange}
                 userName={user.name}
                 onFiltersChange={setFilters}
+                inventario={inventario}
+                vendedores={vendedores}
               />
             </div>
           </TabPane>
 
-          <TabPane tab={<span><AuditOutlined /> Gastos</span>} key="egresos">
+          <TabPane tab={<span style={{ fontWeight: 600 }}><ArrowDownOutlined style={{ color: '#dc2626' }} /> Egresos</span>} key="egresos">
             <div className="p-4">
+              <div className="mb-4">
+                <DashboardStats ingresos={myIngresos} egresos={myEgresos} dateRange={dateRange} filters={filters} />
+              </div>
               <TransactionTable
                 type="egresos"
                 data={myEgresos}
@@ -160,6 +247,8 @@ function Certificados() {
                 onDateRangeChange={handleDateRangeChange}
                 userName={user.name}
                 onFiltersChange={setFilters}
+                inventario={inventario}
+                vendedores={vendedores}
               />
             </div>
           </TabPane>

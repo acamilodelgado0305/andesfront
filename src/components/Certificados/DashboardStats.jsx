@@ -4,37 +4,30 @@ import { ArrowUpOutlined, ArrowDownOutlined, WalletOutlined } from '@ant-design/
 import moment from 'moment';
 
 const DashboardStats = ({ ingresos, egresos, dateRange, filters = {} }) => {
-  const { payment, product } = filters; // <- nuevos filtros
+  const { payment, product } = filters;
 
   const stats = useMemo(() => {
     const start = dateRange[0];
     const end = dateRange[1];
 
-    // helper para producto/servicio (solo ingresos)
     const getConcept = (item = {}) =>
       (item.producto || item.concepto || item.descripcion || '').trim();
 
     const filteredIngresos = ingresos.filter((i) => {
       const inDate = moment(i.createdAt).isBetween(start, end, 'day', '[]');
       if (!inDate) return false;
-
       if (payment && i.cuenta !== payment) return false;
-
       if (product) {
         const concept = getConcept(i);
         if (concept !== product) return false;
       }
-
       return true;
     });
 
-    // para egresos aplicamos solo fecha / cuenta / día (no producto)
     const filteredEgresos = egresos.filter((e) => {
       const inDate = moment(e.fecha).isBetween(start, end, 'day', '[]');
       if (!inDate) return false;
-
       if (payment && e.cuenta !== payment) return false;
-
       return true;
     });
 

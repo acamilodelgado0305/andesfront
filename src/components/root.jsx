@@ -522,7 +522,7 @@ const RootLayout = () => {
         },
       }}
     >
-      <Layout style={{ minHeight: '100vh' }}>
+      <Layout style={{ minHeight: '100vh', backgroundImage: 'linear-gradient(to bottom, #fff1eb 0%, #dff0fb 100%)', backgroundAttachment: 'fixed' }}>
         {/* Backdrop Móvil */}
         {isMobile && mobileDrawerOpen && (
           <div
@@ -547,7 +547,7 @@ const RootLayout = () => {
             left: isMobile ? (mobileDrawerOpen ? 0 : -260) : 'auto',
             zIndex: 1000,
             height: '100vh',
-            overflow: 'auto',
+            overflow: isMobile ? 'hidden' : 'auto',
             transition: 'all 0.3s',
           }}
           onMouseEnter={handleMouseEnter}
@@ -582,11 +582,30 @@ const RootLayout = () => {
                 onClick: isMobile ? () => setMobileDrawerOpen(false) : undefined,
               }))
             }))}
-            style={{ borderRight: 'none', paddingTop: '10px' }}
+            style={{ borderRight: 'none', paddingTop: '10px', paddingBottom: isMobile ? '110px' : '10px', overflowY: 'auto', maxHeight: 'calc(100vh - 64px)' }}
           />
+
+          {/* SELECTOR DE NEGOCIO EN SIDEBAR (solo móvil) */}
+          {isMobile && (
+            <div className="absolute bottom-0 left-0 right-0 border-t border-gray-100 bg-white px-3 py-3">
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">Negocio activo</div>
+              <Dropdown overlay={businessMenu} trigger={['click']} placement="topLeft">
+                <div className="flex items-center gap-3 p-2.5 rounded-md border border-gray-200 hover:border-[#155153]/30 hover:bg-[#155153]/5 cursor-pointer transition-all">
+                  <Avatar shape="square" size={36} icon={<ShopOutlined />} style={{ backgroundColor: PRIMARY_COLOR }} className="rounded-md flex-shrink-0" />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-sm font-bold text-gray-800 truncate leading-tight">{currentBusinessName}</span>
+                    <span className="text-[11px] text-gray-500 mt-0.5">
+                      {availableBusinesses.length > 1 ? `${availableBusinesses.length} negocios disponibles` : 'Toca para ver opciones'}
+                    </span>
+                  </div>
+                  <span className="text-gray-400 text-xs flex-shrink-0">▲</span>
+                </div>
+              </Dropdown>
+            </div>
+          )}
         </Sider>
 
-        <Layout className="site-layout">
+        <Layout className="site-layout" style={{ background: 'transparent' }}>
           <Header style={{ padding: isMobile ? '0 16px' : '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0', position: 'sticky', top: 0, zIndex: 998, backgroundColor: '#ffffff' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <Button
@@ -602,12 +621,12 @@ const RootLayout = () => {
               {/* SELECTOR DE NEGOCIO */}
               <Dropdown overlay={businessMenu} trigger={['click']} placement="bottomLeft">
                 <div
-                  className="hidden md:flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1.5 rounded-md transition-all border border-transparent hover:border-gray-200"
+                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1.5 rounded-md transition-all border border-transparent hover:border-gray-200"
                 >
                   <Avatar shape="square" size="small" icon={<ShopOutlined />} style={{ backgroundColor: '#e6f4f4', color: PRIMARY_COLOR }} className="rounded-md" />
                   <div className="flex flex-col leading-none">
-                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Negocio</span>
-                    <span className="text-sm font-bold text-gray-700 truncate max-w-[150px]">{currentBusinessName}</span>
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider hidden md:block">Negocio</span>
+                    <span className="text-sm font-bold text-gray-700 truncate max-w-[90px] md:max-w-[150px]">{currentBusinessName}</span>
                   </div>
                   {availableBusinesses.length > 1 && (
                     <span className="text-[10px] text-gray-400">▼</span>
@@ -640,7 +659,7 @@ const RootLayout = () => {
             </Dropdown>
           </Header>
 
-          <Content style={{ overflow: 'initial', padding: isMobile ? '16px' : '24px' }}>
+          <Content style={{ overflow: 'initial', padding: isMobile ? '16px' : '24px', background: 'transparent' }}>
             <div style={{ minHeight: 360 }}>
               {showExpirationWarning()}
               <Outlet />
