@@ -56,15 +56,27 @@ const TransactionTable = ({
     return Array.from(set).map(c => ({ value: c, label: c }));
   }, [inventario, data]);
 
-  // Opciones de vendedor desde la API de usuarios
+  // Mapa id → nombre para resolver el campo "usuario" de cada registro
+  const userMap = useMemo(() => {
+    const map = {};
+    vendedores.forEach(u => {
+      map[String(u.id)] = u.name || u.nombre || `Usuario ${u.id}`;
+    });
+    return map;
+  }, [vendedores]);
+
+  // Opciones del filtro: valor = id del usuario, label = nombre
   const vendedorOptions = useMemo(() => {
     if (vendedores.length > 0) {
-      return vendedores.map(u => ({ value: u.name || u.nombre, label: u.name || u.nombre }));
+      return vendedores.map(u => ({
+        value: String(u.id),
+        label: u.name || u.nombre || `Usuario ${u.id}`,
+      }));
     }
-    // Fallback: extraer del propio data
+    // Fallback: extraer IDs únicos del data
     const set = new Set();
-    (data || []).forEach(item => { if (item.vendedor) set.add(item.vendedor); });
-    return Array.from(set).map(v => ({ value: v, label: v }));
+    (data || []).forEach(item => { if (item.usuario) set.add(String(item.usuario)); });
+    return Array.from(set).map(id => ({ value: id, label: `Usuario ${id}` }));
   }, [vendedores, data]);
 
   // Filtrado
@@ -87,7 +99,7 @@ const TransactionTable = ({
         if (!textMatch) return false;
         if (paymentFilter  && item.cuenta   !== paymentFilter)  return false;
         if (conceptFilter  && getConcept(item) !== conceptFilter) return false;
-        if (vendedorFilter && (item.vendedor || userName) !== vendedorFilter) return false;
+        if (vendedorFilter && String(item.usuario) !== vendedorFilter) return false;
 
         return true;
       })
@@ -148,17 +160,20 @@ const TransactionTable = ({
         moment(a.createdAt || a.fecha).unix() - moment(b.createdAt || b.fecha).unix(),
     },
     {
-      title: 'Vendedor',
-      dataIndex: 'vendedor',
+      title: 'Usuario',
+      dataIndex: 'usuario',
       width: 120,
-      render: (v) => (
-        <Tooltip title={v || userName}>
-          <span style={{ ...TS, display: 'block', whiteSpace: 'nowrap',
-            overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>
-            {v || userName}
-          </span>
-        </Tooltip>
-      ),
+      render: (userId) => {
+        const nombre = userMap[String(userId)] || (userId ? `ID ${userId}` : userName);
+        return (
+          <Tooltip title={nombre}>
+            <span style={{ ...TS, display: 'block', whiteSpace: 'nowrap',
+              overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110 }}>
+              {nombre}
+            </span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: type === 'ingresos' ? 'Cliente' : 'Descripción',
@@ -211,7 +226,7 @@ const TransactionTable = ({
       width: 110,
       render: (c) => <Tag color={c === 'Nequi' ? 'purple' : 'blue'} style={{ fontSize: 12 }}>{c || 'N/D'}</Tag>,
     },
-  ], [type, userName]);
+  ], [type, userName, userMap]);
 
   const generatePDF = () => {
     const doc   = new jsPDF();
@@ -220,12 +235,13 @@ const TransactionTable = ({
     doc.setFontSize(14);
     doc.text(`${title} - ${periodo}`, 14, 20);
     doc.autoTable({
-      head: [['Fecha', type === 'ingresos' ? 'Cliente' : 'Descripción', 'Producto', 'Cuenta', 'Valor']],
+      head: [['Fecha', type === 'ingresos' ? 'Cliente' : 'Descripción', 'Producto', 'Cuenta', 'Usuario', 'Valor']],
       body: filteredData.map(item => [
         moment(item[type === 'ingresos' ? 'createdAt' : 'fecha']).format('DD/MM/YYYY'),
         type === 'ingresos' ? `${item.nombre || ''} ${item.apellido || ''}`.trim() : (item.descripcion || ''),
         getConcept(item),
         item.cuenta || '',
+        userMap[String(item.usuario)] || (item.usuario ? `ID ${item.usuario}` : '-'),
         new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(item.valor || 0),
       ]),
       startY: 26,
@@ -288,7 +304,7 @@ const TransactionTable = ({
         />
 
         <Select
-          placeholder="Vendedor"
+          placeholder="Usuario"
           size="small"
           style={{ width: 150, borderRadius: 8 }}
           allowClear
