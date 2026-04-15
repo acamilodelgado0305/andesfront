@@ -44,12 +44,17 @@ function Certificados() {
   });
 
   // --- CARGA DE DATOS (REFRESH) ---
-  const fetchTransactions = async () => {
+  // Siempre recibe el rango activo para filtrar en el backend (no solo en cliente)
+  const fetchTransactions = async (range = dateRange) => {
     if (!user) return;
     setLoading(true);
     try {
       const [ingresosData, egresosData] = await Promise.all([
-        getAllIngresos(),
+        getAllIngresos({
+          fecha_inicio: range[0].clone().startOf('day').toISOString(),
+          fecha_fin:    range[1].clone().endOf('day').toISOString(),
+          limit: 5000,   // traer todos los del rango, sin corte de paginación
+        }),
         getAllEgresos()
       ]);
 
@@ -64,6 +69,12 @@ function Certificados() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Cuando el usuario cambia el rango de fechas → refetch inmediato con nuevo rango
+  const handleDateRangeChange = (newRange) => {
+    setDateRange(newRange);
+    fetchTransactions(newRange);
   };
 
   useEffect(() => {
@@ -92,10 +103,8 @@ function Certificados() {
 
   // --- MANEJO DE ÉXITO (CLAVE PARA ACTUALIZAR TABLA) ---
   const handleSuccess = () => {
-    // 1. Cerramos el drawer
     closeDrawers();
-    // 2. Recargamos los datos inmediatamente
-    fetchTransactions();
+    fetchTransactions(dateRange); // recarga respetando el rango activo
   };
 
   if (!user) return <div className="p-10 flex justify-center"><Spin size="large" /></div>;
@@ -110,7 +119,7 @@ function Certificados() {
             <Title level={4} style={{ margin: 0, color: '#155153' }}>Panel Financiero</Title>
             <div className="flex items-center gap-2 text-gray-500 text-sm"><UserOutlined /> {user.name}</div>
           </div>
-          <Button icon={<ReloadOutlined />} onClick={fetchTransactions} loading={loading} shape="circle" />
+          <Button icon={<ReloadOutlined />} onClick={() => fetchTransactions(dateRange)} loading={loading} shape="circle" />
         </div>
       </div>
 
@@ -127,11 +136,11 @@ function Certificados() {
                 type="ingresos"
                 data={myIngresos}
                 loading={loading}
-                onRefresh={fetchTransactions} // Para borrar
+                onRefresh={fetchTransactions}
                 onEdit={(r) => openDrawer('ingreso', r)}
                 onCreate={() => openDrawer('ingreso')}
                 dateRange={dateRange}
-                onDateRangeChange={setDateRange}
+                onDateRangeChange={handleDateRangeChange}
                 userName={user.name}
                 onFiltersChange={setFilters}
               />
@@ -144,11 +153,11 @@ function Certificados() {
                 type="egresos"
                 data={myEgresos}
                 loading={loading}
-                onRefresh={fetchTransactions} // Para borrar
+                onRefresh={fetchTransactions}
                 onEdit={(r) => openDrawer('egreso', r)}
                 onCreate={() => openDrawer('egreso')}
                 dateRange={dateRange}
-                onDateRangeChange={setDateRange}
+                onDateRangeChange={handleDateRangeChange}
                 userName={user.name}
                 onFiltersChange={setFilters}
               />
