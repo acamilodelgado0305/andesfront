@@ -135,7 +135,7 @@ export const register = async (userData) => {
 };
 
 /**
- * Login con Google. Envía el credential (ID token de Google) al auth-service.
+ * Login con Google usando ID token (componente GoogleLogin).
  * @param {string} credential - ID token devuelto por @react-oauth/google
  */
 export const loginWithGoogle = async (credential) => {
@@ -144,6 +144,20 @@ export const loginWithGoogle = async (credential) => {
     return data;
   } catch (error) {
     console.error('Error en login con Google:', error);
+    throw error;
+  }
+};
+
+/**
+ * Login con Google usando access_token (hook useGoogleLogin - botón personalizado).
+ * @param {string} access_token - access_token devuelto por useGoogleLogin
+ */
+export const loginWithGoogleToken = async (access_token) => {
+  try {
+    const { data } = await axios.post(`${AUTH_SERVICE_URL}/api/auth/google`, { access_token });
+    return data;
+  } catch (error) {
+    console.error('Error en login con Google token:', error);
     throw error;
   }
 };

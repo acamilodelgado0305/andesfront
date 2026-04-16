@@ -1,28 +1,49 @@
-import React from 'react';
+import React, { useState, useContext } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 import {
   BarChart3, Boxes, Briefcase, Building,
   Check, DollarSign, ShoppingCart, Users
 } from 'lucide-react';
+import { useGoogleLogin } from '@react-oauth/google';
+import { message } from 'antd';
+import { AuthContext } from '../../AuthContext';
+import { loginWithGoogleToken } from '../../services/auth/authService';
 
 import Header from './header';
 
 const QControlaLanding = () => {
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const { login: contextLogin } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  const handleGoogleSuccess = async (tokenResponse) => {
+    setIsGoogleLoading(true);
+    try {
+      const response = await loginWithGoogleToken(tokenResponse.access_token);
+      if (response.token) {
+        contextLogin(response.token, response.user);
+        message.success('¡Bienvenido a QControla! Tu prueba gratuita de 14 días ha comenzado.', 3);
+        navigate('/inicio');
+      }
+    } catch (error) {
+      const msg = error.response?.data?.error || 'Error al registrarse con Google.';
+      message.error(msg);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const openGoogleRegister = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: () => message.error('No se pudo completar el registro con Google.'),
+    flow: 'implicit',
+  });
   const fadeIn = {
     hidden: { opacity: 0, y: 30 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
   };
-
-  const planFeatures = [
-    "Gestión Financiera Completa",
-    "Control de Inventario en Tiempo Real",
-    "Reportes y Analíticas",
-    "Base de Datos de Clientes y Proveedores",
-    "Acceso desde cualquier dispositivo",
-    "Soporte técnico vía WhatsApp",
-    "Actualizaciones incluidas"
-  ];
 
   return (
     <HelmetProvider>
@@ -51,6 +72,9 @@ const QControlaLanding = () => {
               <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-slate-300">
                 El software definitivo para la administración financiera y de inventario de tu institución o empresa.
               </p>
+              <div className="inline-flex items-center gap-2 bg-blue-600/20 border border-blue-500/30 text-blue-300 px-4 py-1.5 rounded-full text-sm font-medium mb-6">
+                ✨ 14 días de prueba gratuita — sin tarjeta de crédito
+              </div>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <motion.a
                   whileHover={{ scale: 1.05 }}
@@ -68,6 +92,25 @@ const QControlaLanding = () => {
                 >
                   Ver Planes
                 </motion.a>
+              </div>
+
+              <div className="mt-6 flex flex-col items-center gap-2">
+                <p className="text-slate-400 text-sm">o empieza gratis ahora mismo</p>
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => openGoogleRegister()}
+                    disabled={isGoogleLoading}
+                    className="flex items-center gap-3 bg-white text-gray-800 font-semibold py-3 px-7 rounded-lg shadow-lg text-base transition-opacity hover:opacity-90 disabled:opacity-60"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    {isGoogleLoading ? 'Cargando...' : 'Empieza gratis con Google'}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </section>
@@ -124,33 +167,30 @@ const QControlaLanding = () => {
           <section id="pricing" className="py-20 text-white" style={{ background: 'linear-gradient(135deg, #030d1f 0%, #0c2044 50%, #030d1f 100%)' }}>
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}>
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">Un Plan Simple y Transparente</h2>
-                <p className="text-xl text-slate-300 mb-12">Accede a todo el poder de QControla sin contratos ni costos ocultos.</p>
-                <div className="bg-white text-gray-800 p-10 rounded-xl shadow-2xl max-w-lg mx-auto">
-                  <h3 className="text-2xl font-bold">Plan Crecimiento</h3>
-                  <p className="text-gray-500 mb-6">Ideal para pymes, instituciones y emprendedores.</p>
-                  <div className="my-8">
-                    <span className="text-5xl font-extrabold">$250.000</span>
-                    <span className="text-xl text-gray-600"> COP</span>
-                  </div>
-                  <p className="text-lg font-semibold mb-6">Acceso completo por 6 meses</p>
-                  <ul className="space-y-3 text-left mb-8">
-                    {planFeatures.map((feature, index) => (
-                      <li key={index} className="flex items-center">
-                        <Check className="h-5 w-5 mr-3" style={{ color: '#1d4ed8' }} />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <a
-                    href="https://wa.me/570000000000?text=Hola,%20quiero%20adquirir%20el%20Plan%20Crecimiento%20de%20QControla%20por%206%20meses."
-                    target="_blank"
-                    className="w-full inline-block text-white font-bold py-3 px-6 rounded-lg text-lg transition duration-300"
-                    style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0a1f3d 100%)' }}
-                  >
-                    Adquirir Plan Ahora
-                  </a>
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">Planes para cada etapa de tu negocio</h2>
+                <p className="text-xl text-slate-300 mb-4">Desde $39.900/mes. Todos los planes incluyen <strong>14 días de prueba gratuita</strong>.</p>
+                <p className="text-slate-400 mb-10">Sin tarjeta de crédito · Sin contratos · Cancela cuando quieras</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto mb-10">
+                  {[
+                    { name: 'Básico', price: '$39.900/mes', users: '2 usuarios' },
+                    { name: 'Profesional', price: '$79.900/mes', users: '5 usuarios', popular: true },
+                    { name: 'Empresarial', price: '$125.000/mes', users: 'Ilimitados' },
+                  ].map((p) => (
+                    <div key={p.name} className={`p-4 rounded-xl border ${p.popular ? 'border-blue-400 bg-blue-900/40' : 'border-white/20 bg-white/10'}`}>
+                      {p.popular && <div className="text-blue-300 text-xs font-bold mb-1">⭐ MÁS POPULAR</div>}
+                      <div className="font-bold text-lg">{p.name}</div>
+                      <div className="text-2xl font-extrabold my-1">{p.price}</div>
+                      <div className="text-slate-300 text-sm">{p.users}</div>
+                    </div>
+                  ))}
                 </div>
+                <Link
+                  to="/precios"
+                  className="inline-block text-white font-bold py-3 px-10 rounded-xl text-lg shadow-lg transition-opacity hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0a1f3d 100%)', border: '2px solid rgba(255,255,255,0.2)' }}
+                >
+                  Ver Todos los Planes y Precios →
+                </Link>
               </motion.div>
             </div>
           </section>
@@ -202,14 +242,29 @@ const QControlaLanding = () => {
           <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-3xl font-bold mb-4">¿Listo para transformar la gestión de tu negocio?</h2>
             <p className="text-slate-300 mb-8">Solicita una demo gratuita y sin compromiso. Descubre cómo QControla puede ayudarte a crecer.</p>
-            <a
-              href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20QControla%20y%20me%20gustaría%20solicitar%20una%20demo."
-              target="_blank"
-              className="inline-block text-white font-bold py-3 px-10 rounded-lg text-lg shadow-lg transition duration-300"
-              style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0a1f3d 100%)' }}
-            >
-              Solicitar Demo Gratuita
-            </a>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <a
+                href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20QControla%20y%20me%20gustaría%20solicitar%20una%20demo."
+                target="_blank"
+                className="inline-block text-white font-bold py-3 px-10 rounded-lg text-lg shadow-lg transition duration-300"
+                style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0a1f3d 100%)' }}
+              >
+                Solicitar Demo Gratuita
+              </a>
+              <button
+                onClick={() => openGoogleRegister()}
+                disabled={isGoogleLoading}
+                className="flex items-center gap-3 bg-white text-gray-800 font-semibold py-3 px-6 rounded-lg shadow-lg text-base transition-opacity hover:opacity-90 disabled:opacity-60"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                {isGoogleLoading ? 'Cargando...' : 'Empieza gratis con Google'}
+              </button>
+            </div>
             <div className="border-t border-white/10 mt-12 pt-8">
               <p className="text-slate-500">© {new Date().getFullYear()} QControla. Todos los derechos reservados.</p>
             </div>

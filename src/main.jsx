@@ -47,6 +47,8 @@ import PedidosDashboard from "./components/pedidos/PedidosDashboard";
 
 import Register from "./components/auth/register";
 import Configuracion from "./components/Configuracion/Configuracion";
+import PreciosPage from "./components/auth/Precios";
+import Pago from "./components/auth/Pago";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -82,6 +84,8 @@ const App = () => (
           <Route path="/incase" element={<StudentRegistrationFormMarily />} />
           <Route path="/sales" element={<Sales />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/precios" element={<PreciosPage />} />
+          <Route path="/pago" element={<Pago />} />
 
           {/* 🔹 Portal estudiante: evaluaciones */}
           <Route

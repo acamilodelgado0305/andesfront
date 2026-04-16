@@ -2,6 +2,7 @@ import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Layout, Menu, Button, Avatar, Typography, Dropdown, ConfigProvider, Spin, Modal, List, message, Form, Input, Select, Tag, Divider, Switch } from 'antd';
 import {
+  HomeOutlined,
   DashboardOutlined,
   TeamOutlined,
   ReadOutlined,
@@ -16,9 +17,9 @@ import {
   BankOutlined,
   PaperClipOutlined,
   BuildOutlined,
-  ShopOutlined,      // Icono POS
-  AppstoreOutlined,  // Icono Otros
-  UsergroupAddOutlined, // Icono Personas
+  ShopOutlined,
+  AppstoreOutlined,
+  UsergroupAddOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
