@@ -6,10 +6,8 @@ import { Button, Input, Form, Typography, message, Divider } from "antd";
 import { MailOutlined, LockOutlined } from "@ant-design/icons";
 import { login as loginService, loginWithGoogle } from "../../services/auth/authService";
 import { GoogleLogin } from "@react-oauth/google";
-import logo from "../../../images/logo.png";
-
 const { Title, Text, Link } = Typography;
-const PRIMARY_COLOR = "#155153";
+const PRIMARY_COLOR = "#0a1f3d";
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -67,27 +65,11 @@ const Login = () => {
     message.error("No se pudo iniciar sesión con Google. Inténtalo de nuevo.");
   };
 
-
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg">
         <header className="mb-8 text-center">
-          <div className="flex items-center justify-center gap-2">
-            <Title
-              level={3}
-              className="!mb-0"
-              style={{ color: PRIMARY_COLOR, fontWeight: "600" }}
-            >
-              Controla
-            </Title>
-            <img
-              src={logo}
-              alt="Logo"
-              className="h-7 w-7 object-contain"
-            />
-          </div>
-          <Title level={2} className="!mt-2 !mb-2">
+          <Title level={2} className="!mt-0 !mb-2">
             Iniciar Sesión
           </Title>
           <Text type="secondary">
@@ -152,7 +134,7 @@ const Login = () => {
               loading={isLoading}
               block
               size="large"
-              style={{ background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}
+              style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0a1f3d 100%)', border: 'none' }}
             >
               {isLoading ? "Iniciando..." : "Iniciar Sesión"}
             </Button>

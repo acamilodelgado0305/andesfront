@@ -1,16 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
 import {
-  ArrowRight, BarChart3, Boxes, Briefcase, Building,
-  Check, Cloud, DollarSign, FileText, PieChart,
-  Settings, ShieldCheck, ShoppingCart, Target, Users
+  BarChart3, Boxes, Briefcase, Building,
+  Check, DollarSign, ShoppingCart, Users
 } from 'lucide-react';
 
-import Header from './header'; // Asegúrate que la ruta sea correcta
-
-// --- ¡IMPORTANTE! Reemplaza estas rutas con tus propias imágenes ---
-
+import Header from './header';
 
 const QControlaLanding = () => {
   const fadeIn = {
@@ -41,8 +37,8 @@ const QControlaLanding = () => {
 
         <main>
           {/* Hero Section */}
-          <section id="hero" className="relative h-screen flex items-center justify-center text-center text-white" style={{ backgroundImage: `url(${''})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-            <div className="absolute inset-0 bg-green-900 bg-opacity-80" />
+          <section id="hero" className="relative h-screen flex items-center justify-center text-center text-white" style={{ backgroundSize: 'cover', backgroundPosition: 'center' }}>
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(150deg, #030d1f 0%, #0a1f3d 50%, #030d1f 100%)' }} />
             <motion.div
               initial="hidden"
               animate="visible"
@@ -52,7 +48,7 @@ const QControlaLanding = () => {
               <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-4">
                 Toma el Control Total de tu Negocio
               </h1>
-              <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-green-100">
+              <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto text-slate-300">
                 El software definitivo para la administración financiera y de inventario de tu institución o empresa.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -60,7 +56,8 @@ const QControlaLanding = () => {
                   whileHover={{ scale: 1.05 }}
                   href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20QControla%20y%20me%20gustaría%20solicitar%20una%20demo."
                   target="_blank"
-                  className="inline-flex items-center justify-center bg-white text-green-800 font-bold py-3 px-8 rounded-lg text-lg shadow-lg"
+                  className="inline-flex items-center justify-center bg-white font-bold py-3 px-8 rounded-lg text-lg shadow-lg"
+                  style={{ color: '#0a1f3d' }}
                 >
                   Solicitar una Demo
                 </motion.a>
@@ -84,17 +81,17 @@ const QControlaLanding = () => {
               </motion.div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
                 <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="p-8">
-                  <DollarSign className="h-12 w-12 text-green-600 mb-6 mx-auto" />
+                  <DollarSign className="h-12 w-12 mb-6 mx-auto" style={{ color: '#1d4ed8' }} />
                   <h3 className="text-xl font-bold mb-2">Finanzas Claras y sin Estrés</h3>
                   <p className="text-gray-600">Visualiza ingresos, gastos y rentabilidad en tiempo real. Genera reportes con un solo clic.</p>
                 </motion.div>
                 <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="p-8">
-                  <Boxes className="h-12 w-12 text-green-600 mb-6 mx-auto" />
+                  <Boxes className="h-12 w-12 mb-6 mx-auto" style={{ color: '#1d4ed8' }} />
                   <h3 className="text-xl font-bold mb-2">Inventario Siempre Sincronizado</h3>
                   <p className="text-gray-600">Evita pérdidas y sobre-stock. Conoce qué tienes, qué necesitas y qué se vende más.</p>
                 </motion.div>
                 <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="p-8">
-                  <BarChart3 className="h-12 w-12 text-green-600 mb-6 mx-auto" />
+                  <BarChart3 className="h-12 w-12 mb-6 mx-auto" style={{ color: '#1d4ed8' }} />
                   <h3 className="text-xl font-bold mb-2">Decisiones Basadas en Datos</h3>
                   <p className="text-gray-600">Deja de adivinar. Accede a data crucial para planificar estrategias y optimizar recursos.</p>
                 </motion.div>
@@ -110,25 +107,25 @@ const QControlaLanding = () => {
                   <h2 className="text-3xl font-bold text-gray-800 mb-6">Todo lo que necesitas en un solo lugar</h2>
                   <p className="text-gray-600 mb-6">QControla integra las herramientas esenciales para que administres tu negocio de manera eficiente, segura y desde cualquier lugar.</p>
                   <ul className="space-y-4">
-                    <li className="flex items-start"><Check className="h-6 w-6 text-green-500 mr-3 flex-shrink-0" /><div><h4 className="font-semibold">Módulo Financiero</h4><p className="text-gray-600">Controla flujo de caja, cuentas por cobrar/pagar y conciliación bancaria.</p></div></li>
-                    <li className="flex items-start"><Check className="h-6 w-6 text-green-500 mr-3 flex-shrink-0" /><div><h4 className="font-semibold">Módulo de Inventario</h4><p className="text-gray-600">Gestiona productos, proveedores, órdenes de compra y alertas de stock.</p></div></li>
-                    <li className="flex items-start"><Check className="h-6 w-6 text-green-500 mr-3 flex-shrink-0" /><div><h4 className="font-semibold">Reportes Inteligentes</h4><p className="text-gray-600">Dashboards personalizables que te muestran la salud de tu negocio.</p></div></li>
-                    <li className="flex items-start"><Check className="h-6 w-6 text-green-500 mr-3 flex-shrink-0" /><div><h4 className="font-semibold">Acceso en la Nube</h4><p className="text-gray-600">Tu información segura y disponible 24/7 en cualquier dispositivo con internet.</p></div></li>
+                    <li className="flex items-start"><Check className="h-6 w-6 mr-3 flex-shrink-0" style={{ color: '#1d4ed8' }} /><div><h4 className="font-semibold">Módulo Financiero</h4><p className="text-gray-600">Controla flujo de caja, cuentas por cobrar/pagar y conciliación bancaria.</p></div></li>
+                    <li className="flex items-start"><Check className="h-6 w-6 mr-3 flex-shrink-0" style={{ color: '#1d4ed8' }} /><div><h4 className="font-semibold">Módulo de Inventario</h4><p className="text-gray-600">Gestiona productos, proveedores, órdenes de compra y alertas de stock.</p></div></li>
+                    <li className="flex items-start"><Check className="h-6 w-6 mr-3 flex-shrink-0" style={{ color: '#1d4ed8' }} /><div><h4 className="font-semibold">Reportes Inteligentes</h4><p className="text-gray-600">Dashboards personalizables que te muestran la salud de tu negocio.</p></div></li>
+                    <li className="flex items-start"><Check className="h-6 w-6 mr-3 flex-shrink-0" style={{ color: '#1d4ed8' }} /><div><h4 className="font-semibold">Acceso en la Nube</h4><p className="text-gray-600">Tu información segura y disponible 24/7 en cualquier dispositivo con internet.</p></div></li>
                   </ul>
                 </motion.div>
                 <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="mt-8 md:mt-0">
-                    <img src={''} alt="Dashboard de QControla" className="rounded-lg shadow-2xl" />
+                  <img src={''} alt="Dashboard de QControla" className="rounded-lg shadow-2xl" />
                 </motion.div>
               </div>
             </div>
           </section>
 
           {/* Pricing Section */}
-          <section id="pricing" className="py-20 bg-green-700 text-white">
+          <section id="pricing" className="py-20 text-white" style={{ background: 'linear-gradient(135deg, #030d1f 0%, #0c2044 50%, #030d1f 100%)' }}>
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}>
                 <h2 className="text-3xl md:text-4xl font-bold mb-4">Un Plan Simple y Transparente</h2>
-                <p className="text-xl text-green-100 mb-12">Accede a todo el poder de QControla sin contratos ni costos ocultos.</p>
+                <p className="text-xl text-slate-300 mb-12">Accede a todo el poder de QControla sin contratos ni costos ocultos.</p>
                 <div className="bg-white text-gray-800 p-10 rounded-xl shadow-2xl max-w-lg mx-auto">
                   <h3 className="text-2xl font-bold">Plan Crecimiento</h3>
                   <p className="text-gray-500 mb-6">Ideal para pymes, instituciones y emprendedores.</p>
@@ -140,7 +137,7 @@ const QControlaLanding = () => {
                   <ul className="space-y-3 text-left mb-8">
                     {planFeatures.map((feature, index) => (
                       <li key={index} className="flex items-center">
-                        <Check className="h-5 w-5 text-green-500 mr-3" />
+                        <Check className="h-5 w-5 mr-3" style={{ color: '#1d4ed8' }} />
                         <span>{feature}</span>
                       </li>
                     ))}
@@ -148,7 +145,8 @@ const QControlaLanding = () => {
                   <a
                     href="https://wa.me/570000000000?text=Hola,%20quiero%20adquirir%20el%20Plan%20Crecimiento%20de%20QControla%20por%206%20meses."
                     target="_blank"
-                    className="w-full inline-block bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition duration-300 text-lg"
+                    className="w-full inline-block text-white font-bold py-3 px-6 rounded-lg text-lg transition duration-300"
+                    style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0a1f3d 100%)' }}
                   >
                     Adquirir Plan Ahora
                   </a>
@@ -156,7 +154,7 @@ const QControlaLanding = () => {
               </motion.div>
             </div>
           </section>
-          
+
           {/* Target Audience Section */}
           <section id="for-who" className="py-20 bg-white">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -165,19 +163,19 @@ const QControlaLanding = () => {
               </motion.div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                 <div className="text-center p-6 border border-gray-200 rounded-lg">
-                  <Briefcase className="h-10 w-10 mx-auto text-green-600 mb-4" />
+                  <Briefcase className="h-10 w-10 mx-auto mb-4" style={{ color: '#1d4ed8' }} />
                   <h3 className="font-bold text-lg">PYMES</h3>
                 </div>
-                 <div className="text-center p-6 border border-gray-200 rounded-lg">
-                  <Building className="h-10 w-10 mx-auto text-green-600 mb-4" />
+                <div className="text-center p-6 border border-gray-200 rounded-lg">
+                  <Building className="h-10 w-10 mx-auto mb-4" style={{ color: '#1d4ed8' }} />
                   <h3 className="font-bold text-lg">Instituciones Educativas</h3>
                 </div>
-                 <div className="text-center p-6 border border-gray-200 rounded-lg">
-                  <ShoppingCart className="h-10 w-10 mx-auto text-green-600 mb-4" />
+                <div className="text-center p-6 border border-gray-200 rounded-lg">
+                  <ShoppingCart className="h-10 w-10 mx-auto mb-4" style={{ color: '#1d4ed8' }} />
                   <h3 className="font-bold text-lg">Comercios y Tiendas</h3>
                 </div>
-                 <div className="text-center p-6 border border-gray-200 rounded-lg">
-                  <Users className="h-10 w-10 mx-auto text-green-600 mb-4" />
+                <div className="text-center p-6 border border-gray-200 rounded-lg">
+                  <Users className="h-10 w-10 mx-auto mb-4" style={{ color: '#1d4ed8' }} />
                   <h3 className="font-bold text-lg">Emprendedores</h3>
                 </div>
               </div>
@@ -188,7 +186,7 @@ const QControlaLanding = () => {
           <section id="faq" className="py-20 bg-gray-50">
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="text-center mb-16">
-                  <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Preguntas Frecuentes</h2>
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Preguntas Frecuentes</h2>
               </motion.div>
               <div className="space-y-6">
                 <div className="bg-white p-6 rounded-lg shadow-sm"><h3 className="text-xl font-bold mb-2">¿Es difícil de usar QControla?</h3><p className="text-gray-600">No. Diseñamos QControla con una interfaz intuitiva y fácil de navegar. Además, ofrecemos tutoriales y soporte para que empieces a usarlo sin problemas.</p></div>
@@ -200,15 +198,20 @@ const QControlaLanding = () => {
           </section>
         </main>
 
-        <footer className="bg-gray-800 text-white">
+        <footer className="text-white" style={{ background: 'linear-gradient(135deg, #030d1f 0%, #0c2044 100%)' }}>
           <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-3xl font-bold mb-4">¿Listo para transformar la gestión de tu negocio?</h2>
-            <p className="text-gray-300 mb-8">Solicita una demo gratuita y sin compromiso. Descubre cómo QControla puede ayudarte a crecer.</p>
-            <a href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20QControla%20y%20me%20gustaría%20solicitar%20una%20demo." target="_blank" className="inline-block bg-green-600 text-white font-bold py-3 px-10 rounded-lg hover:bg-green-700 transition duration-300 text-lg shadow-lg">
-                Solicitar Demo Gratuita
+            <p className="text-slate-300 mb-8">Solicita una demo gratuita y sin compromiso. Descubre cómo QControla puede ayudarte a crecer.</p>
+            <a
+              href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20QControla%20y%20me%20gustaría%20solicitar%20una%20demo."
+              target="_blank"
+              className="inline-block text-white font-bold py-3 px-10 rounded-lg text-lg shadow-lg transition duration-300"
+              style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0a1f3d 100%)' }}
+            >
+              Solicitar Demo Gratuita
             </a>
-            <div className="border-t border-gray-700 mt-12 pt-8">
-              <p className="text-gray-400">© {new Date().getFullYear()} QControla. Todos los derechos reservados.</p>
+            <div className="border-t border-white/10 mt-12 pt-8">
+              <p className="text-slate-500">© {new Date().getFullYear()} QControla. Todos los derechos reservados.</p>
             </div>
           </div>
         </footer>
