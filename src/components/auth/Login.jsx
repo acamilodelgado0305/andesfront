@@ -2,9 +2,10 @@
 import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../AuthContext";
-import { Button, Input, Form, Typography, message } from "antd";
+import { Button, Input, Form, Typography, message, Divider } from "antd";
 import { MailOutlined, LockOutlined } from "@ant-design/icons";
-import { login as loginService } from "../../services/auth/authService";
+import { login as loginService, loginWithGoogle } from "../../services/auth/authService";
+import { GoogleLogin } from "@react-oauth/google";
 import logo from "../../../images/logo.png";
 
 const { Title, Text, Link } = Typography;
@@ -39,6 +40,31 @@ const Login = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const onGoogleSuccess = async (credentialResponse) => {
+    setIsLoading(true);
+    try {
+      const response = await loginWithGoogle(credentialResponse.credential);
+      if (response.token) {
+        contextLogin(response.token, response.user);
+        message.success(response.message || "¡Inicio de sesión con Google exitoso!", 2);
+        navigate("/inicio");
+      } else {
+        throw new Error("No se recibió token del servidor");
+      }
+    } catch (error) {
+      console.error(error);
+      const backendMessage =
+        error.response?.data?.error || "Error al iniciar sesión con Google.";
+      message.error(backendMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onGoogleError = () => {
+    message.error("No se pudo iniciar sesión con Google. Inténtalo de nuevo.");
   };
 
 
@@ -143,6 +169,25 @@ const Login = () => {
             </Link>
           </Text>
         </Form>
+
+        <Divider plain>
+          <Text type="secondary" style={{ fontSize: "12px" }}>
+            o continúa con
+          </Text>
+        </Divider>
+
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <GoogleLogin
+            onSuccess={onGoogleSuccess}
+            onError={onGoogleError}
+            useOneTap={false}
+            locale="es"
+            text="signin_with"
+            shape="rectangular"
+            theme="outline"
+            width="100%"
+          />
+        </div>
       </div>
     </div>
   );

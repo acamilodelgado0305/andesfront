@@ -50,6 +50,9 @@ import Configuracion from "./components/Configuracion/Configuracion";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 // Crear una sola instancia de root
 const rootElement = document.getElementById("root");
@@ -59,6 +62,7 @@ if (!rootElement._root) {
 
 const App = () => (
   <React.StrictMode>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <Router>
       <AuthProvider>
         <Routes>
@@ -122,6 +126,7 @@ const App = () => (
         </Routes>
       </AuthProvider>
     </Router>
+    </GoogleOAuthProvider>
   </React.StrictMode>
 );
 

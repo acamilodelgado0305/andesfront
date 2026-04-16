@@ -135,6 +135,20 @@ export const register = async (userData) => {
 };
 
 /**
+ * Login con Google. Envía el credential (ID token de Google) al auth-service.
+ * @param {string} credential - ID token devuelto por @react-oauth/google
+ */
+export const loginWithGoogle = async (credential) => {
+  try {
+    const { data } = await axios.post(`${AUTH_SERVICE_URL}/api/auth/google`, { credential });
+    return data;
+  } catch (error) {
+    console.error('Error en login con Google:', error);
+    throw error;
+  }
+};
+
+/**
  * Switch business context.
  * @param {number} businessId
  * @param {string} currentToken - Optional if using axios interceptor, but good to specific
