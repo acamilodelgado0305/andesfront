@@ -11,8 +11,9 @@ import {
 import { cuentaOptions } from '../options';
 
 // Importamos los servicios
-import { createIngreso, updateIngreso } from '../../../services/controlapos/posService'; 
-import { getInventario } from '../../../services/inventario/inventarioService'; 
+import { createIngreso, updateIngreso } from '../../../services/controlapos/posService';
+import { getInventario } from '../../../services/inventario/inventarioService';
+import { useCurrencyInput } from '../../../hooks/useCurrency';
 
 const { Title, Text } = Typography;
 const { Panel } = Collapse;
@@ -27,6 +28,7 @@ const tipoDocumentoOptions = [
 ];
 
 const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
+    const { prefix: currPrefix } = useCurrencyInput();
     const [form] = Form.useForm();
     const [inventario, setInventario] = useState([]);
     const [loadingInventario, setLoadingInventario] = useState(false);
@@ -263,12 +265,12 @@ const inventarioOptions = listaInventario.map(item => ({
                                      </Form.Item>
                                 </Col>
                                 <Col span={12} style={{ textAlign: 'right' }}>
-                                     <Statistic 
-                                        title="Total a Pagar" 
-                                        value={valorTotal} 
-                                        prefix="$" 
+                                     <Statistic
+                                        title="Total a Pagar"
+                                        value={valorTotal}
+                                        prefix={currPrefix}
                                         groupSeparator="."
-                                        precision={0} 
+                                        precision={0}
                                         valueStyle={{ color: '#3f8600', fontWeight: 'bold' }}
                                      />
                                      <Form.Item name="valor" hidden><Input /></Form.Item>

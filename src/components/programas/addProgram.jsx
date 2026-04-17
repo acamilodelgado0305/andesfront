@@ -2,13 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Modal, Form, Input, InputNumber, Select, Row, Col, Divider, Typography } from "antd";
 import Swal from "sweetalert2";
 import { addProgram, updateProgram } from "../../services/programs/programService";
-import useCurrency from "../../hooks/useCurrency";
+import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 
 const { Option } = Select;
 const { Text } = Typography;
 
 const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
   const fmt = useCurrency();
+  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [totalCalculado, setTotalCalculado] = useState(0);
@@ -111,9 +112,6 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
     }
   };
 
-  const currencyFormatter = (value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const currencyParser = (value) => value.replace(/\$\s?|(,*)/g, '');
-
   return (
     <Modal
       title={isEditMode ? "Editar Programa Académico" : "Crear Nuevo Programa"}
@@ -186,8 +184,8 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
             >
               <InputNumber
                 style={{ width: '100%' }}
-                formatter={currencyFormatter}
-                parser={currencyParser}
+                addonAfter={currSuffix} formatter={currFormatter}
+                parser={currParser}
               />
             </Form.Item>
           </Col>
@@ -199,8 +197,8 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
             >
               <InputNumber
                 style={{ width: '100%' }}
-                formatter={currencyFormatter}
-                parser={currencyParser}
+                addonAfter={currSuffix} formatter={currFormatter}
+                parser={currParser}
               />
             </Form.Item>
           </Col>
@@ -211,8 +209,8 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
             >
               <InputNumber
                 style={{ width: '100%' }}
-                formatter={currencyFormatter}
-                parser={currencyParser}
+                addonAfter={currSuffix} formatter={currFormatter}
+                parser={currParser}
               />
             </Form.Item>
           </Col>

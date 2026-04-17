@@ -16,7 +16,8 @@ import dayjs from 'dayjs';
 import jsPDF from 'jspdf'; 
 
 // Importa tus opciones
-import { cuentaOptions } from '../options'; 
+import { cuentaOptions } from '../options';
+import { useCurrencyInput } from '../../../hooks/useCurrency';
 
 // IMPORTANTE: Importamos los servicios directamente aquí
 import { createEgreso, updateEgreso } from '../../../services/controlapos/posService';
@@ -51,6 +52,7 @@ const generarComprobantePDF = (values) => {
 };
 
 const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
+    const { addonAfter: currSuffix } = useCurrencyInput();
     const [form] = Form.useForm();
     const [saving, setSaving] = useState(false);
 
@@ -168,8 +170,8 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                             <Title level={5}><DollarCircleOutlined /> Paso 2: Monto</Title>
                             <Row gutter={16}>
                                 <Col span={12}>
-                                    <Form.Item name="valor" label="Valor ($)" rules={[{ required: true }]}>
-                                        <Input type="number" prefix="$" />
+                                    <Form.Item name="valor" label="Valor" rules={[{ required: true }]}>
+                                        <Input type="number" addonAfter={currSuffix} />
                                     </Form.Item>
                                 </Col>
                                 <Col span={12}>

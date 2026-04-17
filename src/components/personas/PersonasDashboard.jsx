@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
     Typography,
-    Row,
-    Col,
-    Card,
     Spin,
     Alert,
     Empty,
@@ -16,7 +13,10 @@ import {
     Tooltip,
     Modal,
     Tag,
-    Avatar,
+    Table,
+    Space,
+    Row,
+    Col,
     Divider,
 } from "antd";
 import {
@@ -27,15 +27,14 @@ import {
     UserOutlined,
     ReloadOutlined,
     SearchOutlined,
-    PhoneOutlined,
-    IdcardOutlined,
-    EnvironmentOutlined,
     ContactsOutlined,
     ShopOutlined,
     MailOutlined,
     GlobalOutlined,
     CheckCircleOutlined,
     BulbOutlined,
+    PhoneOutlined,
+    EnvironmentOutlined,
 } from "@ant-design/icons";
 
 import {
@@ -245,12 +244,104 @@ function PersonasDashboard() {
 
     const cfg = (tipo) => TIPO_CONFIG[tipo] || TIPO_CONFIG.CLIENTE;
 
+    // ── COLUMNAS DE LA TABLA ──
+    const columns = [
+        {
+            title: 'Nombre',
+            key: 'nombre',
+            render: (_, r) => (
+                <div className="flex items-center gap-2">
+                    <div style={{
+                        width: 34, height: 34, borderRadius: 8,
+                        background: cfg(r.tipo).bg, color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontWeight: 700, fontSize: 14, flexShrink: 0,
+                    }}>
+                        {r.nombre?.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <span className="font-semibold text-gray-800">
+                            {r.nombre} {r.apellido || ''}
+                        </span>
+                        {r.email && (
+                            <div className="text-xs text-gray-400">{r.email}</div>
+                        )}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            title: 'Tipo',
+            key: 'tipo',
+            width: 110,
+            render: (_, r) => {
+                const c = cfg(r.tipo);
+                return <Tag color={c.tag} className="text-[10px]">{c.label}</Tag>;
+            },
+            filters: [
+                { text: 'Cliente', value: 'CLIENTE' },
+                { text: 'Proveedor', value: 'PROVEEDOR' },
+                { text: 'Lead', value: 'LEAD' },
+            ],
+            onFilter: (v, r) => r.tipo === v,
+        },
+        {
+            title: 'Documento',
+            key: 'documento',
+            width: 180,
+            render: (_, r) => (
+                <span className="text-sm">
+                    <span className="text-gray-400 mr-1">{r.tipo_documento}:</span>
+                    <span className="text-gray-700 font-medium">{r.numero_documento}</span>
+                </span>
+            ),
+        },
+        {
+            title: 'Teléfono',
+            dataIndex: 'celular',
+            key: 'celular',
+            width: 140,
+            render: v => v
+                ? <span className="text-sm text-gray-600">{v}</span>
+                : <span className="text-gray-300">—</span>,
+        },
+        {
+            title: 'Dirección',
+            dataIndex: 'direccion',
+            key: 'direccion',
+            width: 200,
+            ellipsis: true,
+            render: v => v
+                ? <span className="text-sm text-gray-600">{v}</span>
+                : <span className="text-gray-300">—</span>,
+        },
+        {
+            title: 'Acciones',
+            key: 'acciones',
+            width: 90,
+            align: 'center',
+            render: (_, r) => (
+                <Space size={4}>
+                    <Tooltip title="Editar">
+                        <Button size="small" icon={<EditOutlined />}
+                            onClick={e => { e.stopPropagation(); handleOpenEdit(r); }}
+                            style={{ color: '#155153', borderColor: '#15515333' }} />
+                    </Tooltip>
+                    <Tooltip title="Eliminar">
+                        <Button size="small" danger icon={<DeleteOutlined />}
+                            onClick={e => { e.stopPropagation(); handleDelete(r); }} />
+                    </Tooltip>
+                </Space>
+            ),
+        },
+    ];
+
     // ── RENDER ──
     return (
         <div className="p-6">
 
             {/* ── HEADER ── */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-[#155153]/10 flex items-center justify-center">
                         <ContactsOutlined className="text-[#155153] text-xl" />
@@ -284,71 +375,30 @@ function PersonasDashboard() {
                 </div>
             </div>
 
-            {/* ── GRID ── */}
-            <Spin spinning={loading} tip="Cargando contactos..." size="large">
-                {error ? (
-                    <Alert message={error} type="error" showIcon />
-                ) : items.length === 0 ? (
-                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No se encontraron contactos registrados.">
-                        <Button type="primary" onClick={handleOpenCreate} style={{ background: '#155153' }}>
-                            Registrar el primero
-                        </Button>
-                    </Empty>
-                ) : (
-                    <Row gutter={[16, 16]}>
-                        {items.map((item) => {
-                            const c = cfg(item.tipo);
-                            return (
-                                <Col xs={24} sm={12} md={8} lg={6} key={item.id}>
-                                    <Card
-                                        hoverable
-                                        className="h-full hover:shadow-lg transition-all duration-300"
-                                        styles={{ body: { padding: 16 } }}
-                                        actions={[
-                                            <Tooltip title="Editar" key="edit">
-                                                <EditOutlined className="text-[#155153]" onClick={() => handleOpenEdit(item)} />
-                                            </Tooltip>,
-                                            <Tooltip title="Eliminar" key="delete">
-                                                <DeleteOutlined className="text-red-400" onClick={() => handleDelete(item)} />
-                                            </Tooltip>,
-                                        ]}
-                                    >
-                                        <div className="flex items-start gap-3">
-                                            <Avatar size={46} style={{ backgroundColor: c.bg, flexShrink: 0 }}>
-                                                {item.nombre.charAt(0).toUpperCase()}
-                                            </Avatar>
-                                            <div className="flex-1 min-w-0">
-                                                <Text strong className="block truncate text-gray-800"
-                                                    title={`${item.nombre} ${item.apellido || ''}`}>
-                                                    {item.nombre} {item.apellido}
-                                                </Text>
-                                                <Tag color={c.tag} className="mt-1 mb-2 text-[10px]">{c.label}</Tag>
-                                                <div className="flex flex-col gap-1">
-                                                    <Text type="secondary" className="text-xs flex items-center gap-1.5">
-                                                        <IdcardOutlined />
-                                                        <span className="truncate">{item.tipo_documento}: {item.numero_documento}</span>
-                                                    </Text>
-                                                    {item.celular && (
-                                                        <Text type="secondary" className="text-xs flex items-center gap-1.5">
-                                                            <PhoneOutlined /> {item.celular}
-                                                        </Text>
-                                                    )}
-                                                    {item.direccion && (
-                                                        <Text type="secondary" className="text-xs flex items-center gap-1.5">
-                                                            <EnvironmentOutlined />
-                                                            <span className="truncate">{item.direccion}</span>
-                                                        </Text>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </Card>
-                                </Col>
-                            );
-                        })}
-                    </Row>
-                )}
-            </Spin>
+            {/* ── TABLA ── */}
+            {error ? (
+                <Alert message={error} type="error" showIcon />
+            ) : (
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    <Spin spinning={loading}>
+                        <Table
+                            dataSource={items}
+                            columns={columns}
+                            rowKey="id"
+                            size="middle"
+                            locale={{ emptyText: (
+                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No se encontraron contactos registrados.">
+                                    <Button type="primary" onClick={handleOpenCreate} style={{ background: '#155153' }}>
+                                        Registrar el primero
+                                    </Button>
+                                </Empty>
+                            )}}
+                            pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t, r) => `${r[0]}-${r[1]} de ${t}` }}
+                            scroll={{ x: 800 }}
+                        />
+                    </Spin>
+                </div>
+            )}
 
             {/* ── DRAWER ── */}
             <Drawer

@@ -37,6 +37,7 @@ import {
     deleteStudentDocument,
 } from "../../services/student/studentService";
 import StudentHorario from "../Horarios/StudentHorario";
+import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 
 const API_URL = import.meta.env.VITE_API_BACKEND;
 
@@ -72,6 +73,8 @@ const FieldItem = ({ label, name, value, isEditing, children }) => (
 );
 
 const StudentDetails = ({ studentId }) => {
+    const fmt = useCurrency();
+    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
     const [student, setStudent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [form] = Form.useForm();
@@ -754,9 +757,7 @@ const StudentDetails = ({ studentId }) => {
                                     name="matricula"
                                     value={
                                         student.matricula
-                                            ? `$ ${Number(
-                                                  student.matricula
-                                              ).toLocaleString()}`
+                                            ? fmt(Number(student.matricula))
                                             : null
                                     }
                                     isEditing={isEditing}
@@ -764,15 +765,9 @@ const StudentDetails = ({ studentId }) => {
                                     <InputNumber
                                         className="w-full"
                                         min={0}
-                                        formatter={(value) =>
-                                            `${value}`.replace(
-                                                /\B(?=(\d{3})+(?!\d))/g,
-                                                ","
-                                            )
-                                        }
-                                        parser={(value) =>
-                                            value.replace(/,/g, "")
-                                        }
+                                        addonAfter={currSuffix}
+                                        formatter={currFormatter}
+                                        parser={currParser}
                                     />
                                 </FieldItem>
 

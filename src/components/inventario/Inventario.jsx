@@ -1,522 +1,795 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Layout,
-  Typography,
-  Row,
-  Col,
-  Card,
-  Spin,
-  Alert,
-  Statistic,
-  Empty,
-  Button,
-  Drawer,
-  Form,
-  Input,
-  InputNumber,
-  notification,
-  Tooltip,
-  Modal,
-  Upload,
-  Divider,
-  Tag
+  Typography, Row, Col, Spin, Alert, Empty,
+  Button, Drawer, Form, Input, InputNumber,
+  notification, Tooltip, Modal, Upload, Divider,
+  Tag, Select, Table, Space, Statistic, Card,
 } from "antd";
 import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  AppstoreAddOutlined,
-  CheckCircleFilled,
-  ShoppingOutlined,
-  ReloadOutlined,
-  InboxOutlined,
-  BarcodeOutlined,
-  UploadOutlined,
-  FileImageOutlined
+  PlusOutlined, EditOutlined, DeleteOutlined,
+  AppstoreAddOutlined, ReloadOutlined,
+  InboxOutlined, BarcodeOutlined,
+  ShoppingOutlined, ToolOutlined, WarningFilled,
+  SearchOutlined, TagOutlined,
+  ThunderboltOutlined,
+  CameraOutlined, UploadOutlined,
+  PercentageOutlined, CheckCircleOutlined,
 } from "@ant-design/icons";
 
 import {
-  getInventario,
-  createInventario,
-  updateInventario,
-  deleteInventario,
+  getInventario, createInventario, updateInventario, deleteInventario,
+  getInventarioStats, uploadInventarioPhoto,
 } from "../../services/inventario/inventarioService";
+import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 
-const { Content } = Layout;
-const { Title, Text } = Typography;
-
-// Helper para manejar la carga de archivos en Ant Design Forms
-const normFile = (e) => {
-  if (Array.isArray(e)) {
-    return e;
-  }
-  return e?.fileList;
+// ─── EAN-13 generator ──────────────────────────────────────
+const generateEAN13 = () => {
+  const d = Array.from({ length: 12 }, () => Math.floor(Math.random() * 10));
+  const sum = d.reduce((acc, n, i) => acc + n * (i % 2 === 0 ? 1 : 3), 0);
+  const check = (10 - (sum % 10)) % 10;
+  return [...d, check].join('');
 };
 
-function Inventario() {
-  // --- ESTADOS ---
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+// ─── Opciones de impuesto ───────────────────────────────────
+const TAX_OPTIONS = [
+  { label: '0% — Exento',        value: 0   },
+  { label: '5% — IVA reducido',  value: 5   },
+  { label: '8%',                 value: 8   },
+  { label: '12% — IVA Ecuador',  value: 12  },
+  { label: '16% — IVA México',   value: 16  },
+  { label: '18% — IVA Perú',     value: 18  },
+  { label: '19% — IVA Colombia', value: 19  },
+  { label: '21% — IVA Argentina',value: 21  },
+];
 
+// ─── Categorías ────────────────────────────────────────────
+const CATEGORIAS = [
+  'Alimentos y bebidas','Tecnología y electrónica','Ropa y calzado',
+  'Salud y belleza','Hogar y decoración','Papelería y oficina',
+  'Herramientas y ferretería','Juguetes y entretenimiento','Deportes',
+  'Automotriz','Mascotas','Servicios profesionales','Consultoría',
+  'Diseño','Transporte','Educación','Construcción','Agropecuario','Otro',
+];
+
+// ─── Toggle button ──────────────────────────────────────────
+const ToggleBtn = ({ active, onClick, icon, label, color = '#155153' }) => (
+  <button type="button" onClick={onClick} style={{
+    flex: 1, padding: '11px 16px', borderRadius: 10,
+    border: `1.5px solid ${active ? color : '#e5e7eb'}`,
+    background: active ? `${color}12` : '#fafafa',
+    cursor: 'pointer', display: 'flex', alignItems: 'center',
+    justifyContent: 'center', gap: 8, fontWeight: 600, fontSize: 13,
+    color: active ? color : '#64748b', transition: 'all 0.15s ease',
+    boxShadow: active ? `0 2px 8px ${color}22` : 'none',
+  }}>
+    {icon}{label}
+    {active && <span style={{ width:7, height:7, borderRadius:'50%', background:color, marginLeft:2 }} />}
+  </button>
+);
+
+const normFile = (e) => Array.isArray(e) ? e : e?.fileList;
+
+// ─── Margen badge ───────────────────────────────────────────
+const MarginBadge = ({ compra, venta }) => {
+  if (!venta || !compra || compra <= 0) return null;
+  const pct = ((venta - compra) / venta) * 100;
+  const [color, bg] = pct >= 30 ? ['#16a34a','#f0fdf4'] : pct >= 15 ? ['#d97706','#fffbeb'] : ['#dc2626','#fef2f2'];
+  return (
+    <span style={{ fontSize:12, fontWeight:700, color, background:bg,
+      padding:'2px 8px', borderRadius:6, border:`1px solid ${color}33` }}>
+      {pct.toFixed(1)}%
+    </span>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════
+// MODAL DE INFORME DEL PRODUCTO
+// ═══════════════════════════════════════════════════════════
+const ProductoInformeModal = ({ item, onClose, onPhotoUpdated, fmt }) => {
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  useEffect(() => {
+    if (!item) return;
+    setLoadingStats(true);
+    getInventarioStats(item.id)
+      .then(d => setStats(d))
+      .catch(() => notification.error({ message: 'No se pudieron cargar las estadísticas' }))
+      .finally(() => setLoadingStats(false));
+  }, [item]);
+
+  if (!item) return null;
+
+  const esServicio = item.tipo_item === 'servicio';
+  const margen = item.precio_compra_unitario > 0 && item.monto > 0
+    ? ((item.monto - item.precio_compra_unitario) / item.monto * 100).toFixed(1)
+    : null;
+
+  const handlePhotoUpload = async (file) => {
+    setUploadingPhoto(true);
+    try {
+      const result = await uploadInventarioPhoto(item.id, file);
+      notification.success({ message: 'Foto actualizada' });
+      onPhotoUpdated(item.id, result.imagen_url);
+    } catch {
+      notification.error({ message: 'Error al subir la foto' });
+    } finally { setUploadingPhoto(false); }
+    return false; // evitar upload automático de antd
+  };
+
+  const statsCols = [
+    { title: 'Fecha', dataIndex: 'created_at', key: 'date',
+      render: v => new Date(v).toLocaleDateString('es', { day:'2-digit', month:'short', year:'2-digit' }) },
+    { title: 'Pedido', dataIndex: 'pedido_id', key: 'id', render: v => `#${v}` },
+    { title: 'Cliente', key: 'cliente',
+      render: r => `${r.cliente_nombre || ''} ${r.cliente_apellido || ''}`.trim() || '—' },
+    { title: 'Und.', dataIndex: 'cantidad', key: 'qty', align: 'center' },
+    { title: 'Subtotal', dataIndex: 'subtotal', key: 'sub', align: 'right',
+      render: v => fmt(v) },
+    { title: 'Estado', dataIndex: 'estado', key: 'estado',
+      render: v => <Tag color={v==='ENTREGADO'?'green':'blue'} className="text-[10px]">{v}</Tag> },
+  ];
+
+  return (
+    <Modal
+      open={!!item}
+      onCancel={onClose}
+      footer={null}
+      width={720}
+      title={
+        <div className="flex items-center gap-2" style={{ color:'#155153' }}>
+          <AppstoreAddOutlined />
+          <span>Informe — {item.nombre}</span>
+        </div>
+      }
+    >
+      {/* ── Foto + Info básica ── */}
+      <div className="flex gap-4 mb-6">
+        {/* Foto */}
+        <div style={{ width:120, flexShrink:0 }}>
+          <div style={{
+            width:120, height:120, borderRadius:12, overflow:'hidden',
+            background: esServicio ? '#f5f3ff' : '#f1f5f9',
+            border:'1px solid #e5e7eb',
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}>
+            {item.imagen_url
+              ? <img src={item.imagen_url} alt={item.nombre} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+              : (esServicio
+                  ? <ToolOutlined style={{ fontSize:36, color:'#7c3aed', opacity:.4 }}/>
+                  : <ShoppingOutlined style={{ fontSize:36, color:'#94a3b8' }}/>)
+            }
+          </div>
+          <Upload showUploadList={false} beforeUpload={handlePhotoUpload} accept="image/*">
+            <Button
+              size="small" block icon={uploadingPhoto ? <Spin size="small"/> : <CameraOutlined/>}
+              style={{ marginTop:6, fontSize:11 }}
+            >
+              {item.imagen_url ? 'Cambiar foto' : 'Agregar foto'}
+            </Button>
+          </Upload>
+        </div>
+
+        {/* Info */}
+        <div className="flex-1">
+          <div className="flex flex-wrap gap-1 mb-2">
+            <Tag color={esServicio?'purple':'blue'} icon={esServicio?<ToolOutlined/>:<ShoppingOutlined/>}>
+              {esServicio?'Servicio':'Producto'}
+            </Tag>
+            {item.categoria && <Tag icon={<TagOutlined/>}>{item.categoria}</Tag>}
+            {item.impuesto > 0 && <Tag color="gold" icon={<PercentageOutlined/>}>IVA {item.impuesto}%</Tag>}
+          </div>
+          {item.sku && <p style={{ margin:'0 0 4px', fontSize:12, color:'#94a3b8' }}>SKU: {item.sku}</p>}
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 16px', marginTop:8 }}>
+            {item.precio_compra_unitario > 0 && (
+              <div>
+                <span style={{ fontSize:11, color:'#94a3b8', display:'block' }}>Precio compra</span>
+                <span style={{ fontWeight:700, color:'#374151' }}>{fmt(item.precio_compra_unitario)}</span>
+              </div>
+            )}
+            <div>
+              <span style={{ fontSize:11, color:'#94a3b8', display:'block' }}>Precio venta</span>
+              <span style={{ fontWeight:700, color:'#155153', fontSize:16 }}>{fmt(item.monto)}</span>
+            </div>
+            {margen && (
+              <div>
+                <span style={{ fontSize:11, color:'#94a3b8', display:'block' }}>Margen</span>
+                <MarginBadge compra={item.precio_compra_unitario} venta={item.monto}/>
+              </div>
+            )}
+            {!esServicio && (
+              <div>
+                <span style={{ fontSize:11, color:'#94a3b8', display:'block' }}>Stock actual</span>
+                <span style={{
+                  fontWeight:700,
+                  color: (item.stock_minimo > 0 && item.cantidad <= item.stock_minimo) ? '#ef4444' : '#374151'
+                }}>
+                  {item.cantidad ?? 0} und.
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <Divider style={{ margin:'0 0 16px' }}/>
+
+      {/* ── Stats de ventas ── */}
+      <Spin spinning={loadingStats}>
+        {stats && (
+          <>
+            <Row gutter={16} style={{ marginBottom:20 }}>
+              {[
+                { title:'Pedidos', value: stats.stats?.total_pedidos   || 0, suffix:'' },
+                { title:'Unidades vendidas', value: stats.stats?.unidades_vendidas || 0, suffix:'und.' },
+                { title:'Ingresos totales', value: fmt(stats.stats?.ingresos_totales || 0), isText:true },
+              ].map(s => (
+                <Col span={8} key={s.title}>
+                  <Card styles={{ body:{ padding:'12px 16px' } }}
+                    style={{ border:'1px solid #e5e7eb', borderRadius:10, textAlign:'center' }}>
+                    {s.isText
+                      ? <><div style={{ fontSize:11, color:'#94a3b8', marginBottom:4 }}>{s.title}</div>
+                          <div style={{ fontSize:18, fontWeight:800, color:'#155153' }}>{s.value}</div></>
+                      : <Statistic title={s.title} value={s.value} suffix={s.suffix}
+                          valueStyle={{ fontSize:20, fontWeight:800, color:'#155153' }}/>
+                    }
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+
+            {/* Últimas ventas */}
+            <p style={{ fontWeight:700, fontSize:13, color:'#374151', marginBottom:8 }}>
+              Últimas ventas
+            </p>
+            {stats.recent_sales?.length > 0
+              ? <Table
+                  dataSource={stats.recent_sales}
+                  columns={statsCols}
+                  rowKey="pedido_id"
+                  size="small"
+                  pagination={false}
+                  scroll={{ x: 500 }}
+                />
+              : <Empty description="Sin ventas registradas aún" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
+            }
+          </>
+        )}
+      </Spin>
+    </Modal>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL
+// ═══════════════════════════════════════════════════════════
+function Inventario() {
+  const fmt = useCurrency();
+  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+
+  const [items, setItems]               = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [editingItem, setEditingItem] = useState(null);
-  const [selectedItems, setSelectedItems] = useState([]);
-
+  const [editingItem, setEditingItem]   = useState(null);
+  const [selectedKeys, setSelectedKeys] = useState([]);
+  const [searchTerm, setSearchTerm]     = useState('');
+  const [filterTipo, setFilterTipo]     = useState('todos');
+  const [informeItem, setInformeItem]   = useState(null);
   const [form] = Form.useForm();
 
-  // --- CARGA DE DATOS ---
+  // Drawer state
+  const [tipoItem, setTipoItem]         = useState('producto');
+  const [precioCompra, setPrecioCompra] = useState(0);
+  const [precioVenta, setPrecioVenta]   = useState(0);
+  const [barcodeValue, setBarcodeValue] = useState('');
+
+  // ── Carga ──
   const fetchInventario = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getInventario();
-      setItems(data || []);
-    } catch (err) {
-      console.error(err);
-      setError("No se pudo cargar el inventario.");
-      notification.error({
-        message: "Error de conexión",
-        description: "No pudimos conectar con el servidor de inventario."
-      });
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true); setError(null);
+    try { setItems((await getInventario()) || []); }
+    catch { setError('No se pudo cargar el inventario.'); }
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    fetchInventario();
-  }, [fetchInventario]);
+  useEffect(() => { fetchInventario(); }, [fetchInventario]);
 
-  // --- EFECTO PARA EL FORMULARIO ---
+  // ── Filtros ──
+  const rows = useMemo(() => items.filter(it => {
+    const matchT = filterTipo === 'todos' || it.tipo_item === filterTipo;
+    const q = searchTerm.toLowerCase();
+    const matchQ = !q || it.nombre?.toLowerCase().includes(q)
+      || it.sku?.toLowerCase().includes(q)
+      || it.codigo_barras?.toLowerCase().includes(q)
+      || it.categoria?.toLowerCase().includes(q);
+    return matchT && matchQ;
+  }), [items, filterTipo, searchTerm]);
+
+  const stats = useMemo(() => ({
+    total:     items.length,
+    productos: items.filter(i => i.tipo_item !== 'servicio').length,
+    servicios: items.filter(i => i.tipo_item === 'servicio').length,
+    stockBajo: items.filter(i => i.tipo_item !== 'servicio' && i.stock_minimo > 0 && (i.cantidad ?? 0) <= i.stock_minimo).length,
+  }), [items]);
+
+  // ── Init drawer ──
   useEffect(() => {
-    if (isDrawerOpen) {
-      if (editingItem) {
-        // MODO EDICIÓN
-        form.setFieldsValue({
-          nombre: editingItem.nombre,
-          monto: editingItem.monto,
-          descripcion: editingItem.descripcion,
-          costo_compra: editingItem.costo_compra,
-          unidades_por_caja: editingItem.unidades_por_caja,
-          codigo_barras: editingItem.codigo_barras,
-          stock_inicial_empaques: editingItem.cantidad
-          // Nota: No seteamos la imagen aquí, la imagen ya subida se muestra aparte
-        });
-      } else {
-        // MODO CREACIÓN (Valores por defecto)
-        form.resetFields();
-        form.setFieldsValue({
-          unidades_por_caja: 1,
-          stock_inicial_empaques: 0
-        });
-      }
+    if (!isDrawerOpen) return;
+    if (editingItem) {
+      const tipo = editingItem.tipo_item || 'producto';
+      setTipoItem(tipo);
+      setPrecioCompra(Number(editingItem.precio_compra_unitario) || 0);
+      setPrecioVenta(Number(editingItem.monto) || 0);
+      setBarcodeValue(editingItem.codigo_barras || '');
+      form.setFieldsValue({
+        nombre:                 editingItem.nombre,
+        sku:                    editingItem.sku || '',
+        monto:                  Number(editingItem.monto),
+        precio_compra_unitario: Number(editingItem.precio_compra_unitario) || 0,
+        descripcion:            editingItem.descripcion || '',
+        unidades_por_caja:      editingItem.unidades_por_caja || 1,
+        stock_inicial_empaques: editingItem.cantidad || 0,
+        stock_minimo:           editingItem.stock_minimo || 0,
+        codigo_barras:          editingItem.codigo_barras || '',
+        categoria:              editingItem.categoria || undefined,
+        impuesto:               Number(editingItem.impuesto) || 0,
+      });
+    } else {
+      setTipoItem('producto'); setPrecioCompra(0); setPrecioVenta(0); setBarcodeValue('');
+      form.resetFields();
+      form.setFieldsValue({ unidades_por_caja:1, stock_inicial_empaques:0, stock_minimo:5, impuesto:19 });
     }
   }, [isDrawerOpen, editingItem, form]);
 
-  // --- MANEJADORES ---
+  const handleOpenCreate  = () => { setEditingItem(null); setIsDrawerOpen(true); };
+  const handleOpenEdit    = (item) => { setEditingItem(item); setIsDrawerOpen(true); };
+  const handleCloseDrawer = () => { setIsDrawerOpen(false); setEditingItem(null); form.resetFields(); };
 
-  const handleCardClick = (e, item) => {
-    if (e.target.closest(".ant-btn") || e.target.closest(".anticon-edit")) return;
-    const newSelection = selectedItems.includes(item.id)
-      ? selectedItems.filter((id) => id !== item.id)
-      : [...selectedItems, item.id];
-    setSelectedItems(newSelection);
-  };
-
-  const handleOpenCreate = () => {
-    setEditingItem(null);
-    setIsDrawerOpen(true);
-  };
-
-  const handleOpenEdit = (item) => {
-    setEditingItem(item);
-    setIsDrawerOpen(true);
-  };
-
-  const handleCloseDrawer = () => {
-    setIsDrawerOpen(false);
-    setEditingItem(null);
-    form.resetFields();
-  };
-
-  // 🔹 AQUI ESTÁ LA MAGIA DEL FORMDATA
-  // 🔹 AQUI ESTÁ LA MAGIA DEL FORMDATA (CORREGIDA)
   const handleFormSubmit = async (values) => {
     setIsSubmitting(true);
     try {
-      const formData = new FormData();
+      const fd = new FormData();
+      Object.entries({
+        nombre: values.nombre, monto: values.monto,
+        descripcion: values.descripcion || '',
+        tipo_item: tipoItem, sku: values.sku || '',
+        precio_compra_unitario: values.precio_compra_unitario || 0,
+        costo_compra: values.precio_compra_unitario || 0,
+        codigo_barras: values.codigo_barras || '',
+        categoria: values.categoria || '',
+        stock_minimo: values.stock_minimo || 0,
+        impuesto: values.impuesto ?? 0,
+      }).forEach(([k,v]) => fd.append(k, v));
 
-      // 2. Agregamos campos de texto
-      formData.append('nombre', values.nombre);
-      formData.append('monto', values.monto);
-      formData.append('descripcion', values.descripcion || "");
-      formData.append('costo_compra', values.costo_compra || 0);
-      formData.append('unidades_por_caja', values.unidades_por_caja || 1);
-      formData.append('codigo_barras', values.codigo_barras || "");
-
-      // --- 🔥 CORRECCIÓN DE SEGURIDAD AQUÍ 🔥 ---
-      // 1. Eliminamos el "if (!editingItem)" para que SIEMPRE se envíe.
-      // 2. Usamos (|| 0) para que si el usuario borró el número (null), se envíe un 0.
-      const stockSeguro = values.stock_inicial_empaques !== undefined && values.stock_inicial_empaques !== null
-        ? values.stock_inicial_empaques
-        : 0;
-
-      formData.append('stock_inicial_empaques', stockSeguro);
-      // ------------------------------------------
-
-      // 4. Imagen
-      if (values.imagen && values.imagen.length > 0) {
-        formData.append('imagen', values.imagen[0].originFileObj);
+      if (tipoItem === 'producto') {
+        fd.append('unidades_por_caja', values.unidades_por_caja || 1);
+        fd.append('stock_inicial_empaques', values.stock_inicial_empaques ?? 0);
       }
 
-      // 5. Enviar al backend
       if (editingItem) {
-        await updateInventario(editingItem.id, formData);
-        notification.success({ message: "Producto actualizado correctamente" });
+        await updateInventario(editingItem.id, fd);
+        notification.success({ message: `${tipoItem === 'servicio' ? 'Servicio' : 'Producto'} actualizado` });
       } else {
-        await createInventario(formData);
-        notification.success({ message: "Producto creado exitosamente" });
+        await createInventario(fd);
+        notification.success({ message: `${tipoItem === 'servicio' ? 'Servicio' : 'Producto'} creado` });
       }
-
-      handleCloseDrawer();
-      fetchInventario();
+      handleCloseDrawer(); fetchInventario();
     } catch (err) {
-      console.error(err);
-      notification.error({
-        message: "Operación fallida",
-        description: err.response?.data?.message || "Ocurrió un error al guardar."
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+      notification.error({ message:'Operación fallida', description: err.response?.data?.message || 'Error al guardar.' });
+    } finally { setIsSubmitting(false); }
   };
 
-  const handleDeleteSelected = () => {
+  const handleDelete = (ids) => {
     Modal.confirm({
-      title: `¿Eliminar ${selectedItems.length} producto(s)?`,
-      content: "Esta acción no se puede deshacer.",
-      okText: "Eliminar",
-      okType: "danger",
-      cancelText: "Cancelar",
+      title: `¿Eliminar ${ids.length} elemento(s)?`,
+      content: 'Esta acción no se puede deshacer.',
+      okText:'Eliminar', okType:'danger', cancelText:'Cancelar',
       onOk: async () => {
         try {
-          await deleteInventario(selectedItems);
-          notification.success({ message: "Productos eliminados" });
-          setSelectedItems([]);
+          await deleteInventario(ids);
+          notification.success({ message:'Eliminado correctamente' });
+          setSelectedKeys([]);
           fetchInventario();
-        } catch (err) {
-          notification.error({
-            message: "Error al eliminar",
-            description: "No se pudieron eliminar algunos productos."
-          });
-        }
+        } catch (error) { notification.error({ message:'Error al eliminar', description: error.response?.data?.message || 'Hubo un problema.' }); }
       },
     });
   };
 
-  // --- RENDER ---
-  return (
-    <Layout className="min-h-screen bg-gray-50">
-      <Content className="p-6">
+  // Actualizar foto en el estado local (sin recargar todo)
+  const handlePhotoUpdated = (id, url) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, imagen_url: url } : i));
+    if (informeItem?.id === id) setInformeItem(prev => ({ ...prev, imagen_url: url }));
+  };
 
-        {/* ENCABEZADO */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div>
-            <Title level={3} style={{ margin: 0, color: '#155153' }}>
-              Inventario
-            </Title>
-            <Text type="secondary">Gestiona productos, precios y existencias</Text>
-          </div>
+  const esStockBajo = (item) =>
+    item.tipo_item !== 'servicio' && item.stock_minimo > 0 && (item.cantidad ?? 0) <= item.stock_minimo;
 
-          <div className="flex gap-2">
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={fetchInventario}
-              loading={loading}
-              shape="circle"
-            />
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleOpenCreate}
-              style={{ backgroundColor: '#155153', borderColor: '#155153' }}
-              size="large"
-            >
-              Nuevo Producto
-            </Button>
-          </div>
-        </div>
-
-        {/* BARRA DE SELECCIÓN FLOTANTE */}
-        <div
-          className={`sticky top-4 z-50 bg-[#155153] text-white mb-5 flex justify-between items-center px-6 py-3 rounded-lg shadow-lg transition-all duration-300 transform ${selectedItems.length > 0 ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0 pointer-events-none"
-            }`}
-        >
-          <span className="font-semibold text-lg">
-            {selectedItems.length} seleccionados
-          </span>
-          <div className="flex gap-2">
-            <Button ghost size="small" onClick={() => setSelectedItems([])}>
-              Cancelar
-            </Button>
-            <Button
-              danger
-              type="primary"
-              icon={<DeleteOutlined />}
-              onClick={handleDeleteSelected}
-            >
-              Eliminar
-            </Button>
-          </div>
-        </div>
-
-        {/* GRID DE PRODUCTOS */}
-        <Spin spinning={loading} tip="Cargando inventario..." size="large">
-          {error ? (
-            <Alert message={error} type="error" showIcon />
-          ) : items.length === 0 ? (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="No tienes productos registrados aún."
-            >
-              <Button type="primary" onClick={handleOpenCreate} style={{ background: '#155153' }}>
-                Crear el primero
-              </Button>
-            </Empty>
-          ) : (
-            <Row gutter={[24, 24]}>
-              {items.map((item) => {
-                const isSelected = selectedItems.includes(item.id);
-                return (
-                  <Col xs={24} sm={12} md={8} lg={6} xl={6} key={item.id}>
-                    <Card
-                      hoverable
-                      // 1. Quitamos overflow-hidden para evitar cortes inesperados
-                      className={`h-full transition-all duration-300 border-2 ${isSelected
-                        ? "border-[#155153] bg-green-50 shadow-md"
-                        : "border-transparent hover:border-gray-200 hover:shadow-lg"
-                        }`}
-                      // 2. Usamos 'actions' para poner la barra de botones fija al final
-                      actions={[
-                        <Tooltip title="Editar producto" key="edit">
-                          <Button
-                            type="text"
-                            block // Ocupa todo el espacio del botón
-                            icon={<EditOutlined style={{ fontSize: '18px', color: '#155153' }} />}
-                            onClick={(e) => {
-                              e.stopPropagation(); // Evita seleccionar la tarjeta al editar
-                              handleOpenEdit(item);
-                            }}
-                          >
-                            Editar
-                          </Button>
-                        </Tooltip>
-                      ]}
-                      onClick={(e) => handleCardClick(e, item)}
-                      bodyStyle={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }} // flex: 1 asegura que el cuerpo ocupe el espacio
-                      cover={
-                        item.imagen_url ? (
-                          <div className="h-48 w-full overflow-hidden relative group">
-                            <img
-                              alt={item.nombre}
-                              src={item.imagen_url}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                            />
-                            {isSelected && (
-                              <div className="absolute inset-0 bg-[#155153] bg-opacity-20 flex items-center justify-center">
-                                <CheckCircleFilled style={{ fontSize: '32px', color: '#fff' }} />
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="h-48 bg-gray-100 flex items-center justify-center text-gray-300">
-                            {isSelected ? <CheckCircleFilled style={{ fontSize: '32px', color: '#155153' }} /> : <FileImageOutlined style={{ fontSize: '48px' }} />}
-                          </div>
-                        )
-                      }
-                    >
-                      {/* CONTENIDO DE LA TARJETA */}
-                      <div className="flex flex-col h-full">
-                        <div className="mb-2">
-                          <div className="flex justify-between items-start">
-                            <Text strong style={{ fontSize: '16px', color: '#333' }} className="line-clamp-1 mr-2">
-                              {item.nombre}
-                            </Text>
-                            <Tag color="blue">{item.cantidad} Und.</Tag>
-                          </div>
-                          <Text type="secondary" className="text-xs block mb-1">
-                            {item.codigo_barras || "Sin código"}
-                          </Text>
-                        </div>
-
-                        <div className="flex-grow">
-                          <Text type="secondary" className="block mb-2 line-clamp-2 text-sm">
-                            {item.descripcion || "Sin descripción."}
-                          </Text>
-                        </div>
-
-                        {/* PRECIO (El botón de editar ya no va aquí, ahora está en la barra actions abajo) */}
-                        <div className="mt-auto pt-3 border-t border-gray-100">
-                          <Text type="secondary" className="text-xs block">Precio Venta</Text>
-                          <Statistic
-                            value={item.monto}
-                            prefix="$"
-                            valueStyle={{ fontSize: '20px', fontWeight: 'bold', color: '#155153' }}
-                            groupSeparator="."
-                          />
-                        </div>
-                      </div>
-                    </Card>
-                  </Col>
-                );
-              })}
-            </Row>
+  // ── Columnas de la tabla ──
+  const columns = [
+    {
+      title: 'Tipo',
+      key: 'tipo',
+      width: 100,
+      render: (_, r) => (
+        <Tag color={r.tipo_item==='servicio'?'purple':'blue'} className="text-[10px]"
+          icon={r.tipo_item==='servicio'?<ToolOutlined/>:<ShoppingOutlined/>}>
+          {r.tipo_item==='servicio'?'Servicio':'Producto'}
+        </Tag>
+      ),
+      filters:[{text:'Producto',value:'producto'},{text:'Servicio',value:'servicio'}],
+      onFilter:(v,r)=>r.tipo_item===v,
+    },
+    {
+      title: 'Nombre',
+      key: 'nombre',
+      render: (_, r) => (
+        <div>
+          <span className="font-semibold text-gray-800">{r.nombre}</span>
+          {r.sku && <span className="text-xs text-gray-400 ml-2">#{r.sku}</span>}
+          {r.descripcion && (
+            <div className="text-xs text-gray-400 mt-0.5 leading-tight" style={{ maxWidth:260 }}>
+              {r.descripcion.length > 80 ? r.descripcion.slice(0,80) + '…' : r.descripcion}
+            </div>
           )}
-        </Spin>
+          {r.codigo_barras && <div className="text-xs text-gray-300">{r.codigo_barras}</div>}
+        </div>
+      ),
+    },
+    {
+      title: 'Categoría', dataIndex:'categoria', key:'categoria', width:140,
+      render: v => v ? <Tag icon={<TagOutlined/>} color="default" className="text-[10px]">{v}</Tag> : <span className="text-gray-300">—</span>,
+    },
+    {
+      title: 'Stock', key:'stock', width:110, align:'center',
+      render: (_,r) => r.tipo_item==='servicio'
+        ? <span className="text-gray-300 text-xs">N/A</span>
+        : (
+          <span style={{ color: esStockBajo(r)?'#ef4444':'#374151', fontWeight:600 }}>
+            {esStockBajo(r) && <WarningFilled style={{ marginRight:4 }}/>}
+            {r.cantidad ?? 0}
+            {r.stock_minimo>0 && <span className="text-gray-400 font-normal"> / {r.stock_minimo}</span>}
+          </span>
+        ),
+    },
+    {
+      title: 'Precio compra', key:'pcompra', width:130, align:'right',
+      render: (_,r) => r.precio_compra_unitario > 0
+        ? <span className="text-gray-500 text-sm">{fmt(r.precio_compra_unitario)}</span>
+        : <span className="text-gray-300">—</span>,
+    },
+    {
+      title: 'Precio venta', dataIndex:'monto', key:'pventa', width:130, align:'right',
+      render: v => <span style={{ fontWeight:700, color:'#155153' }}>{fmt(v)}</span>,
+    },
+    {
+      title: 'Margen', key:'margen', width:90, align:'center',
+      render: (_,r) => <MarginBadge compra={r.precio_compra_unitario} venta={r.monto}/>,
+    },
+    {
+      title: 'IVA', dataIndex:'impuesto', key:'impuesto', width:80, align:'center',
+      render: v => v > 0
+        ? <Tag color="gold" className="text-[10px]">{v}%</Tag>
+        : <span className="text-gray-300 text-xs">—</span>,
+    },
+    {
+      title: 'Acciones', key:'acciones', width:90, align:'center',
+      render: (_,r) => (
+        <Space size={4}>
+          <Tooltip title="Editar">
+            <Button size="small" icon={<EditOutlined/>}
+              onClick={e => { e.stopPropagation(); handleOpenEdit(r); }}
+              style={{ color:'#155153', borderColor:'#15515333' }}/>
+          </Tooltip>
+          <Tooltip title="Eliminar">
+            <Button size="small" danger icon={<DeleteOutlined/>}
+              onClick={e => { e.stopPropagation(); handleDelete([r.id]); }}/>
+          </Tooltip>
+        </Space>
+      ),
+    },
+  ];
 
-        {/* DRAWER (FORMULARIO) */}
-        <Drawer
-          title={
-            <div className="flex items-center text-[#155153]">
-              <AppstoreAddOutlined className="mr-2" />
-              <span>{editingItem ? "Editar Producto" : "Nuevo Producto"}</span>
+  // ── RENDER ──
+  return (
+    <div className="p-6">
+
+      {/* HEADER */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#155153]/10 flex items-center justify-center">
+            <AppstoreAddOutlined className="text-[#155153] text-xl"/>
+          </div>
+          <div>
+            <p className="m-0 font-bold text-lg" style={{ color:'#155153' }}>Inventario</p>
+            <p className="m-0 text-xs text-gray-400">Productos y servicios</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Tooltip title="Recargar">
+            <Button icon={<ReloadOutlined/>} onClick={fetchInventario} loading={loading} shape="circle"/>
+          </Tooltip>
+          <Button type="primary" icon={<PlusOutlined/>} onClick={handleOpenCreate}
+            style={{ backgroundColor:'#155153', borderColor:'#155153' }}>
+            Nuevo
+          </Button>
+        </div>
+      </div>
+
+      {/* STATS CHIPS */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {[
+          { label:`${stats.total} en total`,      color:'default' },
+          { label:`${stats.productos} productos`, color:'blue'    },
+          { label:`${stats.servicios} servicios`, color:'purple'  },
+          ...(stats.stockBajo > 0 ? [{ label:`⚠️ ${stats.stockBajo} stock bajo`, color:'error' }] : []),
+        ].map(s => (
+          <Tag key={s.label} color={s.color} className="rounded-full px-3 py-0.5 text-xs font-medium">{s.label}</Tag>
+        ))}
+      </div>
+
+      {/* FILTROS */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Input
+          placeholder="Buscar nombre, SKU, código de barras..."
+          prefix={<SearchOutlined className="text-gray-400"/>}
+          value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+          allowClear className="w-full md:w-72"
+        />
+        <div className="flex gap-1">
+          {['todos','producto','servicio'].map(t => (
+            <button key={t} type="button" onClick={() => setFilterTipo(t)} style={{
+              padding:'6px 14px', borderRadius:8, border:'none',
+              background: filterTipo===t ? '#155153' : '#f3f4f6',
+              color: filterTipo===t ? '#fff' : '#64748b',
+              fontWeight:600, fontSize:12, cursor:'pointer', transition:'all 0.15s',
+            }}>
+              {t==='todos'?'Todos':t==='producto'?'Productos':'Servicios'}
+            </button>
+          ))}
+        </div>
+        {selectedKeys.length > 0 && (
+          <Button danger icon={<DeleteOutlined/>} onClick={() => handleDelete(selectedKeys)}>
+            Eliminar {selectedKeys.length} seleccionados
+          </Button>
+        )}
+      </div>
+
+      {/* TABLA */}
+      {error ? <Alert message={error} type="error" showIcon/> : (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <Spin spinning={loading}>
+            <Table
+              dataSource={rows}
+              columns={columns}
+              rowKey="id"
+              size="middle"
+              rowSelection={{
+                selectedRowKeys: selectedKeys,
+                onChange: setSelectedKeys,
+              }}
+              onRow={r => ({
+                onClick: () => setInformeItem(r),
+                style: {
+                  background: esStockBajo(r) ? '#fff5f5' : undefined,
+                  cursor: 'pointer',
+                },
+              })}
+              locale={{ emptyText: (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sin elementos aún.">
+                  <Button type="primary" onClick={handleOpenCreate} style={{ background:'#155153' }}>
+                    Crear el primero
+                  </Button>
+                </Empty>
+              )}}
+              pagination={{ pageSize:20, showSizeChanger:true, showTotal:(t,r)=>`${r[0]}-${r[1]} de ${t}` }}
+              scroll={{ x:900 }}
+            />
+          </Spin>
+        </div>
+      )}
+
+      {/* ── MODAL INFORME ── */}
+      <ProductoInformeModal
+        item={informeItem}
+        onClose={() => setInformeItem(null)}
+        onPhotoUpdated={handlePhotoUpdated}
+        fmt={fmt}
+      />
+
+      {/* ═══════════════════════════════════════
+          DRAWER — CREAR / EDITAR
+      ═══════════════════════════════════════ */}
+      <Drawer
+        title={
+          <div className="flex items-center gap-2" style={{ color:'#155153' }}>
+            <AppstoreAddOutlined/>
+            <span>{editingItem ? `Editar ${tipoItem}` : 'Nuevo elemento'}</span>
+          </div>
+        }
+        width={500} onClose={handleCloseDrawer} open={isDrawerOpen} destroyOnClose
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button onClick={handleCloseDrawer}>Cancelar</Button>
+            <Button onClick={() => form.submit()} type="primary" loading={isSubmitting}
+              icon={<CheckCircleOutlined/>}
+              style={{ backgroundColor:'#155153', borderColor:'#155153' }}>
+              {editingItem ? 'Guardar cambios' : `Crear ${tipoItem}`}
+            </Button>
+          </div>
+        }
+      >
+        <Form form={form} layout="vertical" onFinish={handleFormSubmit} requiredMark={false}>
+
+          {/* 1. TIPO */}
+          <div style={{ marginBottom:20 }}>
+            <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#475569', marginBottom:8 }}>
+              ¿Qué tipo de elemento es? <span style={{ color:'#ef4444' }}>*</span>
+            </label>
+            <div style={{ display:'flex', gap:10 }}>
+              <ToggleBtn active={tipoItem==='producto'} onClick={() => setTipoItem('producto')}
+                icon={<ShoppingOutlined/>} label="Producto" color="#155153"/>
+              <ToggleBtn active={tipoItem==='servicio'} onClick={() => setTipoItem('servicio')}
+                icon={<ToolOutlined/>} label="Servicio" color="#7c3aed"/>
             </div>
-          }
-          width={480}
-          onClose={handleCloseDrawer}
-          open={isDrawerOpen}
-          destroyOnClose
-          footer={
-            <div className="flex justify-end gap-2">
-              <Button onClick={handleCloseDrawer}>Cancelar</Button>
-              <Button
-                onClick={() => form.submit()}
-                type="primary"
-                loading={isSubmitting}
-                style={{ backgroundColor: '#155153', borderColor: '#155153' }}
-              >
-                {editingItem ? "Guardar Cambios" : "Crear Producto"}
-              </Button>
+            <p style={{ margin:'6px 0 0', fontSize:11, color:'#94a3b8' }}>
+              {tipoItem==='producto' ? 'Los productos tienen stock e inventario.' : 'Los servicios no requieren control de stock.'}
+            </p>
+          </div>
+
+          <Divider style={{ margin:'0 0 18px' }}/>
+
+          {/* 2. NOMBRE + SKU */}
+          <Row gutter={12}>
+            <Col span={14}>
+              <Form.Item name="nombre"
+                label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Nombre *</span>}
+                rules={[{required:true, message:'El nombre es obligatorio'}]}
+                style={{ marginBottom:14 }}>
+                <Input size="large" placeholder={tipoItem==='servicio'?'Ej: Consultoría web':'Ej: Coca Cola 350ml'}/>
+              </Form.Item>
+            </Col>
+            <Col span={10}>
+              <Form.Item name="sku"
+                label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>SKU</span>}
+                style={{ marginBottom:14 }}>
+                <Input size="large" placeholder="PROD-001"/>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          {/* 3. CÓDIGO DE BARRAS (solo productos) */}
+          {tipoItem === 'producto' && (
+            <div style={{ marginBottom:14 }}>
+              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#475569', marginBottom:6 }}>
+                Código de barras
+              </label>
+              <Form.Item name="codigo_barras" noStyle>
+                <Input size="large"
+                  prefix={<BarcodeOutlined className="text-gray-400"/>}
+                  placeholder="Escanea o escribe..."
+                  value={barcodeValue}
+                  onChange={e => { setBarcodeValue(e.target.value); form.setFieldsValue({codigo_barras:e.target.value}); }}
+                  allowClear onClear={() => { setBarcodeValue(''); form.setFieldsValue({codigo_barras:''}); }}
+                />
+              </Form.Item>
+              {!barcodeValue && (
+                <button type="button"
+                  onClick={() => { const c=generateEAN13(); setBarcodeValue(c); form.setFieldsValue({codigo_barras:c}); }}
+                  style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:6,
+                    padding:'6px 14px', borderRadius:8, border:'1.5px dashed #155153',
+                    background:'#f0fafa', color:'#155153', fontWeight:600, fontSize:12, cursor:'pointer' }}>
+                  <ThunderboltOutlined/> Generar código EAN-13 automático
+                </button>
+              )}
             </div>
-          }
-        >
-          <Form form={form} layout="vertical" onFinish={handleFormSubmit}>
+          )}
 
-            {/* 1. SECCIÓN PRINCIPAL */}
-            <Row gutter={16}>
-              <Col span={24}>
-                <Form.Item
-                  name="imagen"
-                  label="Foto del Producto"
-                  valuePropName="fileList"
-                  getValueFromEvent={normFile}
-                >
-                  <Upload
-                    listType="picture-card"
-                    maxCount={1}
-                    beforeUpload={() => false} // Evita carga automática, esperamos al submit
-                    accept="image/*"
-                  >
-                    <div>
-                      <PlusOutlined />
-                      <div style={{ marginTop: 8 }}>Subir</div>
-                    </div>
-                  </Upload>
-                </Form.Item>
-              </Col>
+          {/* 4. CATEGORÍA */}
+          <Form.Item name="categoria"
+            label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Categoría</span>}
+            style={{ marginBottom:14 }}>
+            <Select showSearch allowClear placeholder="Selecciona o escribe..." size="large"
+              options={CATEGORIAS.map(c=>({label:c,value:c}))}
+              filterOption={(i,o)=>o.label.toLowerCase().includes(i.toLowerCase())}/>
+          </Form.Item>
 
-              <Col span={24}>
-                <Form.Item
-                  name="nombre"
-                  label="Nombre del Producto"
-                  rules={[{ required: true, message: "Escribe un nombre." }]}
-                >
-                  <Input placeholder="Ej: Coca Cola 350ml" size="large" />
-                </Form.Item>
-              </Col>
+          <Divider orientation="left" style={{ fontSize:12, fontWeight:700, color:'#155153', margin:'4px 0 16px' }}>
+            Precios e impuestos
+          </Divider>
 
-              <Col span={24}>
-                <Form.Item name="codigo_barras" label="Código de Barras">
-                  <Input prefix={<BarcodeOutlined />} placeholder="Escanea o escribe..." />
-                </Form.Item>
-              </Col>
-            </Row>
+          {/* 5. PRECIOS */}
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item name="precio_compra_unitario"
+                label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Precio de compra</span>}
+                style={{ marginBottom:14 }}>
+                <InputNumber size="large" className="w-full" placeholder="0" min={0}
+                  addonAfter={currSuffix} formatter={currFormatter} parser={currParser}
+                  onChange={v=>setPrecioCompra(v||0)}/>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="monto"
+                label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Precio de venta *</span>}
+                rules={[{required:true, message:'Requerido'}]}
+                style={{ marginBottom:14 }}>
+                <InputNumber size="large" className="w-full" placeholder="0" min={0}
+                  addonAfter={currSuffix} formatter={currFormatter} parser={currParser}
+                  onChange={v=>setPrecioVenta(v||0)}/>
+              </Form.Item>
+            </Col>
+          </Row>
 
-            <Divider orientation="left">Precios</Divider>
+          {/* Margen */}
+          <div style={{ marginBottom:14, minHeight:28 }}>
+            <MarginBadge compra={precioCompra} venta={precioVenta}/>
+          </div>
 
-            {/* 2. SECCIÓN PRECIOS */}
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="monto"
-                  label="Precio Venta (Unitario)"
-                  rules={[{ required: true, message: "Requerido" }]}
-                >
-                  <InputNumber
-                    className="w-full"
-                    prefix="$"
-                    placeholder="0"
-                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
-                    parser={(value) => value.replace(/\$\s?|(\.*)/g, "")}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="costo_compra"
-                  label="Costo Compra (Total)"
-                  tooltip="Cuánto te costó comprar la caja o el paquete"
-                >
-                  <InputNumber
-                    className="w-full"
-                    prefix="$"
-                    placeholder="0"
-                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
-                    parser={(value) => value.replace(/\$\s?|(\.*)/g, "")}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
+          {/* 6. IMPUESTO */}
+          <Form.Item name="impuesto"
+            label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Impuesto (IVA)</span>}
+            style={{ marginBottom:16 }}>
+            <Select size="large" placeholder="Selecciona el impuesto..."
+              options={TAX_OPTIONS}
+              optionRender={o => (
+                <span style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span>{o.label}</span>
+                  {o.data.value > 0 && (
+                    <span style={{ fontSize:11, color:'#94a3b8' }}>
+                      +{fmt((precioVenta * o.data.value / 100) || 0)}
+                    </span>
+                  )}
+                </span>
+              )}
+            />
+          </Form.Item>
 
-            <Divider orientation="left">Inventario</Divider>
+          {/* 7. STOCK (solo productos) */}
+          {tipoItem === 'producto' && (
+            <>
+              <Divider orientation="left" style={{ fontSize:12, fontWeight:700, color:'#155153', margin:'4px 0 16px' }}>
+                Stock
+              </Divider>
+              <Row gutter={12}>
+                <Col span={8}>
+                  <Form.Item name="unidades_por_caja"
+                    label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Und. / empaque</span>}
+                    tooltip="¿Cuántas unidades trae cada caja?" style={{ marginBottom:14 }}>
+                    <InputNumber min={1} size="large" className="w-full" placeholder="1"/>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="stock_inicial_empaques"
+                    label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Stock inicial</span>}
+                    tooltip="Número de empaques/cajas que tienes" style={{ marginBottom:14 }}>
+                    <InputNumber min={0} size="large" className="w-full" placeholder="0"
+                      prefix={<InboxOutlined className="text-gray-400"/>}/>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="stock_minimo"
+                    label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Stock mínimo ⚠️</span>}
+                    tooltip="Alerta cuando el stock llegue aquí" style={{ marginBottom:14 }}>
+                    <InputNumber min={0} size="large" className="w-full" placeholder="5"/>
+                  </Form.Item>
+                </Col>
+              </Row>
+            </>
+          )}
 
-            {/* 3. SECCIÓN INVENTARIO (LÓGICA DE CAJAS) */}
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="unidades_por_caja"
-                  label="Unidades por Empaque"
-                  tooltip="Si compras por cajas, ¿cuántas unidades trae?"
-                >
-                  <InputNumber min={1} className="w-full" placeholder="Ej: 24" />
-                </Form.Item>
-              </Col>
+          {/* 8. DESCRIPCIÓN */}
+          <Form.Item name="descripcion"
+            label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Descripción</span>}>
+            <Input.TextArea rows={3} placeholder="Detalles adicionales..."/>
+          </Form.Item>
 
-              {/* Solo mostramos stock inicial al crear, para evitar errores de edición masiva */}
-
-              <Col span={12}>
-                <Form.Item
-                  name="stock_inicial_empaques"
-                  label="Stock Inicial (Empaques)"
-                  tooltip="Cantidad de cajas/paquetes que tienes ahora"
-                >
-                  <InputNumber min={0} className="w-full" placeholder="Ej: 2" prefix={<InboxOutlined />} />
-                </Form.Item>
-              </Col>
-
-            </Row>
-
-            <Form.Item name="descripcion" label="Descripción">
-              <Input.TextArea rows={3} placeholder="Detalles adicionales..." />
-            </Form.Item>
-
-          </Form>
-        </Drawer>
-      </Content>
-    </Layout>
+        </Form>
+      </Drawer>
+    </div>
   );
 }
 

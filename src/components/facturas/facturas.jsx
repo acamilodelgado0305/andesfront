@@ -25,7 +25,7 @@ import {
 } from "react-icons/fa";
 import axios from "axios";
 import dayjs from "dayjs";
-import useCurrency from "../../hooks/useCurrency";
+import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -47,6 +47,7 @@ const Payments = () => {
     const [montoEsperadoMensualidad, setMontoEsperadoMensualidad] = useState(null);
 
     const formatCurrency = useCurrency();
+    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
 
     // --- UTILITIES ---
     const formatDateToMonth = (dateString) => {
@@ -492,8 +493,9 @@ const Payments = () => {
                     >
                         <InputNumber
                             style={{ width: '100%' }}
-                            formatter={(value) => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                            parser={(value) => value.replace(/\$\s?|(,*)/g, '')}
+                            addonAfter={currSuffix}
+                            formatter={currFormatter}
+                            parser={currParser}
                             min={0}
                         />
                     </Form.Item>

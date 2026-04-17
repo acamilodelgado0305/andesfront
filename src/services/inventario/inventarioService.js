@@ -70,6 +70,7 @@ export const deleteInventario = async (ids) => {
   if (Array.isArray(ids)) {
     const response = await inventarioApi.delete("/inventario", {
       data: { ids }, // Enviar body en delete requiere propiedad 'data' en axios
+      headers: { "Content-Type": "application/json" }
     });
     return response.data;
   }
@@ -85,6 +86,24 @@ export const deleteInventario = async (ids) => {
  */
 export const getInventarioByUser = async (userId) => {
   const response = await inventarioApi.get(`/inventario/user/${userId}`);
+  return response.data;
+};
+
+/**
+ * Obtener stats de ventas de un ítem específico
+ */
+export const getInventarioStats = async (id) => {
+  const response = await inventarioApi.get(`/inventario/${id}/stats`);
+  return response.data;
+};
+
+/**
+ * Subir/cambiar foto de un ítem (desde el modal de informe)
+ */
+export const uploadInventarioPhoto = async (id, file) => {
+  const fd = new FormData();
+  fd.append('imagen', file);
+  const response = await inventarioApi.post(`/inventario/${id}/foto`, fd);
   return response.data;
 };
 

@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { NumericFormat } from 'react-number-format';
 import { adminService } from '../../services/adminService';
+import { useCurrencyInput } from '../../hooks/useCurrency';
 
 dayjs.locale('es');
 
@@ -34,6 +35,7 @@ const MODULE_OPTIONS = ['POS', 'ACADEMICO', 'INVENTARIO', 'GENERACION', 'ADMIN']
 
 function DashboardClients() {
     const screens = useBreakpoint();
+    const { addonAfter: currSuffix, prefix: currPrefix } = useCurrencyInput();
 
     // ==========================================
     // 1. ESTADOS
@@ -415,7 +417,7 @@ function DashboardClients() {
                                     <div className="text-right whitespace-nowrap">
                                         {client.subscription_status !== 'no_subscription' && client.amount_paid !== null ? (
                                             <Text strong className="text-emerald-600 block">
-                                                <NumericFormat value={client.amount_paid} displayType={'text'} thousandSeparator="." decimalSeparator="," prefix="$" decimalScale={0} />
+                                                <NumericFormat value={client.amount_paid} displayType={'text'} thousandSeparator="." decimalSeparator="," prefix={`${currPrefix} `} decimalScale={0} />
                                             </Text>
                                         ) : (
                                             <Text type="secondary" className="block text-xs">Sin plan</Text>
@@ -673,7 +675,7 @@ function DashboardClients() {
                         </Select>
                     </Form.Item>
                     <Form.Item name="amountPaid" label="Monto Pagado">
-                        <InputNumber min={0} className="w-full" prefix="$" />
+                        <InputNumber min={0} className="w-full" addonAfter={currSuffix} />
                     </Form.Item>
                     <Form.Item name="description" label="Notas Adicionales">
                         <TextArea rows={2} />

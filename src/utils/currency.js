@@ -5,17 +5,20 @@
  * del país del negocio (almacenado en `businesses.country` y expuesto en el JWT
  * como `user.country`) para seleccionar el locale y la moneda correcta.
  *
- * Uso:
- *   import { formatCurrency, LATAM_COUNTRIES } from '../utils/currency';
- *   formatCurrency(150000, 'CO')  →  "$ 150.000"
- *   formatCurrency(150000, 'MX')  →  "$150,000"
- *   formatCurrency(150000, 'BR')  →  "R$ 150.000"
+ * Uso display:
+ *   formatCurrency(150000, 'CO')  →  "COP 150.000"
+ *   formatCurrency(150000, 'MX')  →  "MXN 150,000"
+ *   formatCurrency(150000, 'BR')  →  "BRL 150.000"
+ *
+ * Uso en InputNumber:
+ *   const { prefix, formatter, parser } = getInputCurrencyProps('CO');
+ *   // prefix   → "COP"
+ *   // formatter → "150.000"
+ *   // parser   → "150000"
  */
 
 // ---------------------------------------------------------------------------
 // MAPA DE PAÍSES LATAM
-// phoneCode: código de discado internacional
-// flagUrl: imagen real vía flagcdn.com (evita problema de emoji en Windows)
 // ---------------------------------------------------------------------------
 export const COUNTRY_CURRENCY_MAP = {
   AR: { locale: 'es-AR', currency: 'ARS', decimals: 2, name: 'Argentina',       phoneCode: '+54'  },
@@ -40,28 +43,76 @@ export const COUNTRY_CURRENCY_MAP = {
   VE: { locale: 'es-VE', currency: 'VES', decimals: 2, name: 'Venezuela',      phoneCode: '+58'  },
 };
 
-// URL de bandera real (no emoji) — funciona en todos los SO incluyendo Windows
+/** URL de bandera real (no emoji) — funciona en todos los SO incluyendo Windows */
 export const getFlagUrl = (code) =>
   `https://flagcdn.com/w20/${code.toLowerCase()}.png`;
 
-// Fallback
 const DEFAULT_COUNTRY = 'CO';
 
-/**
- * Formatea un valor numérico como moneda según el país del negocio.
- */
+// ---------------------------------------------------------------------------
+// DISPLAY — formato de texto (tablas, cards, stats, etc.)
+// Muestra el código ISO de la moneda al frente: "COP 150.000", "MXN 150,000"
+// ---------------------------------------------------------------------------
 export const formatCurrency = (value, countryCode) => {
   const config = COUNTRY_CURRENCY_MAP[countryCode] || COUNTRY_CURRENCY_MAP[DEFAULT_COUNTRY];
-  return new Intl.NumberFormat(config.locale, {
-    style: 'currency',
-    currency: config.currency,
+
+  // Formateamos solo el número con Intl (sin símbolo)
+  const number = new Intl.NumberFormat(config.locale, {
+    style: 'decimal',
     minimumFractionDigits: config.decimals,
     maximumFractionDigits: config.decimals,
   }).format(value || 0);
+
+  return `${config.currency}\u00A0${number}`;   // "COP 150.000"
 };
+
+// ---------------------------------------------------------------------------
+// INPUTS — props listas para usar en <InputNumber>
+//
+// Uso:
+//   const { prefix, formatter, parser } = getInputCurrencyProps('CO');
+//   <InputNumber prefix={prefix} formatter={formatter} parser={parser} />
+// ---------------------------------------------------------------------------
+export const getInputCurrencyProps = (countryCode) => {
+  const config = COUNTRY_CURRENCY_MAP[countryCode] || COUNTRY_CURRENCY_MAP[DEFAULT_COUNTRY];
+
+  // Separador de miles según locale:
+  // período para COP, CLP, BRL, ARS…  coma para MXN, USD, HNL…
+  const usesPeriod = ['es-CO','es-CL','pt-BR','es-AR','es-PY','es-UY'].includes(config.locale);
+  const sep = usesPeriod ? '.' : ',';
+
+  return {
+    /** Código de moneda — usar addonAfter en InputNumber para mostrarlo al final */
+    addonAfter: config.currency,
+    /** Alias para Statistic / Input components que usan prefix */
+    prefix: config.currency,
+
+    /** Aplica separador de miles al valor numérico */
+    formatter: (v) => {
+      if (v === undefined || v === null || v === '') return '';
+      const [int, dec] = String(v).split('.');
+      const intFormatted = int.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+      return config.decimals > 0 && dec !== undefined
+        ? `${intFormatted}.${dec}`
+        : intFormatted;
+    },
+
+    /** Elimina el separador de miles para que Ant Design pueda parsear el número */
+    parser: (v) => {
+      if (!v) return '';
+      // Quitar cualquier carácter que no sea dígito, punto o coma
+      return v.replace(new RegExp(`\\${sep}`, 'g'), '').replace(/[^0-9.]/g, '');
+    },
+  };
+};
+
+// Retorna solo el código: "COP", "MXN", "USD" …
+export const getCurrencyCode = (countryCode) =>
+  (COUNTRY_CURRENCY_MAP[countryCode] || COUNTRY_CURRENCY_MAP[DEFAULT_COUNTRY]).currency;
 
 /**
  * Retorna el símbolo de moneda del país.
+ * @deprecated — usar getCurrencyCode() para mostrar el código ISO
  */
 export const getCurrencySymbol = (countryCode) => {
   const config = COUNTRY_CURRENCY_MAP[countryCode] || COUNTRY_CURRENCY_MAP[DEFAULT_COUNTRY];
@@ -74,8 +125,7 @@ export const getCurrencySymbol = (countryCode) => {
 };
 
 // ---------------------------------------------------------------------------
-// LISTA PARA EL SELECT (solo metadatos — el componente construye las opciones
-// con imágenes reales usando getFlagUrl para evitar el problema de emoji Windows)
+// LISTA PARA EL SELECT DE PAÍSES
 // ---------------------------------------------------------------------------
 export const LATAM_COUNTRIES = Object.entries(COUNTRY_CURRENCY_MAP)
   .map(([code, info]) => ({

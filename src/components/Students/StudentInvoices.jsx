@@ -31,6 +31,7 @@ import {
   ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { useCurrencyInput } from "../../hooks/useCurrency";
 
 // SERVICIOS
 import { getStudentById } from "../../services/student/studentService";
@@ -51,6 +52,7 @@ const API_BASE = import.meta.env.VITE_API || `${API_BACKEND}/api`;
 
 const StudentPayments = () => {
   const { id: studentId } = useParams();
+  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
 
   // ESTADOS DE DATOS
   const [student, setStudent] = useState(null);
@@ -423,9 +425,9 @@ const StudentPayments = () => {
           <Form.Item name="monto" label="Monto a Abonar" rules={[{ required: true, message: 'Ingrese el monto' }]}>
             <InputNumber
               className="w-full"
-              prefix="$"
-              formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-              parser={(value) => value.replace(/\$\s?|(,*)/g, "")}
+              addonAfter={currSuffix}
+              formatter={currFormatter}
+              parser={currParser}
               size="large"
             />
           </Form.Item>

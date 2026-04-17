@@ -23,7 +23,7 @@ import POSModal from "./POSModal";
 // LIBRERIAS PDF
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import useCurrency from "../../hooks/useCurrency";
+import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -44,6 +44,7 @@ const responsiveModalStyles = `
 
 const PedidosDashboard = () => {
     const formatCurrency = useCurrency();
+    const { prefix: currPrefix } = useCurrencyInput();
     // --- ESTADOS PRINCIPALES ---
     const [pedidos, setPedidos] = useState([]);
     const [stats, setStats] = useState(null);
@@ -505,7 +506,7 @@ const PedidosDashboard = () => {
                 {stats && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <Card className="shadow-sm border-l-4 border-green-500 rounded-lg">
-                            <Statistic title="Total acumulado en pedidos" value={stats.general?.total_ingresos || 0} prefix="$" groupSeparator="." precision={0} />
+                            <Statistic title="Total acumulado en pedidos" value={stats.general?.total_ingresos || 0} prefix={currPrefix} groupSeparator="." precision={0} />
                         </Card>
                         <Card className="shadow-sm border-l-4 border-orange-400 rounded-lg">
                             <Statistic title="Pedidos pendientes" value={stats.por_estado?.find(e => e.name === 'PENDIENTE')?.value || 0} prefix={<ShoppingCartOutlined />} />
