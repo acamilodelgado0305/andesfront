@@ -2,8 +2,10 @@ import React, { useMemo } from 'react';
 import { Card, Row, Col, Statistic, Progress } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined, WalletOutlined } from '@ant-design/icons';
 import moment from 'moment';
+import useCurrency from '../../hooks/useCurrency';
 
 const DashboardStats = ({ ingresos, egresos, dateRange, filters = {} }) => {
+  const fmt = useCurrency();
   const { payment, product } = filters;
 
   const stats = useMemo(() => {
@@ -55,8 +57,7 @@ const DashboardStats = ({ ingresos, egresos, dateRange, filters = {} }) => {
     };
   }, [ingresos, egresos, dateRange, payment, product]);
 
-  const currencyFormatter = (val) =>
-    `$ ${new Intl.NumberFormat('es-CO').format(val)}`;
+  const currencyFormatter = (val) => fmt(val);
 
   return (
     <Row gutter={[16, 16]}>
@@ -78,7 +79,7 @@ const DashboardStats = ({ ingresos, egresos, dateRange, filters = {} }) => {
       <Col xs={24} sm={8}>
         <Card bordered={false} className="shadow-sm rounded-lg bg-red-50">
           <Statistic
-            title={<span className="text-red-700 font-semibold">Total Egresos</span>}
+            title={<span className="text-red-700 font-semibold">Total Gastos</span>}
             value={stats.totalEgresos}
             precision={0}
             valueStyle={{ color: '#cf1322', fontWeight: 'bold' }}

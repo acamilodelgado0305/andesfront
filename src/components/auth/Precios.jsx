@@ -113,7 +113,7 @@ const PreciosPage = () => {
       const response = await loginWithGoogleToken(tokenResponse.access_token);
       if (response.token) {
         contextLogin(response.token, response.user);
-        message.success('¡Bienvenido a QControla! Tu prueba gratuita de 14 días ha comenzado.', 3);
+        message.success('¡Bienvenido a Rapictrl! Tu prueba gratuita de 14 días ha comenzado.', 3);
         navigate('/inicio');
       }
     } catch (error) {
@@ -142,7 +142,7 @@ const PreciosPage = () => {
     <HelmetProvider>
       <div className="w-full min-h-screen bg-gray-50 flex flex-col font-sans">
         <Helmet>
-          <title>Planes y Precios | QControla</title>
+          <title>Planes y Precios | Rapictrl</title>
           <meta name="description" content="Elige el plan perfecto para tu negocio. Desde $39.900/mes con prueba gratuita de 14 días." />
         </Helmet>
 
@@ -284,7 +284,7 @@ const PreciosPage = () => {
             <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="mt-10 text-center">
               <div className="inline-flex items-center gap-2 text-gray-500 text-sm">
                 <Shield size={16} className="text-green-500" />
-                <span>Todos los planes incluyen <strong>14 días de prueba gratuita</strong> con acceso completo. Sin tarjeta de crédito.</span>
+                <span>Todos los planes incluyen <strong>14 días de prueba gratuita</strong> con acceso a los módulos de administración. Sin tarjeta de crédito.</span>
               </div>
             </motion.div>
           </section>
@@ -352,7 +352,7 @@ const PreciosPage = () => {
             </motion.div>
             <div className="space-y-4">
               {[
-                { q: '¿Cómo funciona la prueba gratuita?', a: 'Al registrarte obtienes 14 días de acceso completo a todas las funcionalidades, sin necesidad de tarjeta de crédito. Al finalizar, elige el plan que más se adapte a tu negocio.' },
+                { q: '¿Cómo funciona la prueba gratuita?', a: 'Al registrarte obtienes 14 días de acceso a todas las funcionalidades de administración (POS, Inventario, Personas, Movimientos, Generación de documentos), sin necesidad de tarjeta de crédito. El módulo Académico está disponible desde el Plan Empresarial. Al finalizar, elige el plan que más se adapte a tu negocio.' },
                 { q: '¿Cómo realizo el pago?', a: 'Aceptamos transferencia bancaria, PSE y pagos en efectivo. Al seleccionar un plan te mostramos los datos bancarios y un código de referencia. Una vez verificado el pago, tu suscripción se activa en menos de 24 horas.' },
                 { q: '¿Puedo cambiar de plan después?', a: 'Sí, puedes subir o bajar de plan en cualquier momento contactándonos por WhatsApp. El ajuste aplica desde el siguiente ciclo.' },
                 { q: '¿Qué pasa cuando vence el trial?', a: 'Al terminar los 14 días, tu acceso quedará en espera. Elige un plan desde esta página y realiza el pago para reactivarlo de inmediato.' },
@@ -373,7 +373,7 @@ const PreciosPage = () => {
               style={{ background: 'linear-gradient(135deg, #030d1f 0%, #0a1f3d 100%)' }}
             >
               <h2 className="text-3xl font-bold mb-3">¿Listo para empezar?</h2>
-              <p className="text-slate-300 mb-8">Prueba QControla gratis 14 días. Sin tarjeta de crédito.</p>
+              <p className="text-slate-300 mb-8">Prueba Rapictrl gratis 14 días. Sin tarjeta de crédito.</p>
               <button
                 onClick={() => openGoogleRegister()}
                 disabled={isGoogleLoading}
@@ -387,7 +387,7 @@ const PreciosPage = () => {
         </main>
 
         <footer className="text-center py-6 text-gray-500 text-sm border-t border-gray-200">
-          <p>© {new Date().getFullYear()} QControla. Todos los derechos reservados.</p>
+          <p>© {new Date().getFullYear()} Rapictrl. Todos los derechos reservados.</p>
           <Link to="/" className="text-blue-600 hover:underline mt-1 inline-block">Volver al inicio</Link>
         </footer>
       </div>

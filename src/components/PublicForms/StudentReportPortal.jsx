@@ -435,7 +435,7 @@ function StudentPortal() {
           </div>
 
           {/* Footer */}
-          <div style={styles.footer}>Qcontrola © 2025</div>
+          <div style={styles.footer}>Rapictrl © 2025</div>
         </div>
       )}
     </div>

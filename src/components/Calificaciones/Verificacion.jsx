@@ -255,9 +255,9 @@ const Verificacion = () => {
       setStudentData(data);
     } catch (err) {
       if (err.response && err.response.status === 404) {
-        setError('El documento no registra certificaciones activas en la base de datos de Qcontrola.');
+        setError('El documento no registra certificaciones activas en la base de datos de Rapictrl.');
       } else {
-        setError('No se pudo conectar con el servidor de Qcontrola. Intente más tarde.');
+        setError('No se pudo conectar con el servidor de Rapictrl. Intente más tarde.');
       }
       setStudentData(null);
     } finally {
@@ -541,11 +541,11 @@ const Verificacion = () => {
                 <div className="flex items-center gap-2">
                   <ColombiaBandera className="w-8 h-5 rounded shadow-sm" />
                   <p className="text-xs text-slate-500">
-                    <strong className="text-[#003366]">Qcontrola</strong> — Certificados con validez en la República de Colombia.
+                    <strong className="text-[#003366]">Rapictrl</strong> — Certificados con validez en la República de Colombia.
                   </p>
                 </div>
                 <p className="text-[10px] text-slate-400">
-                  © {new Date().getFullYear()} Qcontrola · Res. 2674/2013
+                  © {new Date().getFullYear()} Rapictrl · Res. 2674/2013
                 </p>
               </div>
 

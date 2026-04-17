@@ -13,7 +13,7 @@ import { loginWithGoogleToken } from '../../services/auth/authService';
 
 import Header from './header';
 
-const QControlaLanding = () => {
+const RapictrlLanding = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const { login: contextLogin } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ const QControlaLanding = () => {
       const response = await loginWithGoogleToken(tokenResponse.access_token);
       if (response.token) {
         contextLogin(response.token, response.user);
-        message.success('¡Bienvenido a QControla! Tu prueba gratuita de 14 días ha comenzado.', 3);
+        message.success('¡Bienvenido a Rapictrl! Tu prueba gratuita de 14 días ha comenzado.', 3);
         navigate('/inicio');
       }
     } catch (error) {
@@ -49,9 +49,9 @@ const QControlaLanding = () => {
     <HelmetProvider>
       <div className="w-full min-h-screen bg-gray-50 flex flex-col font-sans">
         <Helmet>
-          <title>QControla | Software de Administración Financiera y de Inventario</title>
-          <meta name="description" content="Toma el control total de tu negocio con QControla. Software en la nube para la gestión de finanzas, inventario y reportes. Plan de 6 meses por $250.000 COP." />
-          <meta name="keywords" content="software administrativo, gestión financiera, control de inventario, software para pymes, QControla, administración de negocios" />
+          <title>Rapictrl | Software de Administración Financiera y de Inventario</title>
+          <meta name="description" content="Toma el control total de tu negocio con Rapictrl. Software en la nube para la gestión de finanzas, inventario y reportes. Plan de 6 meses por $250.000 COP." />
+          <meta name="keywords" content="software administrativo, gestión financiera, control de inventario, software para pymes, Rapictrl, administración de negocios" />
         </Helmet>
 
         <Header />
@@ -78,7 +78,7 @@ const QControlaLanding = () => {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <motion.a
                   whileHover={{ scale: 1.05 }}
-                  href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20QControla%20y%20me%20gustaría%20solicitar%20una%20demo."
+                  href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20Rapictrl%20y%20me%20gustaría%20solicitar%20una%20demo."
                   target="_blank"
                   className="inline-flex items-center justify-center bg-white font-bold py-3 px-8 rounded-lg text-lg shadow-lg"
                   style={{ color: '#0a1f3d' }}
@@ -148,7 +148,7 @@ const QControlaLanding = () => {
               <div className="grid md:grid-cols-2 gap-12 items-center">
                 <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}>
                   <h2 className="text-3xl font-bold text-gray-800 mb-6">Todo lo que necesitas en un solo lugar</h2>
-                  <p className="text-gray-600 mb-6">QControla integra las herramientas esenciales para que administres tu negocio de manera eficiente, segura y desde cualquier lugar.</p>
+                  <p className="text-gray-600 mb-6">Rapictrl integra las herramientas esenciales para que administres tu negocio de manera eficiente, segura y desde cualquier lugar.</p>
                   <ul className="space-y-4">
                     <li className="flex items-start"><Check className="h-6 w-6 mr-3 flex-shrink-0" style={{ color: '#1d4ed8' }} /><div><h4 className="font-semibold">Módulo Financiero</h4><p className="text-gray-600">Controla flujo de caja, cuentas por cobrar/pagar y conciliación bancaria.</p></div></li>
                     <li className="flex items-start"><Check className="h-6 w-6 mr-3 flex-shrink-0" style={{ color: '#1d4ed8' }} /><div><h4 className="font-semibold">Módulo de Inventario</h4><p className="text-gray-600">Gestiona productos, proveedores, órdenes de compra y alertas de stock.</p></div></li>
@@ -157,7 +157,7 @@ const QControlaLanding = () => {
                   </ul>
                 </motion.div>
                 <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="mt-8 md:mt-0">
-                  <img src={''} alt="Dashboard de QControla" className="rounded-lg shadow-2xl" />
+                  <img src={''} alt="Dashboard de Rapictrl" className="rounded-lg shadow-2xl" />
                 </motion.div>
               </div>
             </div>
@@ -229,8 +229,8 @@ const QControlaLanding = () => {
                 <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Preguntas Frecuentes</h2>
               </motion.div>
               <div className="space-y-6">
-                <div className="bg-white p-6 rounded-lg shadow-sm"><h3 className="text-xl font-bold mb-2">¿Es difícil de usar QControla?</h3><p className="text-gray-600">No. Diseñamos QControla con una interfaz intuitiva y fácil de navegar. Además, ofrecemos tutoriales y soporte para que empieces a usarlo sin problemas.</p></div>
-                <div className="bg-white p-6 rounded-lg shadow-sm"><h3 className="text-xl font-bold mb-2">¿Necesito instalar algo en mi computador?</h3><p className="text-gray-600">Absolutamente nada. QControla es 100% en la nube. Solo necesitas un navegador web y conexión a internet para acceder desde cualquier lugar.</p></div>
+                <div className="bg-white p-6 rounded-lg shadow-sm"><h3 className="text-xl font-bold mb-2">¿Es difícil de usar Rapictrl?</h3><p className="text-gray-600">No. Diseñamos Rapictrl con una interfaz intuitiva y fácil de navegar. Además, ofrecemos tutoriales y soporte para que empieces a usarlo sin problemas.</p></div>
+                <div className="bg-white p-6 rounded-lg shadow-sm"><h3 className="text-xl font-bold mb-2">¿Necesito instalar algo en mi computador?</h3><p className="text-gray-600">Absolutamente nada. Rapictrl es 100% en la nube. Solo necesitas un navegador web y conexión a internet para acceder desde cualquier lugar.</p></div>
                 <div className="bg-white p-6 rounded-lg shadow-sm"><h3 className="text-xl font-bold mb-2">¿Mis datos están seguros?</h3><p className="text-gray-600">Sí. La seguridad es nuestra máxima prioridad. Utilizamos encriptación de nivel bancario y copias de seguridad constantes para proteger tu información.</p></div>
                 <div className="bg-white p-6 rounded-lg shadow-sm"><h3 className="text-xl font-bold mb-2">¿Qué tipo de soporte ofrecen?</h3><p className="text-gray-600">El Plan Crecimiento incluye soporte técnico prioritario a través de WhatsApp para resolver cualquier duda o inconveniente de manera rápida y personalizada.</p></div>
               </div>
@@ -241,10 +241,10 @@ const QControlaLanding = () => {
         <footer className="text-white" style={{ background: 'linear-gradient(135deg, #030d1f 0%, #0c2044 100%)' }}>
           <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-3xl font-bold mb-4">¿Listo para transformar la gestión de tu negocio?</h2>
-            <p className="text-slate-300 mb-8">Solicita una demo gratuita y sin compromiso. Descubre cómo QControla puede ayudarte a crecer.</p>
+            <p className="text-slate-300 mb-8">Solicita una demo gratuita y sin compromiso. Descubre cómo Rapictrl puede ayudarte a crecer.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <a
-                href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20QControla%20y%20me%20gustaría%20solicitar%20una%20demo."
+                href="https://wa.me/570000000000?text=Hola,%20estoy%20interesado%20en%20Rapictrl%20y%20me%20gustaría%20solicitar%20una%20demo."
                 target="_blank"
                 className="inline-block text-white font-bold py-3 px-10 rounded-lg text-lg shadow-lg transition duration-300"
                 style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0a1f3d 100%)' }}
@@ -266,7 +266,7 @@ const QControlaLanding = () => {
               </button>
             </div>
             <div className="border-t border-white/10 mt-12 pt-8">
-              <p className="text-slate-500">© {new Date().getFullYear()} QControla. Todos los derechos reservados.</p>
+              <p className="text-slate-500">© {new Date().getFullYear()} Rapictrl. Todos los derechos reservados.</p>
             </div>
           </div>
         </footer>
@@ -275,4 +275,4 @@ const QControlaLanding = () => {
   );
 };
 
-export default QControlaLanding;
+export default RapictrlLanding;

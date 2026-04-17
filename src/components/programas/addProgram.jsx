@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Modal, Form, Input, InputNumber, Select, Row, Col, Divider, Typography } from "antd";
 import Swal from "sweetalert2";
 import { addProgram, updateProgram } from "../../services/programs/programService";
+import useCurrency from "../../hooks/useCurrency";
 
 const { Option } = Select;
 const { Text } = Typography;
 
 const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
+  const fmt = useCurrency();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [totalCalculado, setTotalCalculado] = useState(0);
@@ -220,7 +222,7 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
         <div className="bg-gray-50 p-4 rounded-md mt-4 flex justify-between items-center border border-gray-200">
           <Text strong>Costo Total Estimado:</Text>
           <Text type="success" className="text-xl font-bold">
-            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(totalCalculado)}
+            {fmt(totalCalculado)}
           </Text>
         </div>
         <Text type="secondary" style={{ fontSize: '12px' }}>

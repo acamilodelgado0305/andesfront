@@ -23,14 +23,10 @@ import POSModal from "./POSModal";
 // LIBRERIAS PDF
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import useCurrency from "../../hooks/useCurrency";
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
-
-const formatCurrency = (value) => {
-    if (!value && value !== 0) return '$0';
-    return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
-};
 
 // Estilos para que los Modales de AntD sean más amigables en móvil (Full width si es necesario)
 const responsiveModalStyles = `
@@ -47,6 +43,7 @@ const responsiveModalStyles = `
 `;
 
 const PedidosDashboard = () => {
+    const formatCurrency = useCurrency();
     // --- ESTADOS PRINCIPALES ---
     const [pedidos, setPedidos] = useState([]);
     const [stats, setStats] = useState(null);

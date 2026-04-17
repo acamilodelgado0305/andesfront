@@ -13,6 +13,7 @@ import { getMateriasByPrograma, createMateria, updateMateria, deleteMateria } fr
 import { getAllDocentes } from "../../services/docentes/serviceDocente";
 import CreateProgramModal from "./addProgram";
 import HorarioDrawer from "../Horarios/HorarioDrawer";
+import useCurrency from "../../hooks/useCurrency";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -448,14 +449,7 @@ const ProgramsManagement = () => {
     }
   };
 
-  const formatCurrency = (value) => {
-    if (!value) return "$ 0";
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
+  const formatCurrency = useCurrency();
 
   const columns = [
     {

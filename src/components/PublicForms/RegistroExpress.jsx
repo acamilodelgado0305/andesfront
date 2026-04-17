@@ -232,7 +232,7 @@ function RegistroExpress() {
       
       {/* 🦶 FOOTER CON ENLACE OPCIONAL AL CURSO */}
       <div style={styles.footerContainer}>
-        <p style={styles.footerText}>🔒 QuickControla - Pagos Seguros</p>
+        <p style={styles.footerText}>🔒 Rapictrl - Pagos Seguros</p>
         <a href={LINK_CURSO} target="_blank" rel="noopener noreferrer" style={styles.footerLink}>
           📖 Ver material de estudio y examen (Opcional)
         </a>

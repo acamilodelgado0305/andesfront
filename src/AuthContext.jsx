@@ -14,6 +14,24 @@ import {
 
 export const AuthContext = createContext(null);
 
+// Campos derivados del JWT que queremos siempre presentes en el `user` del contexto.
+const buildUserFromPayload = (payload, base = {}) => ({
+    id: base.id ?? payload.sub ?? payload.id,
+    email: base.email ?? null,
+    name: base.name ?? payload.name,
+    role: base.role ?? payload.role,
+    bid: base.bid ?? base.business_id ?? payload.bid ?? null,
+    business_id: base.business_id ?? base.bid ?? payload.bid ?? null,
+    app: base.app ?? payload.scope,
+    modules: base.modules ?? payload.modules ?? [],
+    business_name: base.business_name ?? payload.business_name,
+    businesses: base.businesses ?? payload.businesses ?? [],
+    is_trial: base.is_trial ?? payload.is_trial ?? false,
+    trial_ends_at: base.trial_ends_at ?? payload.trial_ends_at ?? null,
+    onboarding_completed_at: base.onboarding_completed_at ?? payload.onboarding_completed_at ?? null,
+    country: base.country ?? payload.country ?? 'CO',
+});
+
 export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(null);
     const [user, setUser] = useState(null);
@@ -34,27 +52,11 @@ export const AuthProvider = ({ children }) => {
                 setToken(storedToken);
                 setIsAuthenticated(true);
 
-                if (storedUser) {
-                    // Si el token trae módulos nuevos y el localStorage es viejo, actualizamos
-                    if (!storedUser.modules && payload.modules) {
-                        storedUser.modules = payload.modules;
-                    }
-                    setUser(storedUser);
-                } else {
-                    // RECONSTRUCCIÓN SI NO HAY DATOS EN LOCALSTORAGE
-                    const reconstructedUser = {
-                        id: payload.sub, // O payload.id según tu backend
-                        name: payload.name,
-                        role: payload.role,
-                        bid: payload.bid,
-                        app: payload.scope, // O payload.app
-                        modules: payload.modules || [],
-                        business_name: payload.business_name,
-                        businesses: payload.businesses || []
-                    };
-                    setUser(reconstructedUser);
-                    saveUser(reconstructedUser);
-                }
+                // Fusionar storedUser con lo que venga en el JWT (el token es la
+                // fuente de verdad para los campos de sesión: módulos, trial, onboarding).
+                const merged = buildUserFromPayload(payload, storedUser || {});
+                setUser(merged);
+                saveUser(merged);
             } else {
                 // Token expirado
                 logoutService();
@@ -70,43 +72,21 @@ export const AuthProvider = ({ children }) => {
         setToken(newToken);
         setIsAuthenticated(true);
 
-        let finalUser = userFromApi;
+        const finalUser = buildUserFromPayload(payload || {}, userFromApi || {});
 
-        // Si por alguna razón la API no manda el user completo, lo sacamos del token
-        if (!finalUser && payload) {
-            finalUser = {
-                id: payload.sub,
-                name: payload.name,
-                role: payload.role,
-                bid: payload.bid,
-                app: payload.scope,
-                modules: payload.modules || [],
-                business_name: payload.business_name,
-                businesses: payload.businesses || []
-            };
-        }
+        saveUser(finalUser);
+        setUser(finalUser);
+    };
 
-        // Completar campos faltantes desde el token
-        if (finalUser && payload) {
-            if (!finalUser.modules && payload.modules) {
-                finalUser.modules = payload.modules;
-            }
-            if (!finalUser.businesses && payload.businesses) {
-                finalUser.businesses = payload.businesses;
-            }
-            if (!finalUser.business_name && payload.business_name) {
-                finalUser.business_name = payload.business_name;
-            }
-            // Normalizar bid: prioridad token > business_id del user object
-            if (!finalUser.bid) {
-                finalUser.bid = payload.bid || finalUser.business_id || null;
-            }
-        }
-
-        if (finalUser) {
-            saveUser(finalUser);
-            setUser(finalUser);
-        }
+    // Permite parchar el user en memoria (y en localStorage) sin hacer refresh
+    // de token. Lo usamos, por ejemplo, al completar el onboarding: la respuesta
+    // del backend trae el business actualizado → marcamos onboarding_completed_at.
+    const patchUser = (patch) => {
+        setUser((prev) => {
+            const next = { ...(prev || {}), ...patch };
+            saveUser(next);
+            return next;
+        });
     };
 
     const logout = () => {
@@ -126,6 +106,7 @@ export const AuthProvider = ({ children }) => {
                 loading,
                 login,
                 logout,
+                patchUser,
             }}
         >
             {children}

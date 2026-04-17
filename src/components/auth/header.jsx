@@ -18,8 +18,8 @@ const funcionalidades = [
 
 const recursos = [
   { icon: HelpCircle, label: 'Preguntas Frecuentes', href: '/#faq' },
-  { icon: MessageCircle, label: 'Soporte por WhatsApp', href: 'https://wa.me/570000000000?text=Hola,%20necesito%20ayuda%20con%20QControla', external: true },
-  { icon: ShoppingCart, label: 'Solicitar Demo Gratuita', href: 'https://wa.me/570000000000?text=Hola,%20quisiera%20una%20demo%20de%20QControla', external: true },
+  { icon: MessageCircle, label: 'Soporte por WhatsApp', href: 'https://wa.me/570000000000?text=Hola,%20necesito%20ayuda%20con%20Rapictrl', external: true },
+  { icon: ShoppingCart, label: 'Solicitar Demo Gratuita', href: 'https://wa.me/570000000000?text=Hola,%20quisiera%20una%20demo%20de%20Rapictrl', external: true },
 ];
 
 const Dropdown = ({ label, items, isScrolled, isMobile = false }) => {
@@ -121,7 +121,7 @@ const Header = () => {
       const response = await loginWithGoogleToken(tokenResponse.access_token);
       if (response.token) {
         contextLogin(response.token, response.user);
-        message.success('¡Bienvenido a QControla! Tu prueba gratuita de 14 días ha comenzado.', 3);
+        message.success('¡Bienvenido a Rapictrl! Tu prueba gratuita de 14 días ha comenzado.', 3);
         navigate('/inicio');
       }
     } catch (error) {
@@ -154,7 +154,7 @@ const Header = () => {
               href="/#hero"
               className={`text-2xl font-bold transition-colors whitespace-nowrap ${isScrolled ? 'text-gray-900' : 'text-white'}`}
             >
-              QControla
+              Rapictrl
             </a>
 
             <nav className="hidden lg:flex items-center gap-7">
@@ -172,7 +172,7 @@ const Header = () => {
               Iniciar Sesión
             </Link>
             <a
-              href="https://wa.me/570000000000?text=Hola,%20me%20gustaría%20solicitar%20una%20demo%20de%20QControla."
+              href="https://wa.me/570000000000?text=Hola,%20me%20gustaría%20solicitar%20una%20demo%20de%20Rapictrl."
               target="_blank"
               rel="noopener noreferrer"
               className={`font-medium transition-colors px-4 py-2 rounded-lg border-2 ${
@@ -238,7 +238,7 @@ const Header = () => {
 
               <div className="border-t pt-4 mt-2 space-y-2 border-white/10">
                 <a
-                  href="https://wa.me/570000000000?text=Hola,%20me%20gustaría%20solicitar%20una%20demo%20de%20QControla."
+                  href="https://wa.me/570000000000?text=Hola,%20me%20gustaría%20solicitar%20una%20demo%20de%20Rapictrl."
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`block w-full text-center font-semibold py-2 px-5 rounded-lg border-2 ${

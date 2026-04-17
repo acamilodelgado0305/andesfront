@@ -197,7 +197,7 @@ function Certificados() {
               onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
             >
               <MinusOutlined style={{ fontSize: 11 }} />
-              Egreso
+              Gasto
             </button>
 
             <Button icon={<ReloadOutlined />} onClick={() => fetchTransactions(dateRange)} loading={loading} shape="circle" />
@@ -231,7 +231,7 @@ function Certificados() {
             </div>
           </TabPane>
 
-          <TabPane tab={<span style={{ fontWeight: 600 }}><ArrowDownOutlined style={{ color: '#dc2626' }} /> Egresos</span>} key="egresos">
+          <TabPane tab={<span style={{ fontWeight: 600 }}><ArrowDownOutlined style={{ color: '#dc2626' }} /> Gastos</span>} key="egresos">
             <div className="p-4">
               <div className="mb-4">
                 <DashboardStats ingresos={myIngresos} egresos={myEgresos} dateRange={dateRange} filters={filters} />

@@ -14,6 +14,7 @@ import 'jspdf-autotable';
 import 'moment/locale/es';
 
 import { deleteIngreso, deleteEgreso } from '../../services/controlapos/posService';
+import useCurrency from '../../hooks/useCurrency';
 
 moment.locale('es');
 const { Option } = Select;
@@ -33,6 +34,7 @@ const TransactionTable = ({
   dateRange, onDateRangeChange, userName, onFiltersChange,
   inventario = [], vendedores = [],
 }) => {
+  const fmt = useCurrency();
   const [searchText,    setSearchText]    = useState('');
   const [paymentFilter, setPaymentFilter] = useState(null);
   const [conceptFilter, setConceptFilter] = useState(null);
@@ -216,7 +218,7 @@ const TransactionTable = ({
       render: (val) => (
         <span style={{ ...TS, fontWeight: 600,
           color: type === 'ingresos' ? '#15803d' : '#dc2626' }}>
-          {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(val || 0)}
+          {fmt(val)}
         </span>
       ),
     },
@@ -242,7 +244,7 @@ const TransactionTable = ({
         getConcept(item),
         item.cuenta || '',
         userMap[String(item.usuario)] || (item.usuario ? `ID ${item.usuario}` : '-'),
-        new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(item.valor || 0),
+        fmt(item.valor),
       ]),
       startY: 26,
     });

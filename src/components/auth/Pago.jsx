@@ -14,7 +14,7 @@ const BANK_INFO = {
   banco: 'Bancolombia',
   tipoCuenta: 'Cuenta de Ahorros',
   numeroCuenta: '123-456789-12',
-  titular: 'QControla SAS',
+  titular: 'Rapictrl SAS',
   nit: '901.234.567-8',
 };
 
@@ -167,7 +167,7 @@ const Pago = () => {
     <div className="min-h-screen bg-gray-50 font-sans">
       {/* Navbar mínima */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <Link to="/precios" className="text-xl font-bold text-gray-900">QControla</Link>
+        <Link to="/precios" className="text-xl font-bold text-gray-900">Rapictrl</Link>
         <div className="hidden sm:flex items-center gap-6">
           <StepBadge n={1} label="Elige plan" done={true} />
           <ChevronRight size={14} className="text-gray-300" />

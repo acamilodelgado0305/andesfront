@@ -25,6 +25,7 @@ import {
 } from "react-icons/fa";
 import axios from "axios";
 import dayjs from "dayjs";
+import useCurrency from "../../hooks/useCurrency";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -45,21 +46,13 @@ const Payments = () => {
     const [selectedPaymentType, setSelectedPaymentType] = useState(null);
     const [montoEsperadoMensualidad, setMontoEsperadoMensualidad] = useState(null);
 
+    const formatCurrency = useCurrency();
+
     // --- UTILITIES ---
     const formatDateToMonth = (dateString) => {
         if (!dateString) return "N/A";
         const date = dayjs(dateString);
         return date.format("MMMM [de] YYYY"); // Formato "Julio de 2025"
-    };
-
-    const formatCurrency = (value) => {
-        const numericValue = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
-        return numericValue.toLocaleString("es-CO", {
-            style: "currency",
-            currency: "COP",
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-        });
     };
 
     // --- FETCH DATA FUNCTIONS ---

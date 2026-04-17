@@ -7,14 +7,12 @@ import {
     TrophyOutlined,
     InfoCircleOutlined
 } from '@ant-design/icons';
+import useCurrency from '../../hooks/useCurrency';
 
 const { Text } = Typography;
 
-// Función para formatear dinero
-const formatCurrency = (value) =>
-    new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(value);
-
 const PedidosStats = ({ stats, loading }) => {
+    const formatCurrency = useCurrency();
     if (loading) return <div className="p-8 text-center"><Spin /></div>;
     if (!stats) return null;
 

@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Typography, Dropdown, ConfigProvider, Spin, Modal, List, message, Form, Input, Select, Tag, Divider, Switch } from 'antd';
+import { Menu, Button, Avatar, Typography, Dropdown, ConfigProvider, Spin, Modal, message, Form, Input, Select, Tag, Divider, Switch } from 'antd';
 import {
   HomeOutlined,
   DashboardOutlined,
@@ -21,17 +21,28 @@ import {
   AppstoreOutlined,
   UsergroupAddOutlined,
   PlusOutlined,
+  SwapOutlined,
+  InboxOutlined,
+  ContactsOutlined,
+  ShoppingCartOutlined,
+  UserSwitchOutlined,
+  TrophyOutlined,
+  BarChartOutlined,
+  FileDoneOutlined,
+  ToolOutlined,
+  CrownOutlined,
 } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import OnboardingWizard from './Onboarding/OnboardingWizard';
 
-const { Header, Sider, Content } = Layout;
 const { Title } = Typography;
 
 const API_URL = import.meta.env.VITE_API_BACKEND;
 const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
-const PRIMARY_COLOR = '#155153';
+const PRIMARY_COLOR = '#1d4ed8';
+const PRIMARY_DARK  = '#0a1f3d';
 
 // =========================================================
 // 📋 MENÚ MAESTRO (Definición única de toda la app)
@@ -43,8 +54,8 @@ const MENU_MASTER = [
   // --- 1. GENERAL (Todos lo ven) ---
   {
     key: '/inicio/dashboard',
-    icon: <DashboardOutlined />,
-    label: 'Panel de Control',
+    icon: <HomeOutlined />,
+    label: 'Inicio',
     path: '/inicio/dashboard'
   },
 
@@ -55,10 +66,10 @@ const MENU_MASTER = [
     label: 'Gestión Comercial (POS)',
     requiredModule: 'POS', // <--- Módulo requerido
     children: [
-      { key: '/inicio/certificados', icon: <BankOutlined />, label: 'Movimientos / Caja', path: '/inicio/certificados' },
-      { key: '/inicio/inventario', icon: <BuildOutlined />, label: 'Inventario', path: '/inicio/inventario' },
-      { key: '/inicio/personas', icon: <UsergroupAddOutlined />, label: 'Directorio Personas', path: '/inicio/personas' },
-      { key: '/inicio/pedidos', icon: <UsergroupAddOutlined />, label: 'Pedidos', path: '/inicio/pedidos' },
+      { key: '/inicio/certificados', icon: <SwapOutlined />,      label: 'Movimientos',  path: '/inicio/certificados' },
+      { key: '/inicio/inventario',   icon: <InboxOutlined />,     label: 'Inventario',   path: '/inicio/inventario' },
+      { key: '/inicio/personas',     icon: <ContactsOutlined />,  label: 'Contactos',    path: '/inicio/personas' },
+      { key: '/inicio/pedidos',      icon: <ShoppingCartOutlined />, label: 'Pedidos',   path: '/inicio/pedidos' },
     ]
   },
 
@@ -70,10 +81,10 @@ const MENU_MASTER = [
     requiredModule: 'ACADEMICO', // <--- Módulo requerido
     children: [
       { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
-      { key: '/inicio/docentes', icon: <IdcardOutlined />, label: 'Docentes', path: '/inicio/docentes' },
-      { key: '/inicio/programas', icon: <IdcardOutlined />, label: 'Programas', path: '/inicio/programas' },
-      { key: '/inicio/evaluaciones', icon: <BookOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
-      { key: '/inicio/calificaciones', icon: <FileTextOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
+      { key: '/inicio/docentes', icon: <UserSwitchOutlined />, label: 'Docentes', path: '/inicio/docentes' },
+      { key: '/inicio/programas', icon: <ReadOutlined />, label: 'Programas', path: '/inicio/programas' },
+      { key: '/inicio/evaluaciones', icon: <TrophyOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
+      { key: '/inicio/calificaciones', icon: <BarChartOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
     ],
   },
 
@@ -84,7 +95,7 @@ const MENU_MASTER = [
     label: 'Otros / Utilidades',
     requiredModule: 'GENERACION', // <--- Módulo requerido
     children: [
-      { key: '/inicio/generacion', icon: <PaperClipOutlined />, label: 'Generación Documentos', path: '/inicio/generacion' },
+      { key: '/inicio/generacion', icon: <FileDoneOutlined />, label: 'Generación Documentos', path: '/inicio/generacion' },
     ]
   },
 
@@ -95,7 +106,7 @@ const MENU_MASTER = [
     label: 'Administración Global',
     requiredRole: ['superadmin'], // <--- Solo superadmin
     children: [
-      { key: '/inicio/adminclients', icon: <SettingOutlined />, label: 'Configurador General', path: '/inicio/adminclients' },
+      { key: '/inicio/adminclients', icon: <CrownOutlined />, label: 'Configurador General', path: '/inicio/adminclients' },
     ]
   },
 
@@ -106,7 +117,7 @@ const MENU_MASTER = [
     label: 'Configuración',
     requiredRole: ['admin', 'superadmin'], // <--- Solo admin del negocio
     children: [
-      { key: '/inicio/usuarios-negocio', icon: <TeamOutlined />, label: 'Administración', path: '/inicio/usuarios-negocio' },
+      { key: '/inicio/usuarios-negocio', icon: <ToolOutlined />, label: 'Administración', path: '/inicio/usuarios-negocio' },
     ]
   }
 ];
@@ -179,6 +190,103 @@ const applyChildRestrictions = (menuItem, userRole) => {
   return { ...menuItem, children: filteredChildren };
 };
 
+// =========================================================
+// 🎁 TRIAL BANNER — Se muestra cuando el usuario tiene prueba activa
+// =========================================================
+const TrialBanner = ({ user, navigate }) => {
+  if (!user?.is_trial) return null;
+
+  const today = dayjs().startOf('day');
+  const trialEnd = dayjs(user.trial_ends_at).startOf('day');
+  const daysLeft = trialEnd.diff(today, 'day');
+
+  if (daysLeft < 0) return null;
+
+  const totalDays = 14;
+  const daysUsed = Math.max(0, totalDays - daysLeft);
+  const progressPercent = Math.round((daysUsed / totalDays) * 100);
+  const isUrgent = daysLeft <= 3;
+
+  return (
+    <div
+      style={{
+        background: isUrgent
+          ? 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)'
+          : 'linear-gradient(135deg, #030d1f 0%, #1d4ed8 100%)',
+        color: 'white',
+        padding: '8px 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        flexWrap: 'wrap',
+        position: 'sticky',
+        top: 0,
+        zIndex: 997,
+        borderBottom: '1px solid rgba(255,255,255,0.15)',
+      }}
+    >
+      {/* Left: message */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 16 }}>{isUrgent ? '⚠️' : '🎉'}</span>
+        <div style={{ lineHeight: 1.3 }}>
+          <span style={{ fontWeight: 600, fontSize: 13 }}>
+            {isUrgent ? '¡Tu prueba gratuita está por terminar!' : 'Estás disfrutando de tu prueba gratuita'}
+          </span>
+          <span style={{ opacity: 0.85, fontSize: 12, marginLeft: 6 }}>
+            Quedan <strong>{daysLeft} día{daysLeft !== 1 ? 's' : ''}</strong>
+          </span>
+        </div>
+      </div>
+
+      {/* Right: progress + CTA */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+          <span style={{ fontSize: 11, opacity: 0.85, fontWeight: 600, letterSpacing: '0.5px' }}>
+            {daysUsed} / {totalDays} días usados
+          </span>
+          <div
+            style={{
+              width: 130,
+              height: 5,
+              backgroundColor: 'rgba(255,255,255,0.25)',
+              borderRadius: 3,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${progressPercent}%`,
+                height: '100%',
+                backgroundColor: isUrgent ? '#fca5a5' : '#6ee7b7',
+                borderRadius: 3,
+                transition: 'width 0.3s',
+              }}
+            />
+          </div>
+        </div>
+        <button
+          onClick={() => navigate('/precios')}
+          style={{
+            backgroundColor: 'white',
+            color: isUrgent ? '#b91c1c' : '#1d4ed8',
+            border: 'none',
+            borderRadius: 6,
+            padding: '4px 14px',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+          }}
+        >
+          Ver planes
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const RootLayout = () => {
   // 1. OBTENER USUARIO DEL CONTEXTO
   const { user, login, logout, loading: authLoading } = useContext(AuthContext);
@@ -188,6 +296,17 @@ const RootLayout = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const timerRef = useRef(null);
+
+  // Onboarding wizard: se muestra automáticamente si el user está en trial y
+  // aún no completó el onboarding. Se puede cerrar ("Más tarde") para volver
+  // a mostrarse en el próximo login.
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  useEffect(() => {
+    if (!authLoading && user) {
+      const shouldShow = user.is_trial && !user.onboarding_completed_at;
+      setShowOnboarding(shouldShow);
+    }
+  }, [user, authLoading]);
 
   const [subscriptionData, setSubscriptionData] = useState({ endDate: null, amountPaid: null });
   const location = useLocation();
@@ -272,79 +391,98 @@ const RootLayout = () => {
   };
 
   // =========================================================
-  // 🚀 3. FILTRADO DINÁMICO DEL MENÚ (CORE LOGIC)
+  // 🚀 3. MENÚ PLANO POR SECCIONES
   // =========================================================
-  const getDynamicMenuItems = () => {
+  // Devuelve array de secciones: [{ sectionLabel, sectionColor, items: [{key, icon, label, path}] }]
+  const getNavSections = () => {
     if (!user) return [];
 
-    if (isEducationalPlanUser(user)) {
-      return mapMenuToAntd(buildEducationalMenu());
-    }
-
-    // A. Si es SuperAdmin, devuelve TODO el menú maestro (sin restricciones de hijos),
-    // pero respetando roles explícitos (ej. superadmin-only)
-    if (user.role === 'superadmin') {
-      const superAdminMenu = MENU_MASTER.filter(item => {
-        if (item.requiredRole && !item.requiredRole.includes(user.role)) return false;
-        return true;
-      });
-      return mapMenuToAntd(superAdminMenu);
-    }
-
-    // B. Si es 'Docente' (Legacy), podemos devolver un subconjunto específico
-    // Para compatibilidad total, si no tiene modules pero es docente:
-    if (user.role === 'docente' && (!user.modules || user.modules.length === 0)) {
-      const academicMenu = MENU_MASTER.find(m => m.key === '/academic-management');
-      const dashboard = MENU_MASTER.find(m => m.key === '/inicio/dashboard');
-      const restrictedAcademic = academicMenu ? applyChildRestrictions(academicMenu, user.role) : null;
-      return mapMenuToAntd([dashboard, restrictedAcademic].filter(Boolean));
-    }
-
-    // C. Filtrado Estándar basado en Módulos (ABAC) + restricciones por rol
     const userModules = user.modules || [];
+    const hasPOS      = user.role === 'superadmin' || userModules.includes('POS');
+    const hasACAD     = user.role === 'superadmin' || userModules.includes('ACADEMICO') || isEducationalPlanUser(user);
+    const hasGEN      = user.role === 'superadmin' || userModules.includes('GENERACION');
+    const isSuperAdmin = user.role === 'superadmin';
+    const isAdmin      = ['admin', 'superadmin'].includes(user.role);
+    const isDocente    = user.role === 'docente';
+    const hasBoth      = hasPOS && hasACAD;
 
-    const filteredMenu = MENU_MASTER
-      .filter(item => {
-        // 0. Filtrado por rol específico si está definido en el item (ej: Configuración de Usuarios)
-        if (item.requiredRole && !item.requiredRole.includes(user.role)) return false;
+    const sections = [];
 
-        // 1. Si no requiere módulo, pasa (salvo que ya haya fallado el rol)
-        if (!item.requiredModule) return true;
-        // 2. Si requiere módulo, verificamos si el usuario lo tiene
-        return userModules.includes(item.requiredModule);
-      })
-      // 3. Aplicar restricciones de hijos según el rol del usuario
-      .map(item => applyChildRestrictions(item, user.role))
-      .filter(Boolean); // Eliminar items que quedaron null (sin hijos tras filtrar)
+    // — General —
+    sections.push({
+      sectionLabel: null,
+      items: [{ key: '/inicio/dashboard', icon: <HomeOutlined />, label: 'Inicio', path: '/inicio/dashboard' }],
+    });
 
-    return mapMenuToAntd(filteredMenu);
+    // — Gestión Empresarial —
+    if (hasPOS) {
+      sections.push({
+        sectionLabel: hasBoth ? 'Gestión Empresarial' : null,
+        sectionColor: '#1d4ed8',
+        items: [
+          { key: '/inicio/certificados', icon: <SwapOutlined />,       label: 'Movimientos',  path: '/inicio/certificados' },
+          { key: '/inicio/inventario',   icon: <InboxOutlined />,      label: 'Inventario',          path: '/inicio/inventario' },
+          { key: '/inicio/personas',     icon: <ContactsOutlined />,   label: 'Contactos', path: '/inicio/personas' },
+          { key: '/inicio/pedidos',      icon: <ShoppingCartOutlined />, label: 'Pedidos',             path: '/inicio/pedidos' },
+        ],
+      });
+    }
+
+    // — Gestión Académica —
+    if (hasACAD) {
+      let acadItems = [
+        { key: '/inicio/students',       icon: <TeamOutlined />,     label: 'Estudiantes',   path: '/inicio/students' },
+        { key: '/inicio/docentes',       icon: <UserSwitchOutlined />, label: 'Docentes',      path: '/inicio/docentes' },
+        { key: '/inicio/programas',      icon: <ReadOutlined />,       label: 'Programas',     path: '/inicio/programas' },
+        { key: '/inicio/evaluaciones',   icon: <TrophyOutlined />,     label: 'Evaluaciones',  path: '/inicio/evaluaciones' },
+        { key: '/inicio/calificaciones', icon: <BarChartOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
+      ];
+      // Restricción para rol 'user' educativo o docente
+      if (user.role === 'user' || isDocente) {
+        const allowed = ROLE_CHILD_RESTRICTIONS.ACADEMICO?.user || [];
+        acadItems = acadItems.filter(i => allowed.includes(i.path));
+      }
+      sections.push({
+        sectionLabel: hasBoth ? 'Gestión Académica' : null,
+        sectionColor: '#7c3aed',
+        items: acadItems,
+      });
+    }
+
+    // — Utilidades —
+    if (hasGEN) {
+      sections.push({
+        sectionLabel: null,
+        items: [
+          { key: '/inicio/generacion', icon: <FileDoneOutlined />, label: 'Generación Documentos', path: '/inicio/generacion' },
+        ],
+      });
+    }
+
+    // — Configuración del negocio —
+    if (isAdmin) {
+      sections.push({
+        sectionLabel: null,
+        items: [
+          { key: '/inicio/usuarios-negocio', icon: <ToolOutlined />, label: 'Administración', path: '/inicio/usuarios-negocio' },
+        ],
+      });
+    }
+
+    // — Administración Global —
+    if (isSuperAdmin) {
+      sections.push({
+        sectionLabel: null,
+        items: [
+          { key: '/inicio/adminclients', icon: <CrownOutlined />, label: 'Configurador General', path: '/inicio/adminclients' },
+        ],
+      });
+    }
+
+    return sections;
   };
 
-  // Helper para convertir nuestra estructura al formato de Ant Design
-  const mapMenuToAntd = (items) => {
-    return items.map((item) => ({
-      key: item.key,
-      icon: item.icon,
-      label: item.path ? <Link to={item.path}>{item.label}</Link> : item.label,
-      children: item.children?.map((child) => ({
-        key: child.path,
-        icon: child.icon,
-        label: <Link to={child.path}>{child.label}</Link>,
-      })),
-    }));
-  };
-
-  const menuItems = getDynamicMenuItems();
-
-  // --- MENÚ DE PERFIL ---
-  const profileMenu = (
-    <Menu items={[
-      { key: '1', icon: <UserOutlined />, label: <Link to="/inicio/perfil">Mi Perfil</Link> },
-      { key: '2', icon: <SettingOutlined />, label: <Link to="/inicio/configuracion">Configuración</Link> },
-      { type: 'divider' },
-      { key: '3', icon: <LogoutOutlined />, label: 'Cerrar Sesión', onClick: logout, danger: true },
-    ]} />
-  );
+  const navSections = getNavSections();
 
   // --- 4. DROPDOWN DE NEGOCIOS ---
   const [switchingBusiness, setSwitchingBusiness] = useState(false);
@@ -449,7 +587,7 @@ const RootLayout = () => {
             onClick={() => handleBusinessSelect(business)}
             className={`flex items-center gap-3 p-2.5 mb-1 rounded-md cursor-pointer transition-all duration-200 group
               ${user.bid === business.id
-                ? 'bg-[#155153]/5 border border-[#155153]/10'
+                ? 'bg-[#1d4ed8]/5 border border-[#1d4ed8]/10'
                 : 'hover:bg-gray-50 border border-transparent'}
             `}
           >
@@ -461,7 +599,7 @@ const RootLayout = () => {
               className={`rounded-md flex-shrink-0 transition-colors shadow-sm ${user.bid === business.id ? '' : 'bg-gray-200 group-hover:bg-gray-300'}`}
             />
             <div className="flex flex-col min-w-0">
-              <span className={`text-sm font-bold truncate leading-tight ${user.bid === business.id ? 'text-[#155153]' : 'text-gray-700'}`}>
+              <span className={`text-sm font-bold truncate leading-tight ${user.bid === business.id ? 'text-[#1d4ed8]' : 'text-gray-700'}`}>
                 {business.name}
               </span>
               <span className="text-[11px] text-gray-500 capitalize mt-0.5">
@@ -481,7 +619,7 @@ const RootLayout = () => {
         <div className="px-2 pt-2 pb-1 border-t border-gray-100 mt-1">
           <button
             onClick={(e) => { e.stopPropagation(); openCreateBusiness(); }}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-md text-xs font-semibold text-[#155153] border border-dashed border-[#155153]/40 hover:bg-[#155153]/5 transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-md text-xs font-semibold text-[#1d4ed8] border border-dashed border-[#1d4ed8]/40 hover:bg-[#1d4ed8]/5 transition-colors"
           >
             <PlusOutlined /> Crear Nuevo Negocio
           </button>
@@ -501,173 +639,279 @@ const RootLayout = () => {
     return null;
   }
 
+  // Menú de perfil para el avatar (modo colapsado)
+  const collapsedProfileMenu = (
+    <Menu items={[
+      { key: '1', icon: <SettingOutlined />, label: <Link to="/inicio/configuracion">Configuración</Link> },
+      { type: 'divider' },
+      { key: '2', icon: <LogoutOutlined />, label: 'Cerrar Sesión', onClick: logout, danger: true },
+    ]} />
+  );
+
   return (
     <ConfigProvider
       theme={{
         token: { colorPrimary: PRIMARY_COLOR },
         components: {
           Menu: {
-            itemHoverBg: '#e6f4f4',
+            itemHoverBg: '#dbeafe',
             itemSelectedBg: PRIMARY_COLOR,
-            itemSelectedColor: '#000000',
-            // Estilo para submenús activos
-            '.ant-menu-submenu-selected > .ant-menu-submenu-title > .ant-menu-title-content': {
-              color: PRIMARY_COLOR,
-              fontWeight: 'bold'
-            },
+            itemSelectedColor: '#ffffff',
           },
           Layout: {
-            headerBg: '#ffffff',
             siderBg: '#ffffff',
           },
         },
       }}
     >
-      <Layout style={{ minHeight: '100vh', backgroundImage: 'linear-gradient(to bottom, #fff1eb 0%, #dff0fb 100%)', backgroundAttachment: 'fixed' }}>
-        {/* Backdrop Móvil */}
-        {isMobile && mobileDrawerOpen && (
+      {/* Layout raíz: sidebar fijo encima, contenido ocupa todo el ancho */}
+      <div style={{ minHeight: '100vh', backgroundImage: 'linear-gradient(to bottom, #fff1eb 0%, #dff0fb 100%)', backgroundAttachment: 'fixed' }}>
+
+        {/* ── Backdrop ── */}
+        {(!isSiderCollapsed || (isMobile && mobileDrawerOpen)) && (
           <div
-            onClick={() => setMobileDrawerOpen(false)}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.45)', zIndex: 999, transition: 'opacity 0.3s' }}
+            onClick={() => { setIsSiderCollapsed(true); setMobileDrawerOpen(false); }}
+            style={{ position: 'fixed', inset: 0, zIndex: 998, background: 'transparent' }}
           />
         )}
 
+        {/* ── Botón hamburger (móvil) ── */}
+        {isMobile && (
+          <button
+            onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
+            style={{
+              position: 'fixed', top: 12, left: 12, zIndex: 1002,
+              width: 36, height: 36, borderRadius: 8, border: 'none',
+              backgroundColor: '#fff', color: '#374151', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 1px 6px rgba(0,0,0,0.15)', fontSize: 15,
+            }}
+          >
+            {mobileDrawerOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+          </button>
+        )}
 
+        {/* ===== SIDEBAR ===== */}
+        {(() => {
+          const expanded = !isSiderCollapsed || (isMobile && mobileDrawerOpen);
+          const W_EXP  = 232;
+          const W_COL  = 56;
+          const siderW = isMobile ? (mobileDrawerOpen ? W_EXP : 0) : (expanded ? W_EXP : W_COL);
 
-        <Sider
-          collapsible
-          collapsed={isMobile ? false : isSiderCollapsed}
-          trigger={null}
-          width={260}
-          breakpoint="md"
-          collapsedWidth={isMobile ? 0 : 80}
-          style={{
-            boxShadow: '2px 0 8px rgba(0, 0, 0, 0.05)',
-            borderRight: '1px solid #f0f0f0',
-            position: isMobile ? 'fixed' : 'relative',
-            left: isMobile ? (mobileDrawerOpen ? 0 : -260) : 'auto',
-            zIndex: 1000,
-            height: '100vh',
-            overflow: isMobile ? 'hidden' : 'auto',
-            transition: 'all 0.3s',
-          }}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          {/* LOGO */}
-          <div className="flex items-center justify-start h-16 p-4 border-b border-gray-100">
-            <Link to="/inicio" className="flex items-start gap-2">
-              {(!isSiderCollapsed || isMobile) ? (
-                <Title level={4} className="!m-0 whitespace-nowrap" style={{ color: PRIMARY_COLOR }}>
-                  Controla
-                </Title>
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-[#155153] flex items-center justify-center text-white font-bold">
-                  C
-                </div>
-              )}
-            </Link>
-          </div>
+          const collapsed = !expanded;
 
-          {/* MENÚ DINÁMICO */}
-          <Menu
-            mode="inline"
-            selectedKeys={[location.pathname]}
-            // Abrir automáticamente los grupos principales si no está colapsado
-            defaultOpenKeys={!isSiderCollapsed ? ['/gestion-comercial', '/academic-management'] : []}
-            items={menuItems.map(item => ({
-              ...item,
-              onClick: isMobile ? () => setMobileDrawerOpen(false) : undefined,
-              children: item.children?.map(child => ({
-                ...child,
-                onClick: isMobile ? () => setMobileDrawerOpen(false) : undefined,
-              }))
-            }))}
-            style={{ borderRight: 'none', paddingTop: '10px', paddingBottom: isMobile ? '110px' : '10px', overflowY: 'auto', maxHeight: 'calc(100vh - 64px)' }}
-          />
-
-          {/* SELECTOR DE NEGOCIO EN SIDEBAR (solo móvil) */}
-          {isMobile && (
-            <div className="absolute bottom-0 left-0 right-0 border-t border-gray-100 bg-white px-3 py-3">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">Negocio activo</div>
-              <Dropdown overlay={businessMenu} trigger={['click']} placement="topLeft">
-                <div className="flex items-center gap-3 p-2.5 rounded-md border border-gray-200 hover:border-[#155153]/30 hover:bg-[#155153]/5 cursor-pointer transition-all">
-                  <Avatar shape="square" size={36} icon={<ShopOutlined />} style={{ backgroundColor: PRIMARY_COLOR }} className="rounded-md flex-shrink-0" />
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="text-sm font-bold text-gray-800 truncate leading-tight">{currentBusinessName}</span>
-                    <span className="text-[11px] text-gray-500 mt-0.5">
-                      {availableBusinesses.length > 1 ? `${availableBusinesses.length} negocios disponibles` : 'Toca para ver opciones'}
+          return (
+            <div
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+              style={{
+                position: 'fixed', top: 0, left: 0, bottom: 0,
+                width: siderW,
+                zIndex: 1000,
+                overflow: 'hidden',
+                transition: 'width 0.22s ease',
+                backgroundColor: '#fff',
+                borderRight: '1px solid #e9eaec',
+                boxShadow: expanded ? '2px 0 16px rgba(0,0,0,0.08)' : 'none',
+                display: 'flex', flexDirection: 'column',
+              }}
+            >
+              {/* ── Logo ── */}
+              <div style={{
+                height: 52, display: 'flex', alignItems: 'center',
+                padding: collapsed ? '0 12px' : '0 16px',
+                borderBottom: '1px solid #e9eaec', flexShrink: 0,
+                justifyContent: collapsed ? 'center' : 'flex-start', gap: 8,
+              }}>
+                <Link to="/inicio" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <img src="/images/logo.png" alt="Rapictrl" style={{ height: 28, width: 28, objectFit: 'contain', flexShrink: 0 }} />
+                  {!collapsed && (
+                    <span style={{ fontSize: 15, fontWeight: 700, color: '#111827', whiteSpace: 'nowrap' }}>
+                      Rapictrl
                     </span>
-                  </div>
-                  <span className="text-gray-400 text-xs flex-shrink-0">▲</span>
-                </div>
-              </Dropdown>
-            </div>
-          )}
-        </Sider>
-
-        <Layout className="site-layout" style={{ background: 'transparent' }}>
-          <Header style={{ padding: isMobile ? '0 16px' : '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0', position: 'sticky', top: 0, zIndex: 998, backgroundColor: '#ffffff' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <Button
-                type="text"
-                icon={isMobile
-                  ? (mobileDrawerOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />)
-                  : (isSiderCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />)
-                }
-                onClick={() => isMobile ? setMobileDrawerOpen(!mobileDrawerOpen) : setIsSiderCollapsed(!isSiderCollapsed)}
-                style={{ fontSize: '18px', width: 48, height: 48 }}
-              />
-
-              {/* SELECTOR DE NEGOCIO */}
-              <Dropdown overlay={businessMenu} trigger={['click']} placement="bottomLeft">
-                <div
-                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-1.5 rounded-md transition-all border border-transparent hover:border-gray-200"
-                >
-                  <Avatar shape="square" size="small" icon={<ShopOutlined />} style={{ backgroundColor: '#e6f4f4', color: PRIMARY_COLOR }} className="rounded-md" />
-                  <div className="flex flex-col leading-none">
-                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider hidden md:block">Negocio</span>
-                    <span className="text-sm font-bold text-gray-700 truncate max-w-[90px] md:max-w-[150px]">{currentBusinessName}</span>
-                  </div>
-                  {availableBusinesses.length > 1 && (
-                    <span className="text-[10px] text-gray-400">▼</span>
                   )}
-                </div>
-              </Dropdown>
-            </div>
+                </Link>
+              </div>
 
-            <Dropdown overlay={profileMenu} trigger={['click']}>
-              <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
-                <Avatar style={{ backgroundColor: PRIMARY_COLOR }} size="large">
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </Avatar>
-                <div className="flex flex-col items-start leading-tight">
-                  <span className="font-semibold hidden md:inline text-sm text-gray-800">
-                    {user.name || 'Usuario'}
-                  </span>
-                  <div className="flex gap-1 items-center">
-                    <span className="hidden md:inline text-xs text-gray-500 capitalize">
-                      {user.role}
-                    </span>
-                    {user.modules && user.modules.length > 0 && user.role !== 'superadmin' && (
-                      <span className="hidden md:inline text-[10px] bg-blue-100 text-blue-700 px-1 rounded">
-                        {user.modules.includes('POS') ? 'POS' : 'Edu'}
-                      </span>
+              {/* ── Nav ── */}
+              <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
+                {navSections.map((section, si) => (
+                  <div key={si}>
+                    {/* Etiqueta de sección (solo expandido, solo si tiene label) */}
+                    {section.sectionLabel && !collapsed && (
+                      <div style={{ padding: '12px 16px 2px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+                          {section.sectionLabel}
+                        </span>
+                        <div style={{ flex: 1, height: 1, backgroundColor: '#f0f0f0' }} />
+                      </div>
+                    )}
+                    {/* Divisor sutil en colapsado entre secciones con label */}
+                    {section.sectionLabel && collapsed && si > 0 && (
+                      <div style={{ margin: '4px 10px', height: 1, backgroundColor: '#f0f0f0' }} />
+                    )}
+
+                    {section.items.map(item => {
+                      const isActive = location.pathname === item.path;
+                      return (
+                        <Link
+                          key={item.key}
+                          to={item.path}
+                          onClick={() => { isMobile && setMobileDrawerOpen(false); }}
+                          style={{ textDecoration: 'none', display: 'block', padding: '1px 6px' }}
+                        >
+                          <div
+                            title={collapsed ? item.label : undefined}
+                            style={{
+                              display: 'flex', alignItems: 'center',
+                              gap: 10,
+                              padding: collapsed ? '7px 0' : '7px 10px',
+                              justifyContent: collapsed ? 'center' : 'flex-start',
+                              borderRadius: 7,
+                              backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                              color: isActive ? '#1d4ed8' : '#4b5563',
+                              fontWeight: isActive ? 600 : 400,
+                              fontSize: 13,
+                              cursor: 'pointer',
+                              transition: 'background 0.12s, color 0.12s',
+                            }}
+                            className={!isActive ? 'hover:bg-gray-100 hover:!text-gray-900' : ''}
+                          >
+                            <span style={{ fontSize: 14, flexShrink: 0, color: isActive ? '#1d4ed8' : '#6b7280' }}>
+                              {item.icon}
+                            </span>
+                            {!collapsed && (
+                              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {item.label}
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Footer: usuario ── */}
+              <div style={{ flexShrink: 0, borderTop: '1px solid #e9eaec' }}>
+                <Dropdown overlay={collapsedProfileMenu} trigger={['click']} placement="topRight">
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: collapsed ? '10px 0' : '10px 14px',
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    cursor: 'pointer', transition: 'background 0.15s',
+                  }}
+                    className="hover:bg-gray-50"
+                  >
+                    <Avatar
+                      size={30}
+                      style={{ backgroundColor: '#e5e7eb', color: '#374151', fontSize: 13, fontWeight: 700, flexShrink: 0 }}
+                    >
+                      {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    </Avatar>
+                    {!collapsed && (
+                      <>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {user.name || 'Usuario'}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'capitalize' }}>
+                            {user.role}
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); logout(); }}
+                          title="Cerrar sesión"
+                          style={{ width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: '#9ca3af', border: 'none', background: 'none', cursor: 'pointer', flexShrink: 0 }}
+                          className="hover:bg-red-50 hover:!text-red-500"
+                        >
+                          <LogoutOutlined style={{ fontSize: 13 }} />
+                        </button>
+                      </>
                     )}
                   </div>
+                </Dropdown>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ===== ÁREA PRINCIPAL ===== */}
+        <div style={{ marginLeft: isMobile ? 0 : 56, minHeight: '100vh', transition: 'margin-left 0.22s ease' }}>
+
+          {/* ── HEADER TRANSPARENTE ── */}
+          <div style={{
+            position: 'sticky', top: 0, zIndex: 990,
+            backgroundColor: '#ffffff',
+            borderBottom: '1px solid #e9eaec',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: isMobile ? '0 16px 0 56px' : '0 24px',
+            height: 52,
+            gap: 12,
+          }}>
+
+            {/* Izquierda: selector de negocio */}
+            <Dropdown overlay={businessMenu} trigger={['click']} placement="bottomLeft">
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                cursor: 'pointer', padding: '4px 10px 4px 6px', borderRadius: 8,
+                border: '1px solid rgba(0,0,0,0.07)',
+                backgroundColor: 'rgba(255,255,255,0.5)',
+                transition: 'background 0.15s',
+                maxWidth: 220,
+              }}
+                className="hover:bg-white/80"
+              >
+                <div style={{
+                  width: 26, height: 26, borderRadius: 6, flexShrink: 0,
+                  backgroundColor: '#1d4ed8', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', color: '#fff', fontSize: 12,
+                }}>
+                  <ShopOutlined />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px', lineHeight: 1.2 }}>Negocio</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {currentBusinessName}
+                  </div>
+                </div>
+                <span style={{ color: '#9ca3af', fontSize: 9, flexShrink: 0 }}>▾</span>
+              </div>
+            </Dropdown>
+
+            {/* Derecha: perfil */}
+            <Dropdown overlay={collapsedProfileMenu} trigger={['click']} placement="bottomRight">
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                cursor: 'pointer', padding: '4px 8px', borderRadius: 8,
+                transition: 'background 0.15s', flexShrink: 0,
+              }}
+                className="hover:bg-white/60"
+              >
+                <Avatar
+                  size={28}
+                  style={{ backgroundColor: '#e5e7eb', color: '#374151', fontSize: 12, fontWeight: 700, flexShrink: 0 }}
+                >
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </Avatar>
+                <div style={{ lineHeight: 1.3 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap' }}>{user.name || 'Usuario'}</div>
+                  <div style={{ fontSize: 10, color: '#6b7280', textTransform: 'capitalize' }}>{user.role}</div>
                 </div>
               </div>
             </Dropdown>
-          </Header>
+          </div>
 
-          <Content style={{ overflow: 'initial', padding: isMobile ? '16px' : '24px', background: 'transparent' }}>
-            <div style={{ minHeight: 360 }}>
-              {showExpirationWarning()}
-              <Outlet />
-            </div>
-          </Content>
-        </Layout>
-      </Layout>
+          <TrialBanner user={user} navigate={navigate} />
+
+          <div style={{ padding: isMobile ? '16px' : '24px' }}>
+            {showExpirationWarning()}
+            <Outlet />
+          </div>
+        </div>
+
+      </div>
 
       {/* MODAL: CREAR NEGOCIO (superadmin) */}
       <Modal
@@ -688,7 +932,7 @@ const RootLayout = () => {
           <Divider orientation="left" orientationMargin={0} className="text-xs text-gray-500">Administrador</Divider>
 
           {/* Toggle: mi usuario o usuario nuevo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '10px 12px', background: useCurrentUser ? '#f0f9f9' : '#fafafa', borderRadius: 8, border: '1px solid', borderColor: useCurrentUser ? '#155153' + '33' : '#e5e7eb' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '10px 12px', background: useCurrentUser ? '#eff6ff' : '#fafafa', borderRadius: 8, border: '1px solid', borderColor: useCurrentUser ? '#1d4ed8' + '33' : '#e5e7eb' }}>
             <Switch
               checked={useCurrentUser}
               onChange={(val) => {
@@ -739,7 +983,7 @@ const RootLayout = () => {
                 <Select.Option key={plan.id} value={plan.id} label={plan.name}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 0' }}>
                     <span style={{ fontWeight: 600 }}>{plan.name}</span>
-                    <span style={{ color: '#155153', fontSize: 12 }}>${plan.price} / {plan.duration_months} mes(es)</span>
+                    <span style={{ color: '#1d4ed8', fontSize: 12 }}>${plan.price} / {plan.duration_months} mes(es)</span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, paddingBottom: 4 }}>
                     {plan.modules?.map(m => <Tag key={m} color={MODULE_COLORS[m]} style={{ fontSize: 10, lineHeight: '16px' }}>{m}</Tag>)}
@@ -757,6 +1001,12 @@ const RootLayout = () => {
           </div>
         </Form>
       </Modal>
+
+      {/* ── Wizard de Onboarding ── */}
+      <OnboardingWizard
+        open={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+      />
     </ConfigProvider>
   );
 };

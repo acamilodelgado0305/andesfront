@@ -11,9 +11,10 @@ import {
 import { getInventario } from "../../services/inventario/inventarioService";
 import { getPersonas } from "../../services/person/personaService";
 import { createPedido, updatePedido, getPedidoById } from "../../services/pedido/pedidoService";
+import useCurrency from "../../hooks/useCurrency";
 
 const { Option } = Select;
-const { TextArea } = Input; // <--- Importamos TextArea
+const { TextArea } = Input;
 
 // Estilos CSS para el Modal Full Screen
 const modalStyles = `
@@ -22,9 +23,8 @@ const modalStyles = `
   .pos-full-screen-modal .ant-modal-body { flex: 1; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
 `;
 
-const formatCurrency = (val) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(val);
-
 const POSModal = ({ visible, onClose, onSaved, orderIdToEdit }) => {
+    const formatCurrency = useCurrency();
     // --- ESTADOS INTERNOS DEL POS ---
     const [viewMobile, setViewMobile] = useState("catalogo");
     const [productos, setProductos] = useState([]);
