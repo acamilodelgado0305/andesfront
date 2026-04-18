@@ -18,6 +18,7 @@ import {
     Row,
     Col,
     Divider,
+    Statistic,
 } from "antd";
 import {
     PlusOutlined,
@@ -35,6 +36,9 @@ import {
     BulbOutlined,
     PhoneOutlined,
     EnvironmentOutlined,
+    HistoryOutlined,
+    DollarOutlined,
+    ShoppingCartOutlined,
 } from "@ant-design/icons";
 
 import {
@@ -42,7 +46,9 @@ import {
     createPersona,
     updatePersona,
     deletePersona,
+    getPersonaVentas,
 } from "../../services/person/personaService";
+import useCurrency from "../../hooks/useCurrency";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -112,6 +118,8 @@ const FieldLabel = ({ label, required, children }) => (
 // ───────────────────────────────────────────────────────────
 function PersonasDashboard() {
 
+    const formatCurrency = useCurrency();
+
     // ── ESTADOS GLOBALES ──
     const [items, setItems]           = useState([]);
     const [loading, setLoading]       = useState(false);
@@ -125,6 +133,13 @@ function PersonasDashboard() {
     // ── ESTADOS DEL DRAWER ──
     const [entidadTipo, setEntidadTipo] = useState('PERSONA');  // 'PERSONA' | 'EMPRESA'
     const [tipoContacto, setTipoContacto] = useState('CLIENTE'); // 'CLIENTE' | 'PROVEEDOR' | 'LEAD'
+
+    // ── ESTADOS HISTORIAL DE VENTAS ──
+    const [ventasModalOpen, setVentasModalOpen]   = useState(false);
+    const [ventasPersona, setVentasPersona]       = useState(null);
+    const [ventasPedidos, setVentasPedidos]       = useState([]);
+    const [ventasStats, setVentasStats]           = useState(null);
+    const [loadingVentas, setLoadingVentas]       = useState(false);
 
     // ── CARGA DE DATOS ──
     const fetchPersonas = useCallback(async (search = "") => {
@@ -242,6 +257,22 @@ function PersonasDashboard() {
         });
     };
 
+    // ── VER VENTAS DE UN CONTACTO ──
+    const handleVerVentas = async (persona) => {
+        setVentasPersona(persona);
+        setVentasModalOpen(true);
+        setLoadingVentas(true);
+        try {
+            const data = await getPersonaVentas(persona.id);
+            setVentasPedidos(data.pedidos || []);
+            setVentasStats(data.stats || null);
+        } catch {
+            notification.error({ message: "No se pudo cargar el historial de ventas" });
+        } finally {
+            setLoadingVentas(false);
+        }
+    };
+
     const cfg = (tipo) => TIPO_CONFIG[tipo] || TIPO_CONFIG.CLIENTE;
 
     // ── COLUMNAS DE LA TABLA ──
@@ -318,10 +349,17 @@ function PersonasDashboard() {
         {
             title: 'Acciones',
             key: 'acciones',
-            width: 90,
+            width: 120,
             align: 'center',
             render: (_, r) => (
                 <Space size={4}>
+                    {r.tipo === 'CLIENTE' && (
+                        <Tooltip title="Ver historial de ventas">
+                            <Button size="small" icon={<HistoryOutlined />}
+                                onClick={e => { e.stopPropagation(); handleVerVentas(r); }}
+                                style={{ color: '#155153', borderColor: '#15515333' }} />
+                        </Tooltip>
+                    )}
                     <Tooltip title="Editar">
                         <Button size="small" icon={<EditOutlined />}
                             onClick={e => { e.stopPropagation(); handleOpenEdit(r); }}
@@ -399,6 +437,127 @@ function PersonasDashboard() {
                     </Spin>
                 </div>
             )}
+
+            {/* ── MODAL HISTORIAL DE VENTAS ── */}
+            <Modal
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(21,81,83,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <HistoryOutlined style={{ color: '#155153', fontSize: 18 }} />
+                        </div>
+                        <div>
+                            <div style={{ fontWeight: 700, color: '#155153', lineHeight: 1.2 }}>
+                                Historial de ventas
+                            </div>
+                            {ventasPersona && (
+                                <div style={{ fontSize: 12, color: '#94a3b8', fontWeight: 400 }}>
+                                    {ventasPersona.nombre} {ventasPersona.apellido || ''}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                }
+                open={ventasModalOpen}
+                onCancel={() => { setVentasModalOpen(false); setVentasPersona(null); setVentasPedidos([]); setVentasStats(null); }}
+                footer={null}
+                width={760}
+                destroyOnClose
+            >
+                <Spin spinning={loadingVentas}>
+                    {/* Stats resumen */}
+                    {ventasStats && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+                            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px' }}>
+                                <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+                                    <DollarOutlined style={{ marginRight: 4 }} />Total comprado
+                                </div>
+                                <div style={{ fontSize: 20, fontWeight: 800, color: '#155153' }}>
+                                    {formatCurrency(ventasStats.total_gastado)}
+                                </div>
+                            </div>
+                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '12px 16px' }}>
+                                <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+                                    <ShoppingCartOutlined style={{ marginRight: 4 }} />Pedidos totales
+                                </div>
+                                <div style={{ fontSize: 20, fontWeight: 800, color: '#1d4ed8' }}>
+                                    {ventasStats.total_pedidos}
+                                </div>
+                            </div>
+                            <div style={{ background: '#fafafa', border: '1px solid #e2e8f0', borderRadius: 10, padding: '12px 16px' }}>
+                                <div style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+                                    <CheckCircleOutlined style={{ marginRight: 4 }} />Entregados
+                                </div>
+                                <div style={{ fontSize: 20, fontWeight: 800, color: '#16a34a' }}>
+                                    {ventasStats.pedidos_entregados}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tabla de pedidos */}
+                    <Table
+                        dataSource={ventasPedidos}
+                        rowKey="id"
+                        size="small"
+                        pagination={{ pageSize: 8, showTotal: (t) => `${t} pedidos` }}
+                        locale={{ emptyText: <Empty description="Este cliente no tiene ventas registradas" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                        expandable={{
+                            expandedRowRender: (record) => {
+                                let items = [];
+                                try { items = typeof record.items === 'string' ? JSON.parse(record.items) : (record.items || []); } catch { items = []; }
+                                return (
+                                    <Table
+                                        dataSource={items}
+                                        rowKey={(i, idx) => idx}
+                                        size="small"
+                                        pagination={false}
+                                        columns={[
+                                            { title: 'Producto', dataIndex: 'producto', ellipsis: true },
+                                            { title: 'Cant.', dataIndex: 'cantidad', width: 60, align: 'center' },
+                                            { title: 'Precio unit.', dataIndex: 'precio', width: 120, align: 'right', render: v => formatCurrency(v) },
+                                            { title: 'Subtotal', dataIndex: 'subtotal', width: 120, align: 'right', render: v => <span style={{ fontWeight: 700, color: '#155153' }}>{formatCurrency(v)}</span> },
+                                        ]}
+                                        style={{ background: '#fafafa' }}
+                                    />
+                                );
+                            },
+                            rowExpandable: (record) => {
+                                const items = typeof record.items === 'string' ? JSON.parse(record.items || '[]') : (record.items || []);
+                                return items.length > 0;
+                            },
+                        }}
+                        columns={[
+                            {
+                                title: '#',
+                                dataIndex: 'id',
+                                width: 60,
+                                render: id => <span style={{ color: '#94a3b8', fontSize: 12 }}>#{id}</span>
+                            },
+                            {
+                                title: 'Fecha',
+                                dataIndex: 'created_at',
+                                width: 110,
+                                render: f => f ? new Date(f).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+                            },
+                            {
+                                title: 'Estado',
+                                dataIndex: 'estado',
+                                width: 110,
+                                render: estado => {
+                                    const colores = { PENDIENTE: 'orange', ENTREGADO: 'green', ANULADO: 'red' };
+                                    return <Tag color={colores[estado] || 'default'} style={{ fontWeight: 600, fontSize: 11 }}>{estado}</Tag>;
+                                },
+                            },
+                            {
+                                title: 'Total',
+                                dataIndex: 'total',
+                                align: 'right',
+                                render: v => <span style={{ fontWeight: 800, color: '#155153' }}>{formatCurrency(v)}</span>,
+                            },
+                        ]}
+                    />
+                </Spin>
+            </Modal>
 
             {/* ── DRAWER ── */}
             <Drawer

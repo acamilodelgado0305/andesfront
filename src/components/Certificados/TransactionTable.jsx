@@ -40,7 +40,15 @@ const TransactionTable = ({
   const [conceptFilter, setConceptFilter] = useState(null);
   const [vendedorFilter,setVendedorFilter]= useState(null);
 
-  const getConcept = (r = {}) => (r.producto || '').trim();
+  const getConcept = (r = {}) => {
+    if (r.items_detalle) {
+      const items = typeof r.items_detalle === 'string' ? JSON.parse(r.items_detalle) : r.items_detalle;
+      if (Array.isArray(items) && items.length > 0) {
+        return items.map(it => it.descripcion || it.nombre_producto || '').filter(Boolean).join(', ');
+      }
+    }
+    return (r.producto || '').trim();
+  };
 
   const syncFilters = (partial) => {
     if (!onFiltersChange) return;
@@ -94,6 +102,9 @@ const TransactionTable = ({
         const textMatch   =
           (item.nombre  && item.nombre.toLowerCase().includes(searchLower)) ||
           (item.apellido && item.apellido.toLowerCase().includes(searchLower)) ||
+          (item.cliente_nombre && item.cliente_nombre.toLowerCase().includes(searchLower)) ||
+          (item.cliente_apellido && item.cliente_apellido.toLowerCase().includes(searchLower)) ||
+          (item.cliente_documento && item.cliente_documento.toString().includes(searchLower)) ||
           (item.numeroDeDocumento && item.numeroDeDocumento.toString().includes(searchLower)) ||
           (item.payment_reference && item.payment_reference.toLowerCase().includes(searchLower)) ||
           concept.includes(searchLower);
@@ -185,11 +196,15 @@ const TransactionTable = ({
         <div>
           <div style={{ ...TS, fontWeight: 500, whiteSpace: 'nowrap',
             overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 170 }}>
-            {type === 'ingresos' ? `${r.nombre || ''} ${r.apellido || ''}`.trim() : r.descripcion}
+            {type === 'ingresos'
+              ? (`${r.cliente_nombre || r.nombre || ''} ${r.cliente_apellido || r.apellido || ''}`.trim() || 'Venta General')
+              : r.descripcion}
           </div>
           {type === 'ingresos' && (
             <div style={{ fontSize: 11, color: '#9ca3af' }}>
-              {(r.tipoDocumento || r.tipoDeDocumento || 'Doc')}: {r.numeroDeDocumento || 'N/D'}
+              {r.cliente_documento
+                ? `Doc: ${r.cliente_documento}`
+                : (r.numeroDeDocumento && r.numeroDeDocumento !== '0' ? `${r.tipoDocumento || 'Doc'}: ${r.numeroDeDocumento}` : 'Venta general')}
             </div>
           )}
           {r.payment_reference && (

@@ -1,332 +1,363 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Drawer, Form, Button, Input, Select, Typography, message, 
-    Collapse, Row, Col, Statistic, Space, Dropdown, Menu 
+import {
+    Drawer, Form, Button, Input, Select, Typography, message,
+    Row, Col, Statistic, Space, Dropdown, Menu,
+    Avatar, Tag, Spin, Empty,
 } from 'antd';
 import {
     FileDoneOutlined, UserOutlined, ShoppingOutlined, WalletOutlined,
-    EditOutlined, DownOutlined, FilePdfOutlined, SaveOutlined
+    EditOutlined, DownOutlined, FilePdfOutlined, SaveOutlined,
+    SearchOutlined, UserAddOutlined, CloseCircleOutlined,
 } from '@ant-design/icons';
 
 import { cuentaOptions } from '../options';
-
-// Importamos los servicios
 import { createIngreso, updateIngreso } from '../../../services/controlapos/posService';
 import { getInventario } from '../../../services/inventario/inventarioService';
+import { getPersonas } from '../../../services/person/personaService';
+import PersonaFormDrawer from '../../personas/PersonaFormDrawer';
 import { useCurrencyInput } from '../../../hooks/useCurrency';
 
 const { Title, Text } = Typography;
-const { Panel } = Collapse;
 
-const tipoDocumentoOptions = [
-    { value: 'C.C', label: 'C.C' },
-    { value: 'T.I', label: 'T.I' },
-    { value: 'Pasaporte', label: 'Pasaporte' },
-    { value: 'C.E', label: 'C.E' },
-    { value: 'PPT', label: 'PPT' },
-    { value: 'NIT', label: 'NIT' },
-];
+const SECTION = ({ icon, title, children }) => (
+    <div style={{ background: '#fff', padding: 20, borderRadius: 8, border: '1px solid #e8e8e8', marginBottom: 14 }}>
+        <Title level={5} style={{ marginTop: 0, marginBottom: 14 }}>{icon} {title}</Title>
+        {children}
+    </div>
+);
 
 const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
     const { prefix: currPrefix } = useCurrencyInput();
     const [form] = Form.useForm();
-    const [inventario, setInventario] = useState([]);
+    const [inventario, setInventario]               = useState([]);
     const [loadingInventario, setLoadingInventario] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [clientePanelActivo, setClientePanelActivo] = useState([]);
-    
-    // Observar el valor para mostrarlo en el Statistic
+    const [saving, setSaving]                       = useState(false);
+
+    // ── Contacto ──────────────────────────────────────────────
+    const [personaSearch, setPersonaSearch]         = useState('');
+    const [personas, setPersonas]                   = useState([]);
+    const [loadingPersonas, setLoadingPersonas]     = useState(false);
+    const [selectedPersona, setSelectedPersona]     = useState(null);
+    const [personaDrawerOpen, setPersonaDrawerOpen] = useState(false);
+
     const valorTotal = Form.useWatch('valor', form) || 0;
 
-    // --- CARGAR INVENTARIO USANDO EL SERVICIO (Sin userId) ---
+    // ── Cargar inventario ─────────────────────────────────────
     useEffect(() => {
-        const loadInventario = async () => {
+        if (!open) return;
         setLoadingInventario(true);
-        try {
-            const data = await getInventario();
-            
-            // LOG DE DEPURACIÓN (Míralo en la consola del navegador en producción)
-            console.log("Datos recibidos del inventario:", data);
+        getInventario()
+            .then(data => setInventario(Array.isArray(data) ? data : []))
+            .catch(() => message.error('No se pudo cargar el inventario.'))
+            .finally(() => setLoadingInventario(false));
+    }, [open]);
 
-            // Solo actualizamos el estado si es un array válido
-            if (Array.isArray(data)) {
-                setInventario(data);
-            } else {
-                console.error("El inventario recibido no es un array:", data);
-                setInventario([]); // Fallback a array vacío para evitar el crash
-                message.warning("Hubo un problema cargando el formato del inventario.");
+    // ── Reset / poblar al abrir ───────────────────────────────
+    useEffect(() => {
+        if (!open) return;
+        if (!initialValues) {
+            form.resetFields();
+            form.setFieldsValue({ vendedor: userName, valor: 0 });
+            setSelectedPersona(null);
+            setPersonaSearch('');
+            setPersonas([]);
+        } else {
+            // Modo edición
+            let tipoValue = initialValues.producto;
+            if (typeof tipoValue === 'string' && tipoValue.includes(',')) {
+                tipoValue = tipoValue.split(',').map(s => s.trim());
+            } else if (typeof tipoValue === 'string') {
+                tipoValue = [tipoValue];
             }
-        } catch (error) {
-            console.error("Error cargando inventario:", error);
-            message.error("No se pudo cargar la lista de productos.");
-            setInventario([]); // Fallback en caso de error
-        } finally {
-            setLoadingInventario(false);
+            form.setFieldsValue({ ...initialValues, tipo: tipoValue });
+            setSelectedPersona(
+                initialValues.persona_id
+                    ? {
+                        id: initialValues.persona_id,
+                        nombre: initialValues.cliente_nombre || initialValues.nombre,
+                        apellido: initialValues.cliente_apellido || initialValues.apellido,
+                        tipo_documento: initialValues.cliente_tipo_doc,
+                        numero_documento: initialValues.cliente_documento,
+                    }
+                    : null
+            );
+        }
+    }, [open, initialValues, userName, form]);
+
+    // ── Búsqueda de personas (debounce) ───────────────────────
+    useEffect(() => {
+        if (personaSearch.length < 2) { setPersonas([]); return; }
+        const t = setTimeout(async () => {
+            setLoadingPersonas(true);
+            try {
+                const data = await getPersonas({ q: personaSearch });
+                setPersonas(Array.isArray(data) ? data : (data?.personas || []));
+            } catch { /* silencioso */ }
+            finally { setLoadingPersonas(false); }
+        }, 350);
+        return () => clearTimeout(t);
+    }, [personaSearch]);
+
+    // ── Cálculo automático del total ──────────────────────────
+    const handleValuesChange = (changed, all) => {
+        if (changed.tipo !== undefined) {
+            const selected = Array.isArray(all.tipo) ? all.tipo : [all.tipo];
+            const total = selected.reduce((sum, name) => {
+                const item = inventario.find(i => i.nombre === name);
+                return sum + (item ? parseFloat(item.monto || 0) : 0);
+            }, 0);
+            form.setFieldsValue({ valor: total });
         }
     };
-        if (open) {
-            loadInventario();
-            
-            // Si es un registro nuevo, reseteamos el formulario
-            if (!initialValues) {
-                form.resetFields();
-                form.setFieldsValue({ vendedor: userName, tipoDeDocumento: 'C.C', valor: 0 });
-                setClientePanelActivo([]);
-            }
-        }
-    }, [open, userName, form, initialValues]);
 
-    // Cargar datos si es edición
-    useEffect(() => {
-        if (open && initialValues) {
-            const tieneCliente = initialValues.nombre && initialValues.nombre !== 'Cliente';
-            setClientePanelActivo(tieneCliente ? ['1'] : []);
-            
-            let tipoValue = initialValues.producto;
-            // Manejo seguro para convertir string a array si es necesario
-            if (typeof initialValues.producto === 'string' && initialValues.producto.includes(',')) {
-                tipoValue = initialValues.producto.split(',').map(s => s.trim());
-            } else if (typeof initialValues.producto === 'string') {
-                 // Si es un solo producto en string, lo convertimos a array para el Select multiple
-                 tipoValue = [initialValues.producto];
-            }
+    const inventarioOptions = inventario.map(i => ({
+        label: `${i.nombre} — ($${parseFloat(i.monto || 0).toLocaleString('es-CO')})`,
+        value: i.nombre,
+    }));
 
-            form.setFieldsValue({
-                ...initialValues,
-                tipo: tipoValue, 
-                nombreCompleto: `${initialValues.nombre || ''} ${initialValues.apellido || ''}`.trim(),
-                tipoDeDocumento: initialValues.tipoDeDocumento || initialValues.tipoDocumento || 'C.C',
-            });
-        }
-    }, [open, initialValues, form]);
-
-    // Lógica para guardar (Crear o Editar)
+    // ── Guardar ───────────────────────────────────────────────
     const handleSave = async (generatePdf = false) => {
         try {
             const values = await form.validateFields();
             setSaving(true);
 
-            let dataToSend = { ...values };
-            const esVentaConCliente = clientePanelActivo.includes('1');
+            const payload = {
+                ...values,
+                persona_id: selectedPersona?.id || null,
+                vendedor: userName,
+                // legado para compatibilidad
+                ...(selectedPersona
+                    ? {
+                        nombre: selectedPersona.nombre,
+                        apellido: selectedPersona.apellido || '',
+                        numeroDeDocumento: selectedPersona.numero_documento || '0',
+                        tipoDocumento: selectedPersona.tipo_documento || 'CC',
+                    }
+                    : {
+                        nombre: 'Cliente',
+                        apellido: 'General',
+                        numeroDeDocumento: '0',
+                        tipoDocumento: 'N/A',
+                    }
+                ),
+            };
+            delete payload.nombreCompleto;
 
-            if (esVentaConCliente) {
-                const nombreCompleto = (values.nombreCompleto || '').trim();
-                const partesNombre = nombreCompleto.split(' ').filter(p => p);
-                
-                if (partesNombre.length > 1) {
-                    dataToSend.nombre = partesNombre.slice(0, -1).join(' '); 
-                    dataToSend.apellido = partesNombre[partesNombre.length - 1]; 
-                } else {
-                    dataToSend.nombre = partesNombre[0] || 'Cliente';
-                    dataToSend.apellido = '.';
-                }
-                if (values.tipoDeDocumento) {
-                    dataToSend.tipoDocumento = values.tipoDeDocumento;
-                }
-            } else {
-                // Valores por defecto si no hay cliente específico
-                dataToSend.nombre = 'Cliente';
-                dataToSend.apellido = 'General';
-                dataToSend.numeroDeDocumento = '0';
-                dataToSend.tipoDeDocumento = 'N/A';
-                dataToSend.tipoDocumento = 'N/A';
-            }
-            
-            delete dataToSend.nombreCompleto;
-
-            let response;
-            if (initialValues && initialValues._id) {
-                response = await updateIngreso(initialValues._id, dataToSend);
+            if (initialValues?._id) {
+                await updateIngreso(initialValues._id, payload);
                 message.success('Venta actualizada correctamente');
             } else {
-                response = await createIngreso(dataToSend);
+                await createIngreso(payload);
                 message.success('Venta registrada exitosamente');
             }
 
-            if (generatePdf) {
-                message.info("Generando factura PDF...");
-                // Aquí llamarías a tu función generarFacturaPDF(response || dataToSend);
-            }
-
-            if (onSuccess) onSuccess(); 
+            if (generatePdf) message.info('Generando factura PDF...');
+            onSuccess?.();
             onClose();
-
-        } catch (error) {
-            console.error(error);
-            if (error.response?.data?.message) {
-                message.error(`Error: ${error.response.data.message}`);
-            } else if (!error.errorFields) { // Si no es error de validación del form
-                message.error("Ocurrió un error inesperado.");
+        } catch (err) {
+            if (err.response?.data?.message) {
+                message.error(`Error: ${err.response.data.message}`);
+            } else if (!err.errorFields) {
+                message.error('Ocurrió un error inesperado.');
             }
         } finally {
             setSaving(false);
         }
     };
 
-    // Cálculo automático del precio
-    const handleValuesChange = (changedValues, allValues) => {
-        if (changedValues.tipo !== undefined) {
-            const selectedItems = Array.isArray(allValues.tipo) ? allValues.tipo : [allValues.tipo];
-            
-            const total = selectedItems.reduce((sum, itemName) => {
-                const item = inventario.find(invItem => invItem.nombre === itemName);
-                return sum + (item ? parseFloat(item.monto || 0) : 0);
-            }, 0);
-            
-            form.setFieldsValue({ valor: total });
-        }
-    };
-    
-    // Mapeo para el Select de Ant Design
-// Busca esta parte en tu código y reemplázala:
-
-// Verificamos si inventario es un array antes de hacer map
-const listaInventario = Array.isArray(inventario) ? inventario : [];
-
-const inventarioOptions = listaInventario.map(item => ({
-    label: `${item.nombre} - ($${parseFloat(item.monto || 0).toLocaleString('es-CO')})`,
-    value: item.nombre,
-}));
-    
     const menu = (
         <Menu onClick={() => handleSave(true)}>
-            <Menu.Item key="1" icon={<FilePdfOutlined />}>
-                Guardar y Generar Factura
-            </Menu.Item>
+            <Menu.Item key="1" icon={<FilePdfOutlined />}>Guardar y Generar Factura</Menu.Item>
         </Menu>
     );
 
     return (
-        <Drawer
-            title={
-                <Space>
-                    {initialValues ? <EditOutlined /> : <FileDoneOutlined />}
-                    <Text strong>{initialValues ? 'Editar Ingreso' : 'Registrar Nueva Venta'}</Text>
-                </Space>
-            }
-            placement="right" 
-            width={520} 
-            onClose={onClose} 
-            open={open}
-            styles={{ body: { background: '#f5f5f5', padding: 0 } }}
-            footer={
-                <div style={{ textAlign: 'right', padding: '10px 0' }}>
-                    <Button onClick={onClose} style={{ marginRight: 8 }} disabled={saving}>
-                        Cancelar
-                    </Button>
-                    <Dropdown.Button 
-                        type="primary" 
-                        loading={saving} 
-                        onClick={() => handleSave(false)} 
-                        overlay={menu}
-                        icon={<DownOutlined />}
-                    >
-                        <SaveOutlined /> {initialValues ? 'Actualizar' : 'Guardar Venta'}
-                    </Dropdown.Button>
-                </div>
-            }
-        >
-            <Form form={form} layout="vertical" onValuesChange={handleValuesChange}>
-                <div style={{ padding: '24px' }}>
-                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                        
-                        {/* SECCIÓN 1: PRODUCTOS */}
-                        <div className="form-section-card" style={{ background: '#fff', padding: 24, borderRadius: 8, border: '1px solid #e8e8e8' }}>
-                             <Title level={5}><ShoppingOutlined /> Paso 1: Selecciona los Productos</Title>
-                             <Form.Item 
-                                name="tipo" 
-                                rules={[{ required: true, message: 'Seleccione al menos un producto' }]}
-                             >
-                                 <Select
-                                     mode="multiple" 
-                                     size="large"
-                                     placeholder={loadingInventario ? "Cargando inventario..." : "Buscar productos..."}
-                                     options={inventarioOptions} 
-                                     loading={loadingInventario}
-                                     disabled={loadingInventario} 
-                                     showSearch
-                                     filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                                     style={{ width: '100%' }}
-                                 />
-                             </Form.Item>
-                        </div>
-
-                        {/* SECCIÓN 2: PAGO */}
-                        <div className="form-section-card" style={{ background: '#fff', padding: 24, borderRadius: 8, border: '1px solid #e8e8e8' }}>
-                             <Title level={5}><WalletOutlined /> Paso 2: Detalles del Pago</Title>
-                             <Row gutter={16} align="middle">
-                                <Col span={12}>
-                                     <Form.Item 
-                                        label="Cuenta de Destino" 
-                                        name="cuenta" 
-                                        rules={[{ required: true, message: 'Requerido' }]}
-                                     >
-                                         <Select size="large" placeholder="Ej: Nequi" options={cuentaOptions} />
-                                     </Form.Item>
-                                </Col>
-                                <Col span={12} style={{ textAlign: 'right' }}>
-                                     <Statistic
-                                        title="Total a Pagar"
-                                        value={valorTotal}
-                                        prefix={currPrefix}
-                                        groupSeparator="."
-                                        precision={0}
-                                        valueStyle={{ color: '#3f8600', fontWeight: 'bold' }}
-                                     />
-                                     <Form.Item name="valor" hidden><Input /></Form.Item>
-                                </Col>
-                             </Row>
-                        </div>
-
-                        {/* SECCIÓN 3: CLIENTE */}
-                        <Collapse 
-                            ghost 
-                            activeKey={clientePanelActivo} 
-                            onChange={(keys) => setClientePanelActivo(keys)}
-                        >
-                            <Panel header={<Title level={5} style={{ margin: 0 }}><UserOutlined /> Paso 3: Cliente (Opcional)</Title>} key="1">
-                                <div style={{ background: '#fff', padding: 16, borderRadius: 8 }}>
-                                    <Form.Item 
-                                        name="nombreCompleto" 
-                                        label="Nombre del Cliente" 
-                                        rules={[{ required: clientePanelActivo.includes('1'), message: 'Ingrese el nombre' }]}
-                                    >
-                                        <Input size="large" placeholder="Nombre y Apellido"/>
-                                    </Form.Item>
-                                    <Row gutter={12}>
-                                        <Col span={8}>
-                                            <Form.Item 
-                                                name="tipoDeDocumento" 
-                                                label="Tipo" 
-                                                initialValue="C.C"
-                                            >
-                                                <Select size="large" options={tipoDocumentoOptions} />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={16}>
-                                            <Form.Item 
-                                                name="numeroDeDocumento" 
-                                                label="Documento" 
-                                                rules={[{ required: clientePanelActivo.includes('1'), message: 'Falta el documento' }]}
-                                            >
-                                                <Input size="large" placeholder="Número de identidad" />
-                                            </Form.Item>
-                                        </Col>
-                                    </Row>
-                                    <Form.Item name="customer_email" label="Email (Opcional)">
-                                        <Input size="large" placeholder="correo@ejemplo.com" />
-                                    </Form.Item>
-                                </div>
-                            </Panel>
-                        </Collapse>
-
+        <>
+            <Drawer
+                title={
+                    <Space>
+                        {initialValues ? <EditOutlined /> : <FileDoneOutlined />}
+                        <Text strong>{initialValues ? 'Editar Ingreso' : 'Registrar Nueva Venta'}</Text>
                     </Space>
-                </div>
-                <Form.Item name="vendedor" hidden><Input /></Form.Item>
-            </Form>
-        </Drawer>
+                }
+                placement="right"
+                width={520}
+                onClose={onClose}
+                open={open}
+                styles={{ body: { background: '#f5f5f5', padding: '18px' } }}
+                footer={
+                    <div style={{ textAlign: 'right', padding: '10px 0' }}>
+                        <Button onClick={onClose} style={{ marginRight: 8 }} disabled={saving}>Cancelar</Button>
+                        <Dropdown.Button
+                            type="primary"
+                            loading={saving}
+                            onClick={() => handleSave(false)}
+                            overlay={menu}
+                            icon={<DownOutlined />}
+                            style={{ '--ant-color-primary': '#155153' }}
+                        >
+                            <SaveOutlined /> {initialValues ? 'Actualizar' : 'Guardar Venta'}
+                        </Dropdown.Button>
+                    </div>
+                }
+            >
+                <Form form={form} layout="vertical" onValuesChange={handleValuesChange}>
+
+                    {/* ── CONTACTO ─────────────────────────────── */}
+                    <SECTION icon={<UserOutlined />} title="Contacto (opcional)">
+                        {selectedPersona ? (
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: 12,
+                                background: '#f0faf9', border: '2px solid #155153',
+                                borderRadius: 8, padding: '10px 14px',
+                            }}>
+                                <Avatar style={{ background: '#155153', flexShrink: 0 }} icon={<UserOutlined />} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700, fontSize: 14 }}>
+                                        {selectedPersona.nombre} {selectedPersona.apellido || ''}
+                                    </div>
+                                    {selectedPersona.numero_documento && (
+                                        <div style={{ fontSize: 12, color: '#64748b' }}>
+                                            {selectedPersona.tipo_documento}: {selectedPersona.numero_documento}
+                                        </div>
+                                    )}
+                                </div>
+                                <Button type="text" size="small"
+                                    icon={<CloseCircleOutlined style={{ color: '#94a3b8' }} />}
+                                    onClick={() => setSelectedPersona(null)}
+                                />
+                            </div>
+                        ) : (
+                            <>
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                                    <Input
+                                        prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
+                                        placeholder="Buscar por nombre o documento..."
+                                        value={personaSearch}
+                                        onChange={e => setPersonaSearch(e.target.value)}
+                                        allowClear
+                                    />
+                                    <Button
+                                        icon={<UserAddOutlined />}
+                                        onClick={() => setPersonaDrawerOpen(true)}
+                                        style={{ flexShrink: 0, color: '#155153', borderColor: '#155153' }}
+                                    >
+                                        Crear
+                                    </Button>
+                                </div>
+
+                                {loadingPersonas && <div style={{ textAlign: 'center', padding: '8px 0' }}><Spin size="small" /></div>}
+
+                                {!loadingPersonas && personaSearch.length >= 2 && personas.length === 0 && (
+                                    <Empty
+                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                        style={{ margin: '6px 0' }}
+                                        description={
+                                            <span style={{ fontSize: 12 }}>
+                                                Sin resultados —{' '}
+                                                <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: '#155153' }}>crear contacto</a>
+                                            </span>
+                                        }
+                                    />
+                                )}
+
+                                {personas.length > 0 && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+                                        {personas.map(p => (
+                                            <div
+                                                key={p.id}
+                                                onClick={() => { setSelectedPersona(p); setPersonaSearch(''); setPersonas([]); }}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: 10,
+                                                    padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+                                                    border: '1.5px solid #e5e7eb', background: '#fff',
+                                                    transition: 'border-color 0.12s',
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.borderColor = '#155153'}
+                                                onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+                                            >
+                                                <Avatar size="small" style={{ background: '#155153' }} icon={<UserOutlined />} />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{p.nombre} {p.apellido || ''}</div>
+                                                    <div style={{ fontSize: 11, color: '#94a3b8' }}>{p.tipo_documento}: {p.numero_documento}</div>
+                                                </div>
+                                                <Tag color={p.tipo === 'CLIENTE' ? 'green' : 'blue'} style={{ fontSize: 11 }}>{p.tipo}</Tag>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {personaSearch.length === 0 && (
+                                    <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
+                                        Escribe para buscar · Si no está,{' '}
+                                        <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: '#155153' }}>créalo aquí</a>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </SECTION>
+
+                    {/* ── PRODUCTOS ────────────────────────────── */}
+                    <SECTION icon={<ShoppingOutlined />} title="Selecciona los Productos">
+                        <Form.Item
+                            name="tipo"
+                            rules={[{ required: true, message: 'Seleccione al menos un producto' }]}
+                            style={{ marginBottom: 0 }}
+                        >
+                            <Select
+                                mode="multiple"
+                                size="large"
+                                placeholder={loadingInventario ? 'Cargando inventario...' : 'Buscar productos...'}
+                                options={inventarioOptions}
+                                loading={loadingInventario}
+                                disabled={loadingInventario}
+                                showSearch
+                                filterOption={(input, opt) => (opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                                style={{ width: '100%' }}
+                            />
+                        </Form.Item>
+                    </SECTION>
+
+                    {/* ── PAGO ─────────────────────────────────── */}
+                    <SECTION icon={<WalletOutlined />} title="Detalles del Pago">
+                        <Row gutter={16} align="middle">
+                            <Col span={12}>
+                                <Form.Item
+                                    label="Cuenta de Destino"
+                                    name="cuenta"
+                                    rules={[{ required: true, message: 'Requerido' }]}
+                                    style={{ marginBottom: 0 }}
+                                >
+                                    <Select size="large" placeholder="Ej: Nequi" options={cuentaOptions} />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12} style={{ textAlign: 'right' }}>
+                                <Statistic
+                                    title="Total a Pagar"
+                                    value={valorTotal}
+                                    prefix={currPrefix}
+                                    groupSeparator="."
+                                    precision={0}
+                                    valueStyle={{ color: '#3f8600', fontWeight: 'bold' }}
+                                />
+                                <Form.Item name="valor" hidden><Input /></Form.Item>
+                            </Col>
+                        </Row>
+                    </SECTION>
+
+                    <Form.Item name="vendedor" hidden><Input /></Form.Item>
+                </Form>
+            </Drawer>
+
+            {/* ── SUB-DRAWER CREAR CONTACTO ──────────────────── */}
+            <PersonaFormDrawer
+                open={personaDrawerOpen}
+                onClose={() => setPersonaDrawerOpen(false)}
+                onSuccess={persona => { setSelectedPersona(persona); setPersonaDrawerOpen(false); }}
+                defaultTipo="CLIENTE"
+            />
+        </>
     );
 };
 
 export default IngresoDrawer;
-

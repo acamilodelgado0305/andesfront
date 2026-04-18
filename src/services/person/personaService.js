@@ -64,4 +64,13 @@ export const deletePersona = async (id) => {
     return response.data;
 };
 
+/**
+ * Obtener historial de ventas (pedidos) de una persona
+ * Retorna: { persona, pedidos, stats }
+ */
+export const getPersonaVentas = async (id) => {
+    const response = await personaApi.get(`/personas/${id}/ventas`);
+    return response.data;
+};
+
 export default personaApi;
