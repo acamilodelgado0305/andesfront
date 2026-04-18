@@ -8,6 +8,7 @@ import {
 } from '@ant-design/icons';
 
 import { createPersona, updatePersona } from '../../services/person/personaService';
+import useIsMobile from '../../hooks/useIsMobile';
 
 const { Option } = Select;
 
@@ -54,6 +55,7 @@ const FieldLabel = ({ label, required, children }) => (
  */
 const PersonaFormDrawer = ({ open, onClose, onSuccess, editingItem = null, defaultTipo = 'CLIENTE' }) => {
     const [form] = Form.useForm();
+    const isMobile = useIsMobile();
     const [submitting, setSubmitting]      = useState(false);
     const [entidadTipo, setEntidadTipo]    = useState('PERSONA');
     const [tipoContacto, setTipoContacto] = useState(defaultTipo);
@@ -124,7 +126,7 @@ const PersonaFormDrawer = ({ open, onClose, onSuccess, editingItem = null, defau
                     <span>{editingItem ? 'Editar Contacto' : 'Nuevo Contacto'}</span>
                 </div>
             }
-            width={440}
+            width={isMobile ? '100%' : 440}
             open={open}
             onClose={onClose}
             destroyOnClose

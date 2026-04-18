@@ -16,6 +16,7 @@ import { getInventario } from '../../../services/inventario/inventarioService';
 import { getPersonas } from '../../../services/person/personaService';
 import PersonaFormDrawer from '../../personas/PersonaFormDrawer';
 import { useCurrencyInput } from '../../../hooks/useCurrency';
+import useIsMobile from '../../../hooks/useIsMobile';
 
 const { Title, Text } = Typography;
 
@@ -28,6 +29,7 @@ const SECTION = ({ icon, title, children }) => (
 
 const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
     const { prefix: currPrefix } = useCurrencyInput();
+    const isMobile = useIsMobile();
     const [form] = Form.useForm();
     const [inventario, setInventario]               = useState([]);
     const [loadingInventario, setLoadingInventario] = useState(false);
@@ -181,7 +183,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                     </Space>
                 }
                 placement="right"
-                width={520}
+                width={isMobile ? '100%' : 520}
                 onClose={onClose}
                 open={open}
                 styles={{ body: { background: '#f5f5f5', padding: '18px' } }}

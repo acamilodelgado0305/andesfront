@@ -6,6 +6,7 @@ import 'moment/locale/es';
 import axios from 'axios';
 
 import { AuthContext } from '../../AuthContext';
+import useIsMobile from '../../hooks/useIsMobile';
 
 // Importamos SOLO las funciones de lectura para la tabla principal
 import { getAllIngresos, getAllEgresos } from '../../services/controlapos/posService';
@@ -31,6 +32,7 @@ moment.locale('es');
 
 function Certificados() {
   const { user } = useContext(AuthContext);
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
 
   const [rawDataIngresos, setRawDataIngresos] = useState([]);
@@ -155,12 +157,13 @@ function Certificados() {
             <Title level={4} style={{ margin: 0, color: '#155153' }}>Panel Financiero</Title>
             <div className="flex items-center gap-2 text-gray-500 text-sm"><UserOutlined /> {user.name}</div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: isMobile ? '100%' : 'auto' }}>
             <button
               onClick={() => openDrawer('ingreso')}
               style={{
-                display: 'flex', alignItems: 'center', gap: 5,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 padding: '10px 20px',
+                flex: isMobile ? 1 : 'none',
                 background: '#166534',
                 color: '#fff',
                 border: 'none',
@@ -181,8 +184,9 @@ function Certificados() {
             <button
               onClick={() => openDrawer('egreso')}
               style={{
-                display: 'flex', alignItems: 'center', gap: 5,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 padding: '10px 20px',
+                flex: isMobile ? 1 : 'none',
                 background: '#dc2626',
                 color: '#fff',
                 border: 'none',
@@ -207,7 +211,7 @@ function Certificados() {
 
       {/* Tabla + Stats integrados */}
       <Card className="shadow-md rounded-xl border-0 overflow-hidden" bodyStyle={{ padding: 0 }}>
-        <Tabs defaultActiveKey="ingresos" size="large" tabBarStyle={{ padding: '0 24px', backgroundColor: '#fff', marginBottom: 0 }}>
+        <Tabs defaultActiveKey="ingresos" size={isMobile ? 'middle' : 'large'} tabBarStyle={{ padding: isMobile ? '0 12px' : '0 24px', backgroundColor: '#fff', marginBottom: 0 }}>
 
           <TabPane tab={<span style={{ fontWeight: 600 }}><ArrowUpOutlined style={{ color: '#16a34a' }} /> Ingresos</span>} key="ingresos">
             <div className="p-4">

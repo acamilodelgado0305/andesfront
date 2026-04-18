@@ -17,6 +17,7 @@ import { useCurrencyInput } from '../../../hooks/useCurrency';
 import { createEgreso, updateEgreso } from '../../../services/controlapos/posService';
 import { getPersonas } from '../../../services/person/personaService';
 import PersonaFormDrawer from '../../personas/PersonaFormDrawer';
+import useIsMobile from '../../../hooks/useIsMobile';
 
 const { Text } = Typography;
 
@@ -31,6 +32,7 @@ const FL = ({ label, required, children }) => (
 
 const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
     const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+    const isMobile = useIsMobile();
     const [form] = Form.useForm();
     const [saving, setSaving] = useState(false);
 
@@ -126,7 +128,7 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                     </Space>
                 }
                 placement="right"
-                width={500}
+                width={isMobile ? '100%' : 500}
                 onClose={onClose}
                 open={open}
                 destroyOnClose

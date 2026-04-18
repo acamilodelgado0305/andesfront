@@ -24,6 +24,7 @@ import {
 import { AuthContext } from '../AuthContext';
 import { getAllIngresos, getAllEgresos } from '../services/controlapos/posService';
 import { formatCurrency } from '../utils/currency';
+import useIsMobile from '../hooks/useIsMobile';
 
 const { Title } = Typography;
 
@@ -119,6 +120,7 @@ const TONE_STYLES = {
 const Home = () => {
   const [greeting, setGreeting] = useState('');
   const { user } = useContext(AuthContext);
+  const isMobile = useIsMobile();
   const [period, setPeriod] = useState('today');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -200,7 +202,7 @@ const Home = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 divide-x divide-slate-100">
+          <div className={`grid ${isMobile ? 'grid-cols-1 divide-y' : 'grid-cols-3 divide-x'} divide-slate-100`}>
             {/* Ingresos */}
             <div className="p-5">
               <div className="flex items-center gap-2 mb-2">
@@ -271,8 +273,8 @@ const Home = () => {
             </div>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: 12,
+              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: isMobile ? 10 : 12,
             }}>
               {quickAccess.map((item) => {
                 const tone = TONE_STYLES[item.tone] || TONE_STYLES.slate;
@@ -284,13 +286,15 @@ const Home = () => {
                       background: '#fff',
                       border: '1px solid #e5e7eb',
                       borderRadius: 14,
-                      padding: 16,
+                      padding: isMobile ? '12px 10px' : 16,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 12,
+                      flexDirection: isMobile ? 'column' : 'row',
+                      gap: isMobile ? 8 : 12,
                       textDecoration: 'none',
                       transition: 'all 0.15s',
                       boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                      textAlign: isMobile ? 'center' : 'left',
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.borderColor = '#cbd5e1';
@@ -319,7 +323,7 @@ const Home = () => {
                         {item.hint}
                       </div>
                     </div>
-                    <RightOutlined style={{ color: '#cbd5e1', fontSize: 11 }} />
+                    {!isMobile && <RightOutlined style={{ color: '#cbd5e1', fontSize: 11 }} />}
                   </Link>
                 );
               })}
@@ -334,11 +338,12 @@ const Home = () => {
             <div style={{
               background: 'linear-gradient(135deg, #030d1f 0%, #0a1f3d 60%, #1d4ed8 100%)',
               borderRadius: 16,
-              padding: '28px 32px',
+              padding: isMobile ? '20px 18px' : '28px 32px',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: isMobile ? 'flex-start' : 'center',
               justifyContent: 'space-between',
-              gap: 24,
+              gap: isMobile ? 16 : 24,
+              flexDirection: isMobile ? 'column' : 'row',
               flexWrap: 'wrap',
               position: 'relative',
               overflow: 'hidden',
@@ -379,7 +384,7 @@ const Home = () => {
                 </p>
               </div>
 
-              <Link to="/precios" style={{ textDecoration: 'none', position: 'relative', zIndex: 1, flexShrink: 0 }}>
+              <Link to="/precios" style={{ textDecoration: 'none', position: 'relative', zIndex: 1, flexShrink: 0, width: isMobile ? '100%' : 'auto' }}>
                 <button
                   style={{
                     backgroundColor: '#fff',
@@ -392,6 +397,7 @@ const Home = () => {
                     cursor: 'pointer',
                     boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
                     whiteSpace: 'nowrap',
+                    width: isMobile ? '100%' : 'auto',
                     transition: 'transform 0.15s, box-shadow 0.15s',
                   }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)'; }}
