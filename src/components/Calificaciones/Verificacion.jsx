@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { notification } from 'antd';
 import { getClientByCedula } from '../../services/controlapos/posService';
 
-const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app/api';
+const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app';
 
 const extractIntensity = (courseName) => {
   if (!courseName) return '10';
