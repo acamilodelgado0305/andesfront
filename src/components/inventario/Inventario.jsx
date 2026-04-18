@@ -11,7 +11,7 @@ import {
   InboxOutlined, BarcodeOutlined,
   ShoppingOutlined, ToolOutlined, WarningFilled,
   SearchOutlined, TagOutlined,
-  ThunderboltOutlined,
+  ThunderboltOutlined, ShoppingCartOutlined,
   CameraOutlined, UploadOutlined,
   PercentageOutlined, CheckCircleOutlined,
 } from "@ant-design/icons";
@@ -20,6 +20,7 @@ import {
   getInventario, createInventario, updateInventario, deleteInventario,
   getInventarioStats, uploadInventarioPhoto,
 } from "../../services/inventario/inventarioService";
+import RestockDrawer from "./RestockDrawer";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 import useIsMobile from "../../hooks/useIsMobile";
 
@@ -278,6 +279,7 @@ function Inventario() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingItem, setEditingItem]   = useState(null);
+  const [restockItem, setRestockItem]   = useState(null);
   const [selectedKeys, setSelectedKeys] = useState([]);
   const [searchTerm, setSearchTerm]     = useState('');
   const [filterTipo, setFilterTipo]     = useState('todos');
@@ -478,9 +480,16 @@ function Inventario() {
         : <span className="text-gray-300 text-xs">—</span>,
     },
     {
-      title: 'Acciones', key:'acciones', width:90, align:'center',
+      title: 'Acciones', key:'acciones', width:120, align:'center',
       render: (_,r) => (
         <Space size={4}>
+          {r.tipo_item !== 'servicio' && (
+            <Tooltip title="Registrar compra">
+              <Button size="small" icon={<ShoppingCartOutlined/>}
+                onClick={e => { e.stopPropagation(); setRestockItem(r); }}
+                style={{ color:'#059669', borderColor:'#05996933' }}/>
+            </Tooltip>
+          )}
           <Tooltip title="Editar">
             <Button size="small" icon={<EditOutlined/>}
               onClick={e => { e.stopPropagation(); handleOpenEdit(r); }}
@@ -540,6 +549,16 @@ function Inventario() {
                 )}
               </div>
               <div style={{ display:'flex', gap: 6, flexShrink: 0 }}>
+                {r.tipo_item !== 'servicio' && (
+                  <Tooltip title="Registrar compra">
+                    <Button
+                      size="small"
+                      icon={<ShoppingCartOutlined/>}
+                      onClick={e => { e.stopPropagation(); setRestockItem(r); }}
+                      style={{ color:'#059669', borderColor:'#05996933' }}
+                    />
+                  </Tooltip>
+                )}
                 <Button
                   size="small"
                   icon={<EditOutlined/>}
@@ -696,6 +715,14 @@ function Inventario() {
         )
       )}
 
+      {/* ── RESTOCK DRAWER ── */}
+      <RestockDrawer
+        open={!!restockItem}
+        onClose={() => setRestockItem(null)}
+        producto={restockItem}
+        onSuccess={() => { setRestockItem(null); fetchInventario(); }}
+      />
+
       {/* ── MODAL INFORME ── */}
       <ProductoInformeModal
         item={informeItem}
@@ -740,7 +767,7 @@ function Inventario() {
                 icon={<ToolOutlined/>} label="Servicio" color="#7c3aed"/>
             </div>
             <p style={{ margin:'6px 0 0', fontSize:11, color:'#94a3b8' }}>
-              {tipoItem==='producto' ? 'Los productos tienen stock e inventario.' : 'Los servicios no requieren control de stock.'}
+              {tipoItem==='producto' ? 'Los productos llevan control de stock mediante compras.' : 'Los servicios no requieren control de stock.'}
             </p>
           </div>
 
@@ -852,36 +879,18 @@ function Inventario() {
             />
           </Form.Item>
 
-          {/* 7. STOCK (solo productos) */}
+          {/* 7. STOCK MÍNIMO (solo productos) */}
           {tipoItem === 'producto' && (
             <>
               <Divider orientation="left" style={{ fontSize:12, fontWeight:700, color:'#155153', margin:'4px 0 16px' }}>
-                Stock
+                Alerta de stock
               </Divider>
-              <Row gutter={12}>
-                <Col span={8}>
-                  <Form.Item name="unidades_por_caja"
-                    label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Und. / empaque</span>}
-                    tooltip="¿Cuántas unidades trae cada caja?" style={{ marginBottom:14 }}>
-                    <InputNumber min={1} size="large" className="w-full" placeholder="1"/>
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="stock_inicial_empaques"
-                    label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Stock inicial</span>}
-                    tooltip="Número de empaques/cajas que tienes" style={{ marginBottom:14 }}>
-                    <InputNumber min={0} size="large" className="w-full" placeholder="0"
-                      prefix={<InboxOutlined className="text-gray-400"/>}/>
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="stock_minimo"
-                    label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Stock mínimo ⚠️</span>}
-                    tooltip="Alerta cuando el stock llegue aquí" style={{ marginBottom:14 }}>
-                    <InputNumber min={0} size="large" className="w-full" placeholder="5"/>
-                  </Form.Item>
-                </Col>
-              </Row>
+              <Form.Item name="stock_minimo"
+                label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Stock mínimo ⚠️</span>}
+                tooltip="Recibirás una alerta cuando el stock llegue a este número"
+                style={{ marginBottom:14 }}>
+                <InputNumber min={0} size="large" className="w-full" placeholder="Ej: 5"/>
+              </Form.Item>
             </>
           )}
 

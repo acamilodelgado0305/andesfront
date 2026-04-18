@@ -107,6 +107,15 @@ export const uploadInventarioPhoto = async (id, file) => {
   return response.data;
 };
 
+/**
+ * Surtir / restock de un producto
+ * payload: { cantidad_a_agregar, precio_unitario_compra, cuenta, fecha, descripcion }
+ */
+export const restockInventario = async (id, payload) => {
+  const response = await inventarioApi.post(`/inventario/${id}/restock`, payload);
+  return response.data;
+};
+
 // Alias para mantener compatibilidad si otros componentes lo usan
 export const getInventarioProgramas = getInventario;
 
