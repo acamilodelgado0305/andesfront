@@ -49,6 +49,7 @@ import {
     getPersonaVentas,
 } from "../../services/person/personaService";
 import useCurrency from "../../hooks/useCurrency";
+import useIsMobile from "../../hooks/useIsMobile";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -129,6 +130,8 @@ function PersonasDashboard() {
     const [editingItem, setEditingItem]   = useState(null);
     const [searchTerm, setSearchTerm]     = useState("");
     const [form] = Form.useForm();
+
+    const isMobile = useIsMobile();
 
     // ── ESTADOS DEL DRAWER ──
     const [entidadTipo, setEntidadTipo] = useState('PERSONA');  // 'PERSONA' | 'EMPRESA'
@@ -374,9 +377,109 @@ function PersonasDashboard() {
         },
     ];
 
+    // ── MOBILE CARD LIST ──
+    const renderMobileCards = () => {
+        if (items.length === 0) {
+            return (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No se encontraron contactos registrados.">
+                    <Button type="primary" onClick={handleOpenCreate} style={{ background: '#155153' }}>
+                        Registrar el primero
+                    </Button>
+                </Empty>
+            );
+        }
+
+        return items.map(r => {
+            const c = cfg(r.tipo);
+            return (
+                <div
+                    key={r.id}
+                    style={{
+                        background: '#fff',
+                        borderRadius: 12,
+                        border: '1px solid #e8e8e8',
+                        padding: '14px 16px',
+                        marginBottom: 10,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10,
+                    }}
+                >
+                    {/* Top row: avatar + info + tag */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                        {/* Avatar */}
+                        <div style={{
+                            width: 40, height: 40, borderRadius: 8,
+                            background: c.bg, color: '#fff',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 700, fontSize: 16, flexShrink: 0,
+                        }}>
+                            {r.nombre?.charAt(0).toUpperCase()}
+                        </div>
+
+                        {/* Center info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 15, lineHeight: 1.3 }}>
+                                {r.nombre} {r.apellido || ''}
+                            </div>
+                            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+                                {r.tipo_documento}: {r.numero_documento}
+                            </div>
+                            {r.celular && (
+                                <div style={{ fontSize: 12, color: '#64748b', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <PhoneOutlined style={{ fontSize: 11 }} />
+                                    {r.celular}
+                                </div>
+                            )}
+                            {r.email && (
+                                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <MailOutlined style={{ fontSize: 11 }} />
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.email}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Type tag */}
+                        <Tag color={c.tag} style={{ fontSize: 10, flexShrink: 0 }}>{c.label}</Tag>
+                    </div>
+
+                    {/* Bottom row: action buttons */}
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        {r.tipo === 'CLIENTE' && (
+                            <Button
+                                size="small"
+                                icon={<HistoryOutlined />}
+                                onClick={() => handleVerVentas(r)}
+                                style={{ color: '#155153', borderColor: '#15515333' }}
+                            >
+                                Historial
+                            </Button>
+                        )}
+                        <Button
+                            size="small"
+                            icon={<EditOutlined />}
+                            onClick={() => handleOpenEdit(r)}
+                            style={{ color: '#155153', borderColor: '#15515333' }}
+                        >
+                            Editar
+                        </Button>
+                        <Button
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleDelete(r)}
+                        >
+                            Eliminar
+                        </Button>
+                    </div>
+                </div>
+            );
+        });
+    };
+
     // ── RENDER ──
     return (
-        <div className="p-6">
+        <div className="p-3 md:p-6">
 
             {/* ── HEADER ── */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -396,7 +499,7 @@ function PersonasDashboard() {
                         prefix={<SearchOutlined className="text-gray-400" />}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full md:w-64 rounded-lg"
+                        className="w-full rounded-lg"
                         allowClear
                     />
                     <Tooltip title="Recargar">
@@ -413,9 +516,15 @@ function PersonasDashboard() {
                 </div>
             </div>
 
-            {/* ── TABLA ── */}
+            {/* ── TABLA / CARDS ── */}
             {error ? (
                 <Alert message={error} type="error" showIcon />
+            ) : isMobile ? (
+                <div style={{ paddingBottom: 8 }}>
+                    <Spin spinning={loading}>
+                        {renderMobileCards()}
+                    </Spin>
+                </div>
             ) : (
                 <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                     <Spin spinning={loading}>
@@ -460,7 +569,7 @@ function PersonasDashboard() {
                 open={ventasModalOpen}
                 onCancel={() => { setVentasModalOpen(false); setVentasPersona(null); setVentasPedidos([]); setVentasStats(null); }}
                 footer={null}
-                width={760}
+                width={Math.min(760, window.innerWidth - 16)}
                 destroyOnClose
             >
                 <Spin spinning={loadingVentas}>
@@ -567,7 +676,7 @@ function PersonasDashboard() {
                         <span>{editingItem ? "Editar Contacto" : "Nuevo Contacto"}</span>
                     </div>
                 }
-                width={440}
+                width={isMobile ? '100%' : 440}
                 onClose={handleCloseDrawer}
                 open={isDrawerOpen}
                 destroyOnClose

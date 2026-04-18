@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Table, Input, Button, Tag, Space,
-  Popconfirm, Select, DatePicker, message, Tooltip,
+  Popconfirm, Select, DatePicker, message, Tooltip, Skeleton,
 } from 'antd';
 import {
   SearchOutlined, ClearOutlined, FilePdfOutlined,
@@ -15,6 +15,7 @@ import 'moment/locale/es';
 
 import { deleteIngreso, deleteEgreso } from '../../services/controlapos/posService';
 import useCurrency from '../../hooks/useCurrency';
+import useIsMobile from '../../hooks/useIsMobile';
 
 moment.locale('es');
 const { Option } = Select;
@@ -29,12 +30,162 @@ const QUICK_RANGES = [
   { label: 'Año',    range: () => [moment().startOf('year'),  moment().endOf('year')]  },
 ];
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Mobile card component
+───────────────────────────────────────────────────────────────────────────── */
+const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, onDelete }) => {
+  const dateField = type === 'ingresos' ? 'createdAt' : 'fecha';
+  const date      = record[dateField];
+  const isIngreso = type === 'ingresos';
+
+  const clientName = isIngreso
+    ? (`${record.cliente_nombre || record.nombre || ''} ${record.cliente_apellido || record.apellido || ''}`.trim() || 'Venta General')
+    : (record.descripcion || '-');
+
+  const docInfo = isIngreso
+    ? (record.cliente_documento
+        ? `Doc: ${record.cliente_documento}`
+        : (record.numeroDeDocumento && record.numeroDeDocumento !== '0'
+            ? `${record.tipoDocumento || 'Doc'}: ${record.numeroDeDocumento}`
+            : null))
+    : null;
+
+  const ref     = record.payment_reference || null;
+  const concept = getConcept(record);
+  const cuenta  = record.cuenta;
+  const amount  = record.valor;
+  const userId  = record.usuario;
+  const vendedor = userMap[String(userId)] || (userId ? `ID ${userId}` : userName);
+
+  return (
+    <div
+      style={{
+        background: '#fff',
+        borderRadius: 12,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        padding: '12px 14px',
+        marginBottom: 10,
+        border: '1px solid #f0f0f0',
+      }}
+    >
+      {/* Row 1: date box | client name | amount */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        {/* Date box */}
+        <div
+          style={{
+            minWidth: 42,
+            background: '#f3f4f6',
+            borderRadius: 8,
+            padding: '4px 6px',
+            textAlign: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1, color: '#374151' }}>
+            {moment(date).format('DD')}
+          </div>
+          <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            {moment(date).format('MMM')}
+          </div>
+        </div>
+
+        {/* Center: client + doc info + concept */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontWeight: 600,
+              fontSize: 14,
+              color: '#111827',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {clientName}
+          </div>
+
+          {docInfo && (
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>{docInfo}</div>
+          )}
+
+          {ref && !docInfo && (
+            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>Ref: {ref}</div>
+          )}
+
+          {concept && (
+            <div
+              style={{
+                fontSize: 12,
+                color: '#6b7280',
+                marginTop: 2,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {concept}
+            </div>
+          )}
+
+          {vendedor && (
+            <div style={{ fontSize: 11, color: '#b0b8c4', marginTop: 1 }}>{vendedor}</div>
+          )}
+        </div>
+
+        {/* Right: amount */}
+        <div
+          style={{
+            fontWeight: 700,
+            fontSize: 15,
+            color: isIngreso ? '#15803d' : '#dc2626',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {fmt(amount)}
+        </div>
+      </div>
+
+      {/* Row 2: cuenta tag + action buttons */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+        <Tag
+          color={cuenta === 'Nequi' ? 'purple' : 'blue'}
+          style={{ fontSize: 12, margin: 0 }}
+        >
+          {cuenta || 'N/D'}
+        </Tag>
+
+        <Space size={4}>
+          <Button
+            size="small"
+            type="text"
+            icon={<EditOutlined style={{ color: '#3b82f6' }} />}
+            onClick={() => onEdit(record)}
+          />
+          <Popconfirm title="¿Borrar registro?" onConfirm={() => onDelete(record._id)}>
+            <Button
+              size="small"
+              type="text"
+              icon={<DeleteOutlined style={{ color: '#f87171' }} />}
+            />
+          </Popconfirm>
+        </Space>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Main component
+───────────────────────────────────────────────────────────────────────────── */
 const TransactionTable = ({
   type, data, loading, onRefresh, onEdit, onCreate,
   dateRange, onDateRangeChange, userName, onFiltersChange,
   inventario = [], vendedores = [],
 }) => {
-  const fmt = useCurrency();
+  const fmt      = useCurrency();
+  const isMobile = useIsMobile();
+
   const [searchText,    setSearchText]    = useState('');
   const [paymentFilter, setPaymentFilter] = useState(null);
   const [conceptFilter, setConceptFilter] = useState(null);
@@ -145,7 +296,7 @@ const TransactionTable = ({
     onDateRangeChange([start, end]);
   };
 
-  const activeQuick = QUICK_RANGES.findIndex(({ label, range }) => {
+  const activeQuick = QUICK_RANGES.findIndex(({ range }) => {
     const [s, e] = range();
     return dateRange[0].isSame(s, 'day') && dateRange[1].isSame(e, 'day');
   });
@@ -157,7 +308,7 @@ const TransactionTable = ({
 
   const TS = { fontSize: 13, color: '#374151' }; // tamaño base uniforme
 
-  // Columnas
+  // Columnas (desktop)
   const columns = useMemo(() => [
     {
       title: 'Día',
@@ -266,50 +417,85 @@ const TransactionTable = ({
     doc.save(`${title.replace(/\s+/g, '_')}_${moment(dateRange[0]).format('DD_MM_YYYY')}.pdf`);
   };
 
+  /* ── Quick-range button shared style helper ── */
+  const quickBtnStyle = (active) => ({
+    padding: isMobile ? '4px 10px' : '4px 12px',
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+    border: '1px solid',
+    background: active ? '#155153' : '#fff',
+    color:      active ? '#fff'    : '#6b7280',
+    borderColor:active ? '#155153' : '#e5e7eb',
+    transition: 'all 0.15s',
+    whiteSpace: 'nowrap',
+  });
+
   return (
     <div>
       {/* ── FILA 1: Atajos de fecha ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          marginBottom: 10,
+          flexWrap: 'wrap',
+        }}
+      >
         {QUICK_RANGES.map(({ label, range }, i) => (
           <button
             key={label}
             onClick={() => applyQuickRange(range)}
-            style={{
-              padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-              cursor: 'pointer', border: '1px solid',
-              background: activeQuick === i ? '#155153'    : '#fff',
-              color:      activeQuick === i ? '#fff'        : '#6b7280',
-              borderColor:activeQuick === i ? '#155153'    : '#e5e7eb',
-              transition: 'all 0.15s',
-            }}
+            style={quickBtnStyle(activeQuick === i)}
           >
             {label}
           </button>
         ))}
-        <RangePicker
-          allowClear
-          value={pickerValue}
-          onChange={(values) => {
-            if (values?.length === 2) {
-              onDateRangeChange([
-                moment(values[0].toDate()).startOf('day'),
-                moment(values[1].toDate()).endOf('day'),
-              ]);
-            } else {
-              onDateRangeChange([moment().startOf('month'), moment().endOf('month')]);
-            }
-          }}
-          format="DD/MM/YY"
+
+        {/* Hide RangePicker on mobile to save space; quick ranges suffice */}
+        {!isMobile && (
+          <RangePicker
+            allowClear
+            value={pickerValue}
+            onChange={(values) => {
+              if (values?.length === 2) {
+                onDateRangeChange([
+                  moment(values[0].toDate()).startOf('day'),
+                  moment(values[1].toDate()).endOf('day'),
+                ]);
+              } else {
+                onDateRangeChange([moment().startOf('month'), moment().endOf('month')]);
+              }
+            }}
+            format="DD/MM/YY"
+            size="small"
+            style={{ borderRadius: 20 }}
+          />
+        )}
+
+        <Button
+          icon={<FilePdfOutlined />}
           size="small"
-          style={{ borderRadius: 20 }}
-        />
-        <Button icon={<FilePdfOutlined />} size="small" onClick={generatePDF} style={{ marginLeft: 'auto' }}>
-          PDF
+          onClick={generatePDF}
+          style={{ marginLeft: 'auto' }}
+        >
+          {isMobile ? '' : 'PDF'}
         </Button>
       </div>
 
       {/* ── FILA 2: Filtros de búsqueda ── */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          marginBottom: 14,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        {/* Search — always visible, full-width on mobile */}
         <Input
           prefix={<SearchOutlined style={{ color: '#d1d5db' }} />}
           placeholder="Buscar cliente, ref..."
@@ -317,77 +503,151 @@ const TransactionTable = ({
           onChange={(e) => setSearchText(e.target.value)}
           allowClear
           size="small"
-          style={{ width: 200, borderRadius: 8 }}
+          style={{
+            width: isMobile ? '100%' : 200,
+            borderRadius: 8,
+            flexShrink: 0,
+          }}
         />
 
-        <Select
-          placeholder="Usuario"
-          size="small"
-          style={{ width: 150, borderRadius: 8 }}
-          allowClear
-          value={vendedorFilter}
-          onChange={(v) => { setVendedorFilter(v); syncFilters({ vendedor: v }); }}
-          options={vendedorOptions}
-          notFoundContent="Sin usuarios"
-        />
+        {/* Desktop-only filters */}
+        {!isMobile && (
+          <>
+            <Select
+              placeholder="Usuario"
+              size="small"
+              style={{ width: 150, borderRadius: 8 }}
+              allowClear
+              value={vendedorFilter}
+              onChange={(v) => { setVendedorFilter(v); syncFilters({ vendedor: v }); }}
+              options={vendedorOptions}
+              notFoundContent="Sin usuarios"
+            />
 
-        <Select
-          placeholder="Producto / Servicio"
-          size="small"
-          style={{ width: 190, borderRadius: 8 }}
-          allowClear
-          showSearch
-          value={conceptFilter}
-          onChange={(v) => { setConceptFilter(v); syncFilters({ product: v }); }}
-          options={productOptions}
-          filterOption={(input, option) =>
-            (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-          }
-          notFoundContent="Sin productos"
-        />
+            <Select
+              placeholder="Producto / Servicio"
+              size="small"
+              style={{ width: 190, borderRadius: 8 }}
+              allowClear
+              showSearch
+              value={conceptFilter}
+              onChange={(v) => { setConceptFilter(v); syncFilters({ product: v }); }}
+              options={productOptions}
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              notFoundContent="Sin productos"
+            />
 
-        <Select
-          placeholder="Cuenta"
-          size="small"
-          style={{ width: 130, borderRadius: 8 }}
-          allowClear
-          value={paymentFilter}
-          onChange={(v) => { setPaymentFilter(v); syncFilters({ payment: v }); }}
-        >
-          <Option value="Nequi">Nequi</Option>
-          <Option value="Daviplata">Daviplata</Option>
-          <Option value="Bancolombia">Bancolombia</Option>
-          <Option value="Efectivo">Efectivo</Option>
-        </Select>
+            <Select
+              placeholder="Cuenta"
+              size="small"
+              style={{ width: 130, borderRadius: 8 }}
+              allowClear
+              value={paymentFilter}
+              onChange={(v) => { setPaymentFilter(v); syncFilters({ payment: v }); }}
+            >
+              <Option value="Nequi">Nequi</Option>
+              <Option value="Daviplata">Daviplata</Option>
+              <Option value="Bancolombia">Bancolombia</Option>
+              <Option value="Efectivo">Efectivo</Option>
+            </Select>
+          </>
+        )}
+
+        {/* On mobile: compact filter row with Cuenta only (most useful quick filter) */}
+        {isMobile && (
+          <Select
+            placeholder="Cuenta"
+            size="small"
+            style={{ flex: 1, minWidth: 110, borderRadius: 8 }}
+            allowClear
+            value={paymentFilter}
+            onChange={(v) => { setPaymentFilter(v); syncFilters({ payment: v }); }}
+          >
+            <Option value="Nequi">Nequi</Option>
+            <Option value="Daviplata">Daviplata</Option>
+            <Option value="Bancolombia">Bancolombia</Option>
+            <Option value="Efectivo">Efectivo</Option>
+          </Select>
+        )}
 
         <Button icon={<ClearOutlined />} size="small" onClick={clearAll} />
       </div>
 
-      <Table
-        columns={[
-          ...columns,
-          {
-            title: '',
-            key: 'act',
-            width: 70,
-            fixed: 'right',
-            render: (_, r) => (
-              <Space>
-                <Button size="small" type="text" icon={<EditOutlined className="text-blue-500" />} onClick={() => onEdit(r)} />
-                <Popconfirm title="¿Borrar registro?" onConfirm={() => handleDelete(r._id)}>
-                  <Button size="small" type="text" icon={<DeleteOutlined className="text-red-400" />} />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]}
-        dataSource={filteredData}
-        rowKey="_id"
-        loading={loading}
-        pagination={{ pageSize: 7 }}
-        size="small"
-        scroll={{ x: 770 }}
-      />
+      {/* ── CONTENT: cards on mobile, table on desktop ── */}
+      {isMobile ? (
+        <div>
+          {loading ? (
+            // Skeleton placeholders while loading
+            Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  background: '#fff',
+                  borderRadius: 12,
+                  border: '1px solid #f0f0f0',
+                  padding: '12px 14px',
+                  marginBottom: 10,
+                }}
+              >
+                <Skeleton active paragraph={{ rows: 2 }} title={false} />
+              </div>
+            ))
+          ) : filteredData.length === 0 ? (
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '40px 0',
+                color: '#9ca3af',
+                fontSize: 14,
+              }}
+            >
+              Sin registros para los filtros seleccionados
+            </div>
+          ) : (
+            filteredData.map((record) => (
+              <MobileCard
+                key={record._id}
+                record={record}
+                type={type}
+                fmt={fmt}
+                userMap={userMap}
+                userName={userName}
+                getConcept={getConcept}
+                onEdit={onEdit}
+                onDelete={handleDelete}
+              />
+            ))
+          )}
+        </div>
+      ) : (
+        <Table
+          columns={[
+            ...columns,
+            {
+              title: '',
+              key: 'act',
+              width: 70,
+              fixed: 'right',
+              render: (_, r) => (
+                <Space>
+                  <Button size="small" type="text" icon={<EditOutlined className="text-blue-500" />} onClick={() => onEdit(r)} />
+                  <Popconfirm title="¿Borrar registro?" onConfirm={() => handleDelete(r._id)}>
+                    <Button size="small" type="text" icon={<DeleteOutlined className="text-red-400" />} />
+                  </Popconfirm>
+                </Space>
+              ),
+            },
+          ]}
+          dataSource={filteredData}
+          rowKey="_id"
+          loading={loading}
+          pagination={{ pageSize: 7 }}
+          size="small"
+          scroll={{ x: 770 }}
+        />
+      )}
     </div>
   );
 };

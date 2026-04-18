@@ -21,6 +21,7 @@ import {
   getInventarioStats, uploadInventarioPhoto,
 } from "../../services/inventario/inventarioService";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
+import useIsMobile from "../../hooks/useIsMobile";
 
 // ─── EAN-13 generator ──────────────────────────────────────
 const generateEAN13 = () => {
@@ -137,7 +138,7 @@ const ProductoInformeModal = ({ item, onClose, onPhotoUpdated, fmt }) => {
       open={!!item}
       onCancel={onClose}
       footer={null}
-      width={720}
+      width={Math.min(720, window.innerWidth - 16)}
       title={
         <div className="flex items-center gap-2" style={{ color:'#155153' }}>
           <AppstoreAddOutlined />
@@ -269,6 +270,7 @@ const ProductoInformeModal = ({ item, onClose, onPhotoUpdated, fmt }) => {
 function Inventario() {
   const fmt = useCurrency();
   const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+  const isMobile = useIsMobile();
 
   const [items, setItems]               = useState([]);
   const [loading, setLoading]           = useState(false);
@@ -493,9 +495,106 @@ function Inventario() {
     },
   ];
 
+  // ── Mobile card list ──
+  const MobileCardList = () => {
+    if (loading) return <div style={{ textAlign:'center', padding:32 }}><Spin/></div>;
+    if (!rows.length) return (
+      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sin elementos aún." style={{ margin:'32px 0' }}>
+        <Button type="primary" onClick={handleOpenCreate} style={{ background:'#155153' }}>
+          Crear el primero
+        </Button>
+      </Empty>
+    );
+    return (
+      <div>
+        {rows.map(r => (
+          <div
+            key={r.id}
+            onClick={() => setInformeItem(r)}
+            style={{
+              background: esStockBajo(r) ? '#fff5f5' : '#fff',
+              borderRadius: 12,
+              border: '1px solid #e5e7eb',
+              padding: '14px',
+              marginBottom: 10,
+              cursor: 'pointer',
+            }}
+          >
+            {/* Type tag */}
+            <div style={{ marginBottom: 6 }}>
+              <Tag
+                color={r.tipo_item === 'servicio' ? 'purple' : 'blue'}
+                icon={r.tipo_item === 'servicio' ? <ToolOutlined/> : <ShoppingOutlined/>}
+                style={{ fontSize: 10 }}
+              >
+                {r.tipo_item === 'servicio' ? 'Servicio' : 'Producto'}
+              </Tag>
+            </div>
+
+            {/* Name row + edit/delete buttons */}
+            <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap: 8, marginBottom: 4 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontWeight: 700, color: '#1f2937', fontSize: 15, display:'block' }}>{r.nombre}</span>
+                {r.sku && (
+                  <span style={{ fontSize: 11, color: '#9ca3af' }}>SKU: {r.sku}</span>
+                )}
+              </div>
+              <div style={{ display:'flex', gap: 6, flexShrink: 0 }}>
+                <Button
+                  size="small"
+                  icon={<EditOutlined/>}
+                  onClick={e => { e.stopPropagation(); handleOpenEdit(r); }}
+                  style={{ color:'#155153', borderColor:'#15515333' }}
+                />
+                <Button
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined/>}
+                  onClick={e => { e.stopPropagation(); handleDelete([r.id]); }}
+                />
+              </div>
+            </div>
+
+            {/* Category */}
+            {r.categoria && (
+              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+                <TagOutlined style={{ marginRight: 4 }}/>{r.categoria}
+              </div>
+            )}
+
+            <div style={{ height: 1, background: '#e5e7eb', margin: '8px 0' }}/>
+
+            {/* Stock + Precio */}
+            <div style={{ display:'flex', alignItems:'center', gap: 16 }}>
+              {r.tipo_item !== 'servicio' && (
+                <div style={{ fontSize: 13, color: esStockBajo(r) ? '#ef4444' : '#374151', fontWeight: 600 }}>
+                  {esStockBajo(r) && <WarningFilled style={{ marginRight: 4, color: '#ef4444' }}/>}
+                  Stock: {r.cantidad ?? 0}
+                  {r.stock_minimo > 0 && (
+                    <span style={{ fontWeight: 400, color: '#9ca3af' }}> / {r.stock_minimo}</span>
+                  )}
+                </div>
+              )}
+              <div style={{ fontWeight: 700, color: '#155153', fontSize: 14 }}>
+                Precio: {fmt(r.monto)}
+              </div>
+            </div>
+
+            {/* Low stock warning */}
+            {esStockBajo(r) && (
+              <div style={{ marginTop: 6, fontSize: 11, color: '#ef4444', fontWeight: 600 }}>
+                <WarningFilled style={{ marginRight: 4 }}/>Stock bajo — revisar
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // ── RENDER ──
   return (
-    <div className="p-6">
+    <div className="p-3 md:p-6">
 
       {/* HEADER */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -532,16 +631,17 @@ function Inventario() {
       </div>
 
       {/* FILTROS */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className={`flex ${isMobile ? 'flex-col' : 'flex-wrap'} gap-2 mb-4`}>
         <Input
           placeholder="Buscar nombre, SKU, código de barras..."
           prefix={<SearchOutlined className="text-gray-400"/>}
           value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-          allowClear className="w-full md:w-72"
+          allowClear className={isMobile ? 'w-full' : 'w-full md:w-72'}
         />
-        <div className="flex gap-1">
+        <div className={`flex gap-1 ${isMobile ? 'w-full' : ''}`}>
           {['todos','producto','servicio'].map(t => (
             <button key={t} type="button" onClick={() => setFilterTipo(t)} style={{
+              flex: isMobile ? 1 : undefined,
               padding:'6px 14px', borderRadius:8, border:'none',
               background: filterTipo===t ? '#155153' : '#f3f4f6',
               color: filterTipo===t ? '#fff' : '#64748b',
@@ -551,45 +651,49 @@ function Inventario() {
             </button>
           ))}
         </div>
-        {selectedKeys.length > 0 && (
+        {!isMobile && selectedKeys.length > 0 && (
           <Button danger icon={<DeleteOutlined/>} onClick={() => handleDelete(selectedKeys)}>
             Eliminar {selectedKeys.length} seleccionados
           </Button>
         )}
       </div>
 
-      {/* TABLA */}
+      {/* TABLA / CARDS */}
       {error ? <Alert message={error} type="error" showIcon/> : (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <Spin spinning={loading}>
-            <Table
-              dataSource={rows}
-              columns={columns}
-              rowKey="id"
-              size="middle"
-              rowSelection={{
-                selectedRowKeys: selectedKeys,
-                onChange: setSelectedKeys,
-              }}
-              onRow={r => ({
-                onClick: () => setInformeItem(r),
-                style: {
-                  background: esStockBajo(r) ? '#fff5f5' : undefined,
-                  cursor: 'pointer',
-                },
-              })}
-              locale={{ emptyText: (
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sin elementos aún.">
-                  <Button type="primary" onClick={handleOpenCreate} style={{ background:'#155153' }}>
-                    Crear el primero
-                  </Button>
-                </Empty>
-              )}}
-              pagination={{ pageSize:20, showSizeChanger:true, showTotal:(t,r)=>`${r[0]}-${r[1]} de ${t}` }}
-              scroll={{ x:900 }}
-            />
-          </Spin>
-        </div>
+        isMobile ? (
+          <MobileCardList/>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <Spin spinning={loading}>
+              <Table
+                dataSource={rows}
+                columns={columns}
+                rowKey="id"
+                size="middle"
+                rowSelection={{
+                  selectedRowKeys: selectedKeys,
+                  onChange: setSelectedKeys,
+                }}
+                onRow={r => ({
+                  onClick: () => setInformeItem(r),
+                  style: {
+                    background: esStockBajo(r) ? '#fff5f5' : undefined,
+                    cursor: 'pointer',
+                  },
+                })}
+                locale={{ emptyText: (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sin elementos aún.">
+                    <Button type="primary" onClick={handleOpenCreate} style={{ background:'#155153' }}>
+                      Crear el primero
+                    </Button>
+                  </Empty>
+                )}}
+                pagination={{ pageSize:20, showSizeChanger:true, showTotal:(t,r)=>`${r[0]}-${r[1]} de ${t}` }}
+                scroll={{ x:900 }}
+              />
+            </Spin>
+          </div>
+        )
       )}
 
       {/* ── MODAL INFORME ── */}
@@ -610,7 +714,7 @@ function Inventario() {
             <span>{editingItem ? `Editar ${tipoItem}` : 'Nuevo elemento'}</span>
           </div>
         }
-        width={500} onClose={handleCloseDrawer} open={isDrawerOpen} destroyOnClose
+        width={isMobile ? '100%' : 500} onClose={handleCloseDrawer} open={isDrawerOpen} destroyOnClose
         footer={
           <div className="flex justify-end gap-2">
             <Button onClick={handleCloseDrawer}>Cancelar</Button>

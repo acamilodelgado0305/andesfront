@@ -104,7 +104,7 @@ const PersonaFormDrawer = ({ open, onClose, onSuccess, editingItem = null, defau
                 result = await createPersona(payload);
                 notification.success({ message: 'Contacto registrado' });
             }
-            onSuccess?.(result?.persona || result || { ...payload });
+            onSuccess?.(result?.data || result?.persona || result || { ...payload });
             onClose();
         } catch (err) {
             notification.error({

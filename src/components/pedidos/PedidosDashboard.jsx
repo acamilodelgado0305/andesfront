@@ -20,6 +20,7 @@ import POSModal from "./POSModal";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
+import useIsMobile from "../../hooks/useIsMobile";
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -29,6 +30,7 @@ const estadoColor = { PENDIENTE: 'orange', ENTREGADO: 'green', PAGADO: 'green', 
 const PedidosDashboard = () => {
     const formatCurrency = useCurrency();
     const { prefix: currPrefix } = useCurrencyInput();
+    const isMobile = useIsMobile();
 
     const [pedidos, setPedidos] = useState([]);
     const [stats, setStats] = useState(null);
@@ -385,9 +387,91 @@ const PedidosDashboard = () => {
         },
     ];
 
+    // ─── Mobile card renderer ────────────────────────────────
+    const renderMobileCard = (record) => {
+        let items = [];
+        try { items = typeof record.items_detalle === 'string' ? JSON.parse(record.items_detalle) : (record.items_detalle || []); } catch { items = []; }
+
+        const productosText = items.length > 0
+            ? items.slice(0, 3).map(i => `${i.producto || i.nombre} × ${i.cantidad}`).join(', ') + (items.length > 3 ? ` +${items.length - 3} más` : '')
+            : '—';
+
+        const fecha = record.fecha_creacion
+            ? new Date(record.fecha_creacion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })
+            : '—';
+
+        return (
+            <div
+                key={record.id}
+                className={record.estado === 'ANULADO' ? 'opacity-40' : ''}
+                style={{
+                    background: '#fff',
+                    borderRadius: 12,
+                    border: '1px solid #f1f5f9',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                    padding: 16,
+                    marginBottom: 12,
+                }}
+            >
+                {/* Row 1: Estado + ID */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Tag color={estadoColor[record.estado] || 'default'} style={{ fontWeight: 600, fontSize: 11, margin: 0 }}>
+                        {record.estado}
+                    </Tag>
+                    <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>#{record.id}</span>
+                </div>
+
+                {/* Row 2: Cliente */}
+                <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14, marginBottom: 4 }}>
+                    {record.cliente_nombre || 'Cliente General'}
+                </div>
+
+                {/* Row 3: Productos */}
+                <div style={{ fontSize: 12, color: '#475569', marginBottom: 10 }}>
+                    {productosText}
+                </div>
+
+                {/* Divider */}
+                <div style={{ borderTop: '1px solid #f1f5f9', marginBottom: 10 }} />
+
+                {/* Row 4: Fecha + Total */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>{fecha}</span>
+                    <span style={{ fontWeight: 800, color: '#155153', fontSize: 15 }}>{formatCurrency(record.total)}</span>
+                </div>
+
+                {/* Row 5: Actions */}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Button size="small" icon={<PrinterOutlined />} onClick={() => generarReciboPDF(record)}>
+                        Factura
+                    </Button>
+                    <Button
+                        size="small"
+                        icon={<EditOutlined />}
+                        onClick={() => { setEditingOrderId(record.id); setIsPosOpen(true); }}
+                        disabled={record.estado !== 'PENDIENTE'}
+                    >
+                        Editar
+                    </Button>
+                    {record.estado === 'PENDIENTE' && (
+                        <Button
+                            size="small"
+                            type="primary"
+                            style={{ background: '#155153', borderColor: '#155153' }}
+                            icon={<CheckCircleOutlined />}
+                            onClick={() => { setPedidoAEntregar(record.id); setModalEntregaOpen(true); }}
+                        >
+                            Entregar
+                        </Button>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <Layout className="min-h-screen" style={{ background: 'transparent' }}>
-            <Content style={{ padding: '24px', paddingBottom: 80 }}>
+            <Content style={{ padding: isMobile ? '12px' : '24px', paddingBottom: 80 }}>
 
                 {/* ── HEADER ── */}
                 <Card style={{ borderRadius: 12, marginBottom: 20, border: '1px solid #e2e8f0' }} bodyStyle={{ padding: '16px 20px' }}>
@@ -416,7 +500,15 @@ const PedidosDashboard = () => {
                 </Card>
 
                 {/* ── STATS + ACCIONES ── */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
+                    flexWrap: 'wrap',
+                    justifyContent: isMobile ? 'flex-start' : 'space-between',
+                    alignItems: isMobile ? 'stretch' : 'center',
+                    gap: 12,
+                    marginBottom: 16,
+                }}>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                         {statChips.map((chip, i) => (
                             <Tag key={i} color={chip.color} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20 }}>{chip.label}</Tag>
@@ -428,10 +520,10 @@ const PedidosDashboard = () => {
                             </Tag>
                         )}
                     </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <Button size="small" icon={<HistoryOutlined />} onClick={abrirHistorial}>Historial</Button>
-                        <Button size="small" icon={<FileTextOutlined />} style={{ background: '#f97316', color: '#fff', borderColor: '#f97316' }} onClick={() => setModalConsolidadoOpen(true)}>Reporte</Button>
-                        <Button size="small" danger icon={<LockOutlined />} onClick={handleCerrarCaja}>Cerrar caja</Button>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
+                        <Button size="small" icon={<HistoryOutlined />} onClick={abrirHistorial} style={isMobile ? { flex: 1 } : {}}>Historial</Button>
+                        <Button size="small" icon={<FileTextOutlined />} style={{ background: '#f97316', color: '#fff', borderColor: '#f97316', ...(isMobile ? { flex: 1 } : {}) }} onClick={() => setModalConsolidadoOpen(true)}>Reporte</Button>
+                        <Button size="small" danger icon={<LockOutlined />} onClick={handleCerrarCaja} style={isMobile ? { flex: 1 } : {}}>Cerrar caja</Button>
                     </div>
                 </div>
 
@@ -443,36 +535,59 @@ const PedidosDashboard = () => {
                         allowClear
                         value={busquedaPedido}
                         onChange={(e) => setBusquedaPedido(e.target.value)}
-                        style={{ maxWidth: 340 }}
+                        style={isMobile ? { width: '100%' } : { maxWidth: 340 }}
                     />
                 </div>
 
-                {/* ── TABLA ── */}
-                <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                    <Table
-                        dataSource={pedidosFiltrados}
-                        columns={columns}
-                        rowKey="id"
-                        loading={loading}
-                        size="middle"
-                        pagination={{ pageSize: 15, showSizeChanger: true, showTotal: (total) => `${total} pedidos` }}
-                        scroll={{ x: 700 }}
-                        locale={{
-                            emptyText: (
-                                <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8' }}>
-                                    <CheckCircleOutlined style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }} />
-                                    <p style={{ margin: 0 }}>Todo limpio. ¡Listo para nuevas ventas!</p>
-                                </div>
-                            )
-                        }}
-                        rowClassName={(record) => record.estado === 'ANULADO' ? 'opacity-40' : ''}
-                    />
-                </div>
+                {/* ── TABLA / CARDS ── */}
+                {isMobile ? (
+                    <div>
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                                <Spin />
+                            </div>
+                        ) : pedidosFiltrados.length === 0 ? (
+                            <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8' }}>
+                                <CheckCircleOutlined style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }} />
+                                <p style={{ margin: 0 }}>Todo limpio. ¡Listo para nuevas ventas!</p>
+                            </div>
+                        ) : (
+                            pedidosFiltrados.map(record => renderMobileCard(record))
+                        )}
+                    </div>
+                ) : (
+                    <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                        <Table
+                            dataSource={pedidosFiltrados}
+                            columns={columns}
+                            rowKey="id"
+                            loading={loading}
+                            size="middle"
+                            pagination={{ pageSize: 15, showSizeChanger: true, showTotal: (total) => `${total} pedidos` }}
+                            scroll={{ x: 700 }}
+                            locale={{
+                                emptyText: (
+                                    <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8' }}>
+                                        <CheckCircleOutlined style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }} />
+                                        <p style={{ margin: 0 }}>Todo limpio. ¡Listo para nuevas ventas!</p>
+                                    </div>
+                                )
+                            }}
+                            rowClassName={(record) => record.estado === 'ANULADO' ? 'opacity-40' : ''}
+                        />
+                    </div>
+                )}
 
                 {/* ── MODALES ── */}
                 <POSModal visible={isPosOpen} onClose={() => setIsPosOpen(false)} onSaved={cargarTodo} orderIdToEdit={editingOrderId} />
 
-                <Modal title="Consolidado Actual" open={modalConsolidadoOpen} onCancel={() => setModalConsolidadoOpen(false)} footer={null} width={600}>
+                <Modal
+                    title="Consolidado Actual"
+                    open={modalConsolidadoOpen}
+                    onCancel={() => setModalConsolidadoOpen(false)}
+                    footer={null}
+                    width={Math.min(600, window.innerWidth - 16)}
+                >
                     <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 16 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
                             {[
@@ -494,12 +609,25 @@ const PedidosDashboard = () => {
                     <Button type="primary" danger block icon={<FilePdfOutlined />} onClick={generarReporteControlActual} style={{ marginTop: 16 }}>Descargar PDF</Button>
                 </Modal>
 
-                <Modal title="Confirmar Entrega" open={modalEntregaOpen} onCancel={() => setModalEntregaOpen(false)} onOk={confirmarEntrega} confirmLoading={loadingEntrega} okText="Confirmar">
+                <Modal
+                    title="Confirmar Entrega"
+                    open={modalEntregaOpen}
+                    onCancel={() => setModalEntregaOpen(false)}
+                    onOk={confirmarEntrega}
+                    confirmLoading={loadingEntrega}
+                    okText="Confirmar"
+                >
                     <p style={{ marginBottom: 12, color: '#64748b' }}>Selecciona la cuenta de destino para el pago:</p>
                     <Select className="w-full" size="large" value={cuentaDestino} onChange={setCuentaDestino} options={cuentaOptions} />
                 </Modal>
 
-                <Modal title="Historial de Cierres" open={modalHistorialOpen} onCancel={() => setModalHistorialOpen(false)} footer={null} width={560}>
+                <Modal
+                    title="Historial de Cierres"
+                    open={modalHistorialOpen}
+                    onCancel={() => setModalHistorialOpen(false)}
+                    footer={null}
+                    width={Math.min(560, window.innerWidth - 16)}
+                >
                     <List
                         loading={loadingHistorial}
                         dataSource={listaCierres}
@@ -520,7 +648,7 @@ const PedidosDashboard = () => {
                     open={modalDetalleCierreOpen}
                     onCancel={() => setModalDetalleCierreOpen(false)}
                     footer={null}
-                    width={860}
+                    width={Math.min(860, window.innerWidth - 16)}
                 >
                     <Spin spinning={loadingPedidosHistoricos}>
                         <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '16px 20px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
