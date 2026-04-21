@@ -53,6 +53,7 @@ function StudentPortal() {
   const [documentNumber, setDocumentNumber] = useState("");
   const [studentInfo, setStudentInfo] = useState(null);
   const [gradesInfo, setGradesInfo] = useState([]);
+  const [gradesByCierre, setGradesByCierre] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
   const [currentStudentId, setCurrentStudentId] = useState(null);
 
@@ -85,7 +86,7 @@ function StudentPortal() {
       if (!doc.trim()) throw new Error("Documento inválido.");
 
       const data = await getStudentGradesAndInfoByDocument(doc);
-      const { student, grades, studentId } = data;
+      const { student, grades, gradesByCierre: gbc, studentId } = data;
 
       if (!student || !studentId) throw new Error("Datos académicos no encontrados.");
 
@@ -108,6 +109,7 @@ function StudentPortal() {
 
       setStudentInfo(finalStudentInfo);
       setGradesInfo(grades || []);
+      setGradesByCierre(gbc || []);
       setEvaluations(assignedEvaluations);
       setCurrentStudentId(studentId);
       setDocumentNumber(doc);
@@ -409,6 +411,7 @@ function StudentPortal() {
                     <div style={styles.tabContent}>
                       <StudentGradesTab
                         gradesInfo={gradesInfo}
+                        gradesByCierre={gradesByCierre}
                         studentInfo={studentInfo}
                         currentStudentId={currentStudentId}
                         loading={loading}

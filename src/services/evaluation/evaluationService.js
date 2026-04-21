@@ -1,5 +1,18 @@
 // src/services/evaluationService.js
-import backApi from "../backApi"; // ajusta la ruta si tu backApi está en otro sitio
+import axios from "axios";
+import backApi from "../backApi"; // para rutas de ADMIN
+
+// Instancia separada para rutas del ESTUDIANTE — usa student_portal_token, no authToken
+const BACK_URL = import.meta.env.VITE_API_BACKEND || "http://localhost:3002";
+const studentApi = axios.create({
+  baseURL: BACK_URL,
+  headers: { "Content-Type": "application/json" },
+});
+studentApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem("student_portal_token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 /* ===================== EVALUACIONES (ADMIN) ===================== */
 
@@ -145,26 +158,25 @@ export const removeAssignment = async (evaluationId, estudianteId) => {
 
 /* ===================== PARTE ESTUDIANTE ===================== */
 
-// Obtener evaluaciones asignadas a un estudiante
+// Obtener evaluaciones asignadas a un estudiante (usa token de estudiante)
 export const getStudentAssignments = async (studentId) => {
-  const response = await backApi.get(
+  const response = await studentApi.get(
     `/api/evaluaciones/estudiantes/${studentId}/asignaciones`
   );
   return response.data;
 };
 
-// Obtener detalle de una asignación (para responder evaluación)
+// Obtener detalle de una asignación (usa token de estudiante)
 export const getAssignmentDetail = async (assignmentId) => {
-  const response = await backApi.get(
+  const response = await studentApi.get(
     `/api/evaluaciones/asignaciones/${assignmentId}`
   );
   return response.data;
 };
 
-// Enviar respuestas de una evaluación
-// payload: { respuestas: [{ pregunta_id, opcion_id?, respuesta_texto? }, ...] }
+// Enviar respuestas de una evaluación (usa token de estudiante)
 export const sendEvaluationAnswers = async (assignmentId, payload) => {
-  const response = await backApi.post(
+  const response = await studentApi.post(
     `/api/evaluaciones/asignaciones/${assignmentId}/respuestas`,
     payload
   );
