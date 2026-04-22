@@ -87,7 +87,7 @@ const RapictrlLanding = () => {
                 </motion.a>
                 <motion.a
                   whileHover={{ scale: 1.05 }}
-                  href="#pricing"
+                  href="/precios"
                   className="inline-flex items-center justify-center bg-transparent border-2 border-white text-white font-bold py-3 px-8 rounded-lg text-lg"
                 >
                   Ver Planes
@@ -168,11 +168,11 @@ const RapictrlLanding = () => {
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
               <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}>
                 <h2 className="text-3xl md:text-4xl font-bold mb-4">Planes para cada etapa de tu negocio</h2>
-                <p className="text-xl text-slate-300 mb-4">Desde $39.900/mes. Todos los planes incluyen <strong>14 días de prueba gratuita</strong>.</p>
+                <p className="text-xl text-slate-300 mb-4">Desde $19.900/mes. Todos los planes incluyen <strong>14 días de prueba gratuita</strong>.</p>
                 <p className="text-slate-400 mb-10">Sin tarjeta de crédito · Sin contratos · Cancela cuando quieras</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto mb-10">
                   {[
-                    { name: 'Básico', price: '$39.900/mes', users: '2 usuarios' },
+                    { name: 'Básico', price: '$19.900/mes', users: '2 usuarios' },
                     { name: 'Profesional', price: '$79.900/mes', users: '5 usuarios', popular: true },
                     { name: 'Empresarial', price: '$125.000/mes', users: 'Ilimitados' },
                   ].map((p) => (

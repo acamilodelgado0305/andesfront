@@ -64,10 +64,10 @@ const PLANS = [
     planDbId: { monthly: 9, annual: 10 },
     name: 'Básico',
     subtitle: 'Ideal para emprendedores',
-    monthlyPrice: 39900,
-    annualPrice: 456000,
-    annualMonthly: 38000,
-    savingsAnnual: 22800,
+    monthlyPrice: 19900,
+    annualPrice: 199000,
+    annualMonthly: 16583,
+    savingsAnnual: 39800,
     maxUsers: '2 usuarios',
     badge: null,
     features: [
@@ -143,7 +143,7 @@ const PreciosPage = () => {
       <div className="w-full min-h-screen bg-gray-50 flex flex-col font-sans">
         <Helmet>
           <title>Planes y Precios | Rapictrl</title>
-          <meta name="description" content="Elige el plan perfecto para tu negocio. Desde $39.900/mes con prueba gratuita de 14 días." />
+          <meta name="description" content="Elige el plan perfecto para tu negocio. Desde $19.900/mes con prueba gratuita de 14 días." />
         </Helmet>
 
         <Header />
