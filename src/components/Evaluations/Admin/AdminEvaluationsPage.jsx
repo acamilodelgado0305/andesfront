@@ -162,10 +162,12 @@ const AdminEvaluationsPage = () => {
 
   const openEditModal = (record) => {
     setEditingEvaluation(record);
+    const programaIds = record.programas?.map((p) => p.id) ||
+      (record.programa_id ? [record.programa_id] : undefined);
     form.setFieldsValue({
       titulo: record.titulo,
       descripcion: record.descripcion,
-      programa_id: record.programa_id || undefined,
+      programa_ids: programaIds,
       materia_id: record.materia_id || undefined,
       intentos_max: record.intentos_max || undefined,
       tiempo_limite_min: record.tiempo_limite_min || undefined,
@@ -204,7 +206,7 @@ const AdminEvaluationsPage = () => {
       const payload = {
         titulo: values.titulo,
         descripcion: values.descripcion || null,
-        programa_id: values.programa_id || null,
+        programa_ids: values.programa_ids || [],
         materia_id: values.materia_id || null,
         intentos_max: values.intentos_max || null,
         tiempo_limite_min: values.tiempo_limite_min || null,
@@ -246,12 +248,12 @@ const AdminEvaluationsPage = () => {
     0
   );
 
-  // Filtrar materias según el programa seleccionado en el formulario
-  const formProgramaId = Form.useWatch("programa_id", form);
+  // Filtrar materias según los programas seleccionados en el formulario
+  const formProgramaIds = Form.useWatch("programa_ids", form);
   const filteredMateriasForForm = useMemo(() => {
-    if (!formProgramaId) return [];
-    return materias.filter((m) => m.programa_id === formProgramaId);
-  }, [materias, formProgramaId]);
+    if (!formProgramaIds || formProgramaIds.length === 0) return [];
+    return materias.filter((m) => formProgramaIds.includes(m.programa_id));
+  }, [materias, formProgramaIds]);
 
   return (
     <div
@@ -733,14 +735,15 @@ const AdminEvaluationsPage = () => {
           </Form.Item>
 
           <Form.Item
-            label={<span style={{ fontWeight: 600 }}>Programa</span>}
-            name="programa_id"
-            rules={[{ required: true, message: "Selecciona el programa" }]}
+            label={<span style={{ fontWeight: 600 }}>Programa(s)</span>}
+            name="programa_ids"
+            rules={[{ required: true, message: "Selecciona al menos un programa" }]}
           >
             <Select
+              mode="multiple"
               allowClear
               loading={loadingCatalogs}
-              placeholder="Selecciona el programa"
+              placeholder="Selecciona uno o varios programas"
               optionFilterProp="children"
               showSearch
               size="large"
@@ -762,11 +765,11 @@ const AdminEvaluationsPage = () => {
             <Select
               allowClear
               loading={loadingCatalogs}
-              placeholder={formProgramaId ? "Selecciona la materia" : "Primero selecciona un programa"}
+              placeholder={formProgramaIds?.length ? "Selecciona la materia" : "Primero selecciona un programa"}
               optionFilterProp="children"
               showSearch
               size="large"
-              disabled={!formProgramaId}
+              disabled={!formProgramaIds?.length}
             >
               {filteredMateriasForForm.map((m) => (
                 <Option key={m.id} value={m.id}>
@@ -1016,24 +1019,29 @@ function EvaluationCard({ evaluation, onEdit, onDelete, onBuild }) {
             marginBottom: 16,
           }}
         >
-          {ev.programa_nombre && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                background: "#eef2ff",
-                border: "1px solid #e0e7ff",
-                borderRadius: 8,
-                padding: "4px 10px",
-                fontSize: 11,
-                color: "#4338ca",
-                fontWeight: 600,
-              }}
-            >
-              <BookOutlined style={{ fontSize: 11 }} />
-              {ev.programa_nombre}
-            </div>
+          {(ev.programas?.length > 0 || ev.programa_nombre) && (
+            <>
+              {(ev.programas?.length > 0 ? ev.programas : [{ id: ev.programa_id, nombre: ev.programa_nombre }]).map((p) => (
+                <div
+                  key={p.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: "#eef2ff",
+                    border: "1px solid #e0e7ff",
+                    borderRadius: 8,
+                    padding: "4px 10px",
+                    fontSize: 11,
+                    color: "#4338ca",
+                    fontWeight: 600,
+                  }}
+                >
+                  <BookOutlined style={{ fontSize: 11 }} />
+                  {p.nombre}
+                </div>
+              ))}
+            </>
           )}
 
           {ev.materia_nombre && (
