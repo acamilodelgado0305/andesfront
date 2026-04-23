@@ -34,6 +34,7 @@ import {
   RightOutlined,
   ClearOutlined,
   AppstoreOutlined,
+  SendOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -43,6 +44,7 @@ import {
   createEvaluation,
   updateEvaluation,
   deleteEvaluation,
+  assignByStudentPrograms,
 } from "../../../services/evaluation/evaluationService";
 
 import { getProgramas } from "../../../services/programas/programasService";
@@ -63,6 +65,12 @@ const AdminEvaluationsPage = () => {
   const [programs, setPrograms] = useState([]);
   const [materias, setMaterias] = useState([]);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
+
+  // ===== Assign modal state =====
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [assigningEvaluation, setAssigningEvaluation] = useState(null);
+  const [assignProgramId, setAssignProgramId] = useState(null);
+  const [assignLoading, setAssignLoading] = useState(false);
 
   // ===== Filter states =====
   const [filterPrograma, setFilterPrograma] = useState(null);
@@ -198,6 +206,34 @@ const AdminEvaluationsPage = () => {
         }
       },
     });
+  };
+
+  const openAssignModal = (ev) => {
+    setAssigningEvaluation(ev);
+    setAssignProgramId(null);
+    setAssignModalVisible(true);
+  };
+
+  const handleAssignToProgram = async () => {
+    if (!assignProgramId || !assigningEvaluation) return;
+    try {
+      setAssignLoading(true);
+      const res = await assignByStudentPrograms(assigningEvaluation.id, {
+        programa_id: assignProgramId,
+      });
+      const count = res.asignados ?? res.total ?? "varios";
+      message.success(
+        `Se asignó la evaluación a ${count} estudiante(s) del programa seleccionado`
+      );
+      setAssignModalVisible(false);
+      setAssigningEvaluation(null);
+      setAssignProgramId(null);
+    } catch (err) {
+      console.error(err);
+      message.error("Error al asignar la evaluación");
+    } finally {
+      setAssignLoading(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -649,6 +685,7 @@ const AdminEvaluationsPage = () => {
               onBuild={() =>
                 navigate(`/inicio/evaluaciones/${ev.id}/builder`)
               }
+              onAssign={() => openAssignModal(ev)}
             />
           ))}
         </div>
@@ -841,6 +878,83 @@ const AdminEvaluationsPage = () => {
           </div>
         </Form>
       </Modal>
+
+      {/* ===== MODAL ASIGNAR A PROGRAMA ===== */}
+      <Modal
+        open={assignModalVisible}
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: "linear-gradient(135deg, #0f766e, #14b8a6)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+                fontSize: 16,
+              }}
+            >
+              <SendOutlined />
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>
+                Asignar Evaluación
+              </div>
+              <div style={{ fontSize: 12, color: "#9ca3af", fontWeight: 400 }}>
+                {assigningEvaluation?.titulo}
+              </div>
+            </div>
+          </div>
+        }
+        okText="Asignar"
+        cancelText="Cancelar"
+        onCancel={() => {
+          setAssignModalVisible(false);
+          setAssigningEvaluation(null);
+          setAssignProgramId(null);
+        }}
+        onOk={handleAssignToProgram}
+        okButtonProps={{
+          disabled: !assignProgramId,
+          loading: assignLoading,
+          style: {
+            background: assignProgramId
+              ? "linear-gradient(135deg, #0f766e, #14b8a6)"
+              : undefined,
+            border: "none",
+          },
+        }}
+        destroyOnClose
+      >
+        <div style={{ padding: "8px 0" }}>
+          <p style={{ color: "#6b7280", marginBottom: 16, fontSize: 14 }}>
+            Selecciona un programa. La evaluación será asignada a todos los
+            estudiantes activos de ese programa. Los ya asignados no se
+            duplicarán.
+          </p>
+          <Select
+            style={{ width: "100%" }}
+            size="large"
+            showSearch
+            allowClear
+            placeholder="Selecciona un programa"
+            optionFilterProp="children"
+            value={assignProgramId}
+            onChange={(val) => setAssignProgramId(val)}
+            loading={loadingCatalogs}
+          >
+            {programs.map((p) => (
+              <Option key={p.id} value={p.id}>
+                {p.nombre}
+                {p.tipo_programa ? ` · ${p.tipo_programa}` : ""}
+              </Option>
+            ))}
+          </Select>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -888,7 +1002,7 @@ function StatPill({ icon, value, label, color }) {
 }
 
 /* ===== EVALUATION CARD SUB-COMPONENT ===== */
-function EvaluationCard({ evaluation, onEdit, onDelete, onBuild }) {
+function EvaluationCard({ evaluation, onEdit, onDelete, onBuild, onAssign }) {
   const [hovered, setHovered] = useState(false);
   const ev = evaluation;
 
@@ -1170,6 +1284,24 @@ function EvaluationCard({ evaluation, onEdit, onDelete, onBuild }) {
                 }}
               >
                 Editar
+              </Button>
+            </Tooltip>
+            <Tooltip title="Asignar a programa">
+              <Button
+                icon={<SendOutlined />}
+                size="small"
+                type="text"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAssign();
+                }}
+                style={{
+                  borderRadius: 8,
+                  color: "#0f766e",
+                  fontWeight: 500,
+                }}
+              >
+                Asignar
               </Button>
             </Tooltip>
             <Tooltip title="Eliminar">

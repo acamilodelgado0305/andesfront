@@ -167,6 +167,7 @@ const TakeEvaluationPage = () => {
             onOk: () => {
               navigate("/Reporte", {
                 state: { activeTab: "evaluaciones", fromEvaluation: true },
+                replace: true,
               });
             },
           });
@@ -243,7 +244,7 @@ const TakeEvaluationPage = () => {
         <div style={styles.headerInner}>
           <button
             style={styles.backBtn}
-            onClick={() => navigate("/Reporte", { state: { activeTab: "evaluaciones" } })}
+            onClick={() => navigate("/Reporte", { state: { activeTab: "evaluaciones" }, replace: true })}
             onMouseOver={(e) =>
               (e.currentTarget.style.background = "rgba(255,255,255,0.18)")
             }

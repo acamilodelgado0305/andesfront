@@ -60,6 +60,17 @@ function StudentPortal() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Prevent browser back button from exiting the portal when logged in
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, "", window.location.href);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [isLoggedIn]);
+
   // ===== CERTIFICATE DATA =====
   const loadCertificateData = async (doc) => {
     try {
@@ -150,9 +161,19 @@ function StudentPortal() {
         setIsLoggedIn(true);
       } catch (err) {
         console.warn("Session restore failed:", err);
-        clearStudentToken();
-        setIsLoggedIn(false);
-        setStudentInfo(null);
+        // Only clear token on auth errors (401/403), not on network/server errors
+        const status = err?.response?.status;
+        if (status === 401 || status === 403) {
+          clearStudentToken();
+          setIsLoggedIn(false);
+          setStudentInfo(null);
+        } else if (cached) {
+          // Network/server error but we have cached data — stay logged in
+          setIsLoggedIn(true);
+        } else {
+          setIsLoggedIn(false);
+          setStudentInfo(null);
+        }
       } finally {
         setRestoringSession(false);
       }
