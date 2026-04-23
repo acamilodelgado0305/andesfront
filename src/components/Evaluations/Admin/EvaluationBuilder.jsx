@@ -557,53 +557,6 @@ const EvaluationBuilder = () => {
               <span style={{ fontSize: 12, color: "#6b7280", paddingRight: 8 }}>estudiantes asignados</span>
             </Badge>
           </div>
-          <p className="eb-assign-sub">
-            Asigna esta evaluación a todos los estudiantes de un programa. Los ya asignados no se duplican.
-          </p>
-
-          {/* Assign by program row */}
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 20 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
-                <TeamOutlined /> Programa
-              </div>
-              <Select
-                style={{ width: "100%" }}
-                placeholder="Selecciona un programa para asignar"
-                value={assignProgramId}
-                onChange={setAssignProgramId}
-                loading={catalogsLoading}
-                showSearch
-                optionFilterProp="children"
-                allowClear
-                size="large"
-              >
-                {programs.map((p) => (
-                  <Option key={p.id} value={p.id}>
-                    {p.nombre}{p.tipo_programa ? ` · ${p.tipo_programa}` : ""}
-                  </Option>
-                ))}
-              </Select>
-            </div>
-            <Button
-              type="primary"
-              icon={<SendOutlined />}
-              loading={assignLoading}
-              onClick={handleAssign}
-              disabled={!assignProgramId}
-              size="large"
-              style={{
-                borderRadius: 10,
-                fontWeight: 600,
-                background: "linear-gradient(135deg, #4338ca, #6366f1)",
-                border: "none",
-                minWidth: 120,
-              }}
-            >
-              Asignar
-            </Button>
-          </div>
-
           <Divider style={{ margin: "0 0 16px" }} />
 
           {/* Assigned students table */}
