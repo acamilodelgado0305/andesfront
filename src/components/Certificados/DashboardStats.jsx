@@ -1,61 +1,25 @@
 import React, { useMemo } from 'react';
 import { Card, Row, Col, Statistic, Progress } from 'antd';
 import { ArrowUpOutlined, ArrowDownOutlined, WalletOutlined } from '@ant-design/icons';
-import moment from 'moment';
 import useCurrency from '../../hooks/useCurrency';
 
-const DashboardStats = ({ ingresos, egresos, dateRange, filters = {} }) => {
+const DashboardStats = ({ ingresos, egresos }) => {
   const fmt = useCurrency();
-  const { payment, product } = filters;
 
   const stats = useMemo(() => {
-    const start = dateRange[0];
-    const end = dateRange[1];
-
-    const getConcept = (item = {}) =>
-      (item.producto || item.concepto || item.descripcion || '').trim();
-
-    const filteredIngresos = ingresos.filter((i) => {
-      const inDate = moment(i.createdAt).isBetween(start, end, 'day', '[]');
-      if (!inDate) return false;
-      if (payment && i.cuenta !== payment) return false;
-      if (product) {
-        const concept = getConcept(i);
-        if (concept !== product) return false;
-      }
-      return true;
-    });
-
-    const filteredEgresos = egresos.filter((e) => {
-      const inDate = moment(e.fecha).isBetween(start, end, 'day', '[]');
-      if (!inDate) return false;
-      if (payment && e.cuenta !== payment) return false;
-      return true;
-    });
-
-    const totalIngresos = filteredIngresos.reduce(
-      (acc, curr) => acc + Number(curr.valor || 0),
-      0
+    const totalIngresos = (ingresos || []).reduce(
+      (acc, curr) => acc + Number(curr.valor || 0), 0
     );
-    const totalEgresos = filteredEgresos.reduce(
-      (acc, curr) => acc + Number(curr.valor || 0),
-      0
+    const totalEgresos = (egresos || []).reduce(
+      (acc, curr) => acc + Number(curr.valor || 0), 0
     );
     const balance = totalIngresos - totalEgresos;
+    const margen  = totalIngresos > 0
+      ? ((balance / totalIngresos) * 100).toFixed(1)
+      : 0;
 
-    const margen =
-      totalIngresos > 0
-        ? ((balance / totalIngresos) * 100).toFixed(1)
-        : 0;
-
-    return {
-      totalIngresos,
-      totalEgresos,
-      balance,
-      margen,
-      countVentas: filteredIngresos.length,
-    };
-  }, [ingresos, egresos, dateRange, payment, product]);
+    return { totalIngresos, totalEgresos, balance, margen, countVentas: (ingresos || []).length };
+  }, [ingresos, egresos]);
 
   const currencyFormatter = (val) => fmt(val);
 

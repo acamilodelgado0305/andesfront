@@ -48,11 +48,8 @@ function Certificados() {
     editingRecord: null,
   });
 
-  const [filters, setFilters] = useState({
-    payment: null,
-    product: null,
-    vendedor: null,
-  });
+  const [filteredIngresos, setFilteredIngresos] = useState([]);
+  const [filteredEgresos,  setFilteredEgresos]  = useState([]);
 
   const [inventario, setInventario] = useState([]);
   const [vendedores, setVendedores] = useState([]);
@@ -80,6 +77,8 @@ function Certificados() {
 
       setRawDataIngresos(safeIngresos);
       setRawDataEgresos(safeEgresos);
+      setFilteredIngresos(safeIngresos);
+      setFilteredEgresos(safeEgresos);
     } catch (error) {
       console.error(error);
       message.error("Error actualizando la tabla de transacciones.");
@@ -216,7 +215,7 @@ function Certificados() {
           <TabPane tab={<span style={{ fontWeight: 600 }}><ArrowUpOutlined style={{ color: '#16a34a' }} /> Ingresos</span>} key="ingresos">
             <div className="p-4">
               <div className="mb-4">
-                <DashboardStats ingresos={myIngresos} egresos={myEgresos} dateRange={dateRange} filters={filters} />
+                <DashboardStats ingresos={filteredIngresos} egresos={filteredEgresos} />
               </div>
               <TransactionTable
                 type="ingresos"
@@ -228,7 +227,7 @@ function Certificados() {
                 dateRange={dateRange}
                 onDateRangeChange={handleDateRangeChange}
                 userName={user.name}
-                onFiltersChange={setFilters}
+                onFilteredDataChange={setFilteredIngresos}
                 inventario={inventario}
                 vendedores={vendedores}
               />
@@ -238,7 +237,7 @@ function Certificados() {
           <TabPane tab={<span style={{ fontWeight: 600 }}><ArrowDownOutlined style={{ color: '#dc2626' }} /> Gastos</span>} key="egresos">
             <div className="p-4">
               <div className="mb-4">
-                <DashboardStats ingresos={myIngresos} egresos={myEgresos} dateRange={dateRange} filters={filters} />
+                <DashboardStats ingresos={filteredIngresos} egresos={filteredEgresos} />
               </div>
               <TransactionTable
                 type="egresos"
@@ -250,7 +249,7 @@ function Certificados() {
                 dateRange={dateRange}
                 onDateRangeChange={handleDateRangeChange}
                 userName={user.name}
-                onFiltersChange={setFilters}
+                onFilteredDataChange={setFilteredEgresos}
                 inventario={inventario}
                 vendedores={vendedores}
               />

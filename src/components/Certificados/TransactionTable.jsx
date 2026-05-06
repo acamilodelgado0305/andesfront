@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Table, Input, Button, Tag, Space,
   Popconfirm, Select, DatePicker, message, Tooltip, Skeleton,
@@ -181,6 +181,7 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
 const TransactionTable = ({
   type, data, loading, onRefresh, onEdit, onCreate,
   dateRange, onDateRangeChange, userName, onFiltersChange,
+  onFilteredDataChange,
   inventario = [], vendedores = [],
 }) => {
   const fmt      = useCurrency();
@@ -272,6 +273,11 @@ const TransactionTable = ({
         return moment(b[field]).valueOf() - moment(a[field]).valueOf();
       });
   }, [data, dateRange, searchText, paymentFilter, conceptFilter, vendedorFilter, type]);
+
+  // Notifica al padre cada vez que cambia el conjunto filtrado
+  useEffect(() => {
+    if (onFilteredDataChange) onFilteredDataChange(filteredData);
+  }, [filteredData]);
 
   const handleDelete = async (id) => {
     try {

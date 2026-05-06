@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import "./index.css";
 
 // Componentes
@@ -8,7 +8,6 @@ import Root from "./components/root";
 import Login from "./components/auth/Login";
 import ErrorPage from "./error-page";
 import Home from "./components/home";
-import Landing from "./components/auth/landing";
 import Students from "./components/Students/student";
 import Facturas from "./components/facturas/facturas";
 import Programs from "./components/programas/programas";
@@ -49,6 +48,7 @@ import Register from "./components/auth/register";
 import Configuracion from "./components/Configuracion/Configuracion";
 import PreciosPage from "./components/auth/Precios";
 import Pago from "./components/auth/Pago";
+import PagoResultado from "./components/auth/PagoResultado";
 
 // Contexto de autenticación
 import { AuthProvider } from "./AuthContext";
@@ -69,7 +69,7 @@ const App = () => (
       <AuthProvider>
         <Routes>
           {/* Rutas públicas */}
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/verificacion" element={<Verificacion />} />
           <Route path="/consulta" element={<ConsultaPreRegistro />} />
@@ -86,6 +86,7 @@ const App = () => (
           <Route path="/register" element={<Register />} />
           <Route path="/precios" element={<PreciosPage />} />
           <Route path="/pago" element={<Pago />} />
+          <Route path="/pago/resultado" element={<PagoResultado />} />
 
           {/* 🔹 Portal estudiante: evaluaciones */}
           <Route

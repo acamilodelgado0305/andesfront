@@ -5,7 +5,8 @@ import { AuthContext } from '../../AuthContext';
 import axios from 'axios';
 import {
   Check, Copy, ChevronRight, ShieldCheck,
-  Building2, Smartphone, MessageCircle, Clock, AlertCircle
+  Building2, MessageCircle, Clock, AlertCircle,
+  ExternalLink, Mail, Zap
 } from 'lucide-react';
 
 const AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE || 'http://localhost:3001';
@@ -74,10 +75,12 @@ const Pago = () => {
   const state = location.state;
   const plan = state?.plan;
   const isAnnual = state?.isAnnual ?? false;
+  const wompiLink = state?.wompiLink || null;
 
   const price = isAnnual ? plan?.annualPrice : plan?.monthlyPrice;
   const planDbId = isAnnual ? plan?.planDbId?.annual : plan?.planDbId?.monthly;
   const billingLabel = isAnnual ? 'Anual' : 'Mensual';
+  const userEmail = user?.email || '';
 
   // Generar referencia única al cargar
   useEffect(() => {
@@ -158,6 +161,103 @@ const Pago = () => {
             </Link>
           </div>
         </motion.div>
+      </div>
+    );
+  }
+
+  /* ─── FLUJO WOMPI ─────────────────────────── */
+  if (wompiLink) {
+    return (
+      <div className="min-h-screen bg-gray-50 font-sans">
+        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <Link to="/precios" className="text-xl font-bold text-gray-900">Rapictrl</Link>
+          <div className="hidden sm:flex items-center gap-6">
+            <StepBadge n={1} label="Elige plan" done={true} />
+            <ChevronRight size={14} className="text-gray-300" />
+            <StepBadge n={2} label="Pago" active={true} />
+            <ChevronRight size={14} className="text-gray-300" />
+            <StepBadge n={3} label="Confirmación" />
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <ShieldCheck size={14} className="text-green-500" /> Pago seguro
+          </div>
+        </header>
+
+        <div className="max-w-2xl mx-auto px-4 py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
+          >
+            {/* Header del plan */}
+            <div className="p-6" style={{ background: 'linear-gradient(135deg, #030d1f 0%, #0a1f3d 100%)' }}>
+              <p className="text-blue-300 text-xs font-semibold uppercase mb-1">Tu suscripción</p>
+              <h2 className="text-white text-2xl font-bold">Plan {plan.name}</h2>
+              <div className="flex items-end gap-1 mt-2">
+                <span className="text-3xl font-extrabold text-white">${fmt(price)}</span>
+                <span className="text-slate-400 mb-0.5 text-sm">COP / {billingLabel.toLowerCase()}</span>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Aviso de email — crítico para que el webhook identifique el negocio */}
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <Mail size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800 mb-1">Usa este email al pagar</p>
+                  <p className="text-sm text-amber-700">
+                    Wompi te pedirá tu correo. Ingresa exactamente:
+                    <strong className="block mt-1 text-base text-amber-900 font-mono">{userEmail}</strong>
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    Es el email registrado en tu cuenta. Lo usamos para activar la suscripción automáticamente.
+                  </p>
+                </div>
+              </div>
+
+              {/* Qué incluye */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-3">Incluye</p>
+                <ul className="space-y-2">
+                  {plan.features.filter(f => f.included).map(f => (
+                    <li key={f.text} className="flex items-center gap-2 text-sm text-gray-700">
+                      <Check size={14} style={{ color: '#16a34a' }} className="flex-shrink-0" />
+                      {f.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Activación inmediata */}
+              <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4">
+                <Zap size={18} className="text-green-500 flex-shrink-0" />
+                <p className="text-sm text-green-800">
+                  <strong>Activación inmediata</strong> — en cuanto Wompi confirme tu pago, tu suscripción queda activa sin esperar.
+                </p>
+              </div>
+
+              {/* Botón de pago */}
+              <a
+                href={wompiLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-3 w-full py-4 rounded-xl text-white font-bold text-base transition-opacity hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0a1f3d 100%)' }}
+              >
+                Pagar ${fmt(price)} con Wompi <ExternalLink size={18} />
+              </a>
+
+              <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+                <ShieldCheck size={13} className="text-green-500" />
+                Procesado de forma segura por <strong className="text-gray-500">Wompi</strong>
+              </div>
+
+              <Link to="/precios" className="block text-center text-sm text-blue-600 hover:underline">
+                ← Cambiar plan
+              </Link>
+            </div>
+          </motion.div>
+        </div>
       </div>
     );
   }

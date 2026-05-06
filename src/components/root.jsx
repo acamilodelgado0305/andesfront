@@ -36,6 +36,7 @@ import { AuthContext } from '../AuthContext';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import OnboardingWizard from './Onboarding/OnboardingWizard';
+import PaymentWall from './PaymentWall';
 
 const { Title } = Typography;
 
@@ -308,7 +309,7 @@ const RootLayout = () => {
     }
   }, [user, authLoading]);
 
-  const [subscriptionData, setSubscriptionData] = useState({ endDate: null, amountPaid: null });
+  const [subscriptionData, setSubscriptionData] = useState({ endDate: null, amountPaid: null, planName: null, active: null });
   const location = useLocation();
 
   // --- LÓGICA RESPONSIVE ---
@@ -347,18 +348,19 @@ const RootLayout = () => {
   // --- 2. CARGAR SUSCRIPCIÓN ---
   useEffect(() => {
     const fetchSubscription = async () => {
-      if (user && user.id) {
-        try {
-          const response = await axios.get(`${API_AUTH_URL}/api/subscriptions/expiration/${user.id}`);
-          if (response.data) {
-            setSubscriptionData({
-              endDate: response.data.end_date,
-              amountPaid: response.data.amount_paid
-            });
-          }
-        } catch (error) {
-          console.error('Error fetching subscription:', error);
-        }
+      try {
+        const token = localStorage.getItem('authToken');
+        const { data } = await axios.get(`${API_AUTH_URL}/api/businesses/my/subscription`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSubscriptionData({
+          active:    data.active,
+          endDate:   data.subscription?.end_date   || null,
+          planName:  data.subscription?.plan_name  || null,
+          amountPaid: data.subscription?.amount_paid || null,
+        });
+      } catch (error) {
+        console.error('Error fetching subscription:', error);
       }
     };
 
@@ -367,27 +369,32 @@ const RootLayout = () => {
     }
   }, [user, authLoading]);
 
+  // ── Determinar si el usuario puede acceder ──────────────────
+  const trialActive = user?.is_trial && dayjs(user.trial_ends_at).isAfter(dayjs());
+  const paidActive  = !user?.is_trial && subscriptionData.active === true;
+  // Mientras aún no llegó la respuesta del fetch (active === null) no bloqueamos
+  const canAccess   = trialActive || paidActive || subscriptionData.active === null;
+  const accessReason = user?.is_trial ? 'trial_expired' : 'subscription_expired';
+
   const showExpirationWarning = () => {
-    if (!subscriptionData.endDate) return null;
+    if (!subscriptionData.endDate || !paidActive) return null;
     const today = dayjs().startOf('day');
     const expirationDate = dayjs(subscriptionData.endDate).startOf('day');
     const daysLeft = expirationDate.diff(today, 'day');
-    const isNearExpiration = daysLeft <= 5 && daysLeft >= 0;
-
-    if (isNearExpiration) {
-      const formattedAmount = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(subscriptionData.amountPaid);
-      return (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          <p className="m-0">
-            ⚠️ <strong>Atención:</strong> Tu plan vence en <strong>{daysLeft} día(s)</strong>. Monto a cancelar: <strong>{formattedAmount}</strong>.
-          </p>
-          <Button type="link" danger href="https://linkdepagospse.rappipay.co/U7pafq" target="_blank" rel="noopener noreferrer" style={{ paddingLeft: 0 }}>
-            Renovar mi Plan Ahora
-          </Button>
-        </div>
-      );
-    }
-    return null;
+    if (daysLeft > 5 || daysLeft < 0) return null;
+    return (
+      <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl mb-4 flex items-center justify-between gap-4">
+        <p className="m-0 text-sm">
+          ⚠️ Tu plan <strong>{subscriptionData.planName}</strong> vence en <strong>{daysLeft} día{daysLeft !== 1 ? 's' : ''}</strong>.
+        </p>
+        <button
+          onClick={() => navigate('/precios')}
+          className="text-xs font-bold text-amber-800 border border-amber-400 rounded-lg px-3 py-1 hover:bg-amber-100 whitespace-nowrap"
+        >
+          Renovar
+        </button>
+      </div>
+    );
   };
 
   // =========================================================
@@ -566,6 +573,9 @@ const RootLayout = () => {
     }
   };
 
+  // ── Bloqueo de acceso ────────────────────────────────────────
+  if (!canAccess) return <PaymentWall reason={accessReason} />;
+
   const currentBusinessName = user?.business_name || 'Mi Negocio';
   const availableBusinesses = user?.businesses || [];
 
@@ -716,6 +726,39 @@ const RootLayout = () => {
                 display: 'flex', flexDirection: 'column',
               }}
             >
+              {/* ── Badge suscripción (pie del sidebar) ── */}
+              {!collapsed && (
+                <div style={{
+                  margin: '0 8px 8px',
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  background: trialActive ? 'linear-gradient(135deg,#030d1f,#1d4ed8)' : '#f0fdf4',
+                  border: trialActive ? 'none' : '1px solid #bbf7d0',
+                  flexShrink: 0,
+                }}>
+                  {trialActive ? (
+                    <>
+                      <p style={{ margin: 0, fontSize: 10, color: '#93c5fd', fontWeight: 600, textTransform: 'uppercase' }}>Prueba gratuita</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#fff', fontWeight: 500 }}>
+                        {Math.max(0, dayjs(user.trial_ends_at).diff(dayjs(), 'day'))} días restantes
+                      </p>
+                    </>
+                  ) : paidActive ? (
+                    <>
+                      <p style={{ margin: 0, fontSize: 10, color: '#16a34a', fontWeight: 600, textTransform: 'uppercase' }}>Plan activo</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#15803d', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {subscriptionData.planName || 'Suscripción activa'}
+                      </p>
+                      {subscriptionData.endDate && (
+                        <p style={{ margin: '1px 0 0', fontSize: 10, color: '#4ade80' }}>
+                          Hasta {dayjs(subscriptionData.endDate).format('DD MMM YYYY')}
+                        </p>
+                      )}
+                    </>
+                  ) : null}
+                </div>
+              )}
+
               {/* ── Logo ── */}
               <div style={{
                 height: 52, display: 'flex', alignItems: 'center',

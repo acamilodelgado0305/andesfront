@@ -16,7 +16,7 @@ import {
 } from "../../services/pedido/pedidoService";
 import { getPersonaById } from "../../services/person/personaService";
 import { cuentaOptions } from "../Certificados/options";
-import POSModal from "./POSModal";
+import PedidoDrawer from "./PedidoDrawer";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
@@ -579,7 +579,7 @@ const PedidosDashboard = () => {
                 )}
 
                 {/* ── MODALES ── */}
-                <POSModal visible={isPosOpen} onClose={() => setIsPosOpen(false)} onSaved={cargarTodo} orderIdToEdit={editingOrderId} />
+                <PedidoDrawer open={isPosOpen} onClose={() => { setIsPosOpen(false); setEditingOrderId(null); }} onSuccess={cargarTodo} orderIdToEdit={editingOrderId} />
 
                 <Modal
                     title="Consolidado Actual"

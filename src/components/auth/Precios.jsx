@@ -9,28 +9,29 @@ import { AuthContext } from '../../AuthContext';
 import { loginWithGoogleToken } from '../../services/auth/authService';
 import Header from './header';
 
-// Orden: Empresarial (izq) → Profesional (centro) → Básico (der)
+// Orden: Empresarial → Profesional → Intermedio → Básico
 const PLANS = [
   {
     id: 'empresarial',
     planDbId: { monthly: 13, annual: 14 },
+    wompiLink: { monthly: null, annual: null },
     name: 'Empresarial',
-    subtitle: 'Sin límites para instituciones y empresas',
+    subtitle: '5 negocios · Usuarios ilimitados por negocio',
     monthlyPrice: 125000,
-    annualPrice: 1400000,
-    annualMonthly: 116667,
-    savingsAnnual: 100000,
+    annualPrice: 1250000,
+    annualMonthly: 104167,
+    savingsAnnual: 250000,
     maxUsers: 'Usuarios ilimitados',
     badge: null,
     features: [
+      { text: '5 negocios incluidos', included: true },
+      { text: 'Usuarios ilimitados por negocio', included: true },
       { text: 'Punto de Venta (POS)', included: true },
       { text: 'Control de Inventario', included: true },
       { text: 'Movimientos Financieros', included: true },
       { text: 'Gestión de Personas', included: true },
       { text: 'Generación de Documentos', included: true },
       { text: 'Módulo Académico completo', included: true },
-      { text: 'Administración avanzada', included: true },
-      { text: 'Usuarios ilimitados', included: true },
       { text: 'Soporte dedicado', included: true },
       { text: 'Onboarding personalizado', included: true },
     ],
@@ -38,47 +39,77 @@ const PLANS = [
   {
     id: 'profesional',
     planDbId: { monthly: 11, annual: 12 },
+    wompiLink: { monthly: null, annual: null },
     name: 'Profesional',
-    subtitle: 'Para equipos en crecimiento',
+    subtitle: '2 negocios · 5 usuarios por negocio',
     monthlyPrice: 79900,
-    annualPrice: 890000,
-    annualMonthly: 74167,
-    savingsAnnual: 68800,
-    maxUsers: '5 usuarios',
+    annualPrice: 799000,
+    annualMonthly: 66583,
+    savingsAnnual: 159800,
+    maxUsers: '5 usuarios / negocio',
     badge: 'Más popular',
     features: [
+      { text: '2 negocios incluidos', included: true },
+      { text: '5 usuarios por negocio', included: true },
       { text: 'Punto de Venta (POS)', included: true },
       { text: 'Control de Inventario', included: true },
       { text: 'Movimientos Financieros', included: true },
       { text: 'Gestión de Personas', included: true },
       { text: 'Generación de Documentos', included: true },
       { text: 'Módulo Académico', included: false },
-      { text: 'Administración avanzada', included: false },
-      { text: '5 usuarios incluidos', included: true },
       { text: 'Soporte prioritario', included: true },
       { text: 'Reportes avanzados', included: true },
     ],
   },
   {
-    id: 'basico',
-    planDbId: { monthly: 9, annual: 10 },
-    name: 'Básico',
-    subtitle: 'Ideal para emprendedores',
-    monthlyPrice: 19900,
-    annualPrice: 199000,
-    annualMonthly: 16583,
-    savingsAnnual: 39800,
+    id: 'intermedio',
+    planDbId: { monthly: null, annual: null },
+    wompiLink: { monthly: null, annual: null },
+    name: 'Intermedio',
+    subtitle: '1 negocio · 2 usuarios',
+    monthlyPrice: 39900,
+    annualPrice: 399000,
+    annualMonthly: 33250,
+    savingsAnnual: 79800,
     maxUsers: '2 usuarios',
     badge: null,
     features: [
+      { text: '1 negocio incluido', included: true },
+      { text: '2 usuarios incluidos', included: true },
+      { text: 'Punto de Venta (POS)', included: true },
+      { text: 'Control de Inventario', included: true },
+      { text: 'Movimientos Financieros', included: true },
+      { text: 'Gestión de Personas', included: true },
+      { text: 'Generación de Documentos', included: true },
+      { text: 'Módulo Académico', included: false },
+      { text: 'Soporte por WhatsApp', included: true },
+      { text: 'Reportes básicos', included: true },
+    ],
+  },
+  {
+    id: 'basico',
+    planDbId: { monthly: 10, annual: 11 },
+    wompiLink: {
+      monthly: 'https://checkout.wompi.co/l/HtCdUL',
+      annual:  'https://checkout.wompi.co/l/gQ5Bl9',
+    },
+    name: 'Básico',
+    subtitle: '1 negocio · 1 usuario',
+    monthlyPrice: 19900,
+    annualPrice: 199900,
+    annualMonthly: 16658,
+    savingsAnnual: 38900,
+    maxUsers: '1 usuario',
+    badge: null,
+    features: [
+      { text: '1 negocio incluido', included: true },
+      { text: '1 usuario incluido', included: true },
       { text: 'Punto de Venta (POS)', included: true },
       { text: 'Control de Inventario', included: true },
       { text: 'Movimientos Financieros', included: true },
       { text: 'Gestión de Personas', included: false },
       { text: 'Generación de Documentos', included: false },
       { text: 'Módulo Académico', included: false },
-      { text: 'Administración avanzada', included: false },
-      { text: '2 usuarios incluidos', included: true },
       { text: 'Soporte por WhatsApp', included: true },
       { text: 'Reportes básicos', included: true },
     ],
@@ -135,7 +166,10 @@ const PreciosPage = () => {
       openGoogleRegister();
       return;
     }
-    navigate('/pago', { state: { plan, isAnnual } });
+    const wompiLink = isAnnual ? plan.wompiLink?.annual : plan.wompiLink?.monthly;
+    // Si el plan tiene link de Wompi activo, ir al flujo de pago online
+    // Si no, ir al flujo manual (transferencia)
+    navigate('/pago', { state: { plan, isAnnual, wompiLink: wompiLink || null } });
   };
 
   return (
@@ -182,8 +216,8 @@ const PreciosPage = () => {
           </section>
 
           {/* Cards */}
-          <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {PLANS.map((plan, idx) => (
                 <motion.div
                   key={plan.id}
@@ -259,7 +293,9 @@ const PreciosPage = () => {
                           style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #0a1f3d 100%)' }}
                         >
                           <CreditCard size={16} />
-                          Suscribirme a este plan
+                          {(isAnnual ? plan.wompiLink?.annual : plan.wompiLink?.monthly)
+                            ? 'Pagar en línea'
+                            : 'Suscribirme a este plan'}
                         </button>
                       ) : (
                         <button
@@ -273,7 +309,11 @@ const PreciosPage = () => {
                         </button>
                       )}
                       <p className="text-xs text-center text-gray-400">
-                        {isAuthenticated ? 'Pago manual · Activación en 24h' : '14 días gratis · Sin tarjeta de crédito'}
+                        {isAuthenticated
+                          ? (isAnnual ? plan.wompiLink?.annual : plan.wompiLink?.monthly)
+                            ? 'Pago seguro con Wompi · Activación inmediata'
+                            : 'Pago manual · Activación en 24h'
+                          : '14 días gratis · Sin tarjeta de crédito'}
                       </p>
                     </div>
                   </div>
@@ -298,37 +338,35 @@ const PreciosPage = () => {
 
             <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}>
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
-                <table className="w-full min-w-[540px]">
+                <table className="w-full min-w-[640px]">
                   <thead>
                     <tr style={{ background: 'linear-gradient(135deg, #030d1f 0%, #0a1f3d 100%)' }}>
-                      <th className="text-left py-4 px-6 text-white font-semibold w-1/2">Funcionalidad</th>
-                      {/* Mismo orden: Empresarial, Profesional, Básico */}
-                      <th className="py-4 px-4 text-white font-semibold text-center">Empresarial</th>
-                      <th className="py-4 px-4 text-white font-semibold text-center">
-                        <span>Profesional</span>
-                        <span className="ml-1 text-xs bg-blue-500 px-1.5 py-0.5 rounded-full">★</span>
+                      <th className="text-left py-4 px-6 text-white font-semibold w-2/5">Funcionalidad</th>
+                      <th className="py-4 px-3 text-white font-semibold text-center text-sm">Empresarial</th>
+                      <th className="py-4 px-3 text-white font-semibold text-center text-sm">
+                        Profesional <span className="text-xs bg-blue-500 px-1.5 py-0.5 rounded-full ml-1">★</span>
                       </th>
-                      <th className="py-4 px-4 text-white font-semibold text-center">Básico</th>
+                      <th className="py-4 px-3 text-white font-semibold text-center text-sm">Intermedio</th>
+                      <th className="py-4 px-3 text-white font-semibold text-center text-sm">Básico</th>
                     </tr>
                   </thead>
                   <tbody>
                     {[
-                      { label: 'Punto de Venta (POS)',        values: [true,  true,  true]  },
-                      { label: 'Control de Inventario',       values: [true,  true,  true]  },
-                      { label: 'Movimientos Financieros',     values: [true,  true,  true]  },
-                      { label: 'Reportes y Analíticas',       values: [true,  true,  true]  },
-                      { label: 'Gestión de Personas',         values: [true,  true,  false] },
-                      { label: 'Generación de Documentos',    values: [true,  true,  false] },
-                      { label: 'Módulo Académico',            values: [true,  false, false] },
-                      { label: 'Administración avanzada',     values: [true,  false, false] },
-                      { label: 'Onboarding personalizado',    values: [true,  false, false] },
-                      { label: 'Usuarios incluidos',          values: ['Ilimitados', '5', '2'] },
-                      { label: 'Soporte',                     values: ['Dedicado', 'Prioritario', 'WhatsApp'] },
+                      { label: 'Negocios incluidos',          values: ['5', '2', '1', '1'] },
+                      { label: 'Usuarios por negocio',        values: ['Ilimitados', '5', '2', '1'] },
+                      { label: 'Punto de Venta (POS)',        values: [true,  true,  true,  true]  },
+                      { label: 'Control de Inventario',       values: [true,  true,  true,  true]  },
+                      { label: 'Movimientos Financieros',     values: [true,  true,  true,  true]  },
+                      { label: 'Gestión de Personas',         values: [true,  true,  true,  false] },
+                      { label: 'Generación de Documentos',    values: [true,  true,  true,  false] },
+                      { label: 'Módulo Académico',            values: [true,  false, false, false] },
+                      { label: 'Onboarding personalizado',    values: [true,  false, false, false] },
+                      { label: 'Soporte',                     values: ['Dedicado', 'Prioritario', 'WhatsApp', 'WhatsApp'] },
                     ].map((row, i) => (
                       <tr key={row.label} className={i % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                         <td className="py-3.5 px-6 text-sm text-gray-700 font-medium">{row.label}</td>
                         {row.values.map((v, j) => (
-                          <td key={j} className="py-3.5 px-4 text-center">
+                          <td key={j} className="py-3.5 px-3 text-center">
                             {typeof v === 'boolean'
                               ? v
                                 ? <Check size={18} className="inline" style={{ color: '#16a34a' }} />
