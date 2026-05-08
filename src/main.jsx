@@ -43,6 +43,7 @@ import TakeEvaluationPage from "./components/Evaluations/Student/TakeEvaluationP
 import MyStudentEvaluationsPage from "./components/Evaluations/MyStudentEvaluationsPage";
 import RegistroExpress from "./components/PublicForms/RegistroExpress";
 import PedidosDashboard from "./components/pedidos/PedidosDashboard";
+import DocumentosVentaDashboard from "./components/documentosVenta/DocumentosVentaDashboard";
 
 import Register from "./components/auth/register";
 import Configuracion from "./components/Configuracion/Configuracion";
@@ -121,6 +122,7 @@ const App = () => (
             <Route path="inventario" element={<Inventario />} />
             <Route path="personas" element={<PersonasDashboard />} />
             <Route path="pedidos" element={<PedidosDashboard />} />
+            <Route path="documentos-venta" element={<DocumentosVentaDashboard />} />
             <Route path="students/facturas/:id" element={<Facturas />} />
             <Route path="students/view/:id" element={<StudentInformacion />} />
             <Route path="configuracion" element={<Configuracion />} />

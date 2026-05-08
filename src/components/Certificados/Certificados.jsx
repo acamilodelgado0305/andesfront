@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext,useMemo } from 'react';
 import { Card, Tabs, Typography, Button, message, Spin } from 'antd';
-import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined, FileTextOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import 'moment/locale/es';
 import axios from 'axios';
@@ -24,6 +24,7 @@ import EgresoDrawer from './components/EgresoDrawer';
 
 import DashboardStats from './DashboardStats';
 import TransactionTable from './TransactionTable';
+import DocumentoVentaForm from '../documentosVenta/DocumentoVentaForm';
 
 const { Title } = Typography;
 const { TabPane } = Tabs;
@@ -47,6 +48,8 @@ function Certificados() {
     egreso: false,
     editingRecord: null,
   });
+
+  const [cotizacionOpen, setCotizacionOpen] = useState(false);
 
   const [filteredIngresos, setFilteredIngresos] = useState([]);
   const [filteredEgresos,  setFilteredEgresos]  = useState([]);
@@ -203,6 +206,29 @@ function Certificados() {
               Gasto
             </button>
 
+            <button
+              onClick={() => setCotizacionOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                padding: '10px 20px',
+                flex: isMobile ? 1 : 'none',
+                background: '#1d4ed8',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'opacity 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            >
+              <FileTextOutlined style={{ fontSize: 11 }} />
+              Factura
+            </button>
+
             <Button icon={<ReloadOutlined />} onClick={() => fetchTransactions(dateRange)} loading={loading} shape="circle" />
           </div>
         </div>
@@ -273,8 +299,16 @@ function Certificados() {
         open={drawerState.egreso}
         onClose={closeDrawers}
         initialValues={drawerState.editingRecord}
-        onSuccess={handleSuccess} // <--- ESTO ACTUALIZA LA TABLA
+        onSuccess={handleSuccess}
         userName={user.name}
+      />
+
+      <DocumentoVentaForm
+        open={cotizacionOpen}
+        defaultTipo="COTIZACION"
+        editingDoc={null}
+        onClose={() => setCotizacionOpen(false)}
+        onSaved={() => setCotizacionOpen(false)}
       />
     </div>
   );

@@ -70,7 +70,8 @@ const MENU_MASTER = [
       { key: '/inicio/certificados', icon: <SwapOutlined />,      label: 'Movimientos',  path: '/inicio/certificados' },
       { key: '/inicio/inventario',   icon: <InboxOutlined />,     label: 'Inventario',   path: '/inicio/inventario' },
       { key: '/inicio/personas',     icon: <ContactsOutlined />,  label: 'Contactos',    path: '/inicio/personas' },
-      { key: '/inicio/pedidos',      icon: <ShoppingCartOutlined />, label: 'Pedidos',   path: '/inicio/pedidos' },
+      { key: '/inicio/pedidos',         icon: <ShoppingCartOutlined />, label: 'Pedidos',              path: '/inicio/pedidos' },
+      { key: '/inicio/documentos-venta', icon: <FileTextOutlined />,     label: 'Facturas / Cotizaciones', path: '/inicio/documentos-venta' },
     ]
   },
 
@@ -427,10 +428,11 @@ const RootLayout = () => {
         sectionLabel: hasBoth ? 'Gestión Empresarial' : null,
         sectionColor: '#1d4ed8',
         items: [
-          { key: '/inicio/certificados', icon: <SwapOutlined />,       label: 'Movimientos',  path: '/inicio/certificados' },
-          { key: '/inicio/inventario',   icon: <InboxOutlined />,      label: 'Inventario',          path: '/inicio/inventario' },
-          { key: '/inicio/personas',     icon: <ContactsOutlined />,   label: 'Contactos', path: '/inicio/personas' },
-          { key: '/inicio/pedidos',      icon: <ShoppingCartOutlined />, label: 'Pedidos',             path: '/inicio/pedidos' },
+          { key: '/inicio/certificados',     icon: <SwapOutlined />,         label: 'Movimientos',  path: '/inicio/certificados' },
+          { key: '/inicio/documentos-venta', icon: <FileDoneOutlined />,    label: 'Facturas',     path: '/inicio/documentos-venta' },
+          { key: '/inicio/personas',        icon: <ContactsOutlined />,     label: 'Contactos',    path: '/inicio/personas' },
+          { key: '/inicio/inventario',      icon: <InboxOutlined />,        label: 'Inventario',   path: '/inicio/inventario' },
+          { key: '/inicio/pedidos',         icon: <ShoppingCartOutlined />, label: 'Pedidos',      path: '/inicio/pedidos' },
         ],
       });
     }
