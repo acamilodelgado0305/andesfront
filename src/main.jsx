@@ -44,6 +44,10 @@ import MyStudentEvaluationsPage from "./components/Evaluations/MyStudentEvaluati
 import RegistroExpress from "./components/PublicForms/RegistroExpress";
 import PedidosDashboard from "./components/pedidos/PedidosDashboard";
 import DocumentosVentaDashboard from "./components/documentosVenta/DocumentosVentaDashboard";
+import ModulosPage from "./components/Modulos/ModulosPage";
+import ModuloDetalle from "./components/Modulos/ModuloDetalle";
+import StudentModulosPage from "./components/Modulos/StudentModulosPage";
+import ProgramaDetalle from "./components/programas/ProgramaDetalle";
 
 import Register from "./components/auth/register";
 import Configuracion from "./components/Configuracion/Configuracion";
@@ -89,6 +93,9 @@ const App = () => (
           <Route path="/pago" element={<Pago />} />
           <Route path="/pago/resultado" element={<PagoResultado />} />
 
+          {/* 🔹 Portal estudiante: módulos */}
+          <Route path="/portal/modulos" element={<StudentModulosPage />} />
+
           {/* 🔹 Portal estudiante: evaluaciones */}
           <Route
             path="/evaluaciones/mias"
@@ -107,11 +114,14 @@ const App = () => (
             <Route path="dashboard" element={<Home />} />
             <Route path="students" element={<Students />} />
             <Route path="programas" element={<Programs />} />
+            <Route path="programas/:id" element={<ProgramaDetalle />} />
             <Route path="docentes" element={<Docentes />} />
 
             {/* 🔹 Admin evaluaciones */}
             <Route path="evaluaciones" element={<AdminEvaluationPage />} />
             <Route path="evaluaciones/:evaluationId/builder" element={<EvaluationBuilder />} />
+            <Route path="modulos" element={<ModulosPage />} />
+            <Route path="modulos/:id" element={<ModuloDetalle />} />
 
             <Route path="adminclients" element={<DashboardClients />} />
             <Route path="usuarios-negocio" element={<UsersDashboard />} />

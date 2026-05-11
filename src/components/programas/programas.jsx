@@ -7,7 +7,9 @@ import {
   DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined,
   ReloadOutlined, BookOutlined, CheckCircleOutlined, CloseCircleOutlined,
   UnorderedListOutlined, SwapOutlined, CopyOutlined, ScheduleOutlined,
+  FolderOpenOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import { getPrograms, deleteProgram } from "../../services/programs/programService";
 import { getMateriasByPrograma, createMateria, updateMateria, deleteMateria } from "../../services/materias/serviceMateria";
 import { getAllDocentes } from "../../services/docentes/serviceDocente";
@@ -386,6 +388,7 @@ function MateriasDrawer({ programa, programas, onClose }) {
    Main: Programas
 ───────────────────────────────────────────── */
 const ProgramsManagement = () => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [programas, setProgramas] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -458,6 +461,14 @@ const ProgramsManagement = () => {
       key: "nombre",
       sorter: (a, b) => a.nombre.localeCompare(b.nombre),
       width: "26%",
+      render: (nombre, record) => (
+        <span
+          style={{ color: PRIMARY_COLOR, fontWeight: 600, cursor: "pointer" }}
+          onClick={() => navigate(`/inicio/programas/${record.id}`)}
+        >
+          {nombre}
+        </span>
+      ),
     },
     {
       title: "Tipo",
@@ -522,10 +533,18 @@ const ProgramsManagement = () => {
     {
       title: "Acciones",
       key: "actions",
-      width: 140,
+      width: 160,
       align: "center",
       render: (_, record) => (
         <Space size="small">
+          <Tooltip title="Ver detalle del programa">
+            <Button
+              type="text"
+              icon={<FolderOpenOutlined />}
+              onClick={() => navigate(`/inicio/programas/${record.id}`)}
+              style={{ color: "#2563eb" }}
+            />
+          </Tooltip>
           <Tooltip title="Gestionar Materias">
             <Button
               type="text"
@@ -719,6 +738,14 @@ const ProgramsManagement = () => {
             columns={columns}
             dataSource={filteredProgramas}
             rowKey="id"
+            onRow={(record) => ({
+              onClick: (e) => {
+                // Ignorar clicks en botones/popconfirm dentro de la fila
+                if (e.target.closest("button, a, .ant-popconfirm, .ant-btn")) return;
+                navigate(`/inicio/programas/${record.id}`);
+              },
+              style: { cursor: "pointer" },
+            })}
             pagination={{
               pageSize: 10,
               showSizeChanger: true,
@@ -759,6 +786,9 @@ const ProgramsManagement = () => {
         }
         .ant-table-tbody > tr:hover > td {
           background: #f0f7f7 !important;
+        }
+        .ant-table-tbody > tr {
+          cursor: pointer;
         }
       `}</style>
     </div>

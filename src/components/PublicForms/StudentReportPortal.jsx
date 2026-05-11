@@ -16,6 +16,7 @@ import {
   ClockCircleOutlined,
   CheckCircleOutlined,
   CalendarOutlined,
+  AppstoreOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -36,6 +37,7 @@ import StudentEvaluationsTab from "./StudentEvaluationsTab";
 import StudentGradesTab from "./StudentGradesTab";
 import StudentCertificationsTab from "./StudentCertificationsTab";
 import StudentHorarioTab from "./StudentHorarioTab";
+import StudentModulosPage from "../Modulos/StudentModulosPage";
 
 const { Text } = Typography;
 
@@ -56,6 +58,7 @@ function StudentPortal() {
   const [gradesByCierre, setGradesByCierre] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
   const [currentStudentId, setCurrentStudentId] = useState(null);
+  const [tieneModulos, setTieneModulos] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -108,6 +111,20 @@ function StudentPortal() {
           evData.asignaciones || (Array.isArray(evData) ? evData : []);
       } catch (e) {
         console.warn("Error cargando evaluaciones", e);
+      }
+
+      // Verificar si el estudiante tiene módulos asignados
+      try {
+        const token = localStorage.getItem('student_portal_token') || localStorage.getItem('authToken');
+        const API = import.meta.env.VITE_API_BACKEND;
+        const modRes = await fetch(
+          `${API}/api/modulos/estudiante/${studentId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const modData = await modRes.json();
+        setTieneModulos((modData.modulos || []).length > 0);
+      } catch {
+        setTieneModulos(false);
       }
 
       const extraCertData = await loadCertificateData(doc);
@@ -243,6 +260,7 @@ function StudentPortal() {
     setStudentInfo(null);
     setGradesInfo([]);
     setEvaluations([]);
+    setTieneModulos(false);
     clearStudentToken();
   };
 
@@ -454,6 +472,19 @@ function StudentPortal() {
                     </div>
                   ),
                 },
+                ...(tieneModulos ? [{
+                  key: "modulos",
+                  label: (
+                    <span style={styles.tabLabel}>
+                      <AppstoreOutlined /> Módulos
+                    </span>
+                  ),
+                  children: (
+                    <div style={styles.tabContent}>
+                      <StudentModulosPage />
+                    </div>
+                  ),
+                }] : []),
               ]}
             />
           </div>

@@ -31,6 +31,7 @@ import {
   FileDoneOutlined,
   ToolOutlined,
   CrownOutlined,
+  AppstoreAddOutlined,
 } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
 import axios from 'axios';
@@ -86,6 +87,7 @@ const MENU_MASTER = [
       { key: '/inicio/docentes', icon: <UserSwitchOutlined />, label: 'Docentes', path: '/inicio/docentes' },
       { key: '/inicio/programas', icon: <ReadOutlined />, label: 'Programas', path: '/inicio/programas' },
       { key: '/inicio/evaluaciones', icon: <TrophyOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
+      { key: '/inicio/modulos', icon: <AppstoreAddOutlined />, label: 'Módulos', path: '/inicio/modulos' },
       { key: '/inicio/calificaciones', icon: <BarChartOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
     ],
   },
@@ -132,7 +134,7 @@ const MENU_MASTER = [
 // Si un rol está listado, solo verá los paths indicados.
 const ROLE_CHILD_RESTRICTIONS = {
   ACADEMICO: {
-    user: ['/inicio/students', '/inicio/calificaciones'],
+    user: ['/inicio/students', '/inicio/calificaciones', '/inicio/modulos'],
     // docente: ['/inicio/students', '/inicio/calificaciones', '/inicio/evaluaciones'],
   },
   // Puedes agregar restricciones para otros módulos:
@@ -440,11 +442,12 @@ const RootLayout = () => {
     // — Gestión Académica —
     if (hasACAD) {
       let acadItems = [
-        { key: '/inicio/students',       icon: <TeamOutlined />,     label: 'Estudiantes',   path: '/inicio/students' },
+        { key: '/inicio/students',       icon: <TeamOutlined />,       label: 'Estudiantes',   path: '/inicio/students' },
         { key: '/inicio/docentes',       icon: <UserSwitchOutlined />, label: 'Docentes',      path: '/inicio/docentes' },
         { key: '/inicio/programas',      icon: <ReadOutlined />,       label: 'Programas',     path: '/inicio/programas' },
         { key: '/inicio/evaluaciones',   icon: <TrophyOutlined />,     label: 'Evaluaciones',  path: '/inicio/evaluaciones' },
-        { key: '/inicio/calificaciones', icon: <BarChartOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
+        { key: '/inicio/modulos',        icon: <AppstoreAddOutlined />, label: 'Módulos',       path: '/inicio/modulos' },
+        { key: '/inicio/calificaciones', icon: <BarChartOutlined />,   label: 'Calificaciones', path: '/inicio/calificaciones' },
       ];
       // Restricción para rol 'user' educativo o docente
       if (user.role === 'user' || isDocente) {
