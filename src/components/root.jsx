@@ -449,6 +449,15 @@ const RootLayout = () => {
         { key: '/inicio/modulos',        icon: <AppstoreAddOutlined />, label: 'Módulos',       path: '/inicio/modulos' },
         { key: '/inicio/calificaciones', icon: <BarChartOutlined />,   label: 'Calificaciones', path: '/inicio/calificaciones' },
       ];
+
+      // Movimientos: visible solo para admin/superadmin en plan educativo (sin módulo POS separado)
+      if (isAdmin && !hasPOS) {
+        acadItems = [
+          { key: '/inicio/certificados', icon: <SwapOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
+          ...acadItems,
+        ];
+      }
+
       // Restricción para rol 'user' educativo o docente
       if (user.role === 'user' || isDocente) {
         const allowed = ROLE_CHILD_RESTRICTIONS.ACADEMICO?.user || [];
