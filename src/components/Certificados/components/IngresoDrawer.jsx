@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
     Drawer, Form, Button, Input, Select, Typography, message,
     Row, Col, Statistic, Space, Dropdown, Menu,
-    Avatar, Tag, Spin, Empty,
+    Avatar, Tag, Spin, Empty, InputNumber,
 } from 'antd';
 import {
     FileDoneOutlined, UserOutlined, ShoppingOutlined, WalletOutlined,
     EditOutlined, DownOutlined, FilePdfOutlined, SaveOutlined,
-    SearchOutlined, UserAddOutlined, CloseCircleOutlined,
+    SearchOutlined, UserAddOutlined, CloseCircleOutlined, PlusOutlined,
 } from '@ant-design/icons';
 
 import { cuentaOptions } from '../options';
@@ -27,6 +27,10 @@ const SECTION = ({ icon, title, children }) => (
     </div>
 );
 
+const HDR = { fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px' };
+
+const emptyLine = () => ({ name: '', qty: 1 });
+
 const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
     const { prefix: currPrefix } = useCurrencyInput();
     const isMobile = useIsMobile();
@@ -34,6 +38,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
     const [inventario, setInventario]               = useState([]);
     const [loadingInventario, setLoadingInventario] = useState(false);
     const [saving, setSaving]                       = useState(false);
+    const [lineItems, setLineItems]                 = useState([emptyLine()]);
 
     // ── Contacto ──────────────────────────────────────────────
     const [personaSearch, setPersonaSearch]         = useState('');
@@ -42,7 +47,16 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
     const [selectedPersona, setSelectedPersona]     = useState(null);
     const [personaDrawerOpen, setPersonaDrawerOpen] = useState(false);
 
-    const valorTotal = Form.useWatch('valor', form) || 0;
+    // Total derivado de las líneas
+    const valorTotal = lineItems.reduce((sum, li) => {
+        const inv = inventario.find(i => i.nombre === li.name);
+        return sum + (li.name ? parseFloat(inv?.monto || 0) * (li.qty || 1) : 0);
+    }, 0);
+
+    // Sincronizar total al campo oculto del form
+    useEffect(() => {
+        form.setFieldsValue({ valor: valorTotal });
+    }, [valorTotal]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Cargar inventario ─────────────────────────────────────
     useEffect(() => {
@@ -63,15 +77,9 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
             setSelectedPersona(null);
             setPersonaSearch('');
             setPersonas([]);
+            setLineItems([emptyLine()]);
         } else {
-            // Modo edición
-            let tipoValue = initialValues.producto;
-            if (typeof tipoValue === 'string' && tipoValue.includes(',')) {
-                tipoValue = tipoValue.split(',').map(s => s.trim());
-            } else if (typeof tipoValue === 'string') {
-                tipoValue = [tipoValue];
-            }
-            form.setFieldsValue({ ...initialValues, tipo: tipoValue });
+            form.setFieldsValue({ ...initialValues });
             setSelectedPersona(
                 initialValues.persona_id
                     ? {
@@ -83,6 +91,20 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                     }
                     : null
             );
+            // Reconstruir líneas desde items existentes
+            if (Array.isArray(initialValues.items_detalle) && initialValues.items_detalle.length > 0) {
+                setLineItems(initialValues.items_detalle.map(it => ({
+                    name: it.descripcion || it.nombre_producto || '',
+                    qty:  Number(it.cantidad) || 1,
+                })));
+            } else if (initialValues.producto) {
+                const names = initialValues.producto.includes(',')
+                    ? initialValues.producto.split(',').map(s => s.trim())
+                    : [initialValues.producto];
+                setLineItems(names.map(n => ({ name: n, qty: 1 })));
+            } else {
+                setLineItems([emptyLine()]);
+            }
         }
     }, [open, initialValues, userName, form]);
 
@@ -100,34 +122,43 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
         return () => clearTimeout(t);
     }, [personaSearch]);
 
-    // ── Cálculo automático del total ──────────────────────────
-    const handleValuesChange = (changed, all) => {
-        if (changed.tipo !== undefined) {
-            const selected = Array.isArray(all.tipo) ? all.tipo : [all.tipo];
-            const total = selected.reduce((sum, name) => {
-                const item = inventario.find(i => i.nombre === name);
-                return sum + (item ? parseFloat(item.monto || 0) : 0);
-            }, 0);
-            form.setFieldsValue({ valor: total });
-        }
-    };
+    // ── Helpers de líneas ─────────────────────────────────────
+    const setLine = (idx, patch) =>
+        setLineItems(prev => prev.map((li, i) => i === idx ? { ...li, ...patch } : li));
 
-    const inventarioOptions = inventario.map(i => ({
-        label: `${i.nombre} — ($${parseFloat(i.monto || 0).toLocaleString('es-CO')})`,
-        value: i.nombre,
-    }));
+    const removeLine = (idx) =>
+        setLineItems(prev => prev.filter((_, i) => i !== idx));
+
+    const addLine = () =>
+        setLineItems(prev => [...prev, emptyLine()]);
 
     // ── Guardar ───────────────────────────────────────────────
     const handleSave = async (generatePdf = false) => {
+        const validLines = lineItems.filter(li => li.name);
+        if (validLines.length === 0) {
+            message.warning('Selecciona al menos un producto.');
+            return;
+        }
         try {
             const values = await form.validateFields();
             setSaving(true);
 
+            const items = validLines.map(li => {
+                const inv = inventario.find(i => i.nombre === li.name);
+                return {
+                    inventario_id:   inv?.id || null,
+                    descripcion:     li.name,
+                    cantidad:        li.qty || 1,
+                    precio_unitario: parseFloat(inv?.monto || 0),
+                };
+            });
+
             const payload = {
                 ...values,
+                items,
+                tipo: validLines.map(li => li.name),
                 persona_id: selectedPersona?.id || null,
                 vendedor: userName,
-                // legado para compatibilidad
                 ...(selectedPersona
                     ? {
                         nombre: selectedPersona.nombre,
@@ -173,6 +204,14 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
         </Menu>
     );
 
+    // Opciones del select inline (nombre visible en trigger, precio+tipo en dropdown)
+    const invOpts = inventario.map(i => ({
+        label: i.nombre,
+        value: i.nombre,
+        precio: parseFloat(i.monto || 0),
+        tipo: i.tipo || 'producto',
+    }));
+
     return (
         <>
             <Drawer
@@ -186,7 +225,10 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                 width={isMobile ? '100%' : 520}
                 onClose={onClose}
                 open={open}
-                styles={{ body: { background: '#f5f5f5', padding: '18px' } }}
+                styles={{
+                    body: { background: '#f5f5f5', padding: isMobile ? '14px' : '18px' },
+                    wrapper: isMobile ? { height: '100%' } : {},
+                }}
                 footer={
                     <div style={{ textAlign: 'right', padding: '10px 0' }}>
                         <Button onClick={onClose} style={{ marginRight: 8 }} disabled={saving}>Cancelar</Button>
@@ -203,7 +245,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                     </div>
                 }
             >
-                <Form form={form} layout="vertical" onValuesChange={handleValuesChange}>
+                <Form form={form} layout="vertical">
 
                     {/* ── CONTACTO ─────────────────────────────── */}
                     <SECTION icon={<UserOutlined />} title="Contacto (opcional)">
@@ -299,25 +341,122 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                         )}
                     </SECTION>
 
-                    {/* ── PRODUCTOS ────────────────────────────── */}
-                    <SECTION icon={<ShoppingOutlined />} title="Selecciona los Productos">
-                        <Form.Item
-                            name="tipo"
-                            rules={[{ required: true, message: 'Seleccione al menos un producto' }]}
-                            style={{ marginBottom: 0 }}
+                    {/* ── TABLA DE PRODUCTOS (tipo factura) ────── */}
+                    <SECTION icon={<ShoppingOutlined />} title="Productos">
+
+                        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+
+                            {/* Encabezado columnas */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 72px 82px 28px',
+                                gap: 6,
+                                background: '#f1f5f9',
+                                padding: '6px 10px',
+                                borderBottom: '1px solid #e5e7eb',
+                            }}>
+                                <span style={HDR}>Descripción</span>
+                                <span style={{ ...HDR, textAlign: 'center' }}>Cant.</span>
+                                <span style={{ ...HDR, textAlign: 'right' }}>Total</span>
+                                <span />
+                            </div>
+
+                            {/* Filas de línea */}
+                            {lineItems.map((li, idx) => {
+                                const inv  = inventario.find(i => i.nombre === li.name);
+                                const sub  = parseFloat(inv?.monto || 0) * (li.qty || 1);
+                                const bajo = inv && inv.cantidad != null && inv.cantidad < (li.qty || 1);
+
+                                return (
+                                    <div key={idx} style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '1fr 72px 82px 28px',
+                                        gap: 6,
+                                        alignItems: 'start',
+                                        padding: '8px 10px',
+                                        borderBottom: idx < lineItems.length - 1 ? '1px solid #f1f5f9' : 'none',
+                                        background: idx % 2 === 0 ? '#fff' : '#fafafa',
+                                    }}>
+
+                                        {/* Descripción: select + precio unitario */}
+                                        <div style={{ minWidth: 0 }}>
+                                            <Select
+                                                size="small"
+                                                showSearch
+                                                placeholder={loadingInventario ? 'Cargando...' : 'Producto…'}
+                                                value={li.name || undefined}
+                                                loading={loadingInventario}
+                                                options={invOpts}
+                                                filterOption={(input, opt) =>
+                                                    (opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                }
+                                                optionRender={opt => (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.data.label}</span>
+                                                        <span style={{ color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
+                                                            ${opt.data.precio?.toLocaleString('es-CO')}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                onChange={val => setLine(idx, { name: val })}
+                                                style={{ width: '100%' }}
+                                                dropdownStyle={{ minWidth: 240 }}
+                                            />
+                                            {/* Altura siempre reservada para no saltar el layout */}
+                                            <div style={{ fontSize: 10, marginTop: 2, height: 13, lineHeight: '13px', overflow: 'hidden',
+                                                color: bajo ? '#f59e0b' : '#94a3b8' }}>
+                                                {li.name
+                                                    ? inv?.tipo === 'servicio'
+                                                        ? `$${parseFloat(inv.monto || 0).toLocaleString('es-CO')} c/u`
+                                                        : `$${parseFloat(inv?.monto || 0).toLocaleString('es-CO')} c/u${bajo ? ` · stock: ${inv.cantidad}` : ''}`
+                                                    : ' '}
+                                            </div>
+                                        </div>
+
+                                        {/* Cantidad */}
+                                        <InputNumber
+                                            min={1}
+                                            value={li.qty || 1}
+                                            onChange={val => setLine(idx, { qty: val || 1 })}
+                                            size="small"
+                                            controls
+                                            style={{ width: '100%' }}
+                                        />
+
+                                        {/* Total fila — marginTop para centrar con el select */}
+                                        <div style={{
+                                            fontSize: 12, fontWeight: 700, textAlign: 'right',
+                                            color: li.name ? '#155153' : '#d1d5db',
+                                            marginTop: 4,
+                                        }}>
+                                            {li.name ? `$${sub.toLocaleString('es-CO')}` : '—'}
+                                        </div>
+
+                                        {/* Eliminar fila */}
+                                        <Button
+                                            type="text"
+                                            size="small"
+                                            icon={<CloseCircleOutlined />}
+                                            onClick={() => removeLine(idx)}
+                                            disabled={lineItems.length === 1}
+                                            style={{ color: '#cbd5e1', padding: 0, minWidth: 'auto', marginTop: 2 }}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Agregar línea */}
+                        <Button
+                            type="dashed"
+                            block
+                            size="small"
+                            icon={<PlusOutlined />}
+                            onClick={addLine}
+                            style={{ marginTop: 8, color: '#155153', borderColor: '#b2d8d8' }}
                         >
-                            <Select
-                                mode="multiple"
-                                size="large"
-                                placeholder={loadingInventario ? 'Cargando inventario...' : 'Buscar productos...'}
-                                options={inventarioOptions}
-                                loading={loadingInventario}
-                                disabled={loadingInventario}
-                                showSearch
-                                filterOption={(input, opt) => (opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                                style={{ width: '100%' }}
-                            />
-                        </Form.Item>
+                            Agregar línea
+                        </Button>
                     </SECTION>
 
                     {/* ── PAGO ─────────────────────────────────── */}

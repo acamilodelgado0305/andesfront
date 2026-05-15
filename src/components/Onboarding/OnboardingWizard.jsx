@@ -9,7 +9,7 @@ import {
   ArrowLeftOutlined, ShopOutlined, ToolOutlined, AppstoreOutlined,
   ShoppingOutlined, RocketOutlined, ClockCircleOutlined, EyeOutlined,
   LineChartOutlined, InboxOutlined, WalletOutlined, FileTextOutlined,
-  ContactsOutlined, UserOutlined, TeamOutlined as AcademicOutlined,
+  ContactsOutlined, UserOutlined, BookOutlined,
   ShoppingCartOutlined,
 } from '@ant-design/icons';
 import { AuthContext } from '../../AuthContext';
@@ -54,7 +54,7 @@ const USE_PURPOSES = [
   { key: 'clients',    label: 'Gestionar clientes',             icon: <ContactsOutlined /> },
   { key: 'orders',     label: 'Administrar pedidos',            icon: <ShoppingCartOutlined /> },
   { key: 'employees',  label: 'Gestionar empleados',            icon: <UserOutlined /> },
-  { key: 'academic',   label: 'Control académico',              icon: <AcademicOutlined /> },
+  { key: 'academic',   label: 'Control académico',              icon: <BookOutlined /> },
   { key: 'other',      label: 'Otro',                           icon: <QuestionCircleOutlined /> },
 ];
 
@@ -220,11 +220,13 @@ const OnboardingWizard = ({ open, onClose }) => {
   const [submitting, setSubmitting] = useState(false);
   const [visible, setVisible] = useState(true);
   const bodyRef = useRef(null);
+  const stepTimerRef = useRef(null);
 
   // Fade entre pasos sin cambiar la altura del contenedor
   const goToStep = (next) => {
+    if (stepTimerRef.current) clearTimeout(stepTimerRef.current);
     setVisible(false);
-    setTimeout(() => {
+    stepTimerRef.current = setTimeout(() => {
       setStep(next);
       setVisible(true);
       if (bodyRef.current) bodyRef.current.scrollTop = 0;

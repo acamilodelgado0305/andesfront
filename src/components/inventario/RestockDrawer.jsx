@@ -75,7 +75,10 @@ const RestockDrawer = ({ open, onClose, onSuccess, producto }) => {
             open={open}
             onClose={onClose}
             destroyOnClose
-            styles={{ body: { background: '#f9fafb', padding: 24 } }}
+            styles={{
+                body: { background: '#f9fafb', padding: isMobile ? 16 : 24 },
+                wrapper: isMobile ? { height: '100%' } : {},
+            }}
             footer={
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
                     <Button onClick={onClose}>Cancelar</Button>

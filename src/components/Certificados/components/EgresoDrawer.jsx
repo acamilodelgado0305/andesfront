@@ -132,7 +132,10 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                 onClose={onClose}
                 open={open}
                 destroyOnClose
-                styles={{ body: { background: '#f9fafb', padding: '24px' } }}
+                styles={{
+                    body: { background: '#f9fafb', padding: isMobile ? '16px' : '24px' },
+                    wrapper: isMobile ? { height: '100%' } : {},
+                }}
                 footer={
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
                         <Button onClick={onClose} disabled={saving}>Cancelar</Button>

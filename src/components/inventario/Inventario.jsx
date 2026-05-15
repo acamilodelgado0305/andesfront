@@ -742,6 +742,7 @@ function Inventario() {
           </div>
         }
         width={isMobile ? '100%' : 500} onClose={handleCloseDrawer} open={isDrawerOpen} destroyOnClose
+        styles={{ wrapper: isMobile ? { height: '100%' } : {} }}
         footer={
           <div className="flex justify-end gap-2">
             <Button onClick={handleCloseDrawer}>Cancelar</Button>
