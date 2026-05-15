@@ -8,7 +8,7 @@ import {
     EditOutlined, FileProtectOutlined, SaveOutlined,
     CalendarOutlined, DollarCircleOutlined, UserOutlined,
     SearchOutlined, UserAddOutlined, CloseCircleOutlined,
-    CheckCircleOutlined, ShopOutlined,
+    CheckCircleOutlined, ShopOutlined, CloseOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -128,13 +128,16 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                     </Space>
                 }
                 placement="right"
-                width={isMobile ? '100%' : 500}
+                width={isMobile ? '100vw' : 500}
                 onClose={onClose}
                 open={open}
                 destroyOnClose
+                closable={false}
+                extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} />}
+                rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
                 styles={{
-                    body: { background: '#f9fafb', padding: isMobile ? '16px' : '24px' },
-                    wrapper: isMobile ? { height: '100%' } : {},
+                    body: { background: '#f9fafb', padding: isMobile ? '16px' : '24px', overflowX: 'hidden' },
+                    wrapper: isMobile ? { height: '100%', width: '100%' } : {},
                 }}
                 footer={
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>

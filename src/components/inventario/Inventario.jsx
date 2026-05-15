@@ -13,7 +13,7 @@ import {
   SearchOutlined, TagOutlined,
   ThunderboltOutlined, ShoppingCartOutlined,
   CameraOutlined, UploadOutlined,
-  PercentageOutlined, CheckCircleOutlined,
+  PercentageOutlined, CheckCircleOutlined, CloseOutlined,
 } from "@ant-design/icons";
 
 import {
@@ -741,8 +741,11 @@ function Inventario() {
             <span>{editingItem ? `Editar ${tipoItem}` : 'Nuevo elemento'}</span>
           </div>
         }
-        width={isMobile ? '100%' : 500} onClose={handleCloseDrawer} open={isDrawerOpen} destroyOnClose
-        styles={{ wrapper: isMobile ? { height: '100%' } : {} }}
+        width={isMobile ? '100vw' : 500} onClose={handleCloseDrawer} open={isDrawerOpen} destroyOnClose
+        closable={false}
+        extra={<Button type="text" icon={<CloseOutlined />} onClick={handleCloseDrawer} />}
+        rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
+        styles={{ wrapper: isMobile ? { height: '100%', width: '100%' } : {}, body: { overflowX: 'hidden' } }}
         footer={
           <div className="flex justify-end gap-2">
             <Button onClick={handleCloseDrawer}>Cancelar</Button>

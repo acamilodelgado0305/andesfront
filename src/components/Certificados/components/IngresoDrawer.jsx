@@ -7,7 +7,7 @@ import {
 import {
     FileDoneOutlined, UserOutlined, ShoppingOutlined, WalletOutlined,
     EditOutlined, DownOutlined, FilePdfOutlined, SaveOutlined,
-    SearchOutlined, UserAddOutlined, CloseCircleOutlined, PlusOutlined,
+    SearchOutlined, UserAddOutlined, CloseCircleOutlined, PlusOutlined, CloseOutlined,
 } from '@ant-design/icons';
 
 import { cuentaOptions } from '../options';
@@ -222,12 +222,15 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                     </Space>
                 }
                 placement="right"
-                width={isMobile ? '100%' : 520}
+                width={isMobile ? '100vw' : 520}
                 onClose={onClose}
                 open={open}
+                closable={false}
+                extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} />}
+                rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
                 styles={{
-                    body: { background: '#f5f5f5', padding: isMobile ? '14px' : '18px' },
-                    wrapper: isMobile ? { height: '100%' } : {},
+                    body: { background: '#f5f5f5', padding: isMobile ? '14px' : '18px', overflowX: 'hidden' },
+                    wrapper: isMobile ? { height: '100%', width: '100%' } : {},
                 }}
                 footer={
                     <div style={{ textAlign: 'right', padding: '10px 0' }}>
@@ -461,18 +464,18 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
 
                     {/* ── PAGO ─────────────────────────────────── */}
                     <SECTION icon={<WalletOutlined />} title="Detalles del Pago">
-                        <Row gutter={16} align="middle">
-                            <Col span={12}>
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
                                 <Form.Item
                                     label="Cuenta de Destino"
                                     name="cuenta"
                                     rules={[{ required: true, message: 'Requerido' }]}
                                     style={{ marginBottom: 0 }}
                                 >
-                                    <Select size="large" placeholder="Ej: Nequi" options={cuentaOptions} />
+                                    <Select size="large" placeholder="Ej: Nequi" options={cuentaOptions} style={{ width: '100%' }} />
                                 </Form.Item>
-                            </Col>
-                            <Col span={12} style={{ textAlign: 'right' }}>
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                 <Statistic
                                     title="Total a Pagar"
                                     value={valorTotal}
@@ -482,8 +485,8 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                                     valueStyle={{ color: '#3f8600', fontWeight: 'bold' }}
                                 />
                                 <Form.Item name="valor" hidden><Input /></Form.Item>
-                            </Col>
-                        </Row>
+                            </div>
+                        </div>
                     </SECTION>
 
                     <Form.Item name="vendedor" hidden><Input /></Form.Item>

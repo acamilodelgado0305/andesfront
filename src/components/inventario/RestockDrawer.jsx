@@ -5,7 +5,7 @@ import {
 } from 'antd';
 import {
     ShoppingCartOutlined, SaveOutlined, InboxOutlined,
-    CheckCircleOutlined, DollarCircleOutlined,
+    CheckCircleOutlined, DollarCircleOutlined, CloseOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -71,13 +71,16 @@ const RestockDrawer = ({ open, onClose, onSuccess, producto }) => {
                 </Space>
             }
             placement="right"
-            width={isMobile ? '100%' : 420}
+            width={isMobile ? '100vw' : 420}
             open={open}
             onClose={onClose}
             destroyOnClose
+            closable={false}
+            extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} />}
+            rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
             styles={{
-                body: { background: '#f9fafb', padding: isMobile ? 16 : 24 },
-                wrapper: isMobile ? { height: '100%' } : {},
+                body: { background: '#f9fafb', padding: isMobile ? 16 : 24, overflowX: 'hidden' },
+                wrapper: isMobile ? { height: '100%', width: '100%' } : {},
             }}
             footer={
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext,useMemo } from 'react';
 import { Card, Tabs, Typography, Button, message, Spin } from 'antd';
-import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined, FileTextOutlined } from '@ant-design/icons';
+import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import 'moment/locale/es';
 import axios from 'axios';
@@ -204,29 +204,6 @@ function Certificados() {
             >
               <MinusOutlined style={{ fontSize: 11 }} />
               Gasto
-            </button>
-
-            <button
-              onClick={() => setCotizacionOpen(true)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                padding: '10px 20px',
-                flex: isMobile ? 1 : 'none',
-                background: '#1d4ed8',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 8,
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'opacity 0.15s',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
-              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-            >
-              <FileTextOutlined style={{ fontSize: 11 }} />
-              Factura
             </button>
 
             <Button icon={<ReloadOutlined />} onClick={() => fetchTransactions(dateRange)} loading={loading} shape="circle" />
