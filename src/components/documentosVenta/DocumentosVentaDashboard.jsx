@@ -2,14 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Layout, Typography, Button, Table, Tag, Modal,
   message, Input, Space, Card, Statistic,
-  Dropdown, Select,
+  Dropdown, Select, InputNumber, Progress, Tooltip as AntTooltip,
 } from 'antd';
 import {
   PlusOutlined, FileDoneOutlined,
   EditOutlined, DeleteOutlined, EyeOutlined,
   SearchOutlined, ReloadOutlined, MoreOutlined,
   CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined,
-  DollarOutlined,
+  DollarOutlined, WalletOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import useCurrency from '../../hooks/useCurrency';
@@ -18,6 +18,7 @@ import {
   getEstadisticasDocumentos,
   deleteDocumentoVenta,
   updateDocumentoVenta,
+  registrarAbono,
 } from '../../services/documentoVenta/documentoVentaService';
 import DocumentoVentaForm from './DocumentoVentaForm';
 import FacturaViewer from './FacturaViewer';
@@ -27,12 +28,14 @@ const { Title, Text } = Typography;
 
 const ESTADO_COLOR = {
   EMITIDA: 'blue',
+  ABONO:   'orange',
   PAGADA:  'green',
   ANULADA: 'red',
 };
 
 const ESTADO_ICON = {
   EMITIDA: <ClockCircleOutlined />,
+  ABONO:   <WalletOutlined />,
   PAGADA:  <CheckCircleOutlined />,
   ANULADA: <CloseCircleOutlined />,
 };
@@ -57,6 +60,12 @@ const DocumentosVentaDashboard = () => {
   const [pagarModal, setPagarModal]       = useState({ open: false, doc: null });
   const [cuentaPago, setCuentaPago]       = useState('Efectivo');
   const [guardandoPago, setGuardandoPago] = useState(false);
+
+  const [abonoModal, setAbonoModal]         = useState({ open: false, doc: null });
+  const [abonoMonto, setAbonoMonto]         = useState(null);
+  const [abonoCuenta, setAbonoCuenta]       = useState('Efectivo');
+  const [abonoNota, setAbonoNota]           = useState('');
+  const [guardandoAbono, setGuardandoAbono] = useState(false);
 
   // ─── Carga ────────────────────────────────────────────────────────────────────
   const cargarDatos = useCallback(async () => {
@@ -149,6 +158,25 @@ const DocumentosVentaDashboard = () => {
     }
   };
 
+  const confirmarAbono = async () => {
+    const doc = abonoModal.doc;
+    if (!doc || !abonoMonto) return;
+    setGuardandoAbono(true);
+    try {
+      await registrarAbono(doc.id, { monto: abonoMonto, cuenta: abonoCuenta, nota: abonoNota });
+      message.success('Abono registrado correctamente');
+      setAbonoModal({ open: false, doc: null });
+      setAbonoMonto(null);
+      setAbonoCuenta('Efectivo');
+      setAbonoNota('');
+      cargarDatos();
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Error al registrar abono');
+    } finally {
+      setGuardandoAbono(false);
+    }
+  };
+
   // ─── Columnas ─────────────────────────────────────────────────────────────────
   const columns = [
     {
@@ -190,7 +218,24 @@ const DocumentosVentaDashboard = () => {
       dataIndex: 'total',
       key: 'total',
       align: 'right',
-      render: (t) => <Text strong>{formatCurrency(t)}</Text>,
+      render: (t, rec) => {
+        const abonado = Number(rec.total_abonado || 0);
+        const total   = Number(t || 0);
+        if (abonado > 0 && rec.estado !== 'PAGADA') {
+          const pct     = Math.min(100, Math.round((abonado / total) * 100));
+          const saldo   = total - abonado;
+          return (
+            <AntTooltip title={`Abonado: ${formatCurrency(abonado)} · Saldo: ${formatCurrency(saldo)}`}>
+              <div style={{ minWidth: 110 }}>
+                <Text strong style={{ fontSize: 12 }}>{formatCurrency(total)}</Text>
+                <Progress percent={pct} size="small" showInfo={false} strokeColor="#f97316" style={{ marginBottom: 0 }} />
+                <Text type="secondary" style={{ fontSize: 11 }}>Saldo: {formatCurrency(saldo)}</Text>
+              </div>
+            </AntTooltip>
+          );
+        }
+        return <Text strong>{formatCurrency(t)}</Text>;
+      },
     },
     {
       title: 'Estado',
@@ -236,6 +281,13 @@ const DocumentosVentaDashboard = () => {
                 label: 'Editar',
                 disabled: ['PAGADA', 'ANULADA'].includes(rec.estado),
                 onClick: () => { setEditingDoc(rec); setFormOpen(true); },
+              },
+              {
+                key: 'abono',
+                icon: <WalletOutlined />,
+                label: 'Registrar abono',
+                disabled: ['PAGADA', 'ANULADA'].includes(rec.estado),
+                onClick: () => { setAbonoMonto(null); setAbonoCuenta('Efectivo'); setAbonoNota(''); setAbonoModal({ open: true, doc: rec }); },
               },
               { type: 'divider' },
               {
@@ -374,6 +426,121 @@ const DocumentosVentaDashboard = () => {
             size="large"
           />
         </div>
+      </Modal>
+
+      {/* Modal abono */}
+      <Modal
+        open={abonoModal.open}
+        title={
+          <Space>
+            <WalletOutlined style={{ color: '#f97316' }} />
+            <span>Registrar abono</span>
+          </Space>
+        }
+        okText="Confirmar abono"
+        cancelText="Cancelar"
+        onCancel={() => setAbonoModal({ open: false, doc: null })}
+        onOk={confirmarAbono}
+        confirmLoading={guardandoAbono}
+        okButtonProps={{ disabled: !abonoMonto || abonoMonto <= 0 }}
+        width={400}
+      >
+        {abonoModal.doc && (() => {
+          const total    = Number(abonoModal.doc.total || 0);
+          const abonado  = Number(abonoModal.doc.total_abonado || 0);
+          const saldo    = total - abonado;
+          const abonos   = Array.isArray(abonoModal.doc.abonos)
+            ? abonoModal.doc.abonos
+            : (typeof abonoModal.doc.abonos === 'string' ? JSON.parse(abonoModal.doc.abonos || '[]') : []);
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                  <Text type="secondary">Factura</Text>
+                  <Text strong>{abonoModal.doc.numero}</Text>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                  <Text type="secondary">Total</Text>
+                  <Text strong>{formatCurrency(total)}</Text>
+                </div>
+                {abonado > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                    <Text type="secondary">Ya abonado</Text>
+                    <Text style={{ color: '#16a34a' }}>{formatCurrency(abonado)}</Text>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700 }}>
+                  <span>Saldo pendiente</span>
+                  <span style={{ color: '#f97316' }}>{formatCurrency(saldo)}</span>
+                </div>
+                {abonado > 0 && (
+                  <Progress
+                    percent={Math.min(100, Math.round((abonado / total) * 100))}
+                    size="small" strokeColor="#16a34a" style={{ marginTop: 8, marginBottom: 0 }}
+                  />
+                )}
+              </div>
+
+              <div>
+                <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>
+                  Monto del abono <span style={{ color: '#ef4444' }}>*</span>
+                </Text>
+                <InputNumber
+                  style={{ width: '100%' }} size="large" min={1} max={saldo}
+                  value={abonoMonto}
+                  onChange={setAbonoMonto}
+                  formatter={(v) => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(v) => v.replace(/\$\s?|(,*)/g, '')}
+                  placeholder="Monto a abonar"
+                  addonAfter={
+                    <span
+                      style={{ cursor: 'pointer', color: '#f97316', fontSize: 11, fontWeight: 600 }}
+                      onClick={() => setAbonoMonto(saldo)}
+                    >Pagar todo</span>
+                  }
+                />
+              </div>
+
+              <div>
+                <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>Medio de pago</Text>
+                <Select
+                  value={abonoCuenta} onChange={setAbonoCuenta}
+                  style={{ width: '100%' }} size="large"
+                  options={CUENTAS.map(c => ({ value: c, label: c }))}
+                />
+              </div>
+
+              <div>
+                <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>Nota (opcional)</Text>
+                <Input
+                  value={abonoNota} onChange={(e) => setAbonoNota(e.target.value)}
+                  placeholder="Ej: Transferencia #1234"
+                />
+              </div>
+
+              {abonos.length > 0 && (
+                <div>
+                  <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 6 }}>Historial de abonos</Text>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 130, overflowY: 'auto' }}>
+                    {abonos.map((a, i) => (
+                      <div key={i} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        background: '#f9fafb', borderRadius: 6, padding: '6px 10px', fontSize: 12,
+                      }}>
+                        <div>
+                          <span style={{ fontWeight: 600, color: '#16a34a' }}>{formatCurrency(a.monto)}</span>
+                          <span style={{ color: '#94a3b8', marginLeft: 6 }}>{a.cuenta}</span>
+                          {a.nota && <span style={{ color: '#94a3b8', marginLeft: 6 }}>· {a.nota}</span>}
+                        </div>
+                        <Text type="secondary" style={{ fontSize: 11 }}>{dayjs(a.fecha).format('DD/MM/YY')}</Text>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </Modal>
 
       {/* Viewer PDF */}

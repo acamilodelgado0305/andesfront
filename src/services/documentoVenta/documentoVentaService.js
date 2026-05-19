@@ -28,6 +28,9 @@ export const deleteDocumentoVenta = (id) =>
 export const convertirCotizacionAFactura = (id) =>
   api.post(`/documentos-venta/${id}/convertir`).then((r) => r.data);
 
+export const registrarAbono = (id, data) =>
+  api.post(`/documentos-venta/${id}/abonar`, data).then((r) => r.data);
+
 export const getEstadisticasDocumentos = () =>
   api.get('/documentos-venta/stats').then((r) => r.data);
 

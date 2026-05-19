@@ -8,6 +8,7 @@ import {
   PlusOutlined, DeleteOutlined, UserOutlined,
   FileTextOutlined, FileDoneOutlined,
   CalendarOutlined, SearchOutlined, UserAddOutlined, CloseCircleOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -15,6 +16,7 @@ import { createDocumentoVenta, updateDocumentoVenta } from '../../services/docum
 import { getPersonas } from '../../services/person/personaService';
 import { getInventario } from '../../services/inventario/inventarioService';
 import PersonaFormDrawer from '../personas/PersonaFormDrawer';
+import FacturaViewer from './FacturaViewer';
 import useCurrency from '../../hooks/useCurrency';
 
 const { Text } = Typography;
@@ -102,9 +104,11 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
   const formatCurrency = useCurrency();
   const [form] = Form.useForm();
 
-  const [tipo, setTipo]     = useState(defaultTipo);
-  const [items, setItems]   = useState([itemVacio()]);
-  const [saving, setSaving] = useState(false);
+  const [tipo, setTipo]       = useState(defaultTipo);
+  const [items, setItems]     = useState([itemVacio()]);
+  const [saving, setSaving]   = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDoc, setPreviewDoc]   = useState(null);
 
   // ── Cliente ────────────────────────────────────────────────────────────────
   const [personaSearch, setPersonaSearch]         = useState('');
@@ -206,6 +210,29 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
     );
   };
 
+  // ─── Preview ─────────────────────────────────────────────────────────────
+  const handlePreview = () => {
+    const values = form.getFieldsValue();
+    const totales = calcularTotales(items);
+    setPreviewDoc({
+      numero:                 editingDoc?.numero || 'BORRADOR',
+      tipo,
+      estado:                 editingDoc?.estado || 'EMITIDA',
+      persona_id:             selectedPersona?.id || null,
+      cliente_nombre:         selectedPersona?.nombre || values.cliente_nombre || null,
+      cliente_identificacion: selectedPersona?.numero_documento || values.cliente_identificacion || null,
+      cliente_email:          values.cliente_email || null,
+      cliente_telefono:       values.cliente_telefono || null,
+      items,
+      ...totales,
+      notas:             values.notas || null,
+      condiciones:       values.condiciones || null,
+      fecha_emision:     values.fecha_emision     ? values.fecha_emision.format('YYYY-MM-DD')     : dayjs().format('YYYY-MM-DD'),
+      fecha_vencimiento: values.fecha_vencimiento ? values.fecha_vencimiento.format('YYYY-MM-DD') : null,
+    });
+    setPreviewOpen(true);
+  };
+
   // ─── Guardar ──────────────────────────────────────────────────────────────
   const handleGuardar = async () => {
     try {
@@ -295,6 +322,9 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
             </Text>
             <Space>
               <Button onClick={onClose}>Cancelar</Button>
+              <Button icon={<EyeOutlined />} onClick={handlePreview}>
+                Vista previa
+              </Button>
               <Button
                 type="primary" loading={saving} onClick={handleGuardar}
                 style={{ background: accentColor, borderColor: accentColor }}
@@ -356,7 +386,11 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
                 <Button
                   type="text" size="small"
                   icon={<CloseCircleOutlined style={{ color: '#94a3b8' }} />}
-                  onClick={() => { setSelectedPersona(null); setPersonaSearch(''); }}
+                  onClick={() => {
+                    setSelectedPersona(null);
+                    setPersonaSearch('');
+                    form.setFieldsValue({ cliente_email: '', cliente_telefono: '' });
+                  }}
                 />
               </div>
             ) : (
@@ -408,7 +442,15 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
                     {personasResult.map((p) => (
                       <div
                         key={p.id}
-                        onClick={() => { setSelectedPersona(p); setPersonaSearch(''); setPersonasResult([]); }}
+                        onClick={() => {
+                          setSelectedPersona(p);
+                          setPersonaSearch('');
+                          setPersonasResult([]);
+                          form.setFieldsValue({
+                            cliente_email:    p.email    || '',
+                            cliente_telefono: p.celular  || '',
+                          });
+                        }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 10,
                           padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
@@ -586,8 +628,19 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
         onSuccess={(persona) => {
           setSelectedPersona(persona);
           setPersonaDrawerOpen(false);
+          form.setFieldsValue({
+            cliente_email:    persona.email   || '',
+            cliente_telefono: persona.celular || '',
+          });
         }}
         defaultTipo="CLIENTE"
+      />
+
+      {/* ── Vista previa antes de guardar ── */}
+      <FacturaViewer
+        open={previewOpen}
+        doc={previewDoc}
+        onClose={() => setPreviewOpen(false)}
       />
     </>
   );

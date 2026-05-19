@@ -16,6 +16,11 @@ const parseItems = (raw) => {
   try { return JSON.parse(raw); } catch { return []; }
 };
 
+const parseAbonos = (raw) => {
+  if (Array.isArray(raw)) return raw;
+  try { return JSON.parse(raw) || []; } catch { return []; }
+};
+
 const DESIGNS = [
   { id: 'corporativa',  label: 'Corporativa'  },
   { id: 'moderna',      label: 'Moderna'      },
@@ -75,11 +80,76 @@ const TotalesBlock = ({ doc, formatCurrency, totalColor = '#111', totalBg, borde
   </div>
 );
 
+// ─── Bloque de abonos compartido ──────────────────────────────────────────────
+const AbonosBlock = ({ doc, formatCurrency, borderColor = '#e5e7eb', headerBg = '#f8fafc', accentColor = '#16a34a' }) => {
+  const abonos = parseAbonos(doc.abonos);
+  if (!abonos.length) return null;
+
+  const total    = Number(doc.total || 0);
+  const abonado  = Number(doc.total_abonado || 0);
+  const saldo    = Math.max(0, total - abonado);
+  const pct      = total > 0 ? Math.min(100, Math.round((abonado / total) * 100)) : 0;
+  const parcial  = doc.estado === 'ABONO';
+
+  return (
+    <div style={{ marginTop: 24, border: `1px solid ${borderColor}`, borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: headerBg, padding: '10px 16px', borderBottom: `1px solid ${borderColor}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: '#94a3b8' }}>HISTORIAL DE PAGOS</div>
+        {parcial && (
+          <div style={{ fontSize: 11, color: '#f97316', fontWeight: 700 }}>
+            Saldo pendiente: {formatCurrency(saldo)}
+          </div>
+        )}
+      </div>
+      <div style={{ padding: '12px 16px' }}>
+        {parcial && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>
+              <span>Abonado: <strong style={{ color: '#16a34a' }}>{formatCurrency(abonado)}</strong></span>
+              <span>{pct}%</span>
+            </div>
+            <div style={{ height: 6, background: '#e5e7eb', borderRadius: 3 }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: '#16a34a', borderRadius: 3 }} />
+            </div>
+          </div>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${borderColor}` }}>
+              {['Fecha', 'Monto', 'Medio de pago', 'Nota'].map((h, i) => (
+                <th key={i} style={{
+                  padding: '5px 8px', textAlign: i === 1 ? 'right' : 'left',
+                  fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#94a3b8',
+                }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {abonos.map((a, i) => (
+              <tr key={i} style={{ borderBottom: i < abonos.length - 1 ? `1px solid ${borderColor}` : 'none' }}>
+                <td style={{ padding: '8px', color: '#6b7280' }}>{dayjs(a.fecha).format('DD/MM/YYYY')}</td>
+                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>{formatCurrency(a.monto)}</td>
+                <td style={{ padding: '8px', color: '#6b7280' }}>{a.cuenta}</td>
+                <td style={{ padding: '8px', color: '#94a3b8', fontSize: 11 }}>{a.nota || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!parcial && (
+          <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: '#16a34a', textAlign: 'right' }}>
+            ✓ Pagado completamente el {doc.fecha_pago ? dayjs(doc.fecha_pago).format('DD/MM/YYYY') : ''}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ─── DISEÑO 1: CORPORATIVA ────────────────────────────────────────────────────
 const DisenoCorporativa = ({ doc, items, formatCurrency, biz }) => {
   const cliente = doc.cliente_nombre || doc.persona_nombre || 'Sin especificar';
-  const estadoBg = doc.estado === 'PAGADA' ? '#dcfce7' : doc.estado === 'ANULADA' ? '#fee2e2' : '#dbeafe';
-  const estadoColor = doc.estado === 'PAGADA' ? '#166534' : doc.estado === 'ANULADA' ? '#dc2626' : '#1d4ed8';
+  const estadoBg    = doc.estado === 'PAGADA' ? '#dcfce7' : doc.estado === 'ANULADA' ? '#fee2e2' : doc.estado === 'ABONO' ? '#fff7ed' : '#dbeafe';
+  const estadoColor = doc.estado === 'PAGADA' ? '#166534' : doc.estado === 'ANULADA' ? '#dc2626' : doc.estado === 'ABONO' ? '#ea580c' : '#1d4ed8';
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', background: '#fff', minHeight: 900 }}>
@@ -145,6 +215,8 @@ const DisenoCorporativa = ({ doc, items, formatCurrency, biz }) => {
         </div>
 
         <TotalesBlock doc={doc} formatCurrency={formatCurrency} totalColor="#1d4ed8" borderColor="#e2e8f0" />
+
+        <AbonosBlock doc={doc} formatCurrency={formatCurrency} borderColor="#e2e8f0" headerBg="#f8fafc" />
 
         {doc.notas && (
           <div style={{ marginTop: 28, padding: '14px 18px', background: '#f8fafc', borderRadius: 8, borderLeft: '3px solid #1d4ed8' }}>
@@ -226,6 +298,8 @@ const DisenoModerna = ({ doc, items, formatCurrency, biz }) => {
 
         <TotalesBlock doc={doc} formatCurrency={formatCurrency} totalBg="linear-gradient(135deg,#4f46e5,#0ea5e9)" />
 
+        <AbonosBlock doc={doc} formatCurrency={formatCurrency} borderColor="#e0e7ff" headerBg="#fafbff" />
+
         {doc.notas && (
           <div style={{ marginTop: 24, padding: '14px 18px', background: '#fafbff', borderRadius: 10, borderLeft: '3px solid #6366f1' }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: '#6366f1', marginBottom: 6 }}>NOTAS</div>
@@ -286,8 +360,8 @@ const DisenoEjecutiva = ({ doc, items, formatCurrency, biz }) => {
           <div style={{ color: '#4b5563', fontSize: 10, letterSpacing: 2, fontWeight: 600, marginBottom: 8 }}>ESTADO</div>
           <div style={{
             display: 'inline-block', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 700,
-            background: doc.estado === 'PAGADA' ? '#064e3b' : doc.estado === 'ANULADA' ? '#7f1d1d' : '#1e3a5f',
-            color: doc.estado === 'PAGADA' ? '#6ee7b7' : doc.estado === 'ANULADA' ? '#fca5a5' : '#93c5fd',
+            background: doc.estado === 'PAGADA' ? '#064e3b' : doc.estado === 'ANULADA' ? '#7f1d1d' : doc.estado === 'ABONO' ? '#431407' : '#1e3a5f',
+            color:      doc.estado === 'PAGADA' ? '#6ee7b7' : doc.estado === 'ANULADA' ? '#fca5a5' : doc.estado === 'ABONO' ? '#fb923c' : '#93c5fd',
           }}>{doc.estado}</div>
           {doc.fecha_pago && (
             <div style={{ color: '#6b7280', fontSize: 11, marginTop: 6 }}>
@@ -327,6 +401,8 @@ const DisenoEjecutiva = ({ doc, items, formatCurrency, biz }) => {
 
         {/* Totales */}
         <TotalesBlock doc={doc} formatCurrency={formatCurrency} totalColor="#10b981" borderColor="#e5e7eb" />
+
+        <AbonosBlock doc={doc} formatCurrency={formatCurrency} borderColor="#374151" headerBg="#f9fafb" />
 
         {doc.notas && (
           <div style={{ marginTop: 28, padding: '14px 18px', background: '#f9fafb', borderRadius: 8, borderLeft: '3px solid #10b981' }}>
@@ -371,17 +447,33 @@ const FacturaViewer = ({ open, onClose, doc }) => {
     if (!previewRef.current) return;
     setDownloading(true);
     try {
-      const canvas = await html2canvas(previewRef.current, {
+      const el = previewRef.current;
+
+      // Forzar ancho A4 (794px ≈ 210mm a 96dpi) para que la proporción
+      // alto/ancho sea consistente independientemente del dispositivo.
+      const prevWidth    = el.style.width;
+      const prevMinWidth = el.style.minWidth;
+      el.style.width    = '794px';
+      el.style.minWidth = '794px';
+      el.getBoundingClientRect(); // fuerza reflow antes de capturar
+
+      const canvas = await html2canvas(el, {
         scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
+        scrollX: 0, scrollY: 0,
       });
+
+      el.style.width    = prevWidth;
+      el.style.minWidth = prevMinWidth;
+
       const imgData = canvas.toDataURL('image/png');
       const pdf     = new jsPDF('p', 'mm', 'a4');
       const pdfW    = pdf.internal.pageSize.getWidth();
       const pdfH    = (canvas.height * pdfW) / canvas.width;
-      if (pdfH <= pdf.internal.pageSize.getHeight()) {
+      const pageH   = pdf.internal.pageSize.getHeight();
+
+      if (pdfH <= pageH) {
         pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
       } else {
-        const pageH = pdf.internal.pageSize.getHeight();
         let y = 0;
         while (y < pdfH) {
           if (y > 0) pdf.addPage();
@@ -389,6 +481,7 @@ const FacturaViewer = ({ open, onClose, doc }) => {
           y += pageH;
         }
       }
+
       pdf.save(`${doc.numero}-${design}.pdf`);
       message.success('PDF descargado');
     } catch (err) {
@@ -412,46 +505,52 @@ const FacturaViewer = ({ open, onClose, doc }) => {
     win.close();
   };
 
+  const modalWidth = typeof window !== 'undefined' ? Math.min(900, window.innerWidth - 24) : 900;
+
   return (
     <Modal
       open={open}
       onCancel={onClose}
-      width={900}
+      width={modalWidth}
       footer={null}
       styles={{ body: { padding: 0, background: '#f1f5f9' } }}
-      title={
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 40 }}>
-          <span style={{ fontWeight: 700, color: '#0f172a' }}>{doc.numero}</span>
-          <Space>
-            <div style={{ display: 'flex', gap: 5 }}>
-              {DESIGNS.map((d) => (
-                <button
-                  key={d.id}
-                  onClick={() => setDesign(d.id)}
-                  style={{
-                    padding: '4px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    border: design === d.id ? '2px solid #1d4ed8' : '2px solid #e2e8f0',
-                    background: design === d.id ? '#eff6ff' : '#fff',
-                    color: design === d.id ? '#1d4ed8' : '#64748b',
-                    transition: 'all 0.15s',
-                  }}
-                >{d.label}</button>
-              ))}
-            </div>
-            <Tooltip title="Imprimir">
-              <Button icon={<PrinterOutlined />} onClick={handlePrint} />
-            </Tooltip>
-            <Button type="primary" icon={<DownloadOutlined />} loading={downloading} onClick={handleDownload}>
-              PDF
-            </Button>
-          </Space>
-        </div>
-      }
+      title={<span style={{ fontWeight: 700, color: '#0f172a' }}>{doc.numero}</span>}
     >
-      <div style={{ padding: 20, maxHeight: '80vh', overflowY: 'auto' }}>
+      {/* Barra de controles — hace wrap en móvil */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+        gap: 8, padding: '12px 20px 0',
+        borderBottom: '1px solid #e5e7eb', paddingBottom: 12,
+      }}>
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', flex: 1 }}>
+          {DESIGNS.map((d) => (
+            <button
+              key={d.id}
+              onClick={() => setDesign(d.id)}
+              style={{
+                padding: '4px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                border: design === d.id ? '2px solid #1d4ed8' : '2px solid #e2e8f0',
+                background: design === d.id ? '#eff6ff' : '#fff',
+                color: design === d.id ? '#1d4ed8' : '#64748b',
+                transition: 'all 0.15s',
+              }}
+            >{d.label}</button>
+          ))}
+        </div>
+        <Space>
+          <Tooltip title="Imprimir">
+            <Button icon={<PrinterOutlined />} onClick={handlePrint} />
+          </Tooltip>
+          <Button type="primary" icon={<DownloadOutlined />} loading={downloading} onClick={handleDownload}>
+            PDF
+          </Button>
+        </Space>
+      </div>
+
+      <div style={{ padding: 20, maxHeight: '75vh', overflowY: 'auto', overflowX: 'auto' }}>
         <div
           ref={previewRef}
-          style={{ background: '#fff', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.10)', overflow: 'hidden' }}
+          style={{ background: '#fff', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.10)', minWidth: 600 }}
         >
           <DesignComp doc={doc} items={items} formatCurrency={formatCurrency} biz={bizInfo} />
         </div>
