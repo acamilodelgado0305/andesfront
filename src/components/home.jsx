@@ -2,10 +2,14 @@ import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Typography, Spin } from 'antd';
 import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
+import {
   ArrowUpOutlined,
   ArrowDownOutlined,
   WalletOutlined,
   EllipsisOutlined,
+  ReloadOutlined,
   HomeOutlined,
   SwapOutlined,
   InboxOutlined,
@@ -22,7 +26,7 @@ import {
   RightOutlined,
 } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
-import { getAllIngresos, getAllEgresos } from '../services/controlapos/posService';
+import { getAllIngresos, getAllEgresos, getIngresosDiarios, getIngresosMensuales } from '../services/controlapos/posService';
 import { formatCurrency } from '../utils/currency';
 import useIsMobile from '../hooks/useIsMobile';
 
@@ -125,6 +129,12 @@ const Home = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const [financials, setFinancials] = useState({ ingresos: 0, gastos: 0, txCount: 0, loading: true });
+  const [dailyData, setDailyData] = useState([]);
+  const [annualData, setAnnualData] = useState([]);
+  const [chartLoading, setChartLoading] = useState(true);
+  const [chartView, setChartView] = useState('diario');
+  const [chartYear, setChartYear] = useState(new Date().getFullYear());
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const quickAccess = useMemo(() => buildQuickAccess(user), [user]);
 
@@ -142,6 +152,14 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') setRefreshKey(k => k + 1);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
     const { start, end } = getRangeFor(period);
     setFinancials(f => ({ ...f, loading: true }));
@@ -156,7 +174,33 @@ const Home = () => {
       const txCount = (Array.isArray(ingData) ? ingData : (ingData?.data || [])).length;
       setFinancials({ ingresos, gastos, txCount, loading: false });
     });
-  }, [user, period]);
+  }, [user, period, refreshKey]);
+
+  useEffect(() => {
+    if (!user) return;
+    const now       = new Date();
+    const utcOffset = -(now.getTimezoneOffset() / 60); // -5 para Colombia UTC-5
+    setChartLoading(true);
+    getIngresosDiarios({ year: now.getFullYear(), month: now.getMonth() + 1, hoy: now.getDate(), utcOffset })
+      .catch(() => ({ data: [] }))
+      .then(({ data }) => { setDailyData(data || []); setChartLoading(false); });
+  }, [user, refreshKey]);
+
+  useEffect(() => {
+    if (!user) return;
+    const now       = new Date();
+    const utcOffset = -(now.getTimezoneOffset() / 60);
+    setChartLoading(true);
+    getIngresosMensuales({ year: chartYear, mes_actual: now.getMonth() + 1, utcOffset })
+      .catch(() => ({ data: [] }))
+      .then(({ data }) => { setAnnualData(data || []); setChartLoading(false); });
+  }, [user, chartYear, refreshKey]);
+
+  const formatCompact = (v) => {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+    return v;
+  };
 
   return (
     <main className="px-4 py-6 md:px-8 md:py-10">
@@ -257,6 +301,101 @@ const Home = () => {
                 );
               })()}
             </div>
+          </div>
+        </section>
+
+        {/* GRÁFICA INGRESOS */}
+        <section className="rounded-2xl border border-slate-200 bg-white/70 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Ingresos</p>
+              <p className="text-sm font-medium text-slate-700">
+                {chartView === 'diario' ? 'Evolución diaria del mes' : `Evolución mensual ${chartYear}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setRefreshKey(k => k + 1)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+                title="Actualizar"
+              >
+                <ReloadOutlined style={{ fontSize: 13 }} />
+              </button>
+              {chartView === 'anual' && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setChartYear(y => y - 1)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors text-base leading-none"
+                  >‹</button>
+                  <span className="text-sm font-semibold text-slate-700 w-11 text-center tabular-nums">{chartYear}</span>
+                  <button
+                    onClick={() => setChartYear(y => Math.min(y + 1, new Date().getFullYear()))}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors text-base leading-none disabled:opacity-30"
+                    disabled={chartYear >= new Date().getFullYear()}
+                  >›</button>
+                </div>
+              )}
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                {[['diario', 'Mes'], ['anual', 'Año']].map(([v, label]) => (
+                  <button
+                    key={v}
+                    onClick={() => setChartView(v)}
+                    className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      chartView === v
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-white text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >{label}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="px-5 pb-5 pt-4" style={{ height: 200 }}>
+            {chartLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <Spin size="small" />
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={chartView === 'diario' ? dailyData : annualData}
+                  margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis
+                    dataKey={chartView === 'diario' ? 'dia' : 'mes'}
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={formatCompact}
+                    width={48}
+                  />
+                  <Tooltip
+                    formatter={(value) => [formatCurrency(value, user?.country), 'Ingresos']}
+                    labelFormatter={(label) => chartView === 'diario' ? `Día ${label}` : label}
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: '1px solid #e2e8f0',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                      fontSize: 12,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="ingreso"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </section>
 

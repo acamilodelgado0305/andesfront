@@ -31,6 +31,16 @@ export const getAllIngresos = async (params = {}) => {
   return response.data;
 };
 
+export const getIngresosDiarios = async (params = {}) => {
+  const response = await coalianzaApi.get("/ingresos/chart/diario", { params });
+  return response.data;
+};
+
+export const getIngresosMensuales = async (params = {}) => {
+  const response = await coalianzaApi.get("/ingresos/chart/mensual", { params });
+  return response.data;
+};
+
 export const createIngreso = async (data) => {
   const response = await coalianzaApi.post("/ingresos", data);
   return response.data;
