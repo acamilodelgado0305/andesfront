@@ -426,17 +426,26 @@ const RootLayout = () => {
 
     // — Gestión Empresarial —
     if (hasPOS) {
-      sections.push({
-        sectionLabel: hasBoth ? 'Gestión Empresarial' : null,
-        sectionColor: '#1d4ed8',
-        items: [
-          { key: '/inicio/certificados',     icon: <SwapOutlined />,         label: 'Movimientos',  path: '/inicio/certificados' },
-          { key: '/inicio/documentos-venta', icon: <FileDoneOutlined />,    label: 'Facturas',     path: '/inicio/documentos-venta' },
-          { key: '/inicio/personas',        icon: <ContactsOutlined />,     label: 'Contactos',    path: '/inicio/personas' },
-          { key: '/inicio/inventario',      icon: <InboxOutlined />,        label: 'Inventario',   path: '/inicio/inventario' },
-          { key: '/inicio/pedidos',         icon: <ShoppingCartOutlined />, label: 'Pedidos',      path: '/inicio/pedidos' },
-        ],
-      });
+      // Los módulos ocultos se aplican solo a roles no-superadmin
+      const hiddenPOS = isSuperAdmin ? [] : (user.modulos_ocultos || []);
+
+      const allPosItems = [
+        { key: '/inicio/certificados',     navKey: 'movimientos', icon: <SwapOutlined />,         label: 'Movimientos',  path: '/inicio/certificados' },
+        { key: '/inicio/documentos-venta', navKey: 'facturas',    icon: <FileDoneOutlined />,     label: 'Facturas',     path: '/inicio/documentos-venta' },
+        { key: '/inicio/personas',         navKey: 'contactos',   icon: <ContactsOutlined />,     label: 'Contactos',    path: '/inicio/personas' },
+        { key: '/inicio/inventario',       navKey: 'inventario',  icon: <InboxOutlined />,        label: 'Inventario',   path: '/inicio/inventario' },
+        { key: '/inicio/pedidos',          navKey: 'pedidos',     icon: <ShoppingCartOutlined />, label: 'Pedidos',      path: '/inicio/pedidos' },
+      ];
+
+      const visiblePosItems = allPosItems.filter(item => !hiddenPOS.includes(item.navKey));
+
+      if (visiblePosItems.length > 0) {
+        sections.push({
+          sectionLabel: hasBoth ? 'Gestión Empresarial' : null,
+          sectionColor: '#1d4ed8',
+          items: visiblePosItems,
+        });
+      }
     }
 
     // — Gestión Académica —

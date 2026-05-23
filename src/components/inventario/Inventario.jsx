@@ -291,6 +291,7 @@ function Inventario() {
   const [precioCompra, setPrecioCompra] = useState(0);
   const [precioVenta, setPrecioVenta]   = useState(0);
   const [barcodeValue, setBarcodeValue] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // ── Carga ──
   const fetchInventario = useCallback(async () => {
@@ -407,6 +408,23 @@ function Inventario() {
   const handlePhotoUpdated = (id, url) => {
     setItems(prev => prev.map(i => i.id === id ? { ...i, imagen_url: url } : i));
     if (informeItem?.id === id) setInformeItem(prev => ({ ...prev, imagen_url: url }));
+  };
+
+  // Subir foto desde el drawer de edición
+  const handleDrawerPhotoUpload = async (file) => {
+    if (!editingItem) return false;
+    setUploadingPhoto(true);
+    try {
+      const result = await uploadInventarioPhoto(editingItem.id, file);
+      notification.success({ message: 'Foto actualizada' });
+      handlePhotoUpdated(editingItem.id, result.imagen_url);
+      setEditingItem(prev => ({ ...prev, imagen_url: result.imagen_url }));
+    } catch {
+      notification.error({ message: 'Error al subir la foto' });
+    } finally {
+      setUploadingPhoto(false);
+    }
+    return false;
   };
 
   const esStockBajo = (item) =>
@@ -758,6 +776,45 @@ function Inventario() {
         }
       >
         <Form form={form} layout="vertical" onFinish={handleFormSubmit} requiredMark={false}>
+
+          {/* FOTO — solo en modo edición */}
+          {editingItem && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 10 }}>
+                Foto del producto
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                {/* Preview */}
+                <div style={{
+                  width: 88, height: 88, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
+                  background: '#f1f5f9', border: '1.5px solid #e5e7eb',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {editingItem.imagen_url
+                    ? <img src={editingItem.imagen_url} alt={editingItem.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <CameraOutlined style={{ fontSize: 28, color: '#cbd5e1' }} />
+                  }
+                </div>
+
+                {/* Botón upload */}
+                <div>
+                  <Upload showUploadList={false} beforeUpload={handleDrawerPhotoUpload} accept="image/*">
+                    <Button
+                      icon={uploadingPhoto ? <Spin size="small" /> : <UploadOutlined />}
+                      loading={uploadingPhoto}
+                      style={{ borderColor: '#155153', color: '#155153' }}
+                    >
+                      {editingItem.imagen_url ? 'Cambiar foto' : 'Subir foto'}
+                    </Button>
+                  </Upload>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 5 }}>
+                    JPG, PNG o WEBP · máx. 5 MB
+                  </div>
+                </div>
+              </div>
+              <Divider style={{ margin: '16px 0 18px' }} />
+            </div>
+          )}
 
           {/* 1. TIPO */}
           <div style={{ marginBottom:20 }}>

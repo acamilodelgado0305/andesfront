@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-    Drawer, Button, Select, InputNumber, Typography, message,
+    Drawer, Button, InputNumber, Typography, message,
     Space, Avatar, Input, Tag, Spin, Empty, Divider,
 } from 'antd';
 import {
     ShoppingCartOutlined, UserOutlined, PlusOutlined,
-    DeleteOutlined, SearchOutlined, UserAddOutlined,
+    DeleteOutlined, UserAddOutlined, SearchOutlined,
     CloseCircleOutlined, SaveOutlined, ShopOutlined,
     FileTextOutlined,
 } from '@ant-design/icons';
@@ -39,16 +39,22 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
     const [saving, setSaving] = useState(false);
 
     // ── Cliente ───────────────────────────────────────────────
-    const [personaSearch, setPersonaSearch] = useState('');
-    const [personas, setPersonas] = useState([]);
-    const [loadingPersonas, setLoadingPersonas] = useState(false);
+    // clienteInput: texto libre que escribe el usuario
+    // selectedPersona: cliente asociado (vía @mención)
+    const [clienteInput, setClienteInput] = useState('');
     const [selectedPersona, setSelectedPersona] = useState(null);
+    const [sugerencias, setSugerencias] = useState([]);
+    const [loadingSugerencias, setLoadingSugerencias] = useState(false);
     const [personaDrawerOpen, setPersonaDrawerOpen] = useState(false);
+    const inputRef = useRef(null);
+
+    // Modo @ activo cuando el texto empieza con @
+    const mentionMode = clienteInput.startsWith('@');
+    const mentionQuery = mentionMode ? clienteInput.slice(1) : '';
 
     // ── Productos (carrito) ───────────────────────────────────
     const [items, setItems] = useState([]);
-    const [productoSeleccionado, setProductoSeleccionado] = useState(null);
-    const [cantidadInput, setCantidadInput] = useState(1);
+    const [busquedaProducto, setBusquedaProducto] = useState('');
 
     // ── Observaciones ─────────────────────────────────────────
     const [observaciones, setObservaciones] = useState('');
@@ -73,11 +79,10 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
         if (!open) {
             setItems([]);
             setSelectedPersona(null);
-            setPersonaSearch('');
-            setPersonas([]);
+            setClienteInput('');
+            setSugerencias([]);
             setObservaciones('');
-            setProductoSeleccionado(null);
-            setCantidadInput(1);
+            setBusquedaProducto('');
             return;
         }
 
@@ -95,7 +100,11 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                             tipo_documento: pedido.tipo_documento || '',
                             numero_documento: pedido.numero_documento || '',
                         });
+                        setClienteInput('');
+                    } else if (pedido.cliente_nombre) {
+                        setClienteInput(pedido.cliente_nombre);
                     }
+
                     setObservaciones(pedido.observaciones || '');
                     setItems(itemsData.map(i => ({
                         inventario_id: i.inventario_id,
@@ -108,51 +117,60 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
         }
     }, [open, orderIdToEdit]);
 
-    // ── Búsqueda de personas con debounce ────────────────────
+    // ── Búsqueda de personas al escribir @ ──────────────────
     useEffect(() => {
-        if (personaSearch.length < 2) { setPersonas([]); return; }
+        if (!mentionMode) { setSugerencias([]); return; }
+        if (mentionQuery.length < 1) { setSugerencias([]); return; }
+
         const t = setTimeout(async () => {
-            setLoadingPersonas(true);
+            setLoadingSugerencias(true);
             try {
-                const data = await getPersonas({ q: personaSearch });
-                setPersonas(Array.isArray(data) ? data : (data?.personas || []));
+                const data = await getPersonas({ q: mentionQuery });
+                setSugerencias(Array.isArray(data) ? data : (data?.personas || []));
             } catch { /* silencioso */ }
-            finally { setLoadingPersonas(false); }
-        }, 350);
+            finally { setLoadingSugerencias(false); }
+        }, 300);
         return () => clearTimeout(t);
-    }, [personaSearch]);
+    }, [clienteInput, mentionMode, mentionQuery]);
 
-    const inventarioOptions = inventario.map(p => ({
-        label: `${p.nombre} — ${formatCurrency(p.monto)}`,
-        value: p.id,
-    }));
+    const seleccionarPersona = (p) => {
+        setSelectedPersona(p);
+        setClienteInput('');
+        setSugerencias([]);
+    };
 
-    // ── Agregar producto al carrito ───────────────────────────
-    const agregarProducto = () => {
-        if (!productoSeleccionado) { message.warning('Selecciona un producto'); return; }
-        const prod = inventario.find(p => p.id === productoSeleccionado);
-        if (!prod) return;
+    const limpiarCliente = () => {
+        setSelectedPersona(null);
+        setClienteInput('');
+        setSugerencias([]);
+        setTimeout(() => inputRef.current?.focus(), 50);
+    };
 
+    // ── Tap en card del catálogo ──────────────────────────────
+    const tocarProducto = (prod) => {
         setItems(prev => {
             const existe = prev.find(i => i.inventario_id === prod.id);
             if (existe) {
                 return prev.map(i =>
-                    i.inventario_id === prod.id
-                        ? { ...i, cantidad: i.cantidad + cantidadInput }
-                        : i
+                    i.inventario_id === prod.id ? { ...i, cantidad: i.cantidad + 1 } : i
                 );
             }
             return [...prev, {
                 inventario_id: prod.id,
                 nombre: prod.nombre,
                 precio_unitario: Number(prod.monto),
-                cantidad: cantidadInput,
+                cantidad: 1,
+                imagen_url: prod.imagen_url || null,
             }];
         });
-
-        setProductoSeleccionado(null);
-        setCantidadInput(1);
     };
+
+    const productosFiltrados = inventario.filter(p =>
+        p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase())
+    );
+    const productosVisibles = busquedaProducto.trim()
+        ? productosFiltrados
+        : productosFiltrados.slice(0, 5);
 
     const cambiarCantidad = (inventario_id, nuevaCantidad) => {
         if (!nuevaCantidad || nuevaCantidad < 1) return;
@@ -167,16 +185,20 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
 
     // ── Guardar ───────────────────────────────────────────────
     const handleGuardar = async () => {
-        if (!selectedPersona) { message.warning('Selecciona un cliente'); return; }
         if (items.length === 0) { message.warning('Agrega al menos un producto'); return; }
 
         setSaving(true);
         try {
             const payload = {
-                persona_id: selectedPersona.id,
                 items: items.map(i => ({ inventario_id: i.inventario_id, cantidad: i.cantidad })),
                 observaciones,
             };
+
+            if (selectedPersona) {
+                payload.persona_id = selectedPersona.id;
+            } else if (clienteInput.trim()) {
+                payload.cliente_nombre = clienteInput.trim();
+            }
 
             if (orderIdToEdit) {
                 await updatePedido(orderIdToEdit, payload);
@@ -194,6 +216,11 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
             setSaving(false);
         }
     };
+
+    // ── Nombre a mostrar en el chip de persona seleccionada ──
+    const nombrePersona = selectedPersona
+        ? `${selectedPersona.nombre} ${selectedPersona.apellido || ''}`.trim()
+        : '';
 
     return (
         <>
@@ -228,7 +255,9 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
             >
 
                 {/* ── CLIENTE ──────────────────────────────────── */}
-                <SECTION icon={<UserOutlined />} title="Cliente">
+                <SECTION icon={<UserOutlined />} title="Referencia (opcional)">
+
+                    {/* Chip cuando hay persona seleccionada vía @ */}
                     {selectedPersona ? (
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 12,
@@ -237,9 +266,7 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                         }}>
                             <Avatar style={{ background: '#155153', flexShrink: 0 }} icon={<UserOutlined />} />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 700, fontSize: 14 }}>
-                                    {selectedPersona.nombre} {selectedPersona.apellido || ''}
-                                </div>
+                                <div style={{ fontWeight: 700, fontSize: 14 }}>{nombrePersona}</div>
                                 {selectedPersona.numero_documento && (
                                     <div style={{ fontSize: 12, color: '#64748b' }}>
                                         {selectedPersona.tipo_documento}: {selectedPersona.numero_documento}
@@ -249,65 +276,83 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                             <Button
                                 type="text" size="small"
                                 icon={<CloseCircleOutlined style={{ color: '#94a3b8' }} />}
-                                onClick={() => setSelectedPersona(null)}
+                                onClick={limpiarCliente}
                             />
                         </div>
                     ) : (
-                        <>
-                            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                                <Input
-                                    prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
-                                    placeholder="Buscar por nombre o documento..."
-                                    value={personaSearch}
-                                    onChange={e => setPersonaSearch(e.target.value)}
-                                    allowClear
-                                />
-                                <Button
-                                    icon={<UserAddOutlined />}
-                                    onClick={() => setPersonaDrawerOpen(true)}
-                                    style={{ flexShrink: 0, color: '#155153', borderColor: '#155153' }}
-                                >
-                                    Crear
-                                </Button>
-                            </div>
-
-                            {loadingPersonas && (
-                                <div style={{ textAlign: 'center', padding: '8px 0' }}>
-                                    <Spin size="small" />
-                                </div>
-                            )}
-
-                            {!loadingPersonas && personaSearch.length >= 2 && personas.length === 0 && (
-                                <Empty
-                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                    style={{ margin: '6px 0' }}
-                                    description={
-                                        <span style={{ fontSize: 12 }}>
-                                            Sin resultados —{' '}
-                                            <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: '#155153' }}>
-                                                crear contacto
-                                            </a>
+                        <div style={{ position: 'relative' }}>
+                            {/* Campo de texto libre + hint */}
+                            <Input
+                                ref={inputRef}
+                                prefix={
+                                    mentionMode
+                                        ? <span style={{ color: '#155153', fontWeight: 700, fontSize: 14 }}>@</span>
+                                        : <UserOutlined style={{ color: '#9ca3af' }} />
+                                }
+                                placeholder="Referencia o @ para buscar persona registrada..."
+                                value={clienteInput}
+                                onChange={e => setClienteInput(e.target.value)}
+                                allowClear
+                                suffix={
+                                    !clienteInput && (
+                                        <span style={{ fontSize: 11, color: '#cbd5e1', userSelect: 'none' }}>
+                                            @ para buscar
                                         </span>
-                                    }
-                                />
-                            )}
+                                    )
+                                }
+                            />
 
-                            {personas.length > 0 && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-                                    {personas.map(p => (
+                            {/* Dropdown de sugerencias al escribir @ */}
+                            {mentionMode && (
+                                <div style={{
+                                    position: 'absolute', top: '100%', left: 0, right: 0,
+                                    background: '#fff', border: '1px solid #e2e8f0',
+                                    borderRadius: '0 0 8px 8px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                    zIndex: 100, marginTop: 2,
+                                }}>
+                                    {loadingSugerencias && (
+                                        <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                                            <Spin size="small" />
+                                        </div>
+                                    )}
+
+                                    {!loadingSugerencias && mentionQuery.length >= 1 && sugerencias.length === 0 && (
+                                        <div style={{ padding: '10px 14px' }}>
+                                            <Empty
+                                                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                                style={{ margin: '4px 0' }}
+                                                description={
+                                                    <span style={{ fontSize: 12 }}>
+                                                        Sin resultados —{' '}
+                                                        <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: '#155153' }}>
+                                                            crear contacto
+                                                        </a>
+                                                    </span>
+                                                }
+                                            />
+                                        </div>
+                                    )}
+
+                                    {!loadingSugerencias && mentionQuery.length < 1 && (
+                                        <div style={{ padding: '8px 14px', fontSize: 12, color: '#94a3b8' }}>
+                                            Escribe el nombre a buscar...
+                                        </div>
+                                    )}
+
+                                    {sugerencias.map(p => (
                                         <div
                                             key={p.id}
-                                            onClick={() => { setSelectedPersona(p); setPersonaSearch(''); setPersonas([]); }}
+                                            onClick={() => seleccionarPersona(p)}
                                             style={{
                                                 display: 'flex', alignItems: 'center', gap: 10,
-                                                padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-                                                border: '1.5px solid #e5e7eb', background: '#fff',
-                                                transition: 'border-color 0.12s',
+                                                padding: '9px 14px', cursor: 'pointer',
+                                                borderTop: '1px solid #f1f5f9',
+                                                transition: 'background 0.1s',
                                             }}
-                                            onMouseEnter={e => e.currentTarget.style.borderColor = '#155153'}
-                                            onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+                                            onMouseEnter={e => e.currentTarget.style.background = '#f0faf9'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                         >
-                                            <Avatar size="small" style={{ background: '#155153' }} icon={<UserOutlined />} />
+                                            <Avatar size="small" style={{ background: '#155153', flexShrink: 0 }} icon={<UserOutlined />} />
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ fontWeight: 600, fontSize: 13 }}>
                                                     {p.nombre} {p.apellido || ''}
@@ -321,107 +366,174 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                             </Tag>
                                         </div>
                                     ))}
-                                </div>
-                            )}
 
-                            {personaSearch.length === 0 && (
-                                <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
-                                    Escribe para buscar · Si no está,{' '}
-                                    <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: '#155153' }}>
-                                        créalo aquí
-                                    </a>
+                                    {sugerencias.length > 0 && (
+                                        <div
+                                            style={{ padding: '8px 14px', borderTop: '1px solid #f1f5f9', cursor: 'pointer', fontSize: 12, color: '#155153', display: 'flex', alignItems: 'center', gap: 6 }}
+                                            onClick={() => setPersonaDrawerOpen(true)}
+                                            onMouseEnter={e => e.currentTarget.style.background = '#f0faf9'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <UserAddOutlined /> Crear nuevo contacto
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                        </>
+                        </div>
+                    )}
+
+                    {/* Hint debajo del input */}
+                    {!selectedPersona && (
+                        <div style={{ marginTop: 6, fontSize: 11, color: '#94a3b8' }}>
+                            Escribe una referencia, o usa <strong>@</strong> para vincular a una persona registrada.
+                        </div>
                     )}
                 </SECTION>
 
                 {/* ── PRODUCTOS ────────────────────────────────── */}
                 <SECTION icon={<ShopOutlined />} title="Productos">
-                    {/* Fila de selección */}
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                        <Select
-                            showSearch
-                            placeholder={loadingInventario ? 'Cargando inventario...' : 'Buscar producto...'}
-                            options={inventarioOptions}
-                            loading={loadingInventario}
-                            disabled={loadingInventario}
-                            value={productoSeleccionado}
-                            onChange={setProductoSeleccionado}
-                            filterOption={(input, opt) =>
-                                (opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                            }
-                            style={{ flex: 1, minWidth: 0 }}
-                        />
-                        <InputNumber
-                            min={1}
-                            value={cantidadInput}
-                            onChange={val => setCantidadInput(val || 1)}
-                            style={{ width: 72 }}
-                            placeholder="Cant."
-                        />
-                        <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={agregarProducto}
-                            style={{ background: '#155153', flexShrink: 0 }}
-                        >
-                            Agregar
-                        </Button>
-                    </div>
 
-                    {/* Lista de items agregados */}
-                    {items.length === 0 ? (
-                        <div style={{ textAlign: 'center', color: '#94a3b8', padding: '12px 0', fontSize: 13 }}>
-                            Aún no has agregado productos
-                        </div>
+                    {/* Buscador */}
+                    <Input
+                        prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
+                        placeholder="Buscar producto..."
+                        value={busquedaProducto}
+                        onChange={e => setBusquedaProducto(e.target.value)}
+                        allowClear
+                        style={{ marginBottom: 12 }}
+                    />
+
+                    {/* Catálogo en grid */}
+                    {loadingInventario ? (
+                        <div style={{ textAlign: 'center', padding: '24px 0' }}><Spin /></div>
                     ) : (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gap: 8,
+                            maxHeight: 320,
+                            overflowY: 'auto',
+                            paddingRight: 2,
+                        }}>
+                            {productosVisibles.map(prod => {
+                                const enCarrito = items.find(i => i.inventario_id === prod.id);
+                                return (
+                                    <div
+                                        key={prod.id}
+                                        onClick={() => tocarProducto(prod)}
+                                        style={{
+                                            position: 'relative',
+                                            background: enCarrito ? '#f0faf9' : '#fff',
+                                            border: enCarrito ? '2px solid #155153' : '1.5px solid #e5e7eb',
+                                            borderRadius: 10,
+                                            padding: 8,
+                                            cursor: 'pointer',
+                                            transition: 'border-color 0.15s, transform 0.1s',
+                                            userSelect: 'none',
+                                        }}
+                                        onMouseEnter={e => { if (!enCarrito) e.currentTarget.style.borderColor = '#94a3b8'; }}
+                                        onMouseLeave={e => { if (!enCarrito) e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                                        onMouseDown={e => e.currentTarget.style.transform = 'scale(0.96)'}
+                                        onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                                    >
+                                        {/* Badge cantidad */}
+                                        {enCarrito && (
+                                            <div style={{
+                                                position: 'absolute', top: 5, right: 5,
+                                                background: '#155153', color: '#fff',
+                                                fontSize: 11, fontWeight: 700,
+                                                width: 20, height: 20, borderRadius: '50%',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                                                zIndex: 1,
+                                            }}>
+                                                {enCarrito.cantidad}
+                                            </div>
+                                        )}
+
+                                        {/* Imagen o icono */}
+                                        <div style={{
+                                            aspectRatio: '1',
+                                            background: '#f8fafc',
+                                            borderRadius: 7,
+                                            marginBottom: 6,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            overflow: 'hidden',
+                                        }}>
+                                            {prod.imagen_url
+                                                ? <img src={prod.imagen_url} alt={prod.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                : <ShopOutlined style={{ fontSize: 24, color: '#cbd5e1' }} />
+                                            }
+                                        </div>
+
+                                        {/* Nombre */}
+                                        <div style={{
+                                            fontSize: 11, fontWeight: 600, color: '#1e293b',
+                                            lineHeight: 1.3,
+                                            display: '-webkit-box', WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                                            marginBottom: 3, minHeight: 28,
+                                        }}>
+                                            {prod.nombre}
+                                        </div>
+
+                                        {/* Precio */}
+                                        <div style={{ fontSize: 11, fontWeight: 800, color: '#155153' }}>
+                                            {formatCurrency(prod.monto)}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {productosFiltrados.length === 0 && (
+                                <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#94a3b8', padding: '20px 0', fontSize: 13 }}>
+                                    Sin productos
+                                </div>
+                            )}
+                            {!busquedaProducto.trim() && productosFiltrados.length > 5 && (
+                                <div style={{ gridColumn: '1 / -1', textAlign: 'center', paddingTop: 4 }}>
+                                    <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                                        +{productosFiltrados.length - 5} más — busca por nombre para filtrar
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Carrito */}
+                    {items.length > 0 && (
                         <>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <Divider style={{ margin: '14px 0 10px' }} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                 {items.map(item => (
                                     <div
                                         key={item.inventario_id}
                                         style={{
                                             display: 'flex', alignItems: 'center', gap: 8,
                                             background: '#f8fafc', border: '1px solid #e2e8f0',
-                                            borderRadius: 8, padding: '10px 12px',
+                                            borderRadius: 8, padding: '8px 10px',
                                         }}
                                     >
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{
-                                                fontWeight: 600, fontSize: 13, color: '#1e293b',
-                                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                                            }}>
+                                            <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {item.nombre}
                                             </div>
                                             <div style={{ fontSize: 12, color: '#64748b' }}>
-                                                {formatCurrency(item.precio_unitario)} c/u
-                                                {' · '}
-                                                <span style={{ fontWeight: 700, color: '#155153' }}>
-                                                    {formatCurrency(item.precio_unitario * item.cantidad)}
-                                                </span>
+                                                {formatCurrency(item.precio_unitario)} c/u · <span style={{ fontWeight: 700, color: '#155153' }}>{formatCurrency(item.precio_unitario * item.cantidad)}</span>
                                             </div>
                                         </div>
                                         <InputNumber
                                             min={1}
                                             value={item.cantidad}
                                             onChange={val => cambiarCantidad(item.inventario_id, val)}
-                                            style={{ width: 72 }}
+                                            style={{ width: 68 }}
                                             size="small"
                                         />
-                                        <Button
-                                            type="text" danger size="small"
-                                            icon={<DeleteOutlined />}
-                                            onClick={() => eliminarItem(item.inventario_id)}
-                                        />
+                                        <Button type="text" danger size="small" icon={<DeleteOutlined />} onClick={() => eliminarItem(item.inventario_id)} />
                                     </div>
                                 ))}
                             </div>
-
-                            <Divider style={{ margin: '12px 0 8px' }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-                                <Text style={{ color: '#64748b' }}>
-                                    {items.length} {items.length === 1 ? 'producto' : 'productos'} ·{' '}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, padding: '0 2px' }}>
+                                <Text style={{ color: '#64748b', fontSize: 12 }}>
                                     {items.reduce((a, i) => a + i.cantidad, 0)} unidades
                                 </Text>
                                 <Text strong style={{ fontSize: 20, color: '#155153' }}>
@@ -446,11 +558,10 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
 
             </Drawer>
 
-            {/* ── SUB-DRAWER CREAR CONTACTO ──────────────────── */}
             <PersonaFormDrawer
                 open={personaDrawerOpen}
                 onClose={() => setPersonaDrawerOpen(false)}
-                onSuccess={persona => { setSelectedPersona(persona); setPersonaDrawerOpen(false); }}
+                onSuccess={persona => { seleccionarPersona(persona); setPersonaDrawerOpen(false); }}
                 defaultTipo="CLIENTE"
             />
         </>

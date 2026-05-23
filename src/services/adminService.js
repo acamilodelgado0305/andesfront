@@ -69,4 +69,10 @@ export const adminService = {
     const { data } = await axios.post(`${API_URL}/api/admin/businesses`, businessData, getAuthHeaders());
     return data;
   },
+
+  updateBusinessModules: async (businessId, modulosOcultos) => {
+    // modulosOcultos: array de claves ocultas, e.g. ['facturas', 'contactos']
+    const { data } = await axios.patch(`${API_URL}/api/admin/businesses/${businessId}/modules`, { modulos_ocultos: modulosOcultos }, getAuthHeaders());
+    return data;
+  },
 };

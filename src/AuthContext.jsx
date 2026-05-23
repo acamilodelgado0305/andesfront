@@ -24,6 +24,7 @@ const buildUserFromPayload = (payload, base = {}) => ({
     business_id: base.business_id ?? base.bid ?? payload.bid ?? null,
     app: base.app ?? payload.scope,
     modules: base.modules ?? payload.modules ?? [],
+    modulos_ocultos: payload.modulos_ocultos ?? base.modulos_ocultos ?? [],
     business_name: base.business_name ?? payload.business_name,
     businesses: base.businesses ?? payload.businesses ?? [],
     is_trial: base.is_trial ?? payload.is_trial ?? false,

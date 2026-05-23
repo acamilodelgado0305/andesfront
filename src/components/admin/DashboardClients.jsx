@@ -7,7 +7,7 @@ import {
     UserOutlined, SearchOutlined, PlusOutlined, SaveOutlined,
     HistoryOutlined, CheckCircleFilled, ClockCircleOutlined,
     CalendarOutlined, SettingOutlined, EditOutlined, DeleteOutlined,
-    ArrowLeftOutlined, ShopOutlined
+    ArrowLeftOutlined, ShopOutlined, AppstoreOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -32,6 +32,14 @@ const MODULE_COLORS = {
 };
 
 const MODULE_OPTIONS = ['POS', 'ACADEMICO', 'INVENTARIO', 'GENERACION', 'ADMIN'];
+
+const POS_SUBMODULES = [
+    { key: 'movimientos', label: 'Movimientos' },
+    { key: 'facturas',    label: 'Facturas / Cotizaciones' },
+    { key: 'contactos',   label: 'Contactos' },
+    { key: 'inventario',  label: 'Inventario' },
+    { key: 'pedidos',     label: 'Pedidos' },
+];
 
 function DashboardClients() {
     const screens = useBreakpoint();
@@ -61,6 +69,10 @@ function DashboardClients() {
     // Modal Crear Negocio
     const [isCreateBusinessModalVisible, setIsCreateBusinessModalVisible] = useState(false);
     const [createBusinessForm] = Form.useForm();
+
+    // Módulos ocultos por negocio
+    const [modulosOcultos, setModulosOcultos] = useState([]);
+    const [savingModules, setSavingModules] = useState(false);
 
     // Gestión de Planes
     const [isPlanDrawerVisible, setIsPlanDrawerVisible] = useState(false);
@@ -119,18 +131,16 @@ function DashboardClients() {
     // ==========================================
     const handleSelectClient = async (client) => {
         setSelectedClient(client);
+        setModulosOcultos([]);
         if (!screens.md) window.scrollTo(0, 0);
 
-        if (client.subscription_status === 'no_subscription') {
-            setClientDetails(null);
-            return;
-        }
         setLoadingDetails(true);
         try {
             const data = await adminService.getClientDetails(client.id);
             setClientDetails(data);
+            setModulosOcultos(data.modulos_ocultos || []);
         } catch (err) {
-            message.error("Error al cargar historial.");
+            message.error("Error al cargar detalles del negocio.");
         } finally {
             setLoadingDetails(false);
         }
@@ -139,6 +149,21 @@ function DashboardClients() {
     const handleBackToClients = () => {
         setSelectedClient(null);
         setClientDetails(null);
+        setModulosOcultos([]);
+    };
+
+    const handleSaveModules = async () => {
+        if (!selectedClient) return;
+        setSavingModules(true);
+        try {
+            await adminService.updateBusinessModules(selectedClient.id, modulosOcultos);
+            message.success('Configuración de módulos guardada.');
+        } catch (err) {
+            console.error(err);
+            message.error('Error al guardar la configuración de módulos.');
+        } finally {
+            setSavingModules(false);
+        }
     };
 
     const handleSearch = (e) => {
@@ -477,6 +502,58 @@ function DashboardClients() {
                             >
                                 Asignar / Renovar
                             </Button>
+                        </div>
+
+                        {/* Módulos visibles (POS) */}
+                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 md:p-5 mb-6">
+                            <div className="flex justify-between items-center mb-3">
+                                <Title level={5} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <AppstoreOutlined style={{ color: '#155153' }} /> Módulos visibles (POS)
+                                </Title>
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    loading={savingModules}
+                                    onClick={handleSaveModules}
+                                    icon={<SaveOutlined />}
+                                    style={{ backgroundColor: '#155153' }}
+                                >
+                                    Guardar
+                                </Button>
+                            </div>
+                            <p className="text-xs text-gray-400 mt-0 mb-3">
+                                Activa o desactiva qué secciones del módulo POS puede ver este negocio.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {POS_SUBMODULES.map(mod => {
+                                    const isVisible = !modulosOcultos.includes(mod.key);
+                                    return (
+                                        <div
+                                            key={mod.key}
+                                            className="flex items-center justify-between px-3 py-2 rounded-lg border"
+                                            style={{
+                                                background: isVisible ? '#f0fdf4' : '#fafafa',
+                                                borderColor: isVisible ? '#bbf7d0' : '#e5e7eb',
+                                            }}
+                                        >
+                                            <span className="text-sm font-medium text-gray-700">{mod.label}</span>
+                                            <Switch
+                                                size="small"
+                                                checked={isVisible}
+                                                checkedChildren="Visible"
+                                                unCheckedChildren="Oculto"
+                                                onChange={(visible) => {
+                                                    if (visible) {
+                                                        setModulosOcultos(prev => prev.filter(k => k !== mod.key));
+                                                    } else {
+                                                        setModulosOcultos(prev => [...prev, mod.key]);
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
 
                         <Title level={5} className="flex items-center gap-2 text-gray-600">

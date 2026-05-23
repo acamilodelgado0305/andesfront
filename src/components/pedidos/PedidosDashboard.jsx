@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
     Layout, Typography, Button, Spin, Modal, message,
-    Statistic, Select, Table, List, Tag, Tabs, Input, Avatar, Card, Tooltip
+    Statistic, Select, Table, List, Tag, Tabs, Input, Avatar, Card, Tooltip, Space,
 } from "antd";
 import {
-    PlusOutlined, ShoppingCartOutlined, UserOutlined,
+    PlusOutlined, ShoppingCartOutlined,
     CheckCircleOutlined, EditOutlined, FilePdfOutlined,
     PrinterOutlined, FileTextOutlined, ReloadOutlined,
     ExclamationCircleOutlined, LockOutlined, HistoryOutlined,
-    CalendarOutlined, SearchOutlined, DollarOutlined
+    CalendarOutlined, SearchOutlined, DollarOutlined,
+    ClockCircleOutlined, CloseCircleOutlined,
 } from "@ant-design/icons";
 
 import {
@@ -29,7 +30,6 @@ const estadoColor = { PENDIENTE: 'orange', ENTREGADO: 'green', PAGADO: 'green', 
 
 const PedidosDashboard = () => {
     const formatCurrency = useCurrency();
-    const { prefix: currPrefix } = useCurrencyInput();
     const isMobile = useIsMobile();
 
     const [pedidos, setPedidos] = useState([]);
@@ -274,17 +274,11 @@ const PedidosDashboard = () => {
         return (p.cliente_nombre || "").toLowerCase().includes(busquedaPedido.trim().toLowerCase());
     });
 
-    const totalAcumulado = stats?.general?.total_ingresos || 0;
-    const totalPendientes = stats?.por_estado?.find(e => e.name === 'PENDIENTE')?.value || 0;
-
-    // ─── Chips de estadísticas (estilo Inventario) ──────────
-    const statChips = [
-        { label: `${pedidos.length} pedidos`, color: 'default' },
-        { label: `${totalPendientes} pendientes`, color: 'orange' },
-        ...(pedidos.filter(p => p.estado === 'ENTREGADO' || p.estado === 'PAGADO').length > 0
-            ? [{ label: `${pedidos.filter(p => p.estado === 'ENTREGADO' || p.estado === 'PAGADO').length} entregados`, color: 'green' }]
-            : []),
-    ];
+    // ─── Stats derivadas ─────────────────────────────────────
+    const totalAcumulado   = stats?.general?.total_ingresos || 0;
+    const cntPendientes    = pedidos.filter(p => p.estado === 'PENDIENTE').length;
+    const cntEntregados    = pedidos.filter(p => p.estado === 'ENTREGADO' || p.estado === 'PAGADO').length;
+    const cntAnulados      = pedidos.filter(p => p.estado === 'ANULADO').length;
 
     // ─── Columnas de la tabla ────────────────────────────────
     const columns = [
@@ -365,12 +359,12 @@ const PedidosDashboard = () => {
             sorter: (a, b) => new Date(a.fecha_creacion) - new Date(b.fecha_creacion),
         },
         {
-            title: 'Acciones',
+            title: '',
             key: 'acciones',
             width: 110,
             align: 'center',
             render: (_, record) => (
-                <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                <Space size={4}>
                     <Tooltip title="Imprimir factura">
                         <Button size="small" icon={<PrinterOutlined />} onClick={() => generarReciboPDF(record)} />
                     </Tooltip>
@@ -378,11 +372,11 @@ const PedidosDashboard = () => {
                         <Button size="small" icon={<EditOutlined />} onClick={() => { setEditingOrderId(record.id); setIsPosOpen(true); }} disabled={record.estado !== 'PENDIENTE'} />
                     </Tooltip>
                     {record.estado === 'PENDIENTE' && (
-                        <Tooltip title="Marcar entregado">
+                        <Tooltip title="Completado">
                             <Button size="small" type="primary" style={{ background: '#155153' }} icon={<CheckCircleOutlined />} onClick={() => { setPedidoAEntregar(record.id); setModalEntregaOpen(true); }} />
                         </Tooltip>
                     )}
-                </div>
+                </Space>
             ),
         },
     ];
@@ -391,78 +385,34 @@ const PedidosDashboard = () => {
     const renderMobileCard = (record) => {
         let items = [];
         try { items = typeof record.items_detalle === 'string' ? JSON.parse(record.items_detalle) : (record.items_detalle || []); } catch { items = []; }
-
         const productosText = items.length > 0
             ? items.slice(0, 3).map(i => `${i.producto || i.nombre} × ${i.cantidad}`).join(', ') + (items.length > 3 ? ` +${items.length - 3} más` : '')
             : '—';
-
         const fecha = record.fecha_creacion
             ? new Date(record.fecha_creacion).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })
             : '—';
-
         return (
             <div
                 key={record.id}
                 className={record.estado === 'ANULADO' ? 'opacity-40' : ''}
-                style={{
-                    background: '#fff',
-                    borderRadius: 12,
-                    border: '1px solid #f1f5f9',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                    padding: 16,
-                    marginBottom: 12,
-                }}
+                style={{ background: '#fff', borderRadius: 12, border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', padding: 16, marginBottom: 12 }}
             >
-                {/* Row 1: Estado + ID */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <Tag color={estadoColor[record.estado] || 'default'} style={{ fontWeight: 600, fontSize: 11, margin: 0 }}>
-                        {record.estado}
-                    </Tag>
+                    <Tag color={estadoColor[record.estado] || 'default'} style={{ fontWeight: 600, fontSize: 11, margin: 0 }}>{record.estado}</Tag>
                     <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>#{record.id}</span>
                 </div>
-
-                {/* Row 2: Cliente */}
-                <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14, marginBottom: 4 }}>
-                    {record.cliente_nombre || 'Cliente General'}
-                </div>
-
-                {/* Row 3: Productos */}
-                <div style={{ fontSize: 12, color: '#475569', marginBottom: 10 }}>
-                    {productosText}
-                </div>
-
-                {/* Divider */}
+                <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14, marginBottom: 4 }}>{record.cliente_nombre || 'Cliente General'}</div>
+                <div style={{ fontSize: 12, color: '#475569', marginBottom: 10 }}>{productosText}</div>
                 <div style={{ borderTop: '1px solid #f1f5f9', marginBottom: 10 }} />
-
-                {/* Row 4: Fecha + Total */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <span style={{ fontSize: 12, color: '#64748b' }}>{fecha}</span>
                     <span style={{ fontWeight: 800, color: '#155153', fontSize: 15 }}>{formatCurrency(record.total)}</span>
                 </div>
-
-                {/* Row 5: Actions */}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Button size="small" icon={<PrinterOutlined />} onClick={() => generarReciboPDF(record)}>
-                        Factura
-                    </Button>
-                    <Button
-                        size="small"
-                        icon={<EditOutlined />}
-                        onClick={() => { setEditingOrderId(record.id); setIsPosOpen(true); }}
-                        disabled={record.estado !== 'PENDIENTE'}
-                    >
-                        Editar
-                    </Button>
+                    <Button size="small" icon={<PrinterOutlined />} onClick={() => generarReciboPDF(record)}>Factura</Button>
+                    <Button size="small" icon={<EditOutlined />} onClick={() => { setEditingOrderId(record.id); setIsPosOpen(true); }} disabled={record.estado !== 'PENDIENTE'}>Editar</Button>
                     {record.estado === 'PENDIENTE' && (
-                        <Button
-                            size="small"
-                            type="primary"
-                            style={{ background: '#155153', borderColor: '#155153' }}
-                            icon={<CheckCircleOutlined />}
-                            onClick={() => { setPedidoAEntregar(record.id); setModalEntregaOpen(true); }}
-                        >
-                            Entregar
-                        </Button>
+                        <Button size="small" type="primary" style={{ background: '#155153', borderColor: '#155153' }} icon={<CheckCircleOutlined />} onClick={() => { setPedidoAEntregar(record.id); setModalEntregaOpen(true); }}>Completado</Button>
                     )}
                 </div>
             </div>
@@ -470,214 +420,216 @@ const PedidosDashboard = () => {
     };
 
     return (
-        <Layout className="min-h-screen" style={{ background: 'transparent' }}>
-            <Content style={{ padding: isMobile ? '12px' : '24px', paddingBottom: 80 }}>
+        <Content style={{ padding: '16px 20px' }}>
 
-                {/* ── HEADER ── */}
-                <Card style={{ borderRadius: 12, marginBottom: 20, border: '1px solid #e2e8f0' }} bodyStyle={{ padding: '16px 20px' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(21,81,83,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <ShoppingCartOutlined style={{ fontSize: 22, color: '#155153' }} />
-                            </div>
-                            <div>
-                                <Title level={4} style={{ margin: 0, color: '#155153', lineHeight: 1.2 }}>Pedidos</Title>
-                                <Text type="secondary" style={{ fontSize: 13 }}>Gestiona los pedidos activos del día</Text>
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <Button icon={<ReloadOutlined />} onClick={cargarTodo} loading={loading} />
-                            <Button
-                                type="primary"
-                                icon={<PlusOutlined />}
-                                style={{ background: '#155153', borderColor: '#155153' }}
-                                onClick={() => { setEditingOrderId(null); setIsPosOpen(true); }}
-                            >
-                                Nuevo Pedido
-                            </Button>
-                        </div>
-                    </div>
-                </Card>
-
-                {/* ── STATS + ACCIONES ── */}
-                <div style={{
-                    display: 'flex',
-                    flexDirection: isMobile ? 'column' : 'row',
-                    flexWrap: 'wrap',
-                    justifyContent: isMobile ? 'flex-start' : 'space-between',
-                    alignItems: isMobile ? 'stretch' : 'center',
-                    gap: 12,
-                    marginBottom: 16,
-                }}>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                        {statChips.map((chip, i) => (
-                            <Tag key={i} color={chip.color} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20 }}>{chip.label}</Tag>
-                        ))}
-                        {stats && (
-                            <Tag color="blue" style={{ fontSize: 12, padding: '3px 10px', borderRadius: 20 }}>
-                                <DollarOutlined style={{ marginRight: 4 }} />
-                                {formatCurrency(totalAcumulado)}
-                            </Tag>
-                        )}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
-                        <Button size="small" icon={<HistoryOutlined />} onClick={abrirHistorial} style={isMobile ? { flex: 1 } : {}}>Historial</Button>
-                        <Button size="small" icon={<FileTextOutlined />} style={{ background: '#f97316', color: '#fff', borderColor: '#f97316', ...(isMobile ? { flex: 1 } : {}) }} onClick={() => setModalConsolidadoOpen(true)}>Reporte</Button>
-                        <Button size="small" danger icon={<LockOutlined />} onClick={handleCerrarCaja} style={isMobile ? { flex: 1 } : {}}>Cerrar caja</Button>
-                    </div>
+            {/* ── ENCABEZADO ── */}
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div>
+                    <Title level={3} style={{ margin: 0 }}>Pedidos</Title>
+                    <Text type="secondary">Gestiona los pedidos activos del día</Text>
                 </div>
+                <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    style={{ background: '#155153', borderColor: '#155153' }}
+                    onClick={() => { setEditingOrderId(null); setIsPosOpen(true); }}
+                >
+                    Nuevo Pedido
+                </Button>
+            </div>
 
-                {/* ── BARRA DE BÚSQUEDA ── */}
-                <div style={{ marginBottom: 16 }}>
-                    <Input
-                        prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-                        placeholder="Buscar por nombre de cliente..."
-                        allowClear
-                        value={busquedaPedido}
-                        onChange={(e) => setBusquedaPedido(e.target.value)}
-                        style={isMobile ? { width: '100%' } : { maxWidth: 340 }}
+            {/* ── STATS ── */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <Card size="small" bordered={false} className="shadow-sm">
+                    <Statistic
+                        title="Pendientes"
+                        value={cntPendientes}
+                        prefix={<ClockCircleOutlined style={{ color: '#1d4ed8' }} />}
+                        valueStyle={{ color: '#1d4ed8', fontSize: 15 }}
                     />
-                </div>
+                    <Text type="secondary" style={{ fontSize: 11 }}>{cntPendientes === 1 ? 'pedido' : 'pedidos'}</Text>
+                </Card>
+                <Card size="small" bordered={false} className="shadow-sm">
+                    <Statistic
+                        title="Completados"
+                        value={cntEntregados}
+                        prefix={<CheckCircleOutlined style={{ color: '#16a34a' }} />}
+                        valueStyle={{ color: '#16a34a', fontSize: 15 }}
+                    />
+                    <Text type="secondary" style={{ fontSize: 11 }}>hoy</Text>
+                </Card>
+                <Card size="small" bordered={false} className="shadow-sm">
+                    <Statistic
+                        title="Total recaudado"
+                        value={totalAcumulado}
+                        formatter={(v) => formatCurrency(v)}
+                        prefix={<DollarOutlined style={{ color: '#0891b2' }} />}
+                        valueStyle={{ color: '#0891b2', fontSize: 15 }}
+                    />
+                    <Text type="secondary" style={{ fontSize: 11 }}>{pedidos.length} pedidos totales</Text>
+                </Card>
+                <Card size="small" bordered={false} className="shadow-sm">
+                    <Statistic
+                        title="Anulados"
+                        value={cntAnulados}
+                        prefix={<CloseCircleOutlined style={{ color: '#dc2626' }} />}
+                        valueStyle={{ color: '#dc2626', fontSize: 15 }}
+                    />
+                    <Text type="secondary" style={{ fontSize: 11 }}>en este período</Text>
+                </Card>
+            </div>
 
-                {/* ── TABLA / CARDS ── */}
-                {isMobile ? (
-                    <div>
-                        {loading ? (
-                            <div style={{ textAlign: 'center', padding: '48px 0' }}>
-                                <Spin />
-                            </div>
-                        ) : pedidosFiltrados.length === 0 ? (
+            {/* ── BARRA DE HERRAMIENTAS ── */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+                <Input
+                    prefix={<SearchOutlined />}
+                    placeholder="Buscar por nombre de cliente..."
+                    allowClear
+                    value={busquedaPedido}
+                    onChange={(e) => setBusquedaPedido(e.target.value)}
+                    style={{ width: 280 }}
+                />
+                <Button icon={<ReloadOutlined />} onClick={cargarTodo} loading={loading} />
+                <div style={{ flex: 1 }} />
+                <Button size="small" icon={<HistoryOutlined />} onClick={abrirHistorial}>Historial</Button>
+                <Button size="small" icon={<FileTextOutlined />} style={{ background: '#f97316', color: '#fff', borderColor: '#f97316' }} onClick={() => setModalConsolidadoOpen(true)}>Reporte</Button>
+                <Button size="small" danger icon={<LockOutlined />} onClick={handleCerrarCaja}>Cerrar caja</Button>
+            </div>
+
+            {/* ── TABLA / CARDS ── */}
+            {isMobile ? (
+                <div>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '48px 0' }}><Spin /></div>
+                    ) : pedidosFiltrados.length === 0 ? (
+                        <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8' }}>
+                            <CheckCircleOutlined style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }} />
+                            <p style={{ margin: 0 }}>Todo limpio. ¡Listo para nuevas ventas!</p>
+                        </div>
+                    ) : (
+                        pedidosFiltrados.map(record => renderMobileCard(record))
+                    )}
+                </div>
+            ) : (
+                <Table
+                    dataSource={pedidosFiltrados}
+                    columns={columns}
+                    rowKey="id"
+                    loading={loading}
+                    size="small"
+                    pagination={{ pageSize: 20, showSizeChanger: false, showTotal: (total) => `${total} pedidos` }}
+                    scroll={{ x: 700 }}
+                    locale={{
+                        emptyText: (
                             <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8' }}>
                                 <CheckCircleOutlined style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }} />
                                 <p style={{ margin: 0 }}>Todo limpio. ¡Listo para nuevas ventas!</p>
                             </div>
-                        ) : (
-                            pedidosFiltrados.map(record => renderMobileCard(record))
-                        )}
-                    </div>
-                ) : (
-                    <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                        <Table
-                            dataSource={pedidosFiltrados}
-                            columns={columns}
-                            rowKey="id"
-                            loading={loading}
-                            size="middle"
-                            pagination={{ pageSize: 15, showSizeChanger: true, showTotal: (total) => `${total} pedidos` }}
-                            scroll={{ x: 700 }}
-                            locale={{
-                                emptyText: (
-                                    <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8' }}>
-                                        <CheckCircleOutlined style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }} />
-                                        <p style={{ margin: 0 }}>Todo limpio. ¡Listo para nuevas ventas!</p>
-                                    </div>
-                                )
-                            }}
-                            rowClassName={(record) => record.estado === 'ANULADO' ? 'opacity-40' : ''}
-                        />
-                    </div>
-                )}
+                        )
+                    }}
+                    rowClassName={(record) => record.estado === 'ANULADO' ? 'opacity-40' : ''}
+                />
+            )}
 
-                {/* ── MODALES ── */}
-                <PedidoDrawer open={isPosOpen} onClose={() => { setIsPosOpen(false); setEditingOrderId(null); }} onSuccess={cargarTodo} orderIdToEdit={editingOrderId} />
+            {/* ── MODALES ── */}
+            <PedidoDrawer open={isPosOpen} onClose={() => { setIsPosOpen(false); setEditingOrderId(null); }} onSuccess={cargarTodo} orderIdToEdit={editingOrderId} />
 
-                <Modal
-                    title="Consolidado Actual"
-                    open={modalConsolidadoOpen}
-                    onCancel={() => setModalConsolidadoOpen(false)}
-                    footer={null}
-                    width={Math.min(600, window.innerWidth - 16)}
-                >
-                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
-                            {[
-                                { label: 'Fecha', value: new Date().toLocaleString() },
-                                { label: 'Total acumulado', value: formatCurrency(totalAcumulado) },
-                                { label: 'Pedidos', value: pedidos.length },
-                                { label: 'Unidades consolidadas', value: listaConsolidada.reduce((acc, i) => acc + Number(i.cantidad || 0), 0) },
-                            ].map((item, i) => (
-                                <div key={i}>
-                                    <div style={{ color: '#94a3b8', textTransform: 'uppercase', fontSize: 11, letterSpacing: 0.5 }}>{item.label}</div>
-                                    <div style={{ fontWeight: 600, color: '#1e293b' }}>{item.value}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <Table dataSource={listaConsolidada} columns={[{ title: 'Producto', dataIndex: 'nombre' }, { title: 'Cant.', dataIndex: 'cantidad', align: 'center', width: 80 }]} pagination={false} size="small" scroll={{ y: 220 }} />
-                    <div style={{ marginTop: 12, fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Detalle por cliente</div>
-                    <Table dataSource={pedidos} columns={[{ title: 'Cliente', dataIndex: 'cliente_nombre', ellipsis: true }, { title: 'Total', dataIndex: 'total', align: 'right', render: (val) => formatCurrency(val), width: 120 }]} rowKey="id" pagination={{ pageSize: 5 }} size="small" />
-                    <Button type="primary" danger block icon={<FilePdfOutlined />} onClick={generarReporteControlActual} style={{ marginTop: 16 }}>Descargar PDF</Button>
-                </Modal>
-
-                <Modal
-                    title="Confirmar Entrega"
-                    open={modalEntregaOpen}
-                    onCancel={() => setModalEntregaOpen(false)}
-                    onOk={confirmarEntrega}
-                    confirmLoading={loadingEntrega}
-                    okText="Confirmar"
-                >
-                    <p style={{ marginBottom: 12, color: '#64748b' }}>Selecciona la cuenta de destino para el pago:</p>
-                    <Select className="w-full" size="large" value={cuentaDestino} onChange={setCuentaDestino} options={cuentaOptions} />
-                </Modal>
-
-                <Modal
-                    title="Historial de Cierres"
-                    open={modalHistorialOpen}
-                    onCancel={() => setModalHistorialOpen(false)}
-                    footer={null}
-                    width={Math.min(560, window.innerWidth - 16)}
-                >
-                    <List
-                        loading={loadingHistorial}
-                        dataSource={listaCierres}
-                        renderItem={item => (
-                            <List.Item actions={[<Button key="v" type="link" style={{ color: '#155153' }} onClick={() => verDetalleCierre(item)}>Ver detalle</Button>]}>
-                                <List.Item.Meta
-                                    avatar={<Avatar icon={<CalendarOutlined />} style={{ background: '#155153' }} />}
-                                    title={<span style={{ fontWeight: 600 }}>Cierre #{item.id}</span>}
-                                    description={`${new Date(item.fecha_cierre).toLocaleDateString()} — ${formatCurrency(item.total_ingresos)}`}
-                                />
-                            </List.Item>
-                        )}
-                    />
-                </Modal>
-
-                <Modal
-                    title={infoCierreSeleccionado ? `Cierre #${infoCierreSeleccionado.id}` : 'Detalle'}
-                    open={modalDetalleCierreOpen}
-                    onCancel={() => setModalDetalleCierreOpen(false)}
-                    footer={null}
-                    width={Math.min(860, window.innerWidth - 16)}
-                >
-                    <Spin spinning={loadingPedidosHistoricos}>
-                        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '16px 20px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                            <div>
-                                <div style={{ color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Recaudado</div>
-                                <div style={{ fontSize: 28, fontWeight: 900, color: '#155153' }}>{formatCurrency(totalHistorico)}</div>
+            <Modal
+                title="Consolidado Actual"
+                open={modalConsolidadoOpen}
+                onCancel={() => setModalConsolidadoOpen(false)}
+                footer={null}
+                width={Math.min(600, window.innerWidth - 16)}
+            >
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
+                        {[
+                            { label: 'Fecha', value: new Date().toLocaleString() },
+                            { label: 'Total acumulado', value: formatCurrency(totalAcumulado) },
+                            { label: 'Pedidos', value: pedidos.length },
+                            { label: 'Unidades consolidadas', value: listaConsolidada.reduce((acc, i) => acc + Number(i.cantidad || 0), 0) },
+                        ].map((item, i) => (
+                            <div key={i}>
+                                <div style={{ color: '#94a3b8', textTransform: 'uppercase', fontSize: 11, letterSpacing: 0.5 }}>{item.label}</div>
+                                <div style={{ fontWeight: 600, color: '#1e293b' }}>{item.value}</div>
                             </div>
-                            <Button type="primary" danger icon={<FilePdfOutlined />} onClick={generarPDFHistorico} style={{ fontWeight: 700 }}>
-                                Descargar PDF
-                            </Button>
-                        </div>
-                        <Tabs defaultActiveKey="1" items={[
-                            {
-                                key: '1', label: 'Consolidado',
-                                children: <Table dataSource={consolidadoHistorico} columns={[{ title: 'Producto', dataIndex: 'nombre' }, { title: 'Cant.', dataIndex: 'cantidad', align: 'center', width: 80, sorter: (a, b) => a.cantidad - b.cantidad }]} pagination={false} size="small" scroll={{ y: 300 }} />
-                            },
-                            {
-                                key: '2', label: 'Pedidos',
-                                children: <Table dataSource={pedidosHistoricos} columns={[{ title: '#', dataIndex: 'id', width: 60, render: (id) => `#${id}` }, { title: 'Cliente', dataIndex: 'cliente_nombre', ellipsis: true }, { title: 'Estado', dataIndex: 'estado', width: 110, render: (e) => <Tag color={estadoColor[e] || 'default'}>{e}</Tag> }, { title: 'Total', dataIndex: 'total', render: (val) => formatCurrency(val), width: 120, align: 'right' }]} rowKey="id" pagination={{ pageSize: 8 }} size="small" scroll={{ x: 'max-content' }} />
-                            }
-                        ]} />
-                        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-                            <Button onClick={() => setModalDetalleCierreOpen(false)}>Cerrar</Button>
-                        </div>
-                    </Spin>
-                </Modal>
+                        ))}
+                    </div>
+                </div>
+                <Table dataSource={listaConsolidada} columns={[{ title: 'Producto', dataIndex: 'nombre' }, { title: 'Cant.', dataIndex: 'cantidad', align: 'center', width: 80 }]} pagination={false} size="small" scroll={{ y: 220 }} />
+                <div style={{ marginTop: 12, fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Detalle por cliente</div>
+                <Table dataSource={pedidos} columns={[{ title: 'Cliente', dataIndex: 'cliente_nombre', ellipsis: true }, { title: 'Total', dataIndex: 'total', align: 'right', render: (val) => formatCurrency(val), width: 120 }]} rowKey="id" pagination={{ pageSize: 5 }} size="small" />
+                <Button type="primary" danger block icon={<FilePdfOutlined />} onClick={generarReporteControlActual} style={{ marginTop: 16 }}>Descargar PDF</Button>
+            </Modal>
 
-            </Content>
-        </Layout>
+            <Modal
+                title="Confirmar Entrega"
+                open={modalEntregaOpen}
+                onCancel={() => setModalEntregaOpen(false)}
+                onOk={confirmarEntrega}
+                confirmLoading={loadingEntrega}
+                okText="Confirmar"
+            >
+                <p style={{ marginBottom: 12, color: '#64748b' }}>Selecciona la cuenta de destino para el pago:</p>
+                <Select className="w-full" size="large" value={cuentaDestino} onChange={setCuentaDestino} options={cuentaOptions} />
+            </Modal>
+
+            <Modal
+                title="Historial de Cierres"
+                open={modalHistorialOpen}
+                onCancel={() => setModalHistorialOpen(false)}
+                footer={null}
+                width={Math.min(560, window.innerWidth - 16)}
+            >
+                <List
+                    loading={loadingHistorial}
+                    dataSource={listaCierres}
+                    renderItem={item => (
+                        <List.Item actions={[<Button key="v" type="link" style={{ color: '#155153' }} onClick={() => verDetalleCierre(item)}>Ver detalle</Button>]}>
+                            <List.Item.Meta
+                                avatar={<Avatar icon={<CalendarOutlined />} style={{ background: '#155153' }} />}
+                                title={<span style={{ fontWeight: 600 }}>Cierre #{item.id}</span>}
+                                description={`${new Date(item.fecha_cierre).toLocaleDateString()} — ${formatCurrency(item.total_ingresos)}`}
+                            />
+                        </List.Item>
+                    )}
+                />
+            </Modal>
+
+            <Modal
+                title={infoCierreSeleccionado ? `Cierre #${infoCierreSeleccionado.id}` : 'Detalle'}
+                open={modalDetalleCierreOpen}
+                onCancel={() => setModalDetalleCierreOpen(false)}
+                footer={null}
+                width={Math.min(860, window.innerWidth - 16)}
+            >
+                <Spin spinning={loadingPedidosHistoricos}>
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '16px 20px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                        <div>
+                            <div style={{ color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Recaudado</div>
+                            <div style={{ fontSize: 28, fontWeight: 900, color: '#155153' }}>{formatCurrency(totalHistorico)}</div>
+                        </div>
+                        <Button type="primary" danger icon={<FilePdfOutlined />} onClick={generarPDFHistorico} style={{ fontWeight: 700 }}>
+                            Descargar PDF
+                        </Button>
+                    </div>
+                    <Tabs defaultActiveKey="1" items={[
+                        {
+                            key: '1', label: 'Consolidado',
+                            children: <Table dataSource={consolidadoHistorico} columns={[{ title: 'Producto', dataIndex: 'nombre' }, { title: 'Cant.', dataIndex: 'cantidad', align: 'center', width: 80, sorter: (a, b) => a.cantidad - b.cantidad }]} pagination={false} size="small" scroll={{ y: 300 }} />
+                        },
+                        {
+                            key: '2', label: 'Pedidos',
+                            children: <Table dataSource={pedidosHistoricos} columns={[{ title: '#', dataIndex: 'id', width: 60, render: (id) => `#${id}` }, { title: 'Cliente', dataIndex: 'cliente_nombre', ellipsis: true }, { title: 'Estado', dataIndex: 'estado', width: 110, render: (e) => <Tag color={estadoColor[e] || 'default'}>{e}</Tag> }, { title: 'Total', dataIndex: 'total', render: (val) => formatCurrency(val), width: 120, align: 'right' }]} rowKey="id" pagination={{ pageSize: 8 }} size="small" scroll={{ x: 'max-content' }} />
+                        }
+                    ]} />
+                    <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button onClick={() => setModalDetalleCierreOpen(false)}>Cerrar</Button>
+                    </div>
+                </Spin>
+            </Modal>
+
+        </Content>
     );
 };
 
