@@ -33,7 +33,25 @@ export const deletePayment = async (paymentId) => {
   return response.data;
 };
 
-// 6. Obtener total pagado histórico (opcional)
+// 6. Obtener TODOS los pagos del sistema con filtro opcional de fecha
+export const getAllPayments = async ({ fecha_inicio, fecha_fin } = {}) => {
+  const params = {};
+  if (fecha_inicio) params.fecha_inicio = fecha_inicio;
+  if (fecha_fin)    params.fecha_fin    = fecha_fin;
+  const response = await backApi.get("/api/payments", { params });
+  return response.data;
+};
+
+// 7. Estudiantes sin pago en el período (recuperación de cartera)
+export const getStudentsWithoutPayment = async ({ fecha_inicio, fecha_fin } = {}) => {
+  const params = {};
+  if (fecha_inicio) params.fecha_inicio = fecha_inicio;
+  if (fecha_fin)    params.fecha_fin    = fecha_fin;
+  const response = await backApi.get("/api/payments/students-without-payment", { params });
+  return response.data;
+};
+
+// 8. Obtener total pagado histórico (opcional)
 export const getTotalPaidByStudent = async (studentId) => {
   const response = await backApi.get(
     `/api/payments/student/${studentId}/total-paid`

@@ -1,22 +1,26 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Input, Button, message, Spin } from "antd";
+import { Button, message, Spin } from "antd";
 import {
   PlusOutlined,
   TeamOutlined,
-  UserOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  SearchOutlined,
   ReloadOutlined,
+  InboxOutlined,
+  RollbackOutlined,
+  DollarOutlined,
 } from "@ant-design/icons";
 
 // Componentes y Servicios
 import CreateStudentModal from "./addStudent";
 import StudentTable from "./StudentTable";
 import StudentTableErrorBoundary from "./StudentTableErrorBoundary";
+import PaymentsTab from "./PaymentsTab";
 import {
   getStudents,
-  deleteStudent,
+  getArchivedStudents,
+  archiveStudent,
+  restoreStudent,
 } from "../../services/student/studentService";
 
 const PRIMARY_COLOR = "#155153";
@@ -28,12 +32,13 @@ const Students = () => {
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
   // --- 1. CARGAR ESTUDIANTES ---
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getStudents();
+      const data = showArchived ? await getArchivedStudents() : await getStudents();
       setStudents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching students:", err);
@@ -41,25 +46,37 @@ const Students = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => {
     fetchStudents();
   }, [fetchStudents]);
 
-  // --- 2. ELIMINAR ESTUDIANTE ---
-  const handleDelete = async (id) => {
+  // --- 2. ARCHIVAR ESTUDIANTE ---
+  const handleArchive = async (id, reason) => {
     try {
-      await deleteStudent(id);
-      message.success("Estudiante eliminado con éxito");
+      await archiveStudent(id, reason);
+      message.success("Estudiante archivado correctamente");
       fetchStudents();
     } catch (error) {
-      console.error("Error al eliminar:", error);
-      message.error("No se pudo eliminar el estudiante.");
+      console.error("Error al archivar:", error);
+      message.error("No se pudo archivar el estudiante.");
     }
   };
 
-  // --- 3. BÚSQUEDA ---
+  // --- 3. RESTAURAR ESTUDIANTE ---
+  const handleRestore = async (id) => {
+    try {
+      await restoreStudent(id);
+      message.success("Estudiante restaurado correctamente");
+      fetchStudents();
+    } catch (error) {
+      console.error("Error al restaurar:", error);
+      message.error("No se pudo restaurar el estudiante.");
+    }
+  };
+
+  // --- 4. BÚSQUEDA ---
   const filteredStudents = useMemo(() => {
     if (!Array.isArray(students)) return [];
     const term = searchTerm.toLowerCase().trim();
@@ -80,6 +97,11 @@ const Students = () => {
     });
   }, [students, searchTerm]);
 
+  const handleToggleArchived = () => {
+    setShowArchived((prev) => !prev);
+    setSearchTerm("");
+  };
+
   const handleStudentAdded = () => {
     fetchStudents();
     message.success("Estudiante añadido correctamente");
@@ -89,11 +111,9 @@ const Students = () => {
   const stats = useMemo(() => {
     const source = filteredTableData.length > 0 ? filteredTableData : filteredStudents;
     const total = source.length;
-    const active = source.filter((s) => s.activo === 'activo' || s.activo === true).length;
-    const inactive = total - active;
     const candidates = source.filter((s) => s.posible_graduacion).length;
     const pendingPayment = source.filter((s) => !s.estado_matricula).length;
-    return { total, active, inactive, candidates, pendingPayment };
+    return { total, candidates, pendingPayment };
   }, [filteredTableData, filteredStudents]);
 
   const statCards = [
@@ -104,14 +124,6 @@ const Students = () => {
       icon: <TeamOutlined />,
       gradient: "linear-gradient(135deg, #155153, #28a5a5)",
       shadowColor: "rgba(21, 81, 83, 0.25)",
-    },
-    {
-      key: "active",
-      label: "Activos",
-      value: stats.active,
-      icon: <UserOutlined />,
-      gradient: "linear-gradient(135deg, #0f9b0f, #4ecf4e)",
-      shadowColor: "rgba(15, 155, 15, 0.25)",
     },
     {
       key: "candidates",
@@ -131,115 +143,108 @@ const Students = () => {
     },
   ];
 
-  return (
-    <div style={{ padding: "8px 0" }}>
-      {/* ===== STAT CARDS ===== */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 16,
-          marginBottom: 28,
-        }}
-      >
-        {statCards.map((card) => (
-          <StatCard key={card.key} card={card} loading={loading} />
-        ))}
+  const estudiantesTab = (
+    <div style={{ paddingTop: 16 }}>
+      {/* STAT CARDS */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 28 }}>
+        {statCards.map((card) => <StatCard key={card.key} card={card} loading={loading} />)}
       </div>
 
-      {/* ===== SEARCH & ACTIONS BAR ===== */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 20,
-          padding: "16px 20px",
-          background: "#fff",
-          borderRadius: 14,
-          border: "1px solid #e8ecf0",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-        }}
-      >
-        <Input
-          placeholder="Buscar por nombre, documento o celular..."
-          prefix={<SearchOutlined style={{ color: "#9ca3af" }} />}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            flex: "1 1 320px",
-            minWidth: 280,
-            borderRadius: 10,
-            height: 42,
-          }}
-          allowClear
-          size="large"
-        />
-
-        <div style={{ display: "flex", gap: 10, marginLeft: "auto" }}>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={fetchStudents}
-            loading={loading}
-            style={{
-              height: 42,
-              borderRadius: 10,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
+      {/* ACTIONS BAR */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginBottom: 8 }}>
+        <div style={{ display: "flex", gap: 10 }}>
+          <Button icon={<ReloadOutlined />} onClick={fetchStudents} loading={loading} style={{ height: 42, borderRadius: 10, display: "flex", alignItems: "center", gap: 6 }}>
             Recargar
           </Button>
           <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setIsModalOpen(true)}
-            style={{
-              height: 42,
-              borderRadius: 10,
-              background: PRIMARY_COLOR,
-              borderColor: PRIMARY_COLOR,
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              boxShadow: "0 4px 12px rgba(21, 81, 83, 0.3)",
-            }}
+            icon={showArchived ? <RollbackOutlined /> : <InboxOutlined />}
+            onClick={handleToggleArchived}
+            style={{ height: 42, borderRadius: 10, display: "flex", alignItems: "center", gap: 6, background: showArchived ? "#fff7e6" : undefined, borderColor: showArchived ? "#fa8c16" : undefined, color: showArchived ? "#fa8c16" : undefined, fontWeight: showArchived ? 600 : undefined }}
           >
-            Agregar Estudiante
+            {showArchived ? "Ver Activos" : "Archivados"}
           </Button>
+          {!showArchived && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)} style={{ height: 42, borderRadius: 10, background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 12px rgba(21,81,83,0.3)" }}>
+              Agregar Estudiante
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* ===== TABLE ===== */}
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 14,
-          border: "1px solid #e8ecf0",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-          overflow: "hidden",
-        }}
-      >
+      {/* BANNER ARCHIVADOS */}
+      {showArchived && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 20px", background: "#fff7e6", border: "1px solid #ffd591", borderRadius: 12, marginBottom: 16, color: "#d46b08", fontWeight: 500, fontSize: 14 }}>
+          <InboxOutlined style={{ fontSize: 18 }} />
+          Mostrando estudiantes archivados. Para restaurar un estudiante, usa el botón <RollbackOutlined /> en la tabla.
+        </div>
+      )}
+
+      {/* TABLE */}
+      <div style={{ background: "#fff", borderRadius: 14, border: showArchived ? "1px solid #ffd591" : "1px solid #e8ecf0", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", overflow: "hidden" }}>
         <StudentTableErrorBoundary>
           <StudentTable
             students={filteredStudents}
             loading={loading}
-            onDelete={handleDelete}
+            onArchive={handleArchive}
+            onRestore={handleRestore}
+            showArchived={showArchived}
             onFilteredDataChange={setFilteredTableData}
             onStudentsMoved={fetchStudents}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
           />
         </StudentTableErrorBoundary>
       </div>
 
-      {/* Modal */}
-      <CreateStudentModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onStudentAdded={handleStudentAdded}
-      />
+      <CreateStudentModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onStudentAdded={handleStudentAdded} />
+    </div>
+  );
+
+  const [activeTab, setActiveTab] = useState("estudiantes");
+
+  const tabs = [
+    { key: "estudiantes", label: "Estudiantes", icon: <TeamOutlined /> },
+    { key: "pagos",       label: "Pagos",        icon: <DollarOutlined /> },
+  ];
+
+  return (
+    <div style={{ padding: "8px 0" }}>
+      {/* ── Tab bar ── */}
+      <div style={{
+        display: "inline-flex", gap: 4,
+        background: "#f1f5f9", borderRadius: 14, padding: 4,
+        marginBottom: 20,
+      }}>
+        {tabs.map((tab) => {
+          const active = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                display: "flex", alignItems: "center", gap: 7,
+                padding: "8px 20px", borderRadius: 10, border: "none",
+                fontSize: 14, fontWeight: 600, cursor: "pointer",
+                transition: "all 0.18s cubic-bezier(0.4,0,0.2,1)",
+                background: active ? "#fff" : "transparent",
+                color:      active ? PRIMARY_COLOR : "#6b7280",
+                boxShadow:  active ? "0 1px 6px rgba(0,0,0,0.10)" : "none",
+              }}
+            >
+              <span style={{ fontSize: 15 }}>{tab.icon}</span>
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Tab content ── */}
+      <div style={{ display: activeTab === "estudiantes" ? "block" : "none" }}>
+        {estudiantesTab}
+      </div>
+      <div style={{ display: activeTab === "pagos" ? "block" : "none" }}>
+        <PaymentsTab />
+      </div>
     </div>
   );
 };

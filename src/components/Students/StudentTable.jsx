@@ -14,22 +14,22 @@ import {
   Tooltip,
   Modal,
   Radio,
+  Form,
+  Progress,
 } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  DeleteOutlined,
+  InboxOutlined,
+  RollbackOutlined,
   WhatsAppOutlined,
-  FilePdfOutlined,
-  EyeOutlined,
   SearchOutlined,
   SwapOutlined,
   CloseOutlined,
+  ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import moment from "moment";
-import axios from "axios";
-import { getStudentById, bulkMoveToPrograma } from "../../services/student/studentService";
+import { bulkMoveToPrograma } from "../../services/student/studentService";
 import { getProgramas } from "../../services/programas/programasService";
-import { generateGradeReportPDF } from "../Utilidades/generateGradeReportPDF";
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -37,8 +37,22 @@ const { RangePicker } = DatePicker;
 
 const STORAGE_KEY = "students_filters";
 
-const StudentTable = ({ onDelete, students = [], loading = false, onFilteredDataChange, onStudentsMoved }) => {
+const ARCHIVE_REASONS = [
+  "Retiro voluntario",
+  "Problemas económicos",
+  "Traslado a otra institución",
+  "Inactividad prolongada",
+  "Culminó el programa",
+  "Incumplimiento de requisitos",
+  "Otro motivo",
+];
+
+const StudentTable = ({ onArchive, onRestore, showArchived = false, students = [], loading = false, onFilteredDataChange, onStudentsMoved, searchTerm = "", onSearchChange }) => {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [archiveModal, setArchiveModal] = useState({ open: false, studentId: null, studentName: "" });
+  const [archiveReason, setArchiveReason] = useState(null);
+  const [archiveCustomReason, setArchiveCustomReason] = useState("");
+  const [archiving, setArchiving] = useState(false);
   const [moveModal, setMoveModal] = useState(false);
   const [moveProgramaId, setMoveProgramaId] = useState(null);
   const [moveReplace, setMoveReplace] = useState(true);
@@ -49,11 +63,10 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
     if (typeof window === "undefined") {
       return {
         searchText: {},
-        selectedStatus: null,
         selectedCoordinator: [],
         dateRange: null,
         predefinedDate: null,
-        selectedGraduation: null, // filtro candidatos a grado
+        selectedGraduation: null,
         selectedProgram: [],
         selectedModalidad: [],
       };
@@ -64,7 +77,6 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
       const saved = JSON.parse(raw);
       return {
         searchText: saved.searchText || {},
-        selectedStatus: saved.selectedStatus || null,
         selectedCoordinator: saved.selectedCoordinator || [],
         dateRange: Array.isArray(saved.dateRange)
           ? [moment(saved.dateRange[0]), moment(saved.dateRange[1])]
@@ -77,7 +89,6 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
     } catch (e) {
       return {
         searchText: {},
-        selectedStatus: null,
         selectedCoordinator: [],
         dateRange: null,
         predefinedDate: null,
@@ -172,7 +183,6 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
       .filter((student) => {
         const {
           searchText,
-          selectedStatus,
           selectedCoordinator,
           dateRange,
           predefinedDate,
@@ -186,7 +196,6 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
           if (!searchText[key]) return true;
 
           if (key === "nombre_programa") {
-            // Ahora soporta programa_nombre viejo o programas_asociados nuevo
             const programNames =
               student.programa_nombre ||
               (student.programas_asociados || [])
@@ -202,11 +211,6 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
             ? value.toString().toLowerCase().includes(searchText[key])
             : false;
         });
-
-        // Filtro por estado (activo/inactivo)
-        const statusMatch = selectedStatus
-          ? student.activo === (selectedStatus === "activo")
-          : true;
 
         // Filtro por coordinador
         const coordinatorMatch = Array.isArray(selectedCoordinator) && selectedCoordinator.length > 0
@@ -280,7 +284,6 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
 
         return (
           searchMatch &&
-          statusMatch &&
           coordinatorMatch &&
           programMatch &&
           modalidadMatch &&
@@ -306,20 +309,28 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
     (s) => s.posible_graduacion
   ).length;
 
-  // Descargar boletín
-  const handleDownloadGrades = async (studentId) => {
+  const openArchiveModal = (record) => {
+    setArchiveReason(null);
+    setArchiveCustomReason("");
+    setArchiveModal({ open: true, studentId: record.id, studentName: `${record.nombre} ${record.apellido}` });
+  };
+
+  const confirmArchive = async () => {
+    const finalReason = archiveReason === "Otro motivo"
+      ? archiveCustomReason.trim()
+      : archiveReason;
+
+    if (!finalReason) {
+      message.warning("Selecciona o escribe la razón del archivado.");
+      return;
+    }
+
+    setArchiving(true);
     try {
-      const [studentData, gradesResponse] = await Promise.all([
-        getStudentById(studentId),
-        axios.get(
-          `https://clasit-backend-api-570877385695.us-central1.run.app/api/grades/students/${studentId}`
-        ),
-      ]);
-      const grades = gradesResponse.data;
-      generateGradeReportPDF(studentData, grades, studentId);
-    } catch (err) {
-      console.error("Error downloading grades:", err);
-      message.error("Error al descargar el boletín");
+      await onArchive(archiveModal.studentId, finalReason);
+      setArchiveModal({ open: false, studentId: null, studentName: "" });
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -352,6 +363,44 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
 
   // Columnas de la tabla
   const columns = [
+    {
+      title: "Fecha Inscripción",
+      key: "fechas",
+      render: (_, record) => (
+        <Space direction="vertical" size={2}>
+          <Tooltip title={`Inscripción: ${record.fecha_inscripcion ? moment(record.fecha_inscripcion).format("DD/MM/YYYY") : "No especificado"}`}>
+            <Text>
+              {record.fecha_inscripcion ? moment(record.fecha_inscripcion).format("DD/MM/YY") : "N/A"}
+            </Text>
+          </Tooltip>
+          {record.fecha_graduacion && (
+            <Tooltip title={`Graduación: ${moment(record.fecha_graduacion).format("DD/MM/YYYY")}`}>
+              <Text style={{ color: "#6b7280", fontSize: 12 }}>
+                Grad. {moment(record.fecha_graduacion).format("DD/MM/YY")}
+              </Text>
+            </Tooltip>
+          )}
+        </Space>
+      ),
+      sorter: (a, b) => moment(a.fecha_inscripcion || 0).unix() - moment(b.fecha_inscripcion || 0).unix(),
+    },
+    {
+      title: "Coordinador",
+      dataIndex: "coordinador_nombre",
+      key: "coordinador_nombre",
+      render: (text) => (
+        <Tag color={getCoordinatorTagColor(text)}>
+          {text || "Sin coordinador"}
+        </Tag>
+      ),
+      filters: coordinators.map((coord) => ({
+        text: coord,
+        value: coord,
+      })),
+      onFilter: (value, record) =>
+        record.coordinador_nombre === value,
+      filterSearch: true,
+    },
     {
       title: "Documento",
       key: "documento",
@@ -475,23 +524,6 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
           .includes(value.toLowerCase()),
     },
     {
-      title: "Coordinador",
-      dataIndex: "coordinador_nombre",
-      key: "coordinador_nombre",
-      render: (text) => (
-        <Tag color={getCoordinatorTagColor(text)}>
-          {text || "Sin coordinador"}
-        </Tag>
-      ),
-      filters: coordinators.map((coord) => ({
-        text: coord,
-        value: coord,
-      })),
-      onFilter: (value, record) =>
-        record.coordinador_nombre === value,
-      filterSearch: true,
-    },
-    {
       title: "Programa(s)",
       key: "programa",
       render: (_, record) => {
@@ -571,35 +603,6 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
       },
     },
     {
-      title: "Estado",
-      key: "estados",
-      render: (_, record) => (
-        <Space direction="vertical" size={2}>
-          <Tag color={record.activo ? "green" : "red"}>
-            {record.activo ? "Activo" : "Inactivo"}
-          </Tag>
-          <Tag color={record.estado_matricula ? "green" : "gold"}>
-            {record.estado_matricula
-              ? "Matrícula Paga"
-              : "Matrícula Pendiente"}
-          </Tag>
-          {typeof record.posible_graduacion === "boolean" && (
-            <Tag color={record.posible_graduacion ? "geekblue" : "default"}>
-              {record.posible_graduacion
-                ? "Candidato a grado"
-                : "No candidato"}
-            </Tag>
-          )}
-        </Space>
-      ),
-      filters: [
-        { text: "Activo", value: "activo" },
-        { text: "Inactivo", value: "inactivo" },
-      ],
-      onFilter: (value, record) =>
-        record.activo === (value === "activo"),
-    },
-    {
       title: "Contacto",
       key: "contacto",
       render: (_, record) => (
@@ -640,40 +643,60 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
       ),
     },
     {
-      title: "Fechas",
-      key: "fechas",
-      render: (_, record) => (
-        <Space direction="vertical" size={2}>
-          <Tooltip
-            title={`Inscripción: ${record.fecha_inscripcion
-              ? moment(record.fecha_inscripcion).format(
-                "DD/MM/YYYY"
-              )
-              : "No especificado"
-              }`}
-          >
-            <Text>
-              Insc.:{" "}
-              {record.fecha_inscripcion
-                ? moment(record.fecha_inscripcion).format("DD/MM/YY")
-                : "N/A"}
-            </Text>
+      title: "Progreso de Pago",
+      key: "progreso_pago",
+      width: 180,
+      render: (_, record) => {
+        const total   = parseFloat(record.monto_total_programas || 0);
+        const abonado = parseFloat(record.total_abonado || 0);
+        if (!total) return <Text type="secondary" style={{ fontSize: 12 }}>Sin costo</Text>;
+        const pct    = Math.min(100, Math.round((abonado / total) * 100));
+        const pagado = pct >= 100;
+        return (
+          <Tooltip title={
+            <div>
+              <div>Abonado: <b>${abonado.toLocaleString("es-CO")}</b></div>
+              <div>Total: <b>${total.toLocaleString("es-CO")}</b></div>
+              <div>Pendiente: <b>${Math.max(0, total - abonado).toLocaleString("es-CO")}</b></div>
+            </div>
+          }>
+            <div style={{ minWidth: 140 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2, color: "#6b7280" }}>
+                <span>{pct}%</span>
+                {pagado && <span style={{ color: "#52c41a", fontWeight: 600 }}>Paz y salvo</span>}
+              </div>
+              <Progress
+                percent={pct}
+                size="small"
+                showInfo={false}
+                status={pagado ? "success" : "active"}
+                strokeColor={pagado ? "#52c41a" : "#3b82f6"}
+              />
+            </div>
           </Tooltip>
-          {record.fecha_graduacion && (
-            <Tooltip
-              title={`Graduación: ${moment(
-                record.fecha_graduacion
-              ).format("DD/MM/YYYY")}`}
-            >
-              <Text>
-                Grad.:{" "}
-                {moment(record.fecha_graduacion).format("DD/MM/YY")}
-              </Text>
-            </Tooltip>
-          )}
-        </Space>
-      ),
+        );
+      },
     },
+    ...(showArchived ? [{
+      title: "Motivo de archivado",
+      key: "archived_reason",
+      render: (_, record) => (
+        <Tooltip title={record.archived_reason || "Sin motivo registrado"}>
+          <Tag
+            color="orange"
+            style={{
+              maxWidth: 200,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              display: "inline-block",
+            }}
+          >
+            {record.archived_reason || "—"}
+          </Tag>
+        </Tooltip>
+      ),
+    }] : []),
     {
       title: "Acciones",
       key: "acciones",
@@ -681,79 +704,59 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
       fixed: "right",
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="Ver detalle">
-            <Button
-              type="text"
-              icon={<EyeOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/inicio/students/view/${record.id}`, {
-                  state: { from: `${location.pathname}${location.search}` },
-                });
-              }}
-            />
-          </Tooltip>
-
           <Tooltip title="Enviar WhatsApp">
             <Button
               type="text"
-              icon={<WhatsAppOutlined />}
+              icon={<WhatsAppOutlined style={{ color: "#25D366", fontSize: 17 }} />}
               onClick={(e) => {
                 e.stopPropagation();
                 let phoneNumber =
                   record.telefono_whatsapp?.replace(/\D/g, "") ||
                   record.telefono_llamadas?.replace(/\D/g, "");
-
                 if (!phoneNumber) {
-                  message.error(
-                    "No hay número de teléfono disponible para WhatsApp"
-                  );
+                  message.error("No hay número de teléfono disponible para WhatsApp");
                   return;
                 }
-
-                if (!phoneNumber.startsWith("57")) {
-                  phoneNumber = `57${phoneNumber}`;
-                }
-
-                window.open(
-                  `https://wa.me/${phoneNumber}`,
-                  "_blank"
-                );
+                if (!phoneNumber.startsWith("57")) phoneNumber = `57${phoneNumber}`;
+                window.open(`https://wa.me/${phoneNumber}`, "_blank");
               }}
             />
           </Tooltip>
 
-          <Tooltip title="Descargar Boletín">
-            <Button
-              type="text"
-              icon={<FilePdfOutlined />}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDownloadGrades(record.id);
+          {showArchived ? (
+            <Popconfirm
+              title="Restaurar estudiante"
+              description="¿Restaurar este estudiante? Volverá a aparecer en la lista activa."
+              okText="Sí, restaurar"
+              cancelText="Cancelar"
+              onConfirm={(e) => {
+                e?.stopPropagation();
+                onRestore(record.id);
               }}
-            />
-          </Tooltip>
-
-          <Popconfirm
-            title="Eliminar estudiante"
-            description="¿Seguro que deseas eliminar este estudiante? Esta acción no se puede deshacer."
-            okText="Sí, eliminar"
-            cancelText="Cancelar"
-            onConfirm={(e) => {
-              e?.stopPropagation();
-              onDelete(record.id);
-            }}
-            onCancel={(e) => e?.stopPropagation()}
-          >
-            <Tooltip title="Eliminar estudiante">
+              onCancel={(e) => e?.stopPropagation()}
+            >
+              <Tooltip title="Restaurar estudiante">
+                <Button
+                  type="text"
+                  icon={<RollbackOutlined />}
+                  style={{ color: "#fa8c16" }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </Tooltip>
+            </Popconfirm>
+          ) : (
+            <Tooltip title="Archivar estudiante">
               <Button
                 type="text"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={(e) => e.stopPropagation()}
+                icon={<InboxOutlined />}
+                style={{ color: "#8c8c8c" }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openArchiveModal(record);
+                }}
               />
             </Tooltip>
-          </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -769,13 +772,12 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
     <div translate="no">
       {/* Barra de selección masiva — siempre presente para evitar salto de layout */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
+        display: selectedRowKeys.length > 0 ? 'flex' : 'none',
+        alignItems: 'center', gap: 12,
         padding: '10px 20px',
-        background: selectedRowKeys.length > 0 ? '#eff6ff' : 'transparent',
-        borderBottom: selectedRowKeys.length > 0 ? '1px solid #bfdbfe' : '1px solid transparent',
+        background: '#eff6ff',
+        borderBottom: '1px solid #bfdbfe',
         minHeight: 48,
-        transition: 'background 0.2s',
-        visibility: selectedRowKeys.length > 0 ? 'visible' : 'hidden',
       }}>
         <Tag color="blue" style={{ fontSize: 13, padding: '2px 10px' }}>
           {selectedRowKeys.length} estudiante{selectedRowKeys.length !== 1 ? 's' : ''} seleccionado{selectedRowKeys.length !== 1 ? 's' : ''}
@@ -800,9 +802,9 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
       {/* Filtros superiores */}
       <div
         style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid #f0f0f0',
-          background: '#fafbfc',
+          padding: '10px 20px',
+          borderBottom: '1px solid #e5e7eb',
+          background: '#fff',
         }}
       >
         <div
@@ -813,26 +815,15 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
             marginBottom: 12,
           }}
         >
-          <SearchOutlined style={{ color: '#9ca3af', fontSize: 14 }} />
-          <Text style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>Filtros avanzados</Text>
-          <Text style={{ fontSize: 12, color: '#d1d5db', marginLeft: 4 }}>•</Text>
-          <Text style={{ fontSize: 12, color: '#9ca3af' }}>
+          <SearchOutlined style={{ color: '#1a1a1a', fontSize: 14 }} />
+          <Text style={{ fontSize: 13, color: '#1a1a1a', fontWeight: 600 }}>Filtros avanzados</Text>
+          <Text style={{ fontSize: 12, color: '#1a1a1a', marginLeft: 4 }}>•</Text>
+          <Text style={{ fontSize: 12, color: '#1a1a1a', fontWeight: 500 }}>
             {totalStudents} resultado{totalStudents !== 1 ? 's' : ''}
           </Text>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          <Select
-            style={{ minWidth: 140 }}
-            placeholder="Estado"
-            allowClear
-            onChange={(value) => handleFilterChange(value, 'selectedStatus')}
-            value={filters.selectedStatus}
-          >
-            <Option value="activo">Activo</Option>
-            <Option value="inactivo">Inactivo</Option>
-          </Select>
-
           <Select
             mode="multiple"
             style={{ minWidth: 200 }}
@@ -914,12 +905,22 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
             placeholder={['Fecha inicio', 'Fecha fin']}
             disabled={filters.predefinedDate !== null && filters.predefinedDate !== 'all'}
           />
+
+          <Input
+            placeholder="Buscar nombre, documento, celular..."
+            prefix={<SearchOutlined style={{ color: "#1a1a1a" }} />}
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            allowClear
+            style={{ minWidth: 240, flex: "1 1 240px" }}
+          />
         </div>
       </div>
 
       {/* Tabla */}
       <Spin spinning={loading} tip="Cargando estudiantes...">
         <Table
+          className="students-table"
           rowSelection={rowSelection}
           columns={columns}
           dataSource={filteredData}
@@ -946,6 +947,71 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
           size="middle"
         />
       </Spin>
+
+      {/* Modal razón de archivado */}
+      <Modal
+        open={archiveModal.open}
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <ExclamationCircleOutlined style={{ color: "#fa8c16", fontSize: 18 }} />
+            <span>Archivar estudiante</span>
+          </div>
+        }
+        okText="Archivar"
+        cancelText="Cancelar"
+        okButtonProps={{
+          style: { background: "#fa8c16", borderColor: "#fa8c16" },
+          disabled: !archiveReason || (archiveReason === "Otro motivo" && !archiveCustomReason.trim()),
+          loading: archiving,
+        }}
+        onOk={confirmArchive}
+        onCancel={() => setArchiveModal({ open: false, studentId: null, studentName: "" })}
+      >
+        <p style={{ color: "#595959", marginBottom: 16 }}>
+          ¿Por qué vas a archivar a <strong>{archiveModal.studentName}</strong>?
+        </p>
+
+        <Radio.Group
+          value={archiveReason}
+          onChange={(e) => {
+            setArchiveReason(e.target.value);
+            setArchiveCustomReason("");
+          }}
+          style={{ width: "100%" }}
+        >
+          <Space direction="vertical" style={{ width: "100%" }}>
+            {ARCHIVE_REASONS.map((reason) => (
+              <Radio
+                key={reason}
+                value={reason}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: archiveReason === reason ? "1px solid #fa8c16" : "1px solid #f0f0f0",
+                  background: archiveReason === reason ? "#fff7e6" : "#fafafa",
+                  width: "100%",
+                  transition: "all 0.2s",
+                }}
+              >
+                {reason}
+              </Radio>
+            ))}
+          </Space>
+        </Radio.Group>
+
+        {archiveReason === "Otro motivo" && (
+          <Input.TextArea
+            style={{ marginTop: 12, borderRadius: 8 }}
+            placeholder="Describe el motivo..."
+            rows={3}
+            maxLength={300}
+            showCount
+            value={archiveCustomReason}
+            onChange={(e) => setArchiveCustomReason(e.target.value)}
+            autoFocus
+          />
+        )}
+      </Modal>
 
       {/* Modal mover a programa */}
       <Modal
@@ -1001,14 +1067,18 @@ const StudentTable = ({ onDelete, students = [], loading = false, onFilteredData
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        .ant-table-thead > tr > th {
-          background: #f8fafb !important;
+        .students-table .ant-table-thead > tr > th {
+          background-color: #dbeafe !important;
+          color: #1e3a8a !important;
           font-weight: 600 !important;
-          font-size: 12px !important;
-          text-transform: uppercase;
-          letter-spacing: 0.3px;
-          color: #4b5563 !important;
-          border-bottom: 2px solid #e5e7eb !important;
+          font-size: 13px !important;
+          text-transform: none !important;
+          letter-spacing: 0.1px;
+          border-bottom: none !important;
+        }
+        .students-table .ant-table-thead > tr > th.ant-table-column-has-sorters:hover,
+        .students-table .ant-table-thead > tr > th.ant-table-column-sort {
+          background-color: #bfdbfe !important;
         }
         .ant-table-tbody > tr:hover > td {
           background: #f0f7f7 !important;

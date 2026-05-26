@@ -66,13 +66,24 @@ export const createStudentPublic = async (studentData) => {
 };
 // ========================= STUDENTS ========================= //
 
-// Obtener todos los estudiantes
+// Obtener todos los estudiantes activos (no archivados)
 export const getStudents = async () => {
   try {
     const response = await studentsApi.get("/api/students");
     return response.data;
   } catch (error) {
     logApiError("Error al obtener los estudiantes", error);
+    throw error;
+  }
+};
+
+// Obtener estudiantes archivados
+export const getArchivedStudents = async () => {
+  try {
+    const response = await studentsApi.get("/api/students?archived=true");
+    return response.data;
+  } catch (error) {
+    logApiError("Error al obtener los estudiantes archivados", error);
     throw error;
   }
 };
@@ -160,18 +171,31 @@ export const updateStudent = async (id, studentData) => {
   }
 };
 
-// Eliminar estudiante
-export const deleteStudent = async (studentId) => {
+// Archivar estudiante (reemplaza el delete)
+export const archiveStudent = async (studentId, reason) => {
   try {
-    const response = await backApi.delete(`/api/students/${studentId}`);
+    const response = await backApi.patch(`/api/students/${studentId}/archive`, { reason });
     return response.data;
   } catch (error) {
-    logApiError(
-      `Error al eliminar el estudiante con ID ${studentId}`,
-      error
-    );
+    logApiError(`Error al archivar el estudiante con ID ${studentId}`, error);
     throw error;
   }
+};
+
+// Restaurar estudiante archivado
+export const restoreStudent = async (studentId) => {
+  try {
+    const response = await backApi.patch(`/api/students/${studentId}/restore`);
+    return response.data;
+  } catch (error) {
+    logApiError(`Error al restaurar el estudiante con ID ${studentId}`, error);
+    throw error;
+  }
+};
+
+// Eliminar estudiante (mantenido por compatibilidad — ahora archiva)
+export const deleteStudent = async (studentId) => {
+  return archiveStudent(studentId);
 };
 
 // Actualizar estado de matrícula (boolean)
