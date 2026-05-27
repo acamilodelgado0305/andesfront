@@ -39,7 +39,7 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
   const isIngreso = type === 'ingresos';
 
   const clientName = isIngreso
-    ? (`${record.cliente_nombre || record.nombre || ''} ${record.cliente_apellido || record.apellido || ''}`.trim() || 'Venta General')
+    ? (`${record.cliente_nombre || record.nombre || ''} ${record.persona_id != null ? (record.cliente_apellido ?? '') : (record.apellido || '')}`.trim() || 'Venta General')
     : (record.descripcion || '-');
 
   const docInfo = isIngreso
@@ -354,7 +354,7 @@ const TransactionTable = ({
           <div style={{ ...TS, fontWeight: 500, whiteSpace: 'nowrap',
             overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 170 }}>
             {type === 'ingresos'
-              ? (`${r.cliente_nombre || r.nombre || ''} ${r.cliente_apellido || r.apellido || ''}`.trim() || 'Venta General')
+              ? (`${r.cliente_nombre || r.nombre || ''} ${r.persona_id != null ? (r.cliente_apellido ?? '') : (r.apellido || '')}`.trim() || 'Venta General')
               : r.descripcion}
           </div>
           {type === 'ingresos' && (
@@ -412,7 +412,7 @@ const TransactionTable = ({
       head: [['Fecha', type === 'ingresos' ? 'Cliente' : 'Descripción', 'Producto', 'Cuenta', 'Usuario', 'Valor']],
       body: filteredData.map(item => [
         moment(item[type === 'ingresos' ? 'createdAt' : 'fecha']).format('DD/MM/YYYY'),
-        type === 'ingresos' ? `${item.nombre || ''} ${item.apellido || ''}`.trim() : (item.descripcion || ''),
+        type === 'ingresos' ? `${item.cliente_nombre || item.nombre || ''} ${item.persona_id != null ? (item.cliente_apellido ?? '') : (item.apellido || '')}`.trim() : (item.descripcion || ''),
         getConcept(item),
         item.cuenta || '',
         userMap[String(item.usuario)] || (item.usuario ? `ID ${item.usuario}` : '-'),
