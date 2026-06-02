@@ -51,6 +51,12 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
     const [loadingPersonas, setLoadingPersonas]     = useState(false);
     const [selectedPersona, setSelectedPersona]     = useState(null);
     const [personaDrawerOpen, setPersonaDrawerOpen] = useState(false);
+    const [editingPersona, setEditingPersona]       = useState(null);
+
+    // Abrir el sub-drawer en modo crear o editar
+    const abrirCrearPersona = () => { setEditingPersona(null); setPersonaDrawerOpen(true); };
+    const abrirEditarPersona = () => { setEditingPersona(selectedPersona); setPersonaDrawerOpen(true); };
+    const cerrarPersonaDrawer = () => { setPersonaDrawerOpen(false); setEditingPersona(null); };
 
     // ── Envío de certificado por correo ───────────────────────
     const [enviarCorreo, setEnviarCorreo]           = useState(false);
@@ -318,10 +324,21 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                                             {selectedPersona.tipo_documento}: {selectedPersona.numero_documento}
                                         </div>
                                     )}
+                                    {selectedPersona.email && (
+                                        <div style={{ fontSize: 12, color: '#64748b' }}>
+                                            <MailOutlined style={{ marginRight: 4 }} />{selectedPersona.email}
+                                        </div>
+                                    )}
                                 </div>
+                                <Button type="text" size="small"
+                                    icon={<EditOutlined style={{ color: '#155153' }} />}
+                                    onClick={abrirEditarPersona}
+                                    title="Editar contacto"
+                                />
                                 <Button type="text" size="small"
                                     icon={<CloseCircleOutlined style={{ color: '#94a3b8' }} />}
                                     onClick={() => setSelectedPersona(null)}
+                                    title="Quitar contacto"
                                 />
                             </div>
                         ) : (
@@ -336,7 +353,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                                     />
                                     <Button
                                         icon={<UserAddOutlined />}
-                                        onClick={() => setPersonaDrawerOpen(true)}
+                                        onClick={abrirCrearPersona}
                                         style={{ flexShrink: 0, color: '#155153', borderColor: '#155153' }}
                                     >
                                         Crear
@@ -352,7 +369,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                                         description={
                                             <span style={{ fontSize: 12 }}>
                                                 Sin resultados —{' '}
-                                                <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: '#155153' }}>crear contacto</a>
+                                                <a onClick={abrirCrearPersona} style={{ color: '#155153' }}>crear contacto</a>
                                             </span>
                                         }
                                     />
@@ -387,7 +404,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                                 {personaSearch.length === 0 && (
                                     <div style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
                                         Escribe para buscar · Si no está,{' '}
-                                        <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: '#155153' }}>créalo aquí</a>
+                                        <a onClick={abrirCrearPersona} style={{ color: '#155153' }}>créalo aquí</a>
                                     </div>
                                 )}
                             </>
@@ -565,11 +582,18 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                 </Form>
             </Drawer>
 
-            {/* ── SUB-DRAWER CREAR CONTACTO ──────────────────── */}
+            {/* ── SUB-DRAWER CREAR / EDITAR CONTACTO ─────────── */}
             <PersonaFormDrawer
                 open={personaDrawerOpen}
-                onClose={() => setPersonaDrawerOpen(false)}
-                onSuccess={persona => { setSelectedPersona(persona); setPersonaDrawerOpen(false); }}
+                onClose={cerrarPersonaDrawer}
+                onSuccess={persona => {
+                    // Al editar, conserva id/datos previos por si el backend devuelve parcial
+                    setSelectedPersona(prev => editingPersona
+                        ? { ...editingPersona, ...persona, id: persona?.id ?? editingPersona.id }
+                        : persona);
+                    cerrarPersonaDrawer();
+                }}
+                editingItem={editingPersona}
                 defaultTipo="CLIENTE"
             />
         </>
