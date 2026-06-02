@@ -156,6 +156,14 @@ export const removeAssignment = async (evaluationId, estudianteId) => {
   return response.data;
 };
 
+// Obtener evaluaciones asignadas a un estudiante (admin) — usa authToken vía backApi
+export const getStudentAssignmentsAdmin = async (studentId) => {
+  const response = await backApi.get(
+    `/api/evaluaciones/estudiantes/${studentId}/asignaciones`
+  );
+  return response.data;
+};
+
 /* ===================== PARTE ESTUDIANTE ===================== */
 
 // Obtener evaluaciones asignadas a un estudiante (usa token de estudiante)

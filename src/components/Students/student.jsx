@@ -150,27 +150,6 @@ const Students = () => {
         {statCards.map((card) => <StatCard key={card.key} card={card} loading={loading} />)}
       </div>
 
-      {/* ACTIONS BAR */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginBottom: 8 }}>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Button icon={<ReloadOutlined />} onClick={fetchStudents} loading={loading} style={{ height: 42, borderRadius: 10, display: "flex", alignItems: "center", gap: 6 }}>
-            Recargar
-          </Button>
-          <Button
-            icon={showArchived ? <RollbackOutlined /> : <InboxOutlined />}
-            onClick={handleToggleArchived}
-            style={{ height: 42, borderRadius: 10, display: "flex", alignItems: "center", gap: 6, background: showArchived ? "#fff7e6" : undefined, borderColor: showArchived ? "#fa8c16" : undefined, color: showArchived ? "#fa8c16" : undefined, fontWeight: showArchived ? 600 : undefined }}
-          >
-            {showArchived ? "Ver Activos" : "Archivados"}
-          </Button>
-          {!showArchived && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)} style={{ height: 42, borderRadius: 10, background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 12px rgba(21,81,83,0.3)" }}>
-              Agregar Estudiante
-            </Button>
-          )}
-        </div>
-      </div>
-
       {/* BANNER ARCHIVADOS */}
       {showArchived && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 20px", background: "#fff7e6", border: "1px solid #ffd591", borderRadius: 12, marginBottom: 16, color: "#d46b08", fontWeight: 500, fontSize: 14 }}>
@@ -207,35 +186,61 @@ const Students = () => {
     { key: "pagos",       label: "Pagos",        icon: <DollarOutlined /> },
   ];
 
+  const studentActions = (
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <Button icon={<ReloadOutlined />} onClick={fetchStudents} loading={loading} style={{ height: 42, borderRadius: 10, display: "flex", alignItems: "center", gap: 6 }}>
+        Recargar
+      </Button>
+      <Button
+        icon={showArchived ? <RollbackOutlined /> : <InboxOutlined />}
+        onClick={handleToggleArchived}
+        style={{ height: 42, borderRadius: 10, display: "flex", alignItems: "center", gap: 6, background: showArchived ? "#fff7e6" : undefined, borderColor: showArchived ? "#fa8c16" : undefined, color: showArchived ? "#fa8c16" : undefined, fontWeight: showArchived ? 600 : undefined }}
+      >
+        {showArchived ? "Ver Activos" : "Archivados"}
+      </Button>
+      {!showArchived && (
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)} style={{ height: 42, borderRadius: 10, background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 12px rgba(21,81,83,0.3)" }}>
+          Agregar Estudiante
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ padding: "8px 0" }}>
-      {/* ── Tab bar ── */}
+      {/* ── Tab bar + acciones ── */}
       <div style={{
-        display: "inline-flex", gap: 4,
-        background: "#f1f5f9", borderRadius: 14, padding: 4,
-        marginBottom: 20,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 16, flexWrap: "wrap", marginBottom: 20,
       }}>
-        {tabs.map((tab) => {
-          const active = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              style={{
-                display: "flex", alignItems: "center", gap: 7,
-                padding: "8px 20px", borderRadius: 10, border: "none",
-                fontSize: 14, fontWeight: 600, cursor: "pointer",
-                transition: "all 0.18s cubic-bezier(0.4,0,0.2,1)",
-                background: active ? "#fff" : "transparent",
-                color:      active ? PRIMARY_COLOR : "#6b7280",
-                boxShadow:  active ? "0 1px 6px rgba(0,0,0,0.10)" : "none",
-              }}
-            >
-              <span style={{ fontSize: 15 }}>{tab.icon}</span>
-              {tab.label}
-            </button>
-          );
-        })}
+        <div style={{
+          display: "inline-flex", gap: 4,
+          background: "#f1f5f9", borderRadius: 14, padding: 4,
+        }}>
+          {tabs.map((tab) => {
+            const active = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 7,
+                  padding: "8px 20px", borderRadius: 10, border: "none",
+                  fontSize: 14, fontWeight: 600, cursor: "pointer",
+                  transition: "all 0.18s cubic-bezier(0.4,0,0.2,1)",
+                  background: active ? "#fff" : "transparent",
+                  color:      active ? PRIMARY_COLOR : "#6b7280",
+                  boxShadow:  active ? "0 1px 6px rgba(0,0,0,0.10)" : "none",
+                }}
+              >
+                <span style={{ fontSize: 15 }}>{tab.icon}</span>
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {activeTab === "estudiantes" && studentActions}
       </div>
 
       {/* ── Tab content ── */}

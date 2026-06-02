@@ -31,6 +31,9 @@ export const convertirCotizacionAFactura = (id) =>
 export const registrarAbono = (id, data) =>
   api.post(`/documentos-venta/${id}/abonar`, data).then((r) => r.data);
 
+export const duplicarDocumento = (id) =>
+  api.post(`/documentos-venta/${id}/duplicar`).then((r) => r.data);
+
 export const getEstadisticasDocumentos = () =>
   api.get('/documentos-venta/stats').then((r) => r.data);
 

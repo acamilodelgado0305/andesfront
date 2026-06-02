@@ -20,7 +20,10 @@ import {
   getMateriasByPrograma, createMateria, updateMateria, deleteMateria
 } from '../../services/materias/serviceMateria';
 import { getAllDocentes } from '../../services/docentes/serviceDocente';
-import { getEvaluations } from '../../services/evaluation/evaluationService';
+import {
+  getEvaluations, getStudentAssignmentsAdmin,
+  assignToSelectedStudents, removeAssignment
+} from '../../services/evaluation/evaluationService';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -37,7 +40,16 @@ export default function ProgramaDetalle() {
   const [loading, setLoading]   = useState(true);
   const [programa, setPrograma] = useState(null);
   const [estudiantes, setEstudiantes] = useState([]);
+  const [busquedaEstudiante, setBusquedaEstudiante] = useState('');
   const [modulos, setModulos]   = useState([]);
+
+  // Evaluaciones por estudiante
+  const [evalStudent, setEvalStudent]             = useState(null); // estudiante seleccionado
+  const [studentEvals, setStudentEvals]           = useState([]);
+  const [loadingStudentEvals, setLoadingStudentEvals] = useState(false);
+  const [assignEvalId, setAssignEvalId]           = useState(null);
+  const [assigningEval, setAssigningEval]         = useState(false);
+  const [removingEvalId, setRemovingEvalId]       = useState(null);
 
   // Editar programa
   const [editProgramaOpen, setEditProgramaOpen] = useState(false);
@@ -311,6 +323,60 @@ export default function ProgramaDetalle() {
     finally { setSavingTransfer(false); }
   };
 
+  // ─── Evaluaciones por estudiante ───────────────────────────────────────────
+  const fetchStudentEvals = async (studentId) => {
+    setLoadingStudentEvals(true);
+    try {
+      const data = await getStudentAssignmentsAdmin(studentId);
+      setStudentEvals(data.asignaciones || []);
+    } catch {
+      message.error('Error al cargar las evaluaciones del estudiante');
+      setStudentEvals([]);
+    } finally {
+      setLoadingStudentEvals(false);
+    }
+  };
+
+  const openStudentEvals = (student) => {
+    setEvalStudent(student);
+    setAssignEvalId(null);
+    setStudentEvals([]);
+    fetchStudentEvals(student.id);
+  };
+
+  const handleAssignEval = async () => {
+    if (!assignEvalId) return message.warning('Selecciona una evaluación.');
+    setAssigningEval(true);
+    try {
+      await assignToSelectedStudents(assignEvalId, { estudiante_ids: [evalStudent.id] });
+      message.success('Evaluación asignada al estudiante');
+      setAssignEvalId(null);
+      fetchStudentEvals(evalStudent.id);
+    } catch {
+      message.error('Error al asignar la evaluación');
+    } finally {
+      setAssigningEval(false);
+    }
+  };
+
+  const handleRemoveAssignment = async (evaluacionId) => {
+    setRemovingEvalId(evaluacionId);
+    try {
+      await removeAssignment(evaluacionId, evalStudent.id);
+      message.success('Asignación eliminada');
+      fetchStudentEvals(evalStudent.id);
+    } catch {
+      message.error('Error al quitar la asignación');
+    } finally {
+      setRemovingEvalId(null);
+    }
+  };
+
+  // Evaluaciones del programa disponibles para asignar (las que aún no tiene el estudiante)
+  const evalsDelPrograma = Object.values(evaluacionesByMateria).flat();
+  const evalsAsignadasIds = new Set(studentEvals.map((e) => e.evaluacion_id));
+  const evalsDisponibles = evalsDelPrograma.filter((e) => !evalsAsignadasIds.has(e.id));
+
   // ─── Columnas ─────────────────────────────────────────────────────────────
   const modulosCols = [
     { title: '#', dataIndex: 'orden', width: 50, render: (v) => <Tag>{v}</Tag> },
@@ -364,15 +430,21 @@ export default function ProgramaDetalle() {
     { title: 'Estado matrícula', dataIndex: 'estado_matricula', width: 130,
       render: (v) => <Tag color={v === 'activo' ? 'green' : 'default'}>{v || '—'}</Tag> },
     {
-      title: '', width: 60,
+      title: '', width: 110,
       render: (_, r) => (
-        r.telefono_whatsapp ? (
-          <Tooltip title="WhatsApp">
-            <a href={`https://wa.me/${r.telefono_whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer">
-              <Button size="small" icon={<WhatsAppOutlined />} style={{ color: '#25D366', borderColor: '#25D366' }} />
-            </a>
+        <Space size={4}>
+          <Tooltip title="Evaluaciones del estudiante">
+            <Button size="small" icon={<TrophyOutlined />} style={{ color: '#d97706', borderColor: '#d97706' }}
+              onClick={() => openStudentEvals(r)} />
           </Tooltip>
-        ) : null
+          {r.telefono_whatsapp && (
+            <Tooltip title="WhatsApp">
+              <a href={`https://wa.me/${r.telefono_whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer">
+                <Button size="small" icon={<WhatsAppOutlined />} style={{ color: '#25D366', borderColor: '#25D366' }} />
+              </a>
+            </Tooltip>
+          )}
+        </Space>
       ),
     },
   ];
@@ -405,6 +477,15 @@ export default function ProgramaDetalle() {
   ];
 
   const otrosProgramas = allProgramas.filter((p) => p.id !== parseInt(id));
+
+  const terminoEstudiante = busquedaEstudiante.trim().toLowerCase();
+  const estudiantesFiltrados = terminoEstudiante
+    ? estudiantes.filter((e) => {
+        const nombreCompleto = `${e.nombre ?? ''} ${e.apellido ?? ''}`.toLowerCase();
+        const documento = String(e.numero_documento ?? '').toLowerCase();
+        return nombreCompleto.includes(terminoEstudiante) || documento.includes(terminoEstudiante);
+      })
+    : estudiantes;
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
@@ -473,11 +554,23 @@ export default function ProgramaDetalle() {
           key: 'estudiantes',
           label: <span><TeamOutlined /> Estudiantes <Badge count={estudiantes.length} /></span>,
           children: (
-            <Card bodyStyle={{ padding: 0 }} className="rounded-xl overflow-hidden">
-              <Table columns={estudiantesCols} dataSource={estudiantes} rowKey="id" size="middle"
-                pagination={{ pageSize: 15 }}
-                locale={{ emptyText: 'No hay estudiantes inscritos en este programa' }} />
-            </Card>
+            <div className="space-y-3">
+              <Input
+                allowClear
+                prefix={<TeamOutlined style={{ color: '#9ca3af' }} />}
+                placeholder="Buscar por nombre o número de documento..."
+                value={busquedaEstudiante}
+                onChange={(e) => setBusquedaEstudiante(e.target.value)}
+                style={{ maxWidth: 380 }}
+              />
+              <Card bodyStyle={{ padding: 0 }} className="rounded-xl overflow-hidden">
+                <Table columns={estudiantesCols} dataSource={estudiantesFiltrados} rowKey="id" size="middle"
+                  pagination={{ pageSize: 15 }}
+                  locale={{ emptyText: terminoEstudiante
+                    ? 'No se encontraron estudiantes que coincidan con la búsqueda'
+                    : 'No hay estudiantes inscritos en este programa' }} />
+              </Card>
+            </div>
           ),
         },
 
@@ -1015,6 +1108,106 @@ export default function ProgramaDetalle() {
           filterOption={(i, o) => o.children.toLowerCase().includes(i.toLowerCase())}>
           {otrosProgramas.map((p) => <Select.Option key={p.id} value={p.id}>{p.nombre}</Select.Option>)}
         </Select>
+      </Modal>
+
+      {/* ── Modal evaluaciones del estudiante ─────────────────────────────── */}
+      <Modal
+        open={!!evalStudent}
+        title={
+          evalStudent
+            ? `Evaluaciones de ${evalStudent.nombre} ${evalStudent.apellido || ''}`
+            : 'Evaluaciones'
+        }
+        onCancel={() => setEvalStudent(null)}
+        footer={<Button onClick={() => setEvalStudent(null)}>Cerrar</Button>}
+        width={620}
+        destroyOnClose
+      >
+        {/* Asignar nueva evaluación */}
+        <div className="flex items-end gap-2 mb-4">
+          <div className="flex-1">
+            <Text type="secondary" className="text-xs">Asignar evaluación del programa</Text>
+            <Select
+              style={{ width: '100%' }}
+              placeholder={evalsDisponibles.length ? 'Selecciona una evaluación' : 'No hay evaluaciones disponibles'}
+              value={assignEvalId}
+              onChange={setAssignEvalId}
+              showSearch
+              allowClear
+              disabled={!evalsDisponibles.length}
+              filterOption={(input, opt) => (opt.children || '').toLowerCase().includes(input.toLowerCase())}
+            >
+              {evalsDisponibles.map((ev) => (
+                <Select.Option key={ev.id} value={ev.id}>{ev.titulo}</Select.Option>
+              ))}
+            </Select>
+          </div>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            loading={assigningEval}
+            disabled={!assignEvalId}
+            onClick={handleAssignEval}
+            style={{ backgroundColor: '#d97706', borderColor: '#d97706' }}
+          >
+            Asignar
+          </Button>
+        </div>
+
+        <Divider style={{ margin: '8px 0 12px' }} />
+
+        {/* Evaluaciones asignadas */}
+        <Spin spinning={loadingStudentEvals}>
+          {studentEvals.length === 0 && !loadingStudentEvals ? (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="Este estudiante no tiene evaluaciones asignadas"
+            />
+          ) : (
+            <List
+              size="small"
+              dataSource={studentEvals}
+              renderItem={(ev) => (
+                <List.Item
+                  actions={[
+                    <Popconfirm
+                      key="del"
+                      title="¿Quitar esta evaluación al estudiante?"
+                      onConfirm={() => handleRemoveAssignment(ev.evaluacion_id)}
+                      okText="Sí"
+                      cancelText="No"
+                      okButtonProps={{ danger: true }}
+                    >
+                      <Button type="text" size="small" danger icon={<DeleteOutlined />}
+                        loading={removingEvalId === ev.evaluacion_id} />
+                    </Popconfirm>,
+                  ]}
+                >
+                  <List.Item.Meta
+                    avatar={<TrophyOutlined style={{ color: '#d97706', fontSize: 18 }} />}
+                    title={<span className="font-medium">{ev.titulo}</span>}
+                    description={
+                      <Space size={6} wrap>
+                        <Tag color={ev.estado === 'finalizada' ? 'green' : 'gold'}>
+                          {ev.estado === 'finalizada' ? 'Finalizada' : 'Pendiente'}
+                        </Tag>
+                        {ev.calificacion != null && (
+                          <Tag color={Number(ev.calificacion) >= 3 ? 'green' : 'red'}>
+                            Nota: {Number(ev.calificacion).toFixed(1)}
+                          </Tag>
+                        )}
+                        <span className="text-xs text-gray-400">
+                          Intentos: {ev.intentos_realizados ?? 0}
+                          {ev.intentos_max ? ` / ${ev.intentos_max}` : ''}
+                        </span>
+                      </Space>
+                    }
+                  />
+                </List.Item>
+              )}
+            />
+          )}
+        </Spin>
       </Modal>
 
       {/* ── Horario drawer ────────────────────────────────────────────────── */}

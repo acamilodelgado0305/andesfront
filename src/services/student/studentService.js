@@ -303,3 +303,32 @@ export const deleteStudentDocument = async (studentId, documentId) => {
   );
   return response.data; // { message: "Documento eliminado correctamente" }
 };
+
+// ========================= COMENTARIOS DEL ESTUDIANTE ========================= //
+
+export const getStudentComments = async (studentId) => {
+  const response = await backApi.get(`/api/students/${studentId}/comments`);
+  return response.data; // array de comentarios (más reciente primero)
+};
+
+export const createStudentComment = async (studentId, comentario) => {
+  const response = await backApi.post(`/api/students/${studentId}/comments`, {
+    comentario,
+  });
+  return response.data; // comentario creado
+};
+
+export const updateStudentComment = async (studentId, commentId, comentario) => {
+  const response = await backApi.put(
+    `/api/students/${studentId}/comments/${commentId}`,
+    { comentario }
+  );
+  return response.data; // comentario actualizado
+};
+
+export const deleteStudentComment = async (studentId, commentId) => {
+  const response = await backApi.delete(
+    `/api/students/${studentId}/comments/${commentId}`
+  );
+  return response.data; // { message }
+};

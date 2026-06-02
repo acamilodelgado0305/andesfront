@@ -17,7 +17,6 @@ import {
   Form,
   Progress,
 } from "antd";
-import { useNavigate, useLocation } from "react-router-dom";
 import {
   InboxOutlined,
   RollbackOutlined,
@@ -30,6 +29,7 @@ import {
 import moment from "moment";
 import { bulkMoveToPrograma } from "../../services/student/studentService";
 import { getProgramas } from "../../services/programas/programasService";
+import StudentDetailModal from "./StudentDetailModal";
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -58,6 +58,7 @@ const StudentTable = ({ onArchive, onRestore, showArchived = false, students = [
   const [moveReplace, setMoveReplace] = useState(true);
   const [programas, setProgramas] = useState([]);
   const [movingStudents, setMovingStudents] = useState(false);
+  const [detailModal, setDetailModal] = useState({ open: false, studentId: null });
 
   const [filters, setFilters] = useState(() => {
     if (typeof window === "undefined") {
@@ -98,9 +99,6 @@ const StudentTable = ({ onArchive, onRestore, showArchived = false, students = [
       };
     }
   });
-
-  const navigate = useNavigate();
-  const location = useLocation();
 
   // Coordinadores únicos
   const coordinators = useMemo(() => {
@@ -938,10 +936,7 @@ const StudentTable = ({ onArchive, onRestore, showArchived = false, students = [
             emptyText: 'No hay estudiantes disponibles que coincidan con los filtros.',
           }}
           onRow={(record) => ({
-            onClick: () =>
-              navigate(`/inicio/students/view/${record.id}`, {
-                state: { from: `${location.pathname}${location.search}` },
-              }),
+            onClick: () => setDetailModal({ open: true, studentId: record.id }),
           })}
           rowClassName="cursor-pointer"
           size="middle"
@@ -1058,6 +1053,12 @@ const StudentTable = ({ onArchive, onRestore, showArchived = false, students = [
           </Radio.Group>
         </div>
       </Modal>
+
+      <StudentDetailModal
+        open={detailModal.open}
+        studentId={detailModal.studentId}
+        onClose={() => setDetailModal({ open: false, studentId: null })}
+      />
 
       <style>{`
         .ant-table-cell {

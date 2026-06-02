@@ -5,7 +5,7 @@ import {
 } from 'antd';
 import {
   SearchOutlined, ClearOutlined, FilePdfOutlined,
-  EditOutlined, DeleteOutlined,
+  EditOutlined, DeleteOutlined, MailOutlined,
 } from '@ant-design/icons';
 import moment from 'moment';
 import dayjs from 'dayjs';
@@ -21,6 +21,10 @@ moment.locale('es');
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
+// Microservicio académico (andesback) que genera/envía certificado y carnet
+const API_CERT_URL = import.meta.env.VITE_API_BACKEND;
+const INTENSIDAD_HORARIA_DEFAULT = '10';
+
 // Atajos de fecha
 const QUICK_RANGES = [
   { label: 'Hoy',    range: () => [moment().startOf('day'),   moment().endOf('day')]   },
@@ -33,7 +37,7 @@ const QUICK_RANGES = [
 /* ─────────────────────────────────────────────────────────────────────────────
    Mobile card component
 ───────────────────────────────────────────────────────────────────────────── */
-const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, onDelete }) => {
+const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, onDelete, canSendMail, sending, onSendMail }) => {
   const dateField = type === 'ingresos' ? 'createdAt' : 'fecha';
   const date      = record[dateField];
   const isIngreso = type === 'ingresos';
@@ -156,6 +160,15 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
         </Tag>
 
         <Space size={4}>
+          {canSendMail && (
+            <Button
+              size="small"
+              type="text"
+              loading={sending}
+              icon={<MailOutlined style={{ color: '#155153' }} />}
+              onClick={() => onSendMail(record)}
+            />
+          )}
           <Button
             size="small"
             type="text"
@@ -191,6 +204,7 @@ const TransactionTable = ({
   const [paymentFilter, setPaymentFilter] = useState(null);
   const [conceptFilter, setConceptFilter] = useState(null);
   const [vendedorFilter,setVendedorFilter]= useState(null);
+  const [sendingId,     setSendingId]     = useState(null);
 
   const getConcept = (r = {}) => {
     if (r.items_detalle) {
@@ -205,6 +219,73 @@ const TransactionTable = ({
   const syncFilters = (partial) => {
     if (!onFiltersChange) return;
     onFiltersChange((prev) => ({ ...prev, ...partial }));
+  };
+
+  // Inventario que tiene habilitado el envío de correo (certificado + carnet)
+  const sendMailLookup = useMemo(() => {
+    const byId = {};
+    const byName = {};
+    (inventario || []).forEach(i => {
+      if (i.send_mail === true) {
+        if (i.id != null) byId[String(i.id)] = true;
+        const nm = (i.nombre || i.name || '').trim().toLowerCase();
+        if (nm) byName[nm] = true;
+      }
+    });
+    return { byId, byName };
+  }, [inventario]);
+
+  // ¿Algún producto del registro tiene activado el envío de correo?
+  const recordSendsMail = (r = {}) => {
+    if (type !== 'ingresos') return false;
+    let items = r.items_detalle;
+    if (typeof items === 'string') {
+      try { items = JSON.parse(items); } catch { items = []; }
+    }
+    if (Array.isArray(items) && items.length > 0) {
+      return items.some(it =>
+        (it.inventario_id != null && sendMailLookup.byId[String(it.inventario_id)]) ||
+        sendMailLookup.byName[(it.descripcion || it.nombre_producto || '').trim().toLowerCase()] === true
+      );
+    }
+    return sendMailLookup.byName[(r.producto || '').trim().toLowerCase()] === true;
+  };
+
+  // Enviar certificado + carnet al correo del cliente del registro
+  const handleEnviarCorreo = async (r) => {
+    const email = r.customer_email || r.cliente_email;
+    if (!email) {
+      message.warning('El cliente de esta venta no tiene correo registrado.');
+      return;
+    }
+    const nombre = `${r.cliente_nombre || r.nombre || ''} ${r.persona_id != null ? (r.cliente_apellido ?? '') : (r.apellido || '')}`.trim();
+    const body = {
+      nombre: nombre || 'Cliente',
+      numeroDocumento: r.cliente_documento || r.numeroDeDocumento || '0',
+      tipoDocumento: r.cliente_tipo_doc || r.tipoDocumento || 'C.C.',
+      intensidadHoraria: INTENSIDAD_HORARIA_DEFAULT,
+      email,
+    };
+
+    setSendingId(r._id);
+    const hide = message.loading(`Enviando certificado y carnet a ${email}...`, 0);
+    try {
+      const res = await fetch(`${API_CERT_URL}/api/enviar-documentos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        message.success(`Certificado y carnet enviados a ${email}`);
+      } else {
+        message.warning('Falló el envío de los documentos por correo.');
+      }
+    } catch {
+      message.error('Error al enviar el correo.');
+    } finally {
+      hide();
+      setSendingId(null);
+    }
   };
 
   // Opciones de producto desde el inventario real
@@ -623,6 +704,9 @@ const TransactionTable = ({
                 getConcept={getConcept}
                 onEdit={onEdit}
                 onDelete={handleDelete}
+                canSendMail={recordSendsMail(record)}
+                sending={sendingId === record._id}
+                onSendMail={handleEnviarCorreo}
               />
             ))
           )}
@@ -634,10 +718,21 @@ const TransactionTable = ({
             {
               title: '',
               key: 'act',
-              width: 70,
+              width: 100,
               fixed: 'right',
               render: (_, r) => (
                 <Space>
+                  {recordSendsMail(r) && (
+                    <Tooltip title="Enviar certificado y carnet por correo">
+                      <Button
+                        size="small"
+                        type="text"
+                        loading={sendingId === r._id}
+                        icon={<MailOutlined style={{ color: '#155153' }} />}
+                        onClick={() => handleEnviarCorreo(r)}
+                      />
+                    </Tooltip>
+                  )}
                   <Button size="small" type="text" icon={<EditOutlined className="text-blue-500" />} onClick={() => onEdit(r)} />
                   <Popconfirm title="¿Borrar registro?" onConfirm={() => handleDelete(r._id)}>
                     <Button size="small" type="text" icon={<DeleteOutlined className="text-red-400" />} />

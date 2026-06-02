@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
     Drawer, Form, Button, Input, Select, Typography, message,
     Row, Col, Statistic, Space, Dropdown, Menu,
-    Avatar, Tag, Spin, Empty, InputNumber,
+    Avatar, Tag, Spin, Empty, InputNumber, Checkbox,
 } from 'antd';
 import {
     FileDoneOutlined, UserOutlined, ShoppingOutlined, WalletOutlined,
     EditOutlined, DownOutlined, FilePdfOutlined, SaveOutlined,
     SearchOutlined, UserAddOutlined, CloseCircleOutlined, PlusOutlined, CloseOutlined,
+    MailOutlined,
 } from '@ant-design/icons';
 
 import { cuentaOptions } from '../options';
@@ -19,6 +20,10 @@ import { useCurrencyInput } from '../../../hooks/useCurrency';
 import useIsMobile from '../../../hooks/useIsMobile';
 
 const { Title, Text } = Typography;
+
+// Backend académico (andesback) — donde viven los endpoints de certificados/carnets
+const API_CERT_URL = import.meta.env.VITE_API_BACKEND;
+const INTENSIDAD_HORARIA_DEFAULT = '10';
 
 const SECTION = ({ icon, title, children }) => (
     <div style={{ background: '#fff', padding: 20, borderRadius: 8, border: '1px solid #e8e8e8', marginBottom: 14 }}>
@@ -47,6 +52,17 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
     const [selectedPersona, setSelectedPersona]     = useState(null);
     const [personaDrawerOpen, setPersonaDrawerOpen] = useState(false);
 
+    // ── Envío de certificado por correo ───────────────────────
+    const [enviarCorreo, setEnviarCorreo]           = useState(false);
+
+    // Ítems seleccionados marcados con send_mail en el inventario
+    const itemsConCorreo = lineItems.filter(li => {
+        const inv = inventario.find(i => i.nombre === li.name);
+        return li.name && inv?.send_mail === true;
+    });
+    const algunItemEnviaCorreo = itemsConCorreo.length > 0;
+    const clienteTieneCorreo   = !!selectedPersona?.email;
+
     // Total derivado de las líneas
     const valorTotal = lineItems.reduce((sum, li) => {
         const inv = inventario.find(i => i.nombre === li.name);
@@ -71,6 +87,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
     // ── Reset / poblar al abrir ───────────────────────────────
     useEffect(() => {
         if (!open) return;
+        setEnviarCorreo(false);
         if (!initialValues) {
             form.resetFields();
             form.setFieldsValue({ vendedor: userName, valor: 0 });
@@ -132,6 +149,29 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
     const addLine = () =>
         setLineItems(prev => [...prev, emptyLine()]);
 
+    // ── Envío de certificado + carnet por correo ──────────────
+    const enviarDocumentosPorCorreo = async () => {
+        const body = {
+            nombre: `${selectedPersona.nombre} ${selectedPersona.apellido || ''}`.trim(),
+            numeroDocumento: selectedPersona.numero_documento || '0',
+            tipoDocumento: selectedPersona.tipo_documento || 'C.C.',
+            intensidadHoraria: INTENSIDAD_HORARIA_DEFAULT,
+            email: selectedPersona.email,
+        };
+
+        const res = await fetch(`${API_CERT_URL}/api/enviar-documentos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        if (res.ok) {
+            message.success(`Certificado y carnet enviados a ${selectedPersona.email}`);
+        } else {
+            message.warning('La venta se guardó, pero falló el envío de los documentos por correo.');
+        }
+    };
+
     // ── Guardar ───────────────────────────────────────────────
     const handleSave = async (generatePdf = false) => {
         const validLines = lineItems.filter(li => li.name);
@@ -182,6 +222,16 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
             } else {
                 await createIngreso(payload);
                 message.success('Venta registrada exitosamente');
+            }
+
+            // Envío de certificado + carnet por correo (si aplica y se marcó la opción)
+            if (enviarCorreo && algunItemEnviaCorreo && clienteTieneCorreo) {
+                try {
+                    await enviarDocumentosPorCorreo();
+                } catch (mailErr) {
+                    console.error('Error enviando documentos por correo:', mailErr);
+                    message.warning('La venta se guardó, pero no se pudieron enviar los documentos por correo.');
+                }
             }
 
             if (generatePdf) message.info('Generando factura PDF...');
@@ -488,6 +538,28 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                             </div>
                         </div>
                     </SECTION>
+
+                    {/* ── ENVÍO DE CERTIFICADO POR CORREO ──────── */}
+                    {algunItemEnviaCorreo && (
+                        <SECTION icon={<MailOutlined />} title="Certificación">
+                            <Checkbox
+                                checked={enviarCorreo}
+                                disabled={!clienteTieneCorreo}
+                                onChange={e => setEnviarCorreo(e.target.checked)}
+                            >
+                                Enviar certificado y carnet al correo del cliente
+                            </Checkbox>
+                            <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
+                                {clienteTieneCorreo ? (
+                                    <span>Se enviarán a <Text strong>{selectedPersona.email}</Text> al guardar.</span>
+                                ) : (
+                                    <span style={{ color: '#d97706' }}>
+                                        El cliente seleccionado no tiene correo. Edítalo o elige otro para habilitar el envío.
+                                    </span>
+                                )}
+                            </div>
+                        </SECTION>
+                    )}
 
                     <Form.Item name="vendedor" hidden><Input /></Form.Item>
                 </Form>

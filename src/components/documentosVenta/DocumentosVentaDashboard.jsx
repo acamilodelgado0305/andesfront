@@ -9,7 +9,7 @@ import {
   EditOutlined, DeleteOutlined, EyeOutlined,
   SearchOutlined, ReloadOutlined, MoreOutlined,
   CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined,
-  DollarOutlined, WalletOutlined,
+  DollarOutlined, WalletOutlined, CopyOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import useCurrency from '../../hooks/useCurrency';
@@ -19,6 +19,7 @@ import {
   deleteDocumentoVenta,
   updateDocumentoVenta,
   registrarAbono,
+  duplicarDocumento,
 } from '../../services/documentoVenta/documentoVentaService';
 import DocumentoVentaForm from './DocumentoVentaForm';
 import FacturaViewer from './FacturaViewer';
@@ -112,6 +113,23 @@ const DocumentosVentaDashboard = () => {
           message.success('Factura eliminada');
           cargarDatos();
         } catch { message.error('Error al eliminar'); }
+      },
+    });
+  };
+
+  // ─── Duplicar ─────────────────────────────────────────────────────────────────
+  const handleDuplicar = (doc) => {
+    Modal.confirm({
+      title: `Duplicar factura ${doc.numero}`,
+      content: 'Se creará una nueva factura con la misma estructura en estado EMITIDA.',
+      okText: 'Duplicar',
+      cancelText: 'Cancelar',
+      onOk: async () => {
+        try {
+          await duplicarDocumento(doc.id);
+          message.success('Factura duplicada correctamente');
+          cargarDatos();
+        } catch { message.error('Error al duplicar la factura'); }
       },
     });
   };
@@ -288,6 +306,12 @@ const DocumentosVentaDashboard = () => {
                 label: 'Registrar abono',
                 disabled: ['PAGADA', 'ANULADA'].includes(rec.estado),
                 onClick: () => { setAbonoMonto(null); setAbonoCuenta('Efectivo'); setAbonoNota(''); setAbonoModal({ open: true, doc: rec }); },
+              },
+              {
+                key: 'duplicar',
+                icon: <CopyOutlined />,
+                label: 'Duplicar factura',
+                onClick: () => handleDuplicar(rec),
               },
               { type: 'divider' },
               {

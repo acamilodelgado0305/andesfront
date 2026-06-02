@@ -33,6 +33,12 @@ export const deletePayment = async (paymentId) => {
   return response.data;
 };
 
+// 5b. Editar un pago existente (monto, programa, método, concepto, etc.)
+export const updatePayment = async (paymentId, payload) => {
+  const response = await backApi.put(`/api/payments/${paymentId}`, payload);
+  return response.data;
+};
+
 // 6. Obtener TODOS los pagos del sistema con filtro opcional de fecha
 export const getAllPayments = async ({ fecha_inicio, fecha_fin } = {}) => {
   const params = {};
@@ -55,6 +61,17 @@ export const getStudentsWithoutPayment = async ({ fecha_inicio, fecha_fin } = {}
 export const getTotalPaidByStudent = async (studentId) => {
   const response = await backApi.get(
     `/api/payments/student/${studentId}/total-paid`
+  );
+  return response.data;
+};
+
+// 9. Actualizar el total personalizado del estudiante en un programa.
+// montoTotal = null/"" => vuelve a usar el total del programa.
+// No afecta lo que el estudiante ya ha abonado, solo recalcula el saldo.
+export const updateStudentProgramTotal = async (studentId, programaId, montoTotal) => {
+  const response = await backApi.put(
+    `/api/students/${studentId}/programas/${programaId}/monto-total`,
+    { monto_total: montoTotal }
   );
   return response.data;
 };
