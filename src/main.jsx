@@ -30,6 +30,7 @@ import DashboardClients from "./components/admin/DashboardClients";
 import UsersDashboard from "./components/admin/UsersDashboard";
 import Inventario from "./components/inventario/Inventario";
 import PersonasDashboard from "./components/personas/PersonasDashboard";
+import CrmDashboard from "./components/crm/CrmDashboard";
 import Verificacion from "./components/Calificaciones/Verificacion";
 import Docentes from "./GestionAcademica/Docentes/Docentes";
 import ConsultaPreRegistro from "./components/Calificaciones/ConsultaPreRegistro";
@@ -131,6 +132,7 @@ const App = () => (
             <Route path="generacion" element={<Generacion />} />
             <Route path="inventario" element={<Inventario />} />
             <Route path="personas" element={<PersonasDashboard />} />
+            <Route path="crm" element={<CrmDashboard />} />
             <Route path="pedidos" element={<PedidosDashboard />} />
             <Route path="documentos-venta" element={<DocumentosVentaDashboard />} />
             <Route path="students/facturas/:id" element={<Facturas />} />

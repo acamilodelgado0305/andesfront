@@ -963,27 +963,11 @@ function Inventario() {
             <Input.TextArea rows={3} placeholder="Detalles adicionales..."/>
           </Form.Item>
 
-          <Divider orientation="left" style={{ fontSize:12, fontWeight:700, color:'#155153', margin:'4px 0 16px' }}>
-            Certificación
-          </Divider>
-
-          {/* 9. ENVÍO DE CERTIFICADO POR CORREO */}
-          <div style={{
-            display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
-            padding:'12px 14px', borderRadius:10, border:'1.5px solid #e5e7eb', background:'#fafafa',
-          }}>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13, fontWeight:600, color:'#475569' }}>
-                Enviar certificado y carnet por correo
-              </div>
-              <div style={{ fontSize:11, color:'#94a3b8', marginTop:2 }}>
-                Al vender este ítem en un ingreso, se ofrecerá enviar los documentos al correo del cliente.
-              </div>
-            </div>
-            <Form.Item name="send_mail" valuePropName="checked" noStyle>
-              <Switch style={{ flexShrink:0 }} />
-            </Form.Item>
-          </div>
+          {/* 9. ENVÍO DE CERTIFICADO POR CORREO — oculto en el formulario (crear y editar).
+              El valor send_mail se conserva oculto para no perderlo al guardar. */}
+          <Form.Item name="send_mail" valuePropName="checked" hidden>
+            <Switch />
+          </Form.Item>
 
         </Form>
       </Drawer>
