@@ -7,6 +7,7 @@ import {
   PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined,
   SearchOutlined, CloseOutlined, CheckCircleOutlined,
   UsergroupAddOutlined, PhoneOutlined, MailOutlined, BankOutlined,
+  IdcardOutlined,
 } from "@ant-design/icons";
 
 import {
@@ -37,6 +38,9 @@ const ORIGENES = [
   { value: 'OTRO',      label: 'Otro' },
 ];
 const ORIGEN_MAP = ORIGENES.reduce((a, o) => { a[o.value] = o; return a; }, {});
+
+// ─── Tipos de documento (igual que en Contactos) ────────────
+const TIPOS_DOC = ['CC', 'CE', 'TI', 'PAS', 'NIT', 'PPT'];
 
 const EstadoTag = ({ estado }) => {
   const e = ESTADO_MAP[estado] || ESTADO_MAP.NUEVO;
@@ -102,14 +106,16 @@ function CrmDashboard() {
     if (!isDrawerOpen) return;
     if (editingItem) {
       form.setFieldsValue({
-        nombre:         editingItem.nombre,
-        empresa:        editingItem.empresa || '',
-        email:          editingItem.email || '',
-        telefono:       editingItem.telefono || '',
-        origen:         editingItem.origen || 'OTRO',
-        estado:         editingItem.estado || 'NUEVO',
-        valor_estimado: Number(editingItem.valor_estimado) || 0,
-        notas:          editingItem.notas || '',
+        nombre:           editingItem.nombre,
+        empresa:          editingItem.empresa || '',
+        tipo_documento:   editingItem.tipo_documento || undefined,
+        numero_documento: editingItem.numero_documento || '',
+        email:            editingItem.email || '',
+        telefono:         editingItem.telefono || '',
+        origen:           editingItem.origen || 'OTRO',
+        estado:           editingItem.estado || 'NUEVO',
+        valor_estimado:   Number(editingItem.valor_estimado) || 0,
+        notas:            editingItem.notas || '',
       });
     } else {
       form.resetFields();
@@ -125,14 +131,16 @@ function CrmDashboard() {
     setIsSubmitting(true);
     try {
       const payload = {
-        nombre:         values.nombre,
-        empresa:        values.empresa || '',
-        email:          values.email || '',
-        telefono:       values.telefono || '',
-        origen:         values.origen || 'OTRO',
-        estado:         values.estado || 'NUEVO',
-        valor_estimado: values.valor_estimado || 0,
-        notas:          values.notas || '',
+        nombre:           values.nombre,
+        empresa:          values.empresa || '',
+        tipo_documento:   values.tipo_documento || '',
+        numero_documento: values.numero_documento || '',
+        email:            values.email || '',
+        telefono:         values.telefono || '',
+        origen:           values.origen || 'OTRO',
+        estado:           values.estado || 'NUEVO',
+        valor_estimado:   values.valor_estimado || 0,
+        notas:            values.notas || '',
       };
       if (editingItem) {
         await updateLead(editingItem.id, payload);
@@ -186,6 +194,7 @@ function CrmDashboard() {
         <div>
           <span className="font-semibold text-gray-800">{r.nombre}</span>
           {r.empresa && <div className="text-xs text-gray-400"><BankOutlined /> {r.empresa}</div>}
+          {r.numero_documento && <div className="text-xs text-gray-400"><IdcardOutlined /> {r.tipo_documento ? `${r.tipo_documento} ` : ''}{r.numero_documento}</div>}
           <div className="flex flex-col gap-0.5 mt-0.5">
             {r.telefono && <span className="text-xs text-gray-400"><PhoneOutlined /> {r.telefono}</span>}
             {r.email && <span className="text-xs text-gray-400"><MailOutlined /> {r.email}</span>}
@@ -261,6 +270,7 @@ function CrmDashboard() {
               </div>
               <EstadoTag estado={r.estado} />
             </div>
+            {r.numero_documento && <div style={{ fontSize: 12, color: '#6b7280' }}><IdcardOutlined /> {r.tipo_documento ? `${r.tipo_documento} ` : ''}{r.numero_documento}</div>}
             {r.telefono && <div style={{ fontSize: 12, color: '#6b7280' }}><PhoneOutlined /> {r.telefono}</div>}
             {r.email && <div style={{ fontSize: 12, color: '#6b7280' }}><MailOutlined /> {r.email}</div>}
             <div style={{ height: 1, background: '#e5e7eb', margin: '8px 0' }} />
@@ -415,6 +425,19 @@ function CrmDashboard() {
           <Form.Item name="empresa"
             label={<span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>Empresa</span>}>
             <Input size="large" prefix={<BankOutlined className="text-gray-400" />} placeholder="Ej: Comercial XYZ" />
+          </Form.Item>
+
+          <Form.Item
+            label={<span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>Documento</span>}>
+            <Space.Compact style={{ width: '100%' }}>
+              <Form.Item name="tipo_documento" noStyle>
+                <Select size="large" style={{ width: 110 }} allowClear placeholder="Tipo"
+                  options={TIPOS_DOC.map(t => ({ value: t, label: t }))} />
+              </Form.Item>
+              <Form.Item name="numero_documento" noStyle>
+                <Input size="large" prefix={<IdcardOutlined className="text-gray-400" />} placeholder="Número de documento" />
+              </Form.Item>
+            </Space.Compact>
           </Form.Item>
 
           <Form.Item name="telefono"
