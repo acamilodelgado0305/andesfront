@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import {
   Spin, Alert, Empty, Button, Drawer, Form, Input, InputNumber,
   notification, Tooltip, Modal, Tag, Select, Table, Space, Card,
@@ -13,6 +13,10 @@ import {
 import {
   getLeads, getLeadStats, createLead, updateLead, deleteLead,
 } from "../../services/crm/crmLeadService";
+import { useNavigate } from "react-router-dom";
+import { createPersona, getPersonas, getPersonaById } from "../../services/person/personaService";
+import IngresoDrawer from "../Certificados/components/IngresoDrawer";
+import { AuthContext } from "../../AuthContext";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 import useIsMobile from "../../hooks/useIsMobile";
 
@@ -62,6 +66,8 @@ function CrmDashboard() {
   const fmt = useCurrency();
   const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
 
   const [items, setItems]               = useState([]);
   const [stats, setStats]               = useState(null);
@@ -72,6 +78,9 @@ function CrmDashboard() {
   const [editingItem, setEditingItem]   = useState(null);
   const [searchTerm, setSearchTerm]     = useState('');
   const [filterEstado, setFilterEstado] = useState('todos');
+  const [converting, setConverting]     = useState(false);
+  const [ingresoOpen, setIngresoOpen]   = useState(false);
+  const [ingresoPersona, setIngresoPersona] = useState(null);
   const [form] = Form.useForm();
 
   // ── Carga ──
@@ -142,15 +151,23 @@ function CrmDashboard() {
         valor_estimado:   values.valor_estimado || 0,
         notas:            values.notas || '',
       };
+      // ¿Pasó a "Ganado" en este guardado?
+      const becameGanado = values.estado === 'GANADO' && (!editingItem || editingItem.estado !== 'GANADO');
+      let leadGuardado = editingItem ? { ...editingItem, ...payload } : null;
+
       if (editingItem) {
         await updateLead(editingItem.id, payload);
         notification.success({ message: 'Lead actualizado' });
       } else {
-        await createLead(payload);
+        const created = await createLead(payload);
+        leadGuardado = { ...payload, ...(created?.data || {}) };
         notification.success({ message: 'Lead creado' });
       }
       handleCloseDrawer();
       fetchLeads();
+
+      // Disparar conversión a cliente + venta si corresponde
+      if (becameGanado && leadGuardado?.id) convertirYVender(leadGuardado);
     } catch (err) {
       notification.error({ message: 'Operación fallida', description: err.response?.data?.message || 'Error al guardar.' });
     } finally {
@@ -177,12 +194,79 @@ function CrmDashboard() {
 
   // Cambio rápido de estado desde la tabla
   const handleQuickEstado = async (item, estado) => {
+    // Al pasar a "Ganado" → convertir el lead en cliente y abrir la venta
+    if (estado === 'GANADO') return convertirYVender(item);
     try {
       await updateLead(item.id, { estado });
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, estado } : i));
       fetchLeads();
     } catch {
       notification.error({ message: 'No se pudo cambiar el estado' });
+    }
+  };
+
+  // ── Lead GANADO → Cliente + registrar venta ──────────────────
+  // Crea (o reutiliza) la persona/cliente a partir del lead, enlaza
+  // el lead y abre el IngresoDrawer con ese cliente preseleccionado.
+  const convertirYVender = async (lead) => {
+    if (converting) return;
+    setConverting(true);
+    try {
+      let persona = null;
+
+      // 1. Si el lead ya estaba enlazado a un cliente, reutilizarlo
+      if (lead.persona_id) {
+        try { persona = await getPersonaById(lead.persona_id); } catch { persona = null; }
+      }
+
+      // 2. Si no, crear el cliente con los datos del lead
+      if (!persona?.id) {
+        const partes = (lead.nombre || '').trim().split(/\s+/);
+        const nombre = partes.shift() || lead.nombre || 'Cliente';
+        const apellido = partes.join(' ');
+        try {
+          const res = await createPersona({
+            nombre,
+            apellido,
+            tipo_documento:   lead.tipo_documento || 'CC',
+            numero_documento: lead.numero_documento || undefined,
+            celular:          lead.telefono || '',
+            email:            lead.email || undefined,
+            direccion:        '',
+            tipo:             'CLIENTE',
+          });
+          persona = res?.data || res;
+        } catch (err) {
+          // Si ya existe un cliente con ese documento, reutilizarlo
+          if (err.response?.status === 409 && lead.numero_documento) {
+            const enc = await getPersonas({ q: lead.numero_documento });
+            const arr = Array.isArray(enc) ? enc : (enc?.personas || []);
+            persona = arr.find(p => String(p.numero_documento) === String(lead.numero_documento)) || arr[0] || null;
+          }
+          if (!persona?.id) throw err;
+        }
+      }
+
+      if (!persona?.id) throw new Error('No se pudo crear u obtener el cliente.');
+
+      // 3. Marcar el lead como ganado y enlazarlo al cliente
+      await updateLead(lead.id, { estado: 'GANADO', persona_id: persona.id });
+      setItems(prev => prev.map(i => i.id === lead.id ? { ...i, estado: 'GANADO', persona_id: persona.id } : i));
+
+      // 4. Abrir la venta con el cliente preseleccionado
+      setIngresoPersona(persona);
+      setIngresoOpen(true);
+      notification.success({
+        message: 'Lead convertido en cliente',
+        description: 'Registra la venta para completar el proceso.',
+      });
+    } catch (err) {
+      notification.error({
+        message: 'No se pudo convertir el lead',
+        description: err.response?.data?.message || err.message || 'Inténtalo de nuevo.',
+      });
+    } finally {
+      setConverting(false);
     }
   };
 
@@ -220,6 +304,7 @@ function CrmDashboard() {
           size="small"
           variant="borderless"
           style={{ width: 140 }}
+          disabled={converting}
           onClick={e => e.stopPropagation()}
           onChange={(val) => handleQuickEstado(r, val)}
           options={ESTADOS.map(e => ({ value: e.value, label: <EstadoTag estado={e.value} /> }))}
@@ -473,6 +558,17 @@ function CrmDashboard() {
           </Form.Item>
         </Form>
       </Drawer>
+
+      {/* ═══════════════════════════════════════
+          DRAWER — REGISTRAR VENTA (lead ganado → cliente)
+      ═══════════════════════════════════════ */}
+      <IngresoDrawer
+        open={ingresoOpen}
+        onClose={() => { setIngresoOpen(false); setIngresoPersona(null); }}
+        onSuccess={() => { setIngresoOpen(false); setIngresoPersona(null); navigate('/inicio/certificados'); }}
+        userName={user?.name}
+        initialPersona={ingresoPersona}
+      />
     </div>
   );
 }

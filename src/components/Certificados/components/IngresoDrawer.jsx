@@ -36,7 +36,7 @@ const HDR = { fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'u
 
 const emptyLine = () => ({ name: '', qty: 1 });
 
-const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
+const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, initialPersona }) => {
     const { prefix: currPrefix } = useCurrencyInput();
     const isMobile = useIsMobile();
     const [form] = Form.useForm();
@@ -97,7 +97,8 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
         if (!initialValues) {
             form.resetFields();
             form.setFieldsValue({ vendedor: userName, valor: 0 });
-            setSelectedPersona(null);
+            // Preseleccionar contacto si se abre desde otro flujo (ej. convertir lead a cliente)
+            setSelectedPersona(initialPersona || null);
             setPersonaSearch('');
             setPersonas([]);
             setLineItems([emptyLine()]);
@@ -129,7 +130,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) =>
                 setLineItems([emptyLine()]);
             }
         }
-    }, [open, initialValues, userName, form]);
+    }, [open, initialValues, initialPersona, userName, form]);
 
     // ── Búsqueda de personas (debounce) ───────────────────────
     useEffect(() => {
