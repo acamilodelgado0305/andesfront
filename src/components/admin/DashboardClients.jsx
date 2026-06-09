@@ -1,26 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Spin, Typography, Input, Form, Select, Button, Tag, message, Modal,
-    Empty, Card, Drawer, Table, Space, InputNumber, Checkbox, Switch, Popconfirm, Tooltip, Grid, Divider
+    Layout, Spin, Typography, Input, Form, Select, Button, Tag, message, Modal,
+    Empty, Card, Drawer, Table, Space, InputNumber, Checkbox, Switch, Popconfirm,
+    Tooltip, Grid, Divider, DatePicker, Statistic, Dropdown, Avatar
 } from 'antd';
 import {
-    UserOutlined, SearchOutlined, PlusOutlined, SaveOutlined,
-    HistoryOutlined, CheckCircleFilled, ClockCircleOutlined,
-    CalendarOutlined, SettingOutlined, EditOutlined, DeleteOutlined,
-    ArrowLeftOutlined, ShopOutlined, AppstoreOutlined
+    SearchOutlined, PlusOutlined, SaveOutlined, HistoryOutlined,
+    CheckCircleFilled, ClockCircleOutlined, CalendarOutlined, SettingOutlined,
+    EditOutlined, DeleteOutlined, ShopOutlined, AppstoreOutlined, MoreOutlined,
+    ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, DollarOutlined,
+    TeamOutlined, ToolOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 import { NumericFormat } from 'react-number-format';
 import { adminService } from '../../services/adminService';
-import { useCurrencyInput } from '../../hooks/useCurrency';
+import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
 
 dayjs.locale('es');
 
+const { Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 const { useBreakpoint } = Grid;
+
+const PRIMARY_COLOR = '#155153';
 
 // --- CONSTANTES ---
 const MODULE_COLORS = {
@@ -37,13 +42,15 @@ const POS_SUBMODULES = [
     { key: 'movimientos', label: 'Movimientos' },
     { key: 'facturas',    label: 'Facturas / Cotizaciones' },
     { key: 'contactos',   label: 'Contactos' },
+    { key: 'crm',         label: 'CRM' },
     { key: 'inventario',  label: 'Inventario' },
     { key: 'pedidos',     label: 'Pedidos' },
 ];
 
 function DashboardClients() {
     const screens = useBreakpoint();
-    const { addonAfter: currSuffix, prefix: currPrefix } = useCurrencyInput();
+    const formatCurrency = useCurrency();
+    const { addonAfter: currSuffix } = useCurrencyInput();
 
     // ==========================================
     // 1. ESTADOS
@@ -51,9 +58,16 @@ function DashboardClients() {
     const [clients, setClients] = useState([]);
     const [filteredClients, setFilteredClients] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [busqueda, setBusqueda] = useState('');
+
     const [selectedClient, setSelectedClient] = useState(null);
     const [clientDetails, setClientDetails] = useState(null);
     const [loadingDetails, setLoadingDetails] = useState(false);
+    const [configDrawerOpen, setConfigDrawerOpen] = useState(false);
+
+    // Selección múltiple para borrado masivo
+    const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
 
     // Modal Asignar Suscripción
     const [isSubModalVisible, setIsSubModalVisible] = useState(false);
@@ -88,11 +102,10 @@ function DashboardClients() {
     const fetchClients = useCallback(async () => {
         try {
             const data = await adminService.getSubscriptions();
-            setClients(data);
-            setFilteredClients(data);
+            setClients(data); // el useEffect de búsqueda sincroniza filteredClients
         } catch (err) {
             console.error(err);
-            message.error("Error al cargar clientes.");
+            message.error("Error al cargar negocios.");
         }
     }, []);
 
@@ -117,22 +130,37 @@ function DashboardClients() {
         }
     }, []);
 
-    useEffect(() => {
-        const loadData = async () => {
-            setLoading(true);
-            await Promise.all([fetchClients(), fetchPublicPlans()]);
-            setLoading(false);
-        };
-        loadData();
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        await Promise.all([fetchClients(), fetchPublicPlans()]);
+        setLoading(false);
     }, [fetchClients, fetchPublicPlans]);
 
+    useEffect(() => { loadData(); }, [loadData]);
+
+    // Mantener la lista filtrada sincronizada con clients + búsqueda
+    useEffect(() => {
+        const query = busqueda.toLowerCase().trim();
+        if (!query) {
+            setFilteredClients(clients);
+            return;
+        }
+        setFilteredClients(clients.filter(c => {
+            const nameMatch = c.name && c.name.toLowerCase().includes(query);
+            const emailMatch = c.email && c.email.toLowerCase().includes(query);
+            const planMatch = c.plan_name && c.plan_name.toLowerCase().includes(query);
+            return nameMatch || emailMatch || planMatch;
+        }));
+    }, [busqueda, clients]);
+
     // ==========================================
-    // 3. LÓGICA CLIENTES
+    // 3. LÓGICA NEGOCIOS
     // ==========================================
-    const handleSelectClient = async (client) => {
+    const handleOpenConfig = async (client) => {
         setSelectedClient(client);
+        setClientDetails(null);
         setModulosOcultos([]);
-        if (!screens.md) window.scrollTo(0, 0);
+        setConfigDrawerOpen(true);
 
         setLoadingDetails(true);
         try {
@@ -146,7 +174,19 @@ function DashboardClients() {
         }
     };
 
-    const handleBackToClients = () => {
+    const refreshSelectedClient = async () => {
+        if (!selectedClient) return;
+        try {
+            const data = await adminService.getClientDetails(selectedClient.id);
+            setClientDetails(data);
+            setModulosOcultos(data.modulos_ocultos || []);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleCloseConfig = () => {
+        setConfigDrawerOpen(false);
         setSelectedClient(null);
         setClientDetails(null);
         setModulosOcultos([]);
@@ -166,13 +206,44 @@ function DashboardClients() {
         }
     };
 
-    const handleSearch = (e) => {
-        const query = e.target.value.toLowerCase();
-        setFilteredClients(clients.filter(c => {
-            const nameMatch = c.name && c.name.toLowerCase().includes(query);
-            const emailMatch = c.email && c.email.toLowerCase().includes(query);
-            return nameMatch || emailMatch;
-        }));
+    const handleDeleteBusiness = async (business) => {
+        try {
+            await adminService.deleteBusiness(business.id);
+            message.success(`Negocio "${business.name}" eliminado correctamente.`);
+            setSelectedRowKeys(prev => prev.filter(k => k !== business.id));
+            handleCloseConfig();
+            await fetchClients();
+        } catch (err) {
+            console.error(err);
+            const errorMsg = err.response?.data?.error || "Error al eliminar el negocio.";
+            message.error(errorMsg);
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedRowKeys.length === 0) return;
+        Modal.confirm({
+            title: `¿Eliminar ${selectedRowKeys.length} negocio(s)?`,
+            content: 'Se borrarán todas las suscripciones y usuarios de los negocios seleccionados. Esta acción es irreversible.',
+            okText: `Sí, eliminar ${selectedRowKeys.length}`,
+            okButtonProps: { danger: true },
+            cancelText: 'Cancelar',
+            onOk: async () => {
+                setBulkDeleting(true);
+                try {
+                    const { message: msg } = await adminService.deleteBusinessesBulk(selectedRowKeys);
+                    message.success(msg || 'Negocios eliminados correctamente.');
+                    setSelectedRowKeys([]);
+                    await fetchClients();
+                } catch (err) {
+                    console.error(err);
+                    const errorMsg = err.response?.data?.error || 'Error al eliminar los negocios.';
+                    message.error(errorMsg);
+                } finally {
+                    setBulkDeleting(false);
+                }
+            },
+        });
     };
 
     const handleCreateBusiness = async (values) => {
@@ -207,7 +278,6 @@ function DashboardClients() {
                 return;
             }
 
-            // Usamos createSubscription para asignar/renovar forzadamente
             await adminService.createSubscription({
                 businessId: selectedClient.id,
                 planId: values.planId,
@@ -216,12 +286,10 @@ function DashboardClients() {
                 description: values.description
             });
 
-            message.success(`Plan asignado a ${selectedClient.name || selectedClient.business_name} correctamente.`);
+            message.success(`Plan asignado a ${selectedClient.name} correctamente.`);
             setIsSubModalVisible(false);
             subForm.resetFields();
-            if (selectedClient) {
-                await handleSelectClient(selectedClient);
-            }
+            await refreshSelectedClient();
             await fetchClients();
         } catch (err) {
             console.error(err);
@@ -237,7 +305,9 @@ function DashboardClients() {
         editSubForm.setFieldsValue({
             planId: sub.plan_id,
             amountPaid: sub.amount_paid,
-            description: sub.description
+            description: sub.description,
+            startDate: sub.start_date ? dayjs(sub.start_date) : null,
+            endDate: sub.end_date ? dayjs(sub.end_date) : null,
         });
         setIsEditSubModalVisible(true);
     };
@@ -245,13 +315,18 @@ function DashboardClients() {
     const handleEditSubscriptionSubmit = async (values) => {
         setIsSubmitting(true);
         try {
-            await adminService.updateSubscription(selectedSubscription.id, values);
+            const payload = {
+                planId: values.planId,
+                amountPaid: values.amountPaid,
+                description: values.description,
+                startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+                endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : null,
+            };
+            await adminService.updateSubscription(selectedSubscription.id, payload);
             message.success("Suscripción actualizada correctamente.");
             setIsEditSubModalVisible(false);
             editSubForm.resetFields();
-            if (selectedClient) {
-                await handleSelectClient(selectedClient);
-            }
+            await refreshSelectedClient();
             await fetchClients();
         } catch (err) {
             console.error(err);
@@ -273,11 +348,7 @@ function DashboardClients() {
     const handleOpenCreatePlan = () => {
         setEditingPlan(null);
         planForm.resetFields();
-        planForm.setFieldsValue({
-            is_active: true,
-            duration_months: 1,
-            modules: []
-        });
+        planForm.setFieldsValue({ is_active: true, duration_months: 1, modules: [] });
         setIsPlanFormVisible(true);
     };
 
@@ -308,9 +379,7 @@ function DashboardClients() {
             await fetchAdminPlans();
             await fetchPublicPlans();
             await fetchClients();
-            if (selectedClient) {
-                await handleSelectClient(selectedClient);
-            }
+            await refreshSelectedClient();
         } catch (error) {
             console.error(error);
             message.error("Error al guardar el plan");
@@ -366,149 +435,295 @@ function DashboardClients() {
         }
     ];
 
+    // ==========================================
+    // 5. HELPERS DE RENDER
+    // ==========================================
     const renderSubscriptionTag = (client) => {
         switch (client.subscription_status) {
             case 'active':
-                return <Tag icon={<CheckCircleFilled />} color="green">Activo hasta {dayjs(client.end_date).format('DD MMM YYYY')}</Tag>;
+                return <Tag icon={<CheckCircleFilled />} color="green">Activo · vence {dayjs(client.end_date).format('DD MMM YYYY')}</Tag>;
             case 'expired':
                 return <Tag icon={<ClockCircleOutlined />} color="red">Vencido {dayjs(client.end_date).format('DD MMM YYYY')}</Tag>;
             default:
-                return <Tag color="default">Sin Suscripción</Tag>;
+                return <Tag color="default">Sin suscripción</Tag>;
         }
     };
 
     // ==========================================
-    // 5. RENDERIZADO RESPONSIVE
+    // 6. STATS
     // ==========================================
+    const totalNegocios = clients.length;
+    const activos = clients.filter(c => c.subscription_status === 'active').length;
+    const vencidos = clients.filter(c => c.subscription_status === 'expired').length;
+    const recaudado = clients.reduce((acc, c) => acc + Number(c.total_paid || 0), 0);
 
+    // ==========================================
+    // 7. COLUMNAS TABLA NEGOCIOS
+    // ==========================================
+    const clientColumns = [
+        {
+            title: 'Negocio',
+            key: 'negocio',
+            render: (_, rec) => (
+                <div className="flex items-center gap-3">
+                    <Avatar
+                        shape="square"
+                        size={36}
+                        style={{ background: PRIMARY_COLOR, flexShrink: 0, fontWeight: 700 }}
+                    >
+                        {(rec.name || '?').charAt(0).toUpperCase()}
+                    </Avatar>
+                    <div className="min-w-0">
+                        <div className="font-semibold text-gray-800 truncate">{rec.name}</div>
+                        <div className="text-xs text-gray-400 truncate">{rec.email || 'Sin correo'}</div>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            title: 'Plan',
+            dataIndex: 'plan_name',
+            key: 'plan_name',
+            responsive: ['md'],
+            render: (plan) => plan
+                ? <Tag color="blue">{plan}</Tag>
+                : <Text type="secondary" className="text-xs">Sin plan</Text>,
+        },
+        {
+            title: 'Estado',
+            key: 'estado',
+            render: (_, rec) => <div className="scale-90 origin-left">{renderSubscriptionTag(rec)}</div>,
+        },
+        {
+            title: 'Total pagado',
+            dataIndex: 'total_paid',
+            key: 'total_paid',
+            align: 'right',
+            responsive: ['sm'],
+            render: (val) => val
+                ? <Text strong className="text-emerald-600">{formatCurrency(Number(val))}</Text>
+                : <Text type="secondary" className="text-xs">—</Text>,
+        },
+        {
+            title: '',
+            key: 'acciones',
+            align: 'center',
+            width: 130,
+            render: (_, rec) => (
+                <Space size={4}>
+                    <Button
+                        size="small"
+                        icon={<ToolOutlined />}
+                        onClick={() => handleOpenConfig(rec)}
+                        style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR }}
+                    >
+                        Configurar
+                    </Button>
+                    <Dropdown
+                        trigger={['click']}
+                        menu={{
+                            items: [
+                                {
+                                    key: 'asignar',
+                                    icon: <PlusOutlined />,
+                                    label: 'Asignar / Renovar',
+                                    onClick: () => { setSelectedClient(rec); setIsSubModalVisible(true); },
+                                },
+                                { type: 'divider' },
+                                {
+                                    key: 'eliminar',
+                                    icon: <DeleteOutlined />,
+                                    label: 'Eliminar negocio',
+                                    danger: true,
+                                    onClick: () => {
+                                        Modal.confirm({
+                                            title: `¿Eliminar "${rec.name}"?`,
+                                            content: 'Se borrarán todas las suscripciones y usuarios del negocio. Esta acción es irreversible.',
+                                            okText: 'Sí, eliminar',
+                                            okButtonProps: { danger: true },
+                                            cancelText: 'Cancelar',
+                                            onOk: () => handleDeleteBusiness(rec),
+                                        });
+                                    },
+                                },
+                            ],
+                        }}
+                    >
+                        <Button size="small" icon={<MoreOutlined />} />
+                    </Dropdown>
+                </Space>
+            ),
+        },
+    ];
+
+    // ==========================================
+    // 8. RENDER
+    // ==========================================
     return (
-        <div className="flex h-[calc(100vh-64px)] bg-slate-50 font-sans overflow-hidden relative">
+        <Content style={{ padding: '16px 20px' }}>
 
-            {/* ----------------------------------------------------------------- */}
-            {/* SIDEBAR (LISTA DE CLIENTES) */}
-            {/* Lógica: Visible si es Desktop (screens.md) O si NO hay cliente seleccionado en móvil */}
-            {/* ----------------------------------------------------------------- */}
-            <aside
-                className={`
-                    flex flex-col bg-white border-r border-slate-200 shadow-sm z-10 transition-all
-                    w-full md:w-1/3 max-w-none md:max-w-sm
-                    ${(!selectedClient || screens.md) ? 'flex' : 'hidden'}
-                `}
-            >
-                {/* Header del Sidebar */}
-                <div className="p-4 border-b border-gray-100 bg-gray-50 flex gap-2 flex-col">
+            {/* Encabezado */}
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div>
+                    <Title level={3} style={{ margin: 0 }}>Negocios</Title>
+                    <Text type="secondary">Administra suscripciones, vencimientos y módulos de cada negocio</Text>
+                </div>
+                <Space wrap>
+                    <Button
+                        icon={<SettingOutlined />}
+                        onClick={openPlanManager}
+                    >
+                        Gestionar Planes
+                    </Button>
                     <Button
                         type="primary"
                         icon={<ShopOutlined />}
                         onClick={() => setIsCreateBusinessModalVisible(true)}
-                        className="w-full"
-                        style={{ backgroundColor: '#155153' }}
+                        style={{ backgroundColor: PRIMARY_COLOR }}
                     >
                         Crear Negocio
                     </Button>
-                    <Button
-                        icon={<SettingOutlined />}
-                        onClick={openPlanManager}
-                        className="w-full border-dashed border-emerald-600 text-emerald-700 hover:text-emerald-500"
-                    >
-                        Gestionar Planes
-                    </Button>
-                    <Input
-                        placeholder="Buscar cliente..."
-                        prefix={<SearchOutlined className="text-gray-400" />}
-                        onChange={handleSearch}
-                        size="large"
-                        className="rounded-lg"
+                </Space>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <Card size="small" bordered={false} className="shadow-sm">
+                    <Statistic
+                        title="Negocios"
+                        value={totalNegocios}
+                        prefix={<TeamOutlined style={{ color: PRIMARY_COLOR }} />}
+                        valueStyle={{ color: PRIMARY_COLOR, fontSize: 18 }}
                     />
-                </div>
+                </Card>
+                <Card size="small" bordered={false} className="shadow-sm">
+                    <Statistic
+                        title="Activos"
+                        value={activos}
+                        prefix={<CheckCircleOutlined style={{ color: '#16a34a' }} />}
+                        valueStyle={{ color: '#16a34a', fontSize: 18 }}
+                    />
+                </Card>
+                <Card size="small" bordered={false} className="shadow-sm">
+                    <Statistic
+                        title="Vencidos"
+                        value={vencidos}
+                        prefix={<CloseCircleOutlined style={{ color: '#dc2626' }} />}
+                        valueStyle={{ color: '#dc2626', fontSize: 18 }}
+                    />
+                </Card>
+                <Card size="small" bordered={false} className="shadow-sm">
+                    <Statistic
+                        title="Recaudado"
+                        value={recaudado}
+                        formatter={(v) => formatCurrency(Number(v))}
+                        prefix={<DollarOutlined style={{ color: '#0891b2' }} />}
+                        valueStyle={{ color: '#0891b2', fontSize: 15 }}
+                    />
+                </Card>
+            </div>
 
-                <div className="flex-grow overflow-y-auto">
-                    {loading ? (
-                        <div className="p-8 text-center"><Spin tip="Cargando..." /></div>
-                    ) : (
-                        filteredClients.map(client => (
-                            <div
-                                key={client.id}
-                                onClick={() => handleSelectClient(client)}
-                                className={`p-4 border-b border-gray-50 cursor-pointer transition-all duration-200 
-                                    ${selectedClient?.id === client.id && screens.md ? 'bg-[#155153] bg-opacity-10 border-l-4 border-l-[#155153]' : 'hover:bg-gray-50 border-l-4 border-l-transparent'}
-                                `}
-                            >
-                                <div className="flex justify-between items-start mb-1">
-                                    <div className="truncate pr-2">
-                                        <p className="font-semibold text-gray-800 m-0 truncate">{client.name}</p>
-                                        <p className="text-xs text-gray-400 m-0 truncate">{client.email}</p>
-                                    </div>
-                                    <div className="text-right whitespace-nowrap">
-                                        {client.subscription_status !== 'no_subscription' && client.amount_paid !== null ? (
-                                            <Text strong className="text-emerald-600 block">
-                                                <NumericFormat value={client.amount_paid} displayType={'text'} thousandSeparator="." decimalSeparator="," prefix={`${currPrefix} `} decimalScale={0} />
-                                            </Text>
-                                        ) : (
-                                            <Text type="secondary" className="block text-xs">Sin plan</Text>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="mt-2 flex flex-wrap gap-1 justify-between items-center">
-                                    <div className="scale-90 origin-left">{renderSubscriptionTag(client)}</div>
-                                    {client.plan_name && <Tag color="blue" className="mr-0 text-[10px]">{client.plan_name}</Tag>}
-                                </div>
-                            </div>
-                        ))
-                    )}
-                    {filteredClients.length === 0 && !loading && <Empty description="No encontrado" className="mt-10" />}
-                </div>
-            </aside>
+            {/* Buscador */}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+                <Input
+                    placeholder="Buscar por negocio, correo o plan..."
+                    prefix={<SearchOutlined />}
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    allowClear
+                    style={{ width: 300, maxWidth: '100%' }}
+                />
+                <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading} />
 
-            {/* ----------------------------------------------------------------- */}
-            {/* MAIN CONTENT (DETALLE CLIENTE) */}
-            {/* Lógica: Visible si es Desktop (screens.md) O si HAY cliente seleccionado en móvil */}
-            {/* ----------------------------------------------------------------- */}
-            <main
-                className={`
-                    flex-grow flex-col bg-slate-50
-                    w-full md:w-2/3 
-                    ${(selectedClient || screens.md) ? 'flex' : 'hidden'}
-                `}
+                {selectedRowKeys.length > 0 && (
+                    <Button
+                        danger
+                        type="primary"
+                        icon={<DeleteOutlined />}
+                        loading={bulkDeleting}
+                        onClick={handleBulkDelete}
+                    >
+                        Eliminar ({selectedRowKeys.length})
+                    </Button>
+                )}
+            </div>
+
+            {/* Tabla */}
+            <Table
+                columns={clientColumns}
+                dataSource={filteredClients}
+                rowKey="id"
+                loading={loading}
+                size="small"
+                rowSelection={{
+                    selectedRowKeys,
+                    onChange: (keys) => setSelectedRowKeys(keys),
+                    columnWidth: 44,
+                }}
+                pagination={{ pageSize: 15, showSizeChanger: false, showTotal: (t) => `${t} negocios` }}
+                scroll={{ x: 720 }}
+                locale={{ emptyText: <Empty description="No se encontraron negocios" /> }}
+            />
+
+            {/* ============================================================= */}
+            {/* DRAWER: CONFIGURAR NEGOCIO                                     */}
+            {/* ============================================================= */}
+            <Drawer
+                title={
+                    <Space>
+                        <ShopOutlined style={{ color: PRIMARY_COLOR }} />
+                        <span>{selectedClient?.name || 'Configurar negocio'}</span>
+                    </Space>
+                }
+                placement="right"
+                width={screens.md ? 600 : '100%'}
+                onClose={handleCloseConfig}
+                open={configDrawerOpen}
+                styles={{ body: { background: '#f8fafc' } }}
             >
-                {!selectedClient ? (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                        <UserOutlined style={{ fontSize: '64px', marginBottom: '16px' }} />
-                        <Title level={4} type="secondary" className="text-center px-4">Selecciona un cliente para ver detalles</Title>
-                    </div>
-                ) : (
-                    <div className="p-4 md:p-8 overflow-y-auto h-full">
-                        {/* Botón VOLVER (Solo Móvil) */}
-                        <div className="md:hidden mb-4">
-                            <Button icon={<ArrowLeftOutlined />} onClick={handleBackToClients} type="text">
-                                Volver a la lista
-                            </Button>
-                        </div>
-
-                        {/* Header Cliente */}
-                        <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <div className="w-full">
-                                <Title level={3} style={{ margin: 0, color: '#155153' }} className="break-words">{selectedClient.name}</Title>
-                                <Text type="secondary" className="text-sm md:text-lg break-all">{selectedClient.email}</Text>
-                                <div className="mt-2 scale-90 md:scale-100 origin-left">{renderSubscriptionTag(selectedClient)}</div>
+                {selectedClient && (
+                    <div className="flex flex-col gap-4">
+                        {/* Tarjeta resumen + acciones */}
+                        <Card size="small" bordered={false} className="shadow-sm">
+                            <div className="flex flex-col gap-3">
+                                <div>
+                                    <Text type="secondary" className="text-xs break-all">{selectedClient.email}</Text>
+                                    <div className="mt-2">{renderSubscriptionTag(selectedClient)}</div>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        type="primary"
+                                        icon={<PlusOutlined />}
+                                        onClick={() => setIsSubModalVisible(true)}
+                                        style={{ backgroundColor: PRIMARY_COLOR }}
+                                    >
+                                        Asignar / Renovar
+                                    </Button>
+                                    <Popconfirm
+                                        title="Eliminar negocio"
+                                        description={
+                                            <span>
+                                                Se borrarán <strong>todas las suscripciones y usuarios</strong>.<br />
+                                                Esta acción es irreversible.
+                                            </span>
+                                        }
+                                        okText="Sí, eliminar"
+                                        okType="danger"
+                                        cancelText="Cancelar"
+                                        placement="bottomRight"
+                                        onConfirm={() => handleDeleteBusiness(selectedClient)}
+                                    >
+                                        <Button danger icon={<DeleteOutlined />}>Eliminar</Button>
+                                    </Popconfirm>
+                                </div>
                             </div>
-                            <Button
-                                type="primary"
-                                icon={<PlusOutlined />}
-                                onClick={() => setIsSubModalVisible(true)}
-                                size="large"
-                                style={{ backgroundColor: '#155153' }}
-                                className="w-full md:w-auto"
-                            >
-                                Asignar / Renovar
-                            </Button>
-                        </div>
+                        </Card>
 
                         {/* Módulos visibles (POS) */}
-                        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 md:p-5 mb-6">
-                            <div className="flex justify-between items-center mb-3">
+                        <Card size="small" bordered={false} className="shadow-sm">
+                            <div className="flex justify-between items-center mb-2">
                                 <Title level={5} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <AppstoreOutlined style={{ color: '#155153' }} /> Módulos visibles (POS)
+                                    <AppstoreOutlined style={{ color: PRIMARY_COLOR }} /> Módulos visibles (POS)
                                 </Title>
                                 <Button
                                     type="primary"
@@ -516,7 +731,7 @@ function DashboardClients() {
                                     loading={savingModules}
                                     onClick={handleSaveModules}
                                     icon={<SaveOutlined />}
-                                    style={{ backgroundColor: '#155153' }}
+                                    style={{ backgroundColor: PRIMARY_COLOR }}
                                 >
                                     Guardar
                                 </Button>
@@ -524,7 +739,7 @@ function DashboardClients() {
                             <p className="text-xs text-gray-400 mt-0 mb-3">
                                 Activa o desactiva qué secciones del módulo POS puede ver este negocio.
                             </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {POS_SUBMODULES.map(mod => {
                                     const isVisible = !modulosOcultos.includes(mod.key);
                                     return (
@@ -554,71 +769,76 @@ function DashboardClients() {
                                     );
                                 })}
                             </div>
-                        </div>
+                        </Card>
 
-                        <Title level={5} className="flex items-center gap-2 text-gray-600">
-                            <HistoryOutlined /> Historial de Suscripciones
-                        </Title>
+                        {/* Historial de suscripciones */}
+                        <Card size="small" bordered={false} className="shadow-sm">
+                            <Title level={5} className="flex items-center gap-2" style={{ marginTop: 0 }}>
+                                <HistoryOutlined style={{ color: PRIMARY_COLOR }} /> Historial de suscripciones
+                            </Title>
 
-                        {loadingDetails ? (
-                            <div className="p-10 text-center"><Spin size="large" /></div>
-                        ) : (
-                            <div className="space-y-4 pb-10">
-                                {clientDetails?.subscription_history?.length > 0 ? (
-                                    clientDetails.subscription_history.map(sub => (
-                                        <Card key={sub.id} size="small" className="border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                                            <div className="flex flex-col md:flex-row justify-between md:items-center mb-2 gap-2">
-                                                <div className="flex flex-col md:flex-row md:items-center gap-2">
-                                                    <Text strong className="text-base md:text-lg">{sub.plan_name || "Manual"}</Text>
-                                                    <Tag className="w-fit" color={dayjs(sub.end_date).isAfter(dayjs()) ? 'green' : 'default'}>
-                                                        {dayjs(sub.end_date).isAfter(dayjs()) ? 'Vigente' : 'Finalizada'}
-                                                    </Tag>
+                            {loadingDetails ? (
+                                <div className="p-8 text-center"><Spin /></div>
+                            ) : (
+                                <div className="flex flex-col gap-3">
+                                    {clientDetails?.subscription_history?.length > 0 ? (
+                                        clientDetails.subscription_history.map(sub => {
+                                            const vigente = dayjs(sub.end_date).isAfter(dayjs());
+                                            return (
+                                                <div key={sub.id} className="border border-gray-200 rounded-lg p-3 bg-white">
+                                                    <div className="flex justify-between items-start gap-2 mb-1">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <Text strong>{sub.plan_name || "Manual"}</Text>
+                                                            <Tag color={vigente ? 'green' : 'default'}>
+                                                                {vigente ? 'Vigente' : 'Finalizada'}
+                                                            </Tag>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Text strong className="text-gray-700">
+                                                                <NumericFormat value={sub.amount_paid} displayType={'text'} thousandSeparator="." decimalSeparator="," prefix="$ " />
+                                                            </Text>
+                                                            <Tooltip title="Editar plan, monto o fechas">
+                                                                <Button
+                                                                    type="text"
+                                                                    size="small"
+                                                                    icon={<EditOutlined />}
+                                                                    onClick={() => handleOpenEditSubscription(sub)}
+                                                                    className="text-blue-600 border border-blue-200"
+                                                                />
+                                                            </Tooltip>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-gray-500 text-xs">
+                                                        <CalendarOutlined />
+                                                        {dayjs(sub.start_date).format('DD/MM/YY')} — {dayjs(sub.end_date).format('DD/MM/YY')}
+                                                    </div>
+                                                    {sub.description && (
+                                                        <div className="mt-2 bg-blue-50 p-2 rounded text-blue-800 text-xs border border-blue-100 break-words">
+                                                            <strong>Nota:</strong> {sub.description}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Text strong className="text-lg text-gray-700">
-                                                        <NumericFormat value={sub.amount_paid} displayType={'text'} thousandSeparator="." decimalSeparator="," prefix="$ " />
-                                                    </Text>
-                                                    <Button
-                                                        type="text"
-                                                        icon={<EditOutlined />}
-                                                        onClick={() => handleOpenEditSubscription(sub)}
-                                                        className="text-blue-600 ml-2 border border-blue-200"
-                                                        size="small"
-                                                        title="Editar Plan o Fechas"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="flex justify-between text-gray-500 text-sm">
-                                                <span className="flex items-center gap-1">
-                                                    <CalendarOutlined />
-                                                    {dayjs(sub.start_date).format('DD/MM/YY')} — {dayjs(sub.end_date).format('DD/MM/YY')}
-                                                </span>
-                                            </div>
-                                            {sub.description && (
-                                                <div className="mt-3 bg-blue-50 p-2 rounded text-blue-800 text-xs border border-blue-100 break-words">
-                                                    <strong>Nota:</strong> {sub.description}
-                                                </div>
-                                            )}
-                                        </Card>
-                                    ))
-                                ) : (
-                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sin historial." />
-                                )}
-                            </div>
-                        )}
+                                            );
+                                        })
+                                    ) : (
+                                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sin historial." />
+                                    )}
+                                </div>
+                            )}
+                        </Card>
                     </div>
                 )}
-            </main>
+            </Drawer>
 
             {/* DRAWER: GESTIÓN DE PLANES */}
             <Drawer
                 title="Gestión de Planes"
                 placement="right"
-                width={screens.md ? 720 : '100%'} // Ancho 100% en móvil
+                width={screens.md ? 720 : '100%'}
                 onClose={() => setIsPlanDrawerVisible(false)}
                 open={isPlanDrawerVisible}
                 extra={
-                    <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreatePlan} size="small">
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreatePlan} size="small" style={{ backgroundColor: PRIMARY_COLOR }}>
                         Nuevo
                     </Button>
                 }
@@ -630,7 +850,7 @@ function DashboardClients() {
                     loading={loadingPlans}
                     pagination={false}
                     size="small"
-                    scroll={{ x: 800 }} // Habilita scroll horizontal en móvil
+                    scroll={{ x: 800 }}
                 />
             </Drawer>
 
@@ -641,11 +861,10 @@ function DashboardClients() {
                 onCancel={() => setIsPlanFormVisible(false)}
                 footer={null}
                 destroyOnClose
-                width={screens.md ? 600 : '95%'} // Modal responsive
+                width={screens.md ? 600 : '95%'}
                 style={{ top: 20 }}
             >
                 <Form form={planForm} layout="vertical" onFinish={handleSavePlan}>
-                    {/* Campos simplificados visualmente */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
                         <Form.Item name="name" label="Nombre" rules={[{ required: true }]}>
                             <Input />
@@ -676,14 +895,14 @@ function DashboardClients() {
                     </Form.Item>
                     <div className="flex justify-end gap-2 mt-4">
                         <Button onClick={() => setIsPlanFormVisible(false)}>Cancelar</Button>
-                        <Button type="primary" htmlType="submit" loading={isSubmitting} icon={<SaveOutlined />}>Guardar</Button>
+                        <Button type="primary" htmlType="submit" loading={isSubmitting} icon={<SaveOutlined />} style={{ backgroundColor: PRIMARY_COLOR }}>Guardar</Button>
                     </div>
                 </Form>
             </Modal>
 
             {/* MODAL: ASIGNAR SUSCRIPCIÓN */}
             <Modal
-                title="Asignar Plan"
+                title={<Space><PlusOutlined style={{ color: PRIMARY_COLOR }} /> Asignar Plan</Space>}
                 open={isSubModalVisible}
                 onCancel={() => setIsSubModalVisible(false)}
                 footer={null}
@@ -712,14 +931,14 @@ function DashboardClients() {
                     </Form.Item>
                     <div className="flex justify-end gap-2 mt-6">
                         <Button onClick={() => setIsSubModalVisible(false)}>Cancelar</Button>
-                        <Button type="primary" htmlType="submit" loading={isSubmitting} style={{ backgroundColor: '#155153' }}>Guardar</Button>
+                        <Button type="primary" htmlType="submit" loading={isSubmitting} style={{ backgroundColor: PRIMARY_COLOR }}>Guardar</Button>
                     </div>
                 </Form>
             </Modal>
 
             {/* MODAL: EDITAR SUSCRIPCIÓN */}
             <Modal
-                title="Editar Suscripción (Manteniendo Fechas)"
+                title="Editar Suscripción"
                 open={isEditSubModalVisible}
                 onCancel={() => setIsEditSubModalVisible(false)}
                 footer={null}
@@ -754,12 +973,33 @@ function DashboardClients() {
                     <Form.Item name="amountPaid" label="Monto Pagado">
                         <InputNumber min={0} className="w-full" addonAfter={currSuffix} />
                     </Form.Item>
+
+                    <Divider orientation="left" orientationMargin={0} className="text-xs text-gray-500">
+                        Vigencia
+                    </Divider>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                        <Form.Item name="startDate" label="Fecha de inicio">
+                            <DatePicker className="w-full" format="DD/MM/YYYY" placeholder="Inicio" />
+                        </Form.Item>
+                        <Form.Item
+                            name="endDate"
+                            label="Fecha de vencimiento"
+                            rules={[{ required: true, message: 'Selecciona la fecha de vencimiento' }]}
+                        >
+                            <DatePicker className="w-full" format="DD/MM/YYYY" placeholder="Vencimiento" />
+                        </Form.Item>
+                    </div>
+                    <p className="text-xs text-gray-400 -mt-2 mb-3">
+                        Cambia la fecha de vencimiento para extender una prueba o ampliar el plazo de pago.
+                        Si la fecha es futura, el negocio queda <strong>activo</strong> automáticamente.
+                    </p>
+
                     <Form.Item name="description" label="Notas Adicionales">
                         <TextArea rows={2} />
                     </Form.Item>
                     <div className="flex justify-end gap-2 mt-6">
                         <Button onClick={() => setIsEditSubModalVisible(false)}>Cancelar</Button>
-                        <Button type="primary" htmlType="submit" loading={isSubmitting}>Guardar Cambios</Button>
+                        <Button type="primary" htmlType="submit" loading={isSubmitting} style={{ backgroundColor: PRIMARY_COLOR }}>Guardar Cambios</Button>
                     </div>
                 </Form>
             </Modal>
@@ -828,13 +1068,13 @@ function DashboardClients() {
 
                     <div className="flex justify-end gap-2 mt-6">
                         <Button onClick={() => { setIsCreateBusinessModalVisible(false); createBusinessForm.resetFields(); }}>Cancelar</Button>
-                        <Button type="primary" htmlType="submit" loading={isSubmitting} icon={<ShopOutlined />} style={{ backgroundColor: '#155153' }}>
+                        <Button type="primary" htmlType="submit" loading={isSubmitting} icon={<ShopOutlined />} style={{ backgroundColor: PRIMARY_COLOR }}>
                             Crear Negocio
                         </Button>
                     </div>
                 </Form>
             </Modal>
-        </div>
+        </Content>
     );
 }
 

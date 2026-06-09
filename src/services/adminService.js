@@ -32,7 +32,7 @@ export const adminService = {
   },
 
   updateSubscription: async (subscriptionId, updateData) => {
-    // updateData espera: { planId, amountPaid, description }
+    // updateData espera: { planId, amountPaid, description, startDate?, endDate? }
     const { data } = await axios.put(`${API_URL}/api/admin/subscriptions/${subscriptionId}`, updateData, getAuthHeaders());
     return data;
   },
@@ -73,6 +73,17 @@ export const adminService = {
   updateBusinessModules: async (businessId, modulosOcultos) => {
     // modulosOcultos: array de claves ocultas, e.g. ['facturas', 'contactos']
     const { data } = await axios.patch(`${API_URL}/api/admin/businesses/${businessId}/modules`, { modulos_ocultos: modulosOcultos }, getAuthHeaders());
+    return data;
+  },
+
+  deleteBusiness: async (businessId) => {
+    const { data } = await axios.delete(`${API_URL}/api/admin/businesses/${businessId}`, getAuthHeaders());
+    return data;
+  },
+
+  deleteBusinessesBulk: async (ids) => {
+    // ids: array de IDs de negocios a eliminar
+    const { data } = await axios.post(`${API_URL}/api/admin/businesses/bulk-delete`, { ids }, getAuthHeaders());
     return data;
   },
 };
