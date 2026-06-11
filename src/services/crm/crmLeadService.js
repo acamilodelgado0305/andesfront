@@ -33,8 +33,8 @@ export const getLeads = async (params = {}) => {
 /**
  * Resumen del embudo: { total, valorPipeline, porEstado }
  */
-export const getLeadStats = async () => {
-    const response = await crmApi.get('/crm/leads/stats');
+export const getLeadStats = async (params = {}) => {
+    const response = await crmApi.get('/crm/leads/stats', { params });
     return response.data;
 };
 

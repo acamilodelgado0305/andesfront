@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useContext } from "re
 import {
   Spin, Alert, Empty, Button, Drawer, Form, Input, InputNumber,
   notification, Tooltip, Modal, Tag, Select, Table, Space, Card,
+  DatePicker,
 } from "antd";
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined,
@@ -9,6 +10,21 @@ import {
   UsergroupAddOutlined, PhoneOutlined, MailOutlined, BankOutlined,
   IdcardOutlined,
 } from "@ant-design/icons";
+import moment from "moment";
+import dayjs from "dayjs";
+import "moment/locale/es";
+
+moment.locale('es');
+const { RangePicker } = DatePicker;
+
+// Atajos de fecha
+const QUICK_RANGES = [
+  { label: 'Hoy',    range: () => [moment().startOf('day'),   moment().endOf('day')]   },
+  { label: 'Ayer',   range: () => [moment().subtract(1,'day').startOf('day'), moment().subtract(1,'day').endOf('day')] },
+  { label: 'Semana', range: () => [moment().startOf('week'),  moment().endOf('week')]  },
+  { label: 'Mes',    range: () => [moment().startOf('month'), moment().endOf('month')] },
+  { label: 'Año',    range: () => [moment().startOf('year'),  moment().endOf('year')]  },
+];
 
 import {
   getLeads, getLeadStats, createLead, updateLead, deleteLead,
@@ -83,11 +99,51 @@ function CrmDashboard() {
   const [ingresoPersona, setIngresoPersona] = useState(null);
   const [form] = Form.useForm();
 
+  const [dateRange, setDateRange] = useState([
+    moment().startOf('day'),
+    moment().endOf('day')
+  ]);
+
+  const activeQuick = QUICK_RANGES.findIndex(({ range }) => {
+    const [s, e] = range();
+    return dateRange && dateRange[0] && dateRange[1] && dateRange[0].isSame(s, 'day') && dateRange[1].isSame(e, 'day');
+  });
+
+  const applyQuickRange = (rangeFn) => {
+    const [start, end] = rangeFn();
+    handleDateRangeChange([start, end]);
+  };
+
+  const pickerValue =
+    dateRange?.length === 2
+      ? [dayjs(dateRange[0].toDate()), dayjs(dateRange[1].toDate())]
+      : null;
+
+  const quickBtnStyle = (active) => ({
+    padding: isMobile ? '4px 10px' : '4px 12px',
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: 'pointer',
+    border: '1px solid',
+    background: active ? '#155153' : '#fff',
+    color:      active ? '#fff'    : '#6b7280',
+    borderColor:active ? '#155153' : '#e5e7eb',
+    transition: 'all 0.15s',
+    whiteSpace: 'nowrap',
+  });
+
   // ── Carga ──
-  const fetchLeads = useCallback(async () => {
+  const fetchLeads = useCallback(async (range) => {
+    if (!user) return;
+    const activeRange = Array.isArray(range) ? range : dateRange;
     setLoading(true); setError(null);
     try {
-      const [leads, st] = await Promise.all([getLeads(), getLeadStats()]);
+      const params = {
+        fecha_inicio: activeRange[0].clone().startOf('day').toISOString(),
+        fecha_fin:    activeRange[1].clone().endOf('day').toISOString(),
+      };
+      const [leads, st] = await Promise.all([getLeads(params), getLeadStats(params)]);
       setItems(leads || []);
       setStats(st || null);
     } catch {
@@ -95,9 +151,14 @@ function CrmDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user, dateRange]);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  const handleDateRangeChange = (newRange) => {
+    setDateRange(newRange);
+    fetchLeads(newRange);
+  };
+
+  useEffect(() => { fetchLeads(); }, [user]);
 
   // ── Filtros (cliente) ──
   const rows = useMemo(() => items.filter(it => {
@@ -353,7 +414,16 @@ function CrmDashboard() {
                 <span style={{ fontWeight: 700, color: '#1f2937', fontSize: 15, display: 'block' }}>{r.nombre}</span>
                 {r.empresa && <span style={{ fontSize: 11, color: '#9ca3af' }}><BankOutlined /> {r.empresa}</span>}
               </div>
-              <EstadoTag estado={r.estado} />
+              <Select
+                value={r.estado}
+                size="small"
+                variant="borderless"
+                style={{ width: 130 }}
+                disabled={converting}
+                onClick={e => e.stopPropagation()}
+                onChange={(val) => handleQuickEstado(r, val)}
+                options={ESTADOS.map(e => ({ value: e.value, label: <EstadoTag estado={e.value} /> }))}
+              />
             </div>
             {r.numero_documento && <div style={{ fontSize: 12, color: '#6b7280' }}><IdcardOutlined /> {r.tipo_documento ? `${r.tipo_documento} ` : ''}{r.numero_documento}</div>}
             {r.telefono && <div style={{ fontSize: 12, color: '#6b7280' }}><PhoneOutlined /> {r.telefono}</div>}
@@ -395,7 +465,7 @@ function CrmDashboard() {
         </div>
         <div className="flex gap-2">
           <Tooltip title="Recargar">
-            <Button icon={<ReloadOutlined />} onClick={fetchLeads} loading={loading} shape="circle" />
+            <Button icon={<ReloadOutlined />} onClick={() => fetchLeads(dateRange)} loading={loading} shape="circle" />
           </Tooltip>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}
             style={{ backgroundColor: '#155153', borderColor: '#155153' }}>
@@ -431,6 +501,47 @@ function CrmDashboard() {
           </div>
         </Card>
       )}
+
+      {/* ── FILA 1: Atajos de fecha ── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          marginBottom: 10,
+          flexWrap: 'wrap',
+        }}
+      >
+        {QUICK_RANGES.map(({ label, range }, i) => (
+          <button
+            key={label}
+            onClick={() => applyQuickRange(range)}
+            style={quickBtnStyle(activeQuick === i)}
+          >
+            {label}
+          </button>
+        ))}
+
+        {!isMobile && (
+          <RangePicker
+            allowClear
+            value={pickerValue}
+            onChange={(values) => {
+              if (values?.length === 2) {
+                handleDateRangeChange([
+                  moment(values[0].toDate()).startOf('day'),
+                  moment(values[1].toDate()).endOf('day'),
+                ]);
+              } else {
+                handleDateRangeChange([moment().startOf('day'), moment().endOf('day')]);
+              }
+            }}
+            format="DD/MM/YY"
+            size="small"
+            style={{ borderRadius: 20 }}
+          />
+        )}
+      </div>
 
       {/* FILTROS */}
       <div className={`flex ${isMobile ? 'flex-col' : 'flex-wrap'} gap-2 mb-4`}>
