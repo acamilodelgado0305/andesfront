@@ -1,0 +1,1 @@
+import{a as s}from"./index-BsN-1-Ge.js";const r="http://localhost:3002",o=s.create({baseURL:r,headers:{"Content-Type":"application/json"}});o.interceptors.request.use(t=>{const a=localStorage.getItem("authToken"),n=localStorage.getItem("student_portal_token"),e=a||n;return e&&(t.headers.Authorization=`Bearer ${e}`),t},t=>Promise.reject(t));const i=o;export{i as b};

@@ -239,6 +239,21 @@ export const updateStudentPosibleGraduacion = async (
   }
 };
 
+// Marcar / desmarcar paz y salvo (académico y/o financiero)
+// changes: { paz_salvo_academico?: boolean, paz_salvo_financiero?: boolean }
+export const updateStudentPazSalvo = async (id, changes) => {
+  try {
+    const response = await backApi.patch(
+      `/api/students/${id}/paz-salvo`,
+      changes
+    );
+    return response.data; // { message, student: { ...flags, ...fechas } }
+  } catch (error) {
+    logApiError(`Error al actualizar el paz y salvo del estudiante ${id}`, error);
+    throw error;
+  }
+};
+
 // Obtener candidatos a graduación (filtros opcionales: { programaId, coordinadorId })
 export const getGraduationCandidates = async (filters = {}) => {
   try {

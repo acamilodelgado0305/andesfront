@@ -1,0 +1,1 @@
+import{r as n}from"./index-BsN-1-Ge.js";const c=(e=768)=>{const[r,o]=n.useState(()=>window.innerWidth<e);return n.useEffect(()=>{const t=window.matchMedia(`(max-width: ${e-1}px)`),s=i=>o(i.matches);return t.addEventListener("change",s),()=>t.removeEventListener("change",s)},[e]),r};export{c as u};

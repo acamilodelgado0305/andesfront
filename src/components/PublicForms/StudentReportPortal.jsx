@@ -4,7 +4,6 @@ import {
   Button,
   notification,
   Spin,
-  Tabs,
 } from "antd";
 import {
   LogoutOutlined,
@@ -17,6 +16,9 @@ import {
   CheckCircleOutlined,
   CalendarOutlined,
   AppstoreOutlined,
+  ArrowLeftOutlined,
+  RightOutlined,
+  SafetyOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -37,6 +39,7 @@ import StudentEvaluationsTab from "./StudentEvaluationsTab";
 import StudentGradesTab from "./StudentGradesTab";
 import StudentCertificationsTab from "./StudentCertificationsTab";
 import StudentHorarioTab from "./StudentHorarioTab";
+import StudentPazSalvoTab from "./StudentPazSalvoTab";
 import StudentModulosPage from "../Modulos/StudentModulosPage";
 
 const { Text } = Typography;
@@ -59,6 +62,9 @@ function StudentPortal() {
   const [evaluations, setEvaluations] = useState([]);
   const [currentStudentId, setCurrentStudentId] = useState(null);
   const [tieneModulos, setTieneModulos] = useState(false);
+
+  // Apartado actualmente abierto (null = menú principal de botones)
+  const [activeSection, setActiveSection] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -201,6 +207,10 @@ function StudentPortal() {
 
   // ===== If coming back from evaluation, refresh data =====
   useEffect(() => {
+    // Si volvemos con un apartado indicado (p. ej. desde una evaluación), abrirlo
+    if (location.state?.activeTab) {
+      setActiveSection(location.state.activeTab);
+    }
     if (
       location.state?.fromEvaluation &&
       isLoggedIn &&
@@ -261,6 +271,7 @@ function StudentPortal() {
     setGradesInfo([]);
     setEvaluations([]);
     setTieneModulos(false);
+    setActiveSection(null);
     clearStudentToken();
   };
 
@@ -292,6 +303,108 @@ function StudentPortal() {
   ).length;
   const programCount = studentInfo?.programas_asociados?.length || 0;
 
+  // ===== Apartados del dashboard (botones del menú) =====
+  const sections = [
+    {
+      key: "info",
+      label: "Mi Información",
+      description: "Datos personales y de contacto",
+      icon: <UserOutlined />,
+      gradient: "linear-gradient(135deg, #6366f1, #818cf8)",
+    },
+    {
+      key: "horario",
+      label: "Horario",
+      description: "Tus clases y horarios asignados",
+      icon: <CalendarOutlined />,
+      gradient: "linear-gradient(135deg, #0ea5e9, #38bdf8)",
+    },
+    {
+      key: "evaluaciones",
+      label: "Evaluaciones",
+      description: "Pruebas y exámenes asignados",
+      icon: <ReadOutlined />,
+      gradient: "linear-gradient(135deg, #f59e0b, #fbbf24)",
+      badge: pendingEvals,
+    },
+    {
+      key: "notas",
+      label: "Notas",
+      description: "Calificaciones por materia",
+      icon: <FileTextOutlined />,
+      gradient: "linear-gradient(135deg, #3b82f6, #60a5fa)",
+    },
+    {
+      key: "certificados",
+      label: "Certificados",
+      description: "Certificaciones y vencimientos",
+      icon: <SafetyCertificateOutlined />,
+      gradient: "linear-gradient(135deg, #10b981, #34d399)",
+    },
+    {
+      key: "pazsalvo",
+      label: "Paz y Salvo",
+      description: "Estado académico y financiero",
+      icon: <SafetyOutlined />,
+      gradient: "linear-gradient(135deg, #14b8a6, #2dd4bf)",
+    },
+    ...(tieneModulos
+      ? [
+          {
+            key: "modulos",
+            label: "Módulos",
+            description: "Contenido y material del curso",
+            icon: <AppstoreOutlined />,
+            gradient: "linear-gradient(135deg, #8b5cf6, #a78bfa)",
+          },
+        ]
+      : []),
+  ];
+
+  const activeMeta = sections.find((s) => s.key === activeSection);
+
+  // ===== Render del contenido del apartado seleccionado =====
+  const renderSectionContent = (key) => {
+    switch (key) {
+      case "info":
+        return (
+          <StudentInfoTab
+            studentInfo={studentInfo}
+            documentNumber={documentNumber}
+            currentStudentId={currentStudentId}
+          />
+        );
+      case "horario":
+        return <StudentHorarioTab currentStudentId={currentStudentId} />;
+      case "evaluaciones":
+        return (
+          <StudentEvaluationsTab
+            evaluations={evaluations}
+            onStartEvaluation={handleStartEvaluation}
+          />
+        );
+      case "notas":
+        return (
+          <StudentGradesTab
+            gradesInfo={gradesInfo}
+            gradesByCierre={gradesByCierre}
+            studentInfo={studentInfo}
+            currentStudentId={currentStudentId}
+            loading={loading}
+            onDownloadReport={handleDownloadReport}
+          />
+        );
+      case "certificados":
+        return <StudentCertificationsTab studentInfo={studentInfo} />;
+      case "pazsalvo":
+        return <StudentPazSalvoTab studentInfo={studentInfo} />;
+      case "modulos":
+        return <StudentModulosPage />;
+      default:
+        return null;
+    }
+  };
+
   // ===== LOADING STATE =====
   if (restoringSession) {
     return (
@@ -307,6 +420,7 @@ function StudentPortal() {
   // ===== RENDER =====
   return (
     <div style={styles.page}>
+      <style>{menuCss}</style>
       {!isLoggedIn ? (
         <StudentLoginForm
           usernameDoc={usernameDoc}
@@ -380,114 +494,59 @@ function StudentPortal() {
             </div>
           </div>
 
-          {/* ===== TABS CONTENT ===== */}
-          <div style={styles.content}>
-            <Tabs
-              defaultActiveKey={
-                location.state?.activeTab || "info"
-              }
-              type="line"
-              size="large"
-              style={{ marginTop: -6 }}
-              items={[
-                {
-                  key: "info",
-                  label: (
-                    <span style={styles.tabLabel}>
-                      <UserOutlined /> Información
-                    </span>
-                  ),
-                  children: (
-                    <div style={styles.tabContent}>
-                      <StudentInfoTab
-                        studentInfo={studentInfo}
-                        documentNumber={documentNumber}
-                        currentStudentId={currentStudentId}
-                      />
-                    </div>
-                  ),
-                },
-                {
-                  key: "horario",
-                  label: (
-                    <span style={styles.tabLabel}>
-                      <CalendarOutlined /> Horario
-                    </span>
-                  ),
-                  children: (
-                    <div style={styles.tabContent}>
-                      <StudentHorarioTab currentStudentId={currentStudentId} />
-                    </div>
-                  ),
-                },
-                {
-                  key: "evaluaciones",
-                  label: (
-                    <span style={styles.tabLabel}>
-                      <ReadOutlined /> Evaluaciones
-                      {pendingEvals > 0 && (
-                        <span style={styles.tabBadge}>{pendingEvals}</span>
+          {/* ===== CONTENIDO ===== */}
+          {!activeSection ? (
+            /* --- Menú de botones con iconos --- */
+            <div>
+              <h3 style={styles.menuHeading}>¿Qué deseas consultar?</h3>
+              <p style={styles.menuSub}>
+                Selecciona una opción para ver tu información
+              </p>
+              <div style={styles.menuGrid}>
+                {sections.map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    className="qc-menu-card"
+                    style={styles.menuCard}
+                    onClick={() => setActiveSection(s.key)}
+                  >
+                    <div style={{ ...styles.menuIcon, background: s.gradient }}>
+                      {s.icon}
+                      {s.badge > 0 && (
+                        <span style={styles.menuIconBadge}>{s.badge}</span>
                       )}
-                    </span>
-                  ),
-                  children: (
-                    <div style={styles.tabContent}>
-                      <StudentEvaluationsTab
-                        evaluations={evaluations}
-                        onStartEvaluation={handleStartEvaluation}
-                      />
                     </div>
-                  ),
-                },
-                {
-                  key: "notas",
-                  label: (
-                    <span style={styles.tabLabel}>
-                      <FileTextOutlined /> Notas
-                    </span>
-                  ),
-                  children: (
-                    <div style={styles.tabContent}>
-                      <StudentGradesTab
-                        gradesInfo={gradesInfo}
-                        gradesByCierre={gradesByCierre}
-                        studentInfo={studentInfo}
-                        currentStudentId={currentStudentId}
-                        loading={loading}
-                        onDownloadReport={handleDownloadReport}
-                      />
+                    <div style={styles.menuCardText}>
+                      <div style={styles.menuCardTitle}>{s.label}</div>
+                      <div style={styles.menuCardDesc}>{s.description}</div>
                     </div>
-                  ),
-                },
-                {
-                  key: "certificados",
-                  label: (
-                    <span style={styles.tabLabel}>
-                      <SafetyCertificateOutlined /> Certificados
-                    </span>
-                  ),
-                  children: (
-                    <div style={styles.tabContent}>
-                      <StudentCertificationsTab studentInfo={studentInfo} />
-                    </div>
-                  ),
-                },
-                ...(tieneModulos ? [{
-                  key: "modulos",
-                  label: (
-                    <span style={styles.tabLabel}>
-                      <AppstoreOutlined /> Módulos
-                    </span>
-                  ),
-                  children: (
-                    <div style={styles.tabContent}>
-                      <StudentModulosPage />
-                    </div>
-                  ),
-                }] : []),
-              ]}
-            />
-          </div>
+                    <RightOutlined className="qc-arrow" style={styles.menuCardArrow} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* --- Vista del apartado seleccionado --- */
+            <div style={styles.content}>
+              <div style={styles.sectionBar}>
+                <button
+                  type="button"
+                  className="qc-back-btn"
+                  style={styles.backBtn}
+                  onClick={() => setActiveSection(null)}
+                >
+                  <ArrowLeftOutlined /> Volver al menú
+                </button>
+                <div style={styles.sectionTitle}>
+                  {activeMeta?.icon} {activeMeta?.label}
+                </div>
+              </div>
+              <div style={styles.tabContent}>
+                {renderSectionContent(activeSection)}
+              </div>
+            </div>
+          )}
 
           {/* Footer */}
           <div style={styles.footer}>Rapictrl © 2025</div>
@@ -536,6 +595,29 @@ const statStyles = {
     letterSpacing: "0.3px",
   },
 };
+
+/* ===== CSS para hover (no se puede con estilos inline) ===== */
+const menuCss = `
+  .qc-menu-card {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  .qc-menu-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.10);
+    border-color: #d4d4ff;
+  }
+  .qc-menu-card:hover .qc-arrow {
+    transform: translateX(3px);
+    opacity: 1;
+  }
+  .qc-back-btn {
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .qc-back-btn:hover {
+    background: #eef2ff;
+    color: #4f46e5;
+  }
+`;
 
 /* ===== STYLES ===== */
 const styles = {
@@ -640,6 +722,124 @@ const styles = {
     flexWrap: "wrap",
   },
 
+  /* Menú de botones */
+  menuHeading: {
+    margin: "0 0 2px",
+    fontSize: 19,
+    fontWeight: 800,
+    color: "#1f2937",
+    letterSpacing: "-0.4px",
+  },
+  menuSub: {
+    margin: "0 0 18px",
+    fontSize: 13.5,
+    color: "#9ca3af",
+  },
+  menuGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+    gap: 16,
+  },
+  menuCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    textAlign: "left",
+    background: "#fff",
+    border: "1px solid #ececf3",
+    borderRadius: 16,
+    padding: "18px 18px",
+    cursor: "pointer",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+    width: "100%",
+    fontFamily: "inherit",
+  },
+  menuIcon: {
+    position: "relative",
+    flexShrink: 0,
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 22,
+    color: "#fff",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
+  },
+  menuIconBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    padding: "0 5px",
+    borderRadius: 99,
+    background: "#ef4444",
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: 700,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "2px solid #fff",
+  },
+  menuCardText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  menuCardTitle: {
+    fontSize: 15.5,
+    fontWeight: 700,
+    color: "#1f2937",
+    lineHeight: 1.2,
+  },
+  menuCardDesc: {
+    fontSize: 12.5,
+    color: "#9ca3af",
+    marginTop: 3,
+    lineHeight: 1.35,
+  },
+  menuCardArrow: {
+    color: "#c4c4d4",
+    fontSize: 13,
+    opacity: 0.7,
+    transition: "transform 0.18s ease, opacity 0.18s ease",
+  },
+
+  /* Barra del apartado seleccionado */
+  sectionBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottom: "1px solid #f0f0f0",
+    flexWrap: "wrap",
+  },
+  backBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    background: "#f5f6f8",
+    border: "1px solid #ececf3",
+    borderRadius: 10,
+    padding: "8px 14px",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#4b5563",
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+  sectionTitle: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 16,
+    fontWeight: 700,
+    color: "#1f2937",
+  },
+
   /* Content */
   content: {
     background: "#fff",
@@ -647,22 +847,6 @@ const styles = {
     padding: "24px 28px 32px",
     boxShadow: "0 1px 6px rgba(0,0,0,0.04)",
     border: "1px solid #f0f0f0",
-  },
-  tabLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    fontSize: 14,
-    fontWeight: 600,
-  },
-  tabBadge: {
-    background: "#ef4444",
-    color: "#fff",
-    borderRadius: 99,
-    padding: "1px 7px",
-    fontSize: 10,
-    fontWeight: 700,
-    marginLeft: 4,
   },
   tabContent: {
     paddingTop: 8,

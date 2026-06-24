@@ -31,6 +31,7 @@ import {
     getStudentById,
     updateStudent,
     updateStudentPosibleGraduacion,
+    updateStudentPazSalvo,
     deleteStudent as deleteStudentService,
     uploadStudentDocument,
     getStudentDocuments,
@@ -289,6 +290,35 @@ const StudentDetails = ({ studentId }) => {
         }
     };
 
+    const handleTogglePazSalvo = async (tipo, checked) => {
+        if (!student) return;
+        const fieldFlag =
+            tipo === "academico" ? "paz_salvo_academico" : "paz_salvo_financiero";
+        const fieldFecha =
+            tipo === "academico"
+                ? "paz_salvo_academico_fecha"
+                : "paz_salvo_financiero_fecha";
+        try {
+            const data = await updateStudentPazSalvo(student.id, {
+                [fieldFlag]: checked,
+            });
+            const updated = data?.student || {};
+            setStudent((prev) => ({
+                ...prev,
+                [fieldFlag]: checked,
+                [fieldFecha]: updated[fieldFecha] ?? (checked ? new Date().toISOString() : null),
+            }));
+            message.success(
+                `Paz y salvo ${tipo === "academico" ? "académico" : "financiero"} ${
+                    checked ? "otorgado" : "retirado"
+                }`
+            );
+        } catch (error) {
+            console.error(error);
+            message.error("Error al actualizar el paz y salvo");
+        }
+    };
+
     const handleGraduate = async () => {
         if (!student) return;
         Modal.confirm({
@@ -497,6 +527,28 @@ const StudentDetails = ({ studentId }) => {
                                             {formatDate(student.fecha_graduacion)}
                                         </Tag>
                                     )}
+                                    <Tag
+                                        color={
+                                            student.paz_salvo_academico
+                                                ? "green"
+                                                : "default"
+                                        }
+                                    >
+                                        {student.paz_salvo_academico
+                                            ? "Paz y salvo académico"
+                                            : "Pendiente académico"}
+                                    </Tag>
+                                    <Tag
+                                        color={
+                                            student.paz_salvo_financiero
+                                                ? "green"
+                                                : "default"
+                                        }
+                                    >
+                                        {student.paz_salvo_financiero
+                                            ? "Paz y salvo financiero"
+                                            : "Pendiente financiero"}
+                                    </Tag>
                                 </div>
 
                                 {/* 🔥 CAMBIO: mostrar programas en el encabezado */}
@@ -902,6 +954,60 @@ const StudentDetails = ({ studentId }) => {
                                         disabled={isEditing}
                                     />
                                 </div>
+                            </div>
+                        </InfoSection>
+
+                        {/* ========== PAZ Y SALVO ========== */}
+                        <InfoSection title="Paz y Salvo">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <Text className="text-xs text-slate-700 font-semibold block">
+                                            Paz y salvo académico
+                                        </Text>
+                                        <Text className="text-[11px] text-slate-500">
+                                            {student.paz_salvo_academico
+                                                ? `Otorgado el ${formatDate(
+                                                      student.paz_salvo_academico_fecha
+                                                  )}`
+                                                : "Pendiente"}
+                                        </Text>
+                                    </div>
+                                    <Switch
+                                        checked={!!student.paz_salvo_academico}
+                                        onChange={(checked) =>
+                                            handleTogglePazSalvo("academico", checked)
+                                        }
+                                        disabled={isEditing}
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <Text className="text-xs text-slate-700 font-semibold block">
+                                            Paz y salvo financiero
+                                        </Text>
+                                        <Text className="text-[11px] text-slate-500">
+                                            {student.paz_salvo_financiero
+                                                ? `Otorgado el ${formatDate(
+                                                      student.paz_salvo_financiero_fecha
+                                                  )}`
+                                                : "Pendiente"}
+                                        </Text>
+                                    </div>
+                                    <Switch
+                                        checked={!!student.paz_salvo_financiero}
+                                        onChange={(checked) =>
+                                            handleTogglePazSalvo("financiero", checked)
+                                        }
+                                        disabled={isEditing}
+                                    />
+                                </div>
+
+                                <Text type="secondary" className="text-[11px] block">
+                                    Puedes otorgar uno, el otro o ambos. El estudiante
+                                    verá este estado en su portal.
+                                </Text>
                             </div>
                         </InfoSection>
 
