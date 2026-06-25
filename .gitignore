@@ -10,8 +10,9 @@ npm-debug.log*
 bower_components/
 jspm_packages/
 
-# Production
+# Production (artefactos del build de Vite — se regeneran con `npm run build`)
 /build
+/dist
 
 # Testing
 /coverage/
