@@ -1,1 +1,0 @@
-import{b as e}from"./backApi-DDIW_xOY.js";const o=async a=>(await e.get(`/api/grades/student/${a}`)).data,p=async a=>(await e.post("/api/grades",a)).data,c=async(a,s=null)=>{const t=s?`/api/grades/programa/${a}?cierre_id=${s}`:`/api/grades/programa/${a}`;return(await e.get(t)).data};export{o as a,c as g,p as s};
