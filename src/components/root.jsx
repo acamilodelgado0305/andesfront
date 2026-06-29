@@ -373,6 +373,16 @@ const RootLayout = () => {
     }
   }, [user, authLoading]);
 
+  // --- REDIRECCIÓN POR SESIÓN EXPIRADA / NO AUTENTICADO ---
+  // Si terminó de cargar la sesión y NO hay usuario (token expirado o ausente),
+  // redirigimos al login. Debe hacerse en un efecto, NO durante el render:
+  // llamar navigate() en el cuerpo del componente dejaba la pantalla en blanco.
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login', { replace: true });
+    }
+  }, [authLoading, user, navigate]);
+
   // ── Determinar si el usuario puede acceder ──────────────────
   const trialActive = user?.is_trial && dayjs(user.trial_ends_at).isAfter(dayjs());
   const paidActive  = !user?.is_trial && subscriptionData.active === true;
@@ -567,7 +577,7 @@ const RootLayout = () => {
       const { switchBusiness } = await import('../services/auth/authService');
       const response = await switchBusiness(created.business.id);
       if (response.token) {
-        login(response.token, response.user);
+        login(response.token, response.user, response.refreshToken);
         window.location.replace('/inicio');
       }
     } catch (err) {
@@ -586,7 +596,7 @@ const RootLayout = () => {
       const response = await switchBusiness(business.id);
 
       if (response.token) {
-        login(response.token, response.user);
+        login(response.token, response.user, response.refreshToken);
         message.success(`Cambiado a ${business.name}`);
         // Forzar recarga completa para limpiar todo el estado cacheado
         window.location.replace('/inicio');
@@ -669,9 +679,11 @@ const RootLayout = () => {
     return <div className="flex items-center justify-center h-screen"><Spin size="large" tip="Cargando sesión..." /></div>;
   }
 
-  if (!authLoading && !user) {
-    navigate('/login', { replace: true });
-    return null;
+  // La redirección al login la dispara el useEffect de arriba. Mientras tanto
+  // mostramos un spinner en lugar de `return null` para no dejar pantalla en
+  // blanco si la sesión expiró.
+  if (!user) {
+    return <div className="flex items-center justify-center h-screen"><Spin size="large" tip="Redirigiendo..." /></div>;
   }
 
   // Menú de perfil para el avatar (modo colapsado)

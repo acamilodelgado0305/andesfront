@@ -134,7 +134,7 @@ const TabInfoNegocio = ({ user, login, patchUser }) => {
         try {
           const { switchBusiness } = await import('../../services/auth/authService');
           const resp = await switchBusiness(user.bid);
-          if (resp.token) login(resp.token, resp.user);
+          if (resp.token) login(resp.token, resp.user, resp.refreshToken);
         } catch { /* no crítico */ }
       }
       if (values.country && patchUser) patchUser({ country: values.country });

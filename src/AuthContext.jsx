@@ -10,6 +10,9 @@ import {
     removeUser,
     decodeToken,
     logout as logoutService,
+    getRefreshToken,
+    setRefreshToken as saveRefreshToken,
+    refreshSession,
 } from "./services/auth/authService";
 
 export const AuthContext = createContext(null);
@@ -42,34 +45,68 @@ export const AuthProvider = ({ children }) => {
 
     // Cargar datos desde localStorage al inicio (usando authService)
     useEffect(() => {
-        const storedToken = getToken();
-        const storedUser = getUser();
+        const init = async () => {
+            const storedToken = getToken();
+            const storedUser = getUser();
 
-        if (storedToken) {
-            const payload = decodeToken(storedToken);
+            // 1. Access token aún válido → usar directamente
+            if (storedToken) {
+                const payload = decodeToken(storedToken);
+                if (payload && payload.exp * 1000 > Date.now()) {
+                    setToken(storedToken);
+                    setIsAuthenticated(true);
 
-            // Validar expiración
-            if (payload && payload.exp * 1000 > Date.now()) {
-                setToken(storedToken);
-                setIsAuthenticated(true);
+                    // Fusionar storedUser con lo que venga en el JWT (el token es la
+                    // fuente de verdad para los campos de sesión: módulos, trial, onboarding).
+                    const merged = buildUserFromPayload(payload, storedUser || {});
+                    setUser(merged);
+                    saveUser(merged);
+                    setLoading(false);
+                    return;
+                }
+            }
 
-                // Fusionar storedUser con lo que venga en el JWT (el token es la
-                // fuente de verdad para los campos de sesión: módulos, trial, onboarding).
-                const merged = buildUserFromPayload(payload, storedUser || {});
-                setUser(merged);
-                saveUser(merged);
+            // 2. Access ausente o expirado: si hay refresh token, intentar renovar
+            // la sesión silenciosamente antes de mandar al login (clave para que un
+            // F5 tras la expiración del access no cierre la sesión).
+            const storedRefresh = getRefreshToken();
+            if (storedRefresh) {
+                try {
+                    const session = await refreshSession(storedRefresh);
+                    const payload = decodeToken(session.token);
+
+                    saveToken(session.token);
+                    if (session.refreshToken) saveRefreshToken(session.refreshToken);
+
+                    const merged = buildUserFromPayload(payload || {}, session.user || storedUser || {});
+                    saveUser(merged);
+                    setToken(session.token);
+                    setUser(merged);
+                    setIsAuthenticated(true);
+                    setLoading(false);
+                    return;
+                } catch (e) {
+                    // Refresh token expirado/ inválido → limpiar sesión
+                    logoutService();
+                }
             } else {
-                // Token expirado
+                // Sin refresh token → limpiar cualquier resto de sesión
                 logoutService();
             }
-        }
-        setLoading(false);
+
+            setLoading(false);
+        };
+
+        init();
     }, []);
 
-    const login = (newToken, userFromApi) => {
+    const login = (newToken, userFromApi, newRefreshToken) => {
         const payload = decodeToken(newToken);
 
         saveToken(newToken);
+        // Guardar el refresh token solo si viene (algunos flujos no lo envían;
+        // en ese caso conservamos el refresh token previo).
+        if (newRefreshToken) saveRefreshToken(newRefreshToken);
         setToken(newToken);
         setIsAuthenticated(true);
 

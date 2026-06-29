@@ -23,7 +23,7 @@ const Login = () => {
 
       if (response.token) {
         // Guardamos token + user en el contexto
-        contextLogin(response.token, response.user);
+        contextLogin(response.token, response.user, response.refreshToken);
 
         message.success(response.message || "¡Inicio de sesión exitoso!", 2);
         navigate("/inicio");
@@ -45,7 +45,7 @@ const Login = () => {
     try {
       const response = await loginWithGoogle(credentialResponse.credential);
       if (response.token) {
-        contextLogin(response.token, response.user);
+        contextLogin(response.token, response.user, response.refreshToken);
         message.success(response.message || "¡Inicio de sesión con Google exitoso!", 2);
         navigate("/inicio");
       } else {

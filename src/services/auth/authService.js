@@ -9,6 +9,7 @@ const AUTH_SERVICE_URL = import.meta.env.VITE_API_AUTH_SERVICE || "http://localh
 // Define storage keys to ensure consistency across the application
 export const TOKEN_KEY = "authToken";
 export const USER_KEY = "authUser";
+export const REFRESH_TOKEN_KEY = "refreshToken";
 
 /**
  * Set the authentication token in local storage.
@@ -33,6 +34,20 @@ export const getToken = () => {
  */
 export const removeToken = () => {
   localStorage.removeItem(TOKEN_KEY);
+};
+
+/**
+ * Refresh token helpers. El refresh token es de larga duración y se usa para
+ * obtener nuevos access tokens sin pedir credenciales de nuevo.
+ */
+export const getRefreshToken = () => localStorage.getItem(REFRESH_TOKEN_KEY);
+
+export const setRefreshToken = (token) => {
+  if (token) localStorage.setItem(REFRESH_TOKEN_KEY, token);
+};
+
+export const removeRefreshToken = () => {
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 };
 
 /**
@@ -113,11 +128,34 @@ export const login = async (email, password) => {
 };
 
 /**
- * Helper to clear session data (token and user).
+ * Helper to clear session data (token, refresh token y user).
  */
 export const logout = () => {
   removeToken();
   removeUser();
+  removeRefreshToken();
+};
+
+/**
+ * Renueva la sesión usando el refresh token contra el endpoint público
+ * /api/auth/refresh. Devuelve { token, refreshToken, user }.
+ * Usa axios "pelado" para no pasar por el interceptor de backApi y evitar bucles.
+ */
+export const refreshSession = async (refreshToken) => {
+  const { data } = await axios.post(`${AUTH_SERVICE_URL}/api/auth/refresh`, {
+    refreshToken,
+  });
+  return data;
+};
+
+/**
+ * Persiste en localStorage la sesión devuelta por login/refresh.
+ * @param {{ token?: string, refreshToken?: string, user?: object }} session
+ */
+export const persistSession = ({ token, refreshToken, user } = {}) => {
+  if (token) setToken(token);
+  if (refreshToken) setRefreshToken(refreshToken);
+  if (user) setUser(user);
 };
 
 /**

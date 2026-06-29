@@ -10,6 +10,11 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { AuthProvider } from "./AuthContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
+// Registra los interceptores globales de axios (manejo de sesión expirada → 401).
+// Importado por su efecto secundario: al evaluarse el módulo se enganchan los
+// interceptores en axios global y en la instancia backApi.
+import "./services/backApi";
+
 // =========================================================
 // Componentes cargados de forma diferida (code-splitting).
 // Cada ruta descarga solo su propio chunk en vez de un único

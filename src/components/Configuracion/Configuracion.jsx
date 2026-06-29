@@ -161,7 +161,7 @@ export default function Configuracion() {
           const { switchBusiness } = await import('../../services/auth/authService');
           const response = await switchBusiness(user.bid);
           if (response.token) {
-            login(response.token, response.user);
+            login(response.token, response.user, response.refreshToken);
           }
         } catch { /* no critico — el nombre se actualizó en la BD */ }
       }
