@@ -311,7 +311,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
         open={open}
         onClose={onClose}
         maskClosable={false}
-        styles={{ body: { padding: '20px 24px', background: '#f9fafb' } }}
+        styles={{ body: { padding: '20px 24px', background: 'var(--qc-bg)' } }}
         footer={
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -339,7 +339,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
 
 
           {/* ── FECHAS ── */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #e5e7eb' }}>
+          <div style={{ background: 'var(--qc-surface)', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid var(--qc-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
               <CalendarOutlined style={{ color: accentColor }} />
               <Text strong style={{ fontSize: 13 }}>Fechas</Text>
@@ -355,7 +355,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
           </div>
 
           {/* ── CLIENTE ── */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #e5e7eb' }}>
+          <div style={{ background: 'var(--qc-surface)', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid var(--qc-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <UserOutlined style={{ color: accentColor }} />
@@ -454,7 +454,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
                         style={{
                           display: 'flex', alignItems: 'center', gap: 10,
                           padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-                          border: '1.5px solid #e5e7eb', background: '#fff',
+                          border: '1.5px solid var(--qc-border)', background: 'var(--qc-surface)',
                           transition: 'border-color 0.12s',
                         }}
                         onMouseEnter={(e) => (e.currentTarget.style.borderColor = accentColor)}
@@ -501,18 +501,18 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
           </div>
 
           {/* ── ÍTEMS ── */}
-          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', marginBottom: 16, overflow: 'hidden' }}>
+          <div style={{ background: 'var(--qc-surface)', borderRadius: 12, border: '1px solid var(--qc-border)', marginBottom: 16, overflow: 'hidden' }}>
 
             {/* Header de la sección */}
             <div style={{
               padding: '14px 18px 12px',
-              borderBottom: '1px solid #f3f4f6',
+              borderBottom: '1px solid var(--qc-border)',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
               <Text strong style={{ fontSize: 13 }}>Productos / Servicios</Text>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 5,
-                background: '#f5f3ff', borderRadius: 20,
+                background: 'rgba(124,58,237,0.15)', borderRadius: 20,
                 padding: '3px 10px', fontSize: 11, color: '#7c3aed',
               }}>
                 <span style={{ fontWeight: 700 }}>@</span>
@@ -525,7 +525,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
               display: 'grid',
               gridTemplateColumns: '1fr 72px 130px 64px 64px 110px 36px',
               gap: 6, padding: '8px 14px',
-              background: '#f9fafb', borderBottom: '1px solid #f3f4f6',
+              background: 'var(--qc-bg)', borderBottom: '1px solid var(--qc-border)',
             }}>
               {['Descripción', 'Cant.', 'Precio unit.', 'Dto.%', 'IVA%', 'Total', ''].map((h, i) => (
                 <div key={i} style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textAlign: i >= 2 ? 'right' : 'left' }}>
@@ -581,7 +581,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
             </div>
 
             {/* Totales */}
-            <div style={{ borderTop: '1px solid #f3f4f6', padding: '14px 18px', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ borderTop: '1px solid var(--qc-border)', padding: '14px 18px', display: 'flex', justifyContent: 'flex-end' }}>
               <div style={{ width: 280 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
                   <Text type="secondary">Subtotal</Text>
@@ -606,7 +606,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
           </div>
 
           {/* ── NOTAS ── */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid #e5e7eb' }}>
+          <div style={{ background: 'var(--qc-surface)', borderRadius: 12, padding: '16px 18px', border: '1px solid var(--qc-border)' }}>
             <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 14 }}>Notas y condiciones</Text>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <Form.Item label="Notas para el cliente" name="notas" style={{ marginBottom: 0 }}>

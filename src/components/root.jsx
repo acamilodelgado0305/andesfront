@@ -32,8 +32,12 @@ import {
   ToolOutlined,
   CrownOutlined,
   AppstoreAddOutlined,
+  BulbOutlined,
+  BulbFilled,
 } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
+import { useTheme } from '../ThemeContext';
+import { theme as antdTheme } from 'antd';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import OnboardingWizard from './Onboarding/OnboardingWizard';
@@ -296,7 +300,21 @@ const TrialBanner = ({ user, navigate }) => {
 const RootLayout = () => {
   // 1. OBTENER USUARIO DEL CONTEXTO
   const { user, login, logout, loading: authLoading } = useContext(AuthContext);
+  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  // Paleta del shell según el tema. Las superficies del layout (sidebar,
+  // header, fondo) se pintan a mano porque usan estilos inline, no AntD.
+  const shell = {
+    pageBg: isDark
+      ? 'linear-gradient(to bottom, #262624 0%, #1f1e1d 100%)'
+      : 'linear-gradient(to bottom, #fff1eb 0%, #dff0fb 100%)',
+    surface: isDark ? '#30302e' : '#ffffff',
+    border: isDark ? '#403e3a' : '#e9eaec',
+    textStrong: isDark ? '#faf9f5' : '#111827',
+    textMuted: isDark ? '#a8a59e' : '#6b7280',
+    headerBtnText: isDark ? '#d6d3ca' : '#374151',
+  };
 
   const [isSiderCollapsed, setIsSiderCollapsed] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -692,6 +710,12 @@ const RootLayout = () => {
   const collapsedProfileMenu = (
     <Menu items={[
       { key: '1', icon: <SettingOutlined />, label: <Link to="/inicio/configuracion">Configuración</Link> },
+      {
+        key: 'theme',
+        icon: isDark ? <BulbFilled /> : <BulbOutlined />,
+        label: isDark ? 'Modo claro' : 'Modo oscuro',
+        onClick: toggleTheme,
+      },
       { type: 'divider' },
       { key: '2', icon: <LogoutOutlined />, label: 'Cerrar Sesión', onClick: logout, danger: true },
     ]} />
@@ -700,21 +724,22 @@ const RootLayout = () => {
   return (
     <ConfigProvider
       theme={{
+        algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
         token: { colorPrimary: PRIMARY_COLOR },
         components: {
           Menu: {
-            itemHoverBg: '#dbeafe',
+            itemHoverBg: isDark ? '#3a3a38' : '#dbeafe',
             itemSelectedBg: PRIMARY_COLOR,
             itemSelectedColor: '#ffffff',
           },
           Layout: {
-            siderBg: '#ffffff',
+            siderBg: shell.surface,
           },
         },
       }}
     >
       {/* Layout raíz: sidebar fijo encima, contenido ocupa todo el ancho */}
-      <div style={{ minHeight: '100vh', backgroundImage: 'linear-gradient(to bottom, #fff1eb 0%, #dff0fb 100%)', backgroundAttachment: 'fixed' }}>
+      <div style={{ minHeight: '100vh', backgroundImage: shell.pageBg, backgroundAttachment: 'fixed' }}>
 
         {/* ── Backdrop ── */}
         {(!isSiderCollapsed || (isMobile && mobileDrawerOpen)) && (
@@ -731,7 +756,7 @@ const RootLayout = () => {
             style={{
               position: 'fixed', top: 12, left: 12, zIndex: 1002,
               width: 36, height: 36, borderRadius: 8, border: 'none',
-              backgroundColor: '#fff', color: '#374151', cursor: 'pointer',
+              backgroundColor: shell.surface, color: shell.headerBtnText, cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 1px 6px rgba(0,0,0,0.15)', fontSize: 15,
             }}
@@ -759,8 +784,8 @@ const RootLayout = () => {
                 zIndex: 1000,
                 overflow: 'hidden',
                 transition: 'width 0.22s ease',
-                backgroundColor: '#fff',
-                borderRight: '1px solid #e9eaec',
+                backgroundColor: shell.surface,
+                borderRight: `1px solid ${shell.border}`,
                 boxShadow: expanded ? '2px 0 16px rgba(0,0,0,0.08)' : 'none',
                 display: 'flex', flexDirection: 'column',
               }}
@@ -925,8 +950,8 @@ const RootLayout = () => {
           {/* ── HEADER TRANSPARENTE ── */}
           <div style={{
             position: 'sticky', top: 0, zIndex: 990,
-            backgroundColor: '#ffffff',
-            borderBottom: '1px solid #e9eaec',
+            backgroundColor: shell.surface,
+            borderBottom: `1px solid ${shell.border}`,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: isMobile ? '0 16px 0 56px' : '0 24px',
             height: 52,
@@ -938,12 +963,12 @@ const RootLayout = () => {
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 cursor: 'pointer', padding: '4px 10px 4px 6px', borderRadius: 8,
-                border: '1px solid rgba(0,0,0,0.07)',
-                backgroundColor: 'rgba(255,255,255,0.5)',
+                border: `1px solid ${isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.07)'}`,
+                backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.5)',
                 transition: 'background 0.15s',
                 maxWidth: 220,
               }}
-                className="hover:bg-white/80"
+                className={isDark ? 'hover:bg-white/10' : 'hover:bg-white/80'}
               >
                 <div style={{
                   width: 26, height: 26, borderRadius: 6, flexShrink: 0,
@@ -954,7 +979,7 @@ const RootLayout = () => {
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px', lineHeight: 1.2 }}>Negocio</div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: shell.textStrong, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {currentBusinessName}
                   </div>
                 </div>
@@ -969,17 +994,17 @@ const RootLayout = () => {
                 cursor: 'pointer', padding: '4px 8px', borderRadius: 8,
                 transition: 'background 0.15s', flexShrink: 0,
               }}
-                className="hover:bg-white/60"
+                className={isDark ? 'hover:bg-white/10' : 'hover:bg-white/60'}
               >
                 <Avatar
                   size={28}
-                  style={{ backgroundColor: '#e5e7eb', color: '#374151', fontSize: 12, fontWeight: 700, flexShrink: 0 }}
+                  style={{ backgroundColor: isDark ? '#374151' : '#e5e7eb', color: isDark ? '#e5e7eb' : '#374151', fontSize: 12, fontWeight: 700, flexShrink: 0 }}
                 >
                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </Avatar>
                 <div style={{ lineHeight: 1.3 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', whiteSpace: 'nowrap' }}>{user.name || 'Usuario'}</div>
-                  <div style={{ fontSize: 10, color: '#6b7280', textTransform: 'capitalize' }}>{user.role}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: shell.textStrong, whiteSpace: 'nowrap' }}>{user.name || 'Usuario'}</div>
+                  <div style={{ fontSize: 10, color: shell.textMuted, textTransform: 'capitalize' }}>{user.role}</div>
                 </div>
               </div>
             </Dropdown>

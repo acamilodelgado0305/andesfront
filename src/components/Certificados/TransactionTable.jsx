@@ -16,6 +16,11 @@ import 'moment/locale/es';
 import { deleteIngreso, deleteEgreso } from '../../services/controlapos/posService';
 import useCurrency from '../../hooks/useCurrency';
 import useIsMobile from '../../hooks/useIsMobile';
+import { useTheme } from '../../ThemeContext';
+
+// Colores de monto legibles en ambos temas (verde ingreso / rojo gasto).
+const amountColor = (isIngreso, isDark) =>
+  isIngreso ? (isDark ? '#4ade80' : '#15803d') : (isDark ? '#f87171' : '#dc2626');
 
 moment.locale('es');
 const { Option } = Select;
@@ -38,6 +43,7 @@ const QUICK_RANGES = [
    Mobile card component
 ───────────────────────────────────────────────────────────────────────────── */
 const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, onDelete, canSendMail, sending, onSendMail }) => {
+  const { isDark } = useTheme();
   const dateField = type === 'ingresos' ? 'createdAt' : 'fecha';
   const date      = record[dateField];
   const isIngreso = type === 'ingresos';
@@ -64,12 +70,12 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
   return (
     <div
       style={{
-        background: '#fff',
+        background: 'var(--qc-surface)',
         borderRadius: 12,
         boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
         padding: '12px 14px',
         marginBottom: 10,
-        border: '1px solid #f0f0f0',
+        border: '1px solid var(--qc-border)',
       }}
     >
       {/* Row 1: date box | client name | amount */}
@@ -78,14 +84,14 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
         <div
           style={{
             minWidth: 42,
-            background: '#f3f4f6',
+            background: 'var(--qc-surface-2)',
             borderRadius: 8,
             padding: '4px 6px',
             textAlign: 'center',
             flexShrink: 0,
           }}
         >
-          <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1, color: '#374151' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1, color: 'var(--qc-text)' }}>
             {moment(date).format('DD')}
           </div>
           <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -99,7 +105,7 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
             style={{
               fontWeight: 600,
               fontSize: 14,
-              color: '#111827',
+              color: 'var(--qc-text)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -120,7 +126,7 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
             <div
               style={{
                 fontSize: 12,
-                color: '#6b7280',
+                color: 'var(--qc-text-muted)',
                 marginTop: 2,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
@@ -141,7 +147,7 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
           style={{
             fontWeight: 700,
             fontSize: 15,
-            color: isIngreso ? '#15803d' : '#dc2626',
+            color: amountColor(isIngreso, isDark),
             flexShrink: 0,
             whiteSpace: 'nowrap',
           }}
@@ -199,6 +205,7 @@ const TransactionTable = ({
 }) => {
   const fmt      = useCurrency();
   const isMobile = useIsMobile();
+  const { isDark } = useTheme();
 
   const [searchText,    setSearchText]    = useState('');
   const [paymentFilter, setPaymentFilter] = useState(null);
@@ -393,7 +400,7 @@ const TransactionTable = ({
       ? [dayjs(dateRange[0].toDate()), dayjs(dateRange[1].toDate())]
       : null;
 
-  const TS = { fontSize: 13, color: '#374151' }; // tamaño base uniforme
+  const TS = { fontSize: 13, color: 'var(--qc-text)' }; // tamaño base uniforme
 
   // Columnas (desktop)
   const columns = useMemo(() => [
@@ -402,7 +409,7 @@ const TransactionTable = ({
       dataIndex: type === 'ingresos' ? 'createdAt' : 'fecha',
       width: 60,
       render: (date) => (
-        <div style={{ textAlign: 'center', background: '#f3f4f6', borderRadius: 6, padding: '3px 4px' }}>
+        <div style={{ textAlign: 'center', background: 'var(--qc-surface-2)', borderRadius: 6, padding: '3px 4px' }}>
           <div style={{ ...TS, fontWeight: 700, lineHeight: 1.2 }}>{moment(date).format('DD')}</div>
           <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase' }}>{moment(date).format('MMM')}</div>
         </div>
@@ -470,7 +477,7 @@ const TransactionTable = ({
       align: 'right',
       render: (val) => (
         <span style={{ ...TS, fontWeight: 600,
-          color: type === 'ingresos' ? '#15803d' : '#dc2626' }}>
+          color: amountColor(type === 'ingresos', isDark) }}>
           {fmt(val)}
         </span>
       ),
@@ -512,9 +519,9 @@ const TransactionTable = ({
     fontWeight: 600,
     cursor: 'pointer',
     border: '1px solid',
-    background: active ? '#155153' : '#fff',
-    color:      active ? '#fff'    : '#6b7280',
-    borderColor:active ? '#155153' : '#e5e7eb',
+    background: active ? '#155153' : 'var(--qc-surface)',
+    color:      active ? '#fff'    : 'var(--qc-text-muted)',
+    borderColor:active ? '#155153' : 'var(--qc-border)',
     transition: 'all 0.15s',
     whiteSpace: 'nowrap',
   });
@@ -671,9 +678,9 @@ const TransactionTable = ({
               <div
                 key={i}
                 style={{
-                  background: '#fff',
+                  background: 'var(--qc-surface)',
                   borderRadius: 12,
-                  border: '1px solid #f0f0f0',
+                  border: '1px solid var(--qc-border)',
                   padding: '12px 14px',
                   marginBottom: 10,
                 }}

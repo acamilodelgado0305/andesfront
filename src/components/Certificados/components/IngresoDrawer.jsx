@@ -26,7 +26,7 @@ const API_CERT_URL = import.meta.env.VITE_API_BACKEND;
 const INTENSIDAD_HORARIA_DEFAULT = '10';
 
 const SECTION = ({ icon, title, children }) => (
-    <div style={{ background: '#fff', padding: 20, borderRadius: 8, border: '1px solid #e8e8e8', marginBottom: 14 }}>
+    <div style={{ background: 'var(--qc-surface)', padding: 20, borderRadius: 8, border: '1px solid var(--qc-border)', marginBottom: 14 }}>
         <Title level={5} style={{ marginTop: 0, marginBottom: 14 }}>{icon} {title}</Title>
         {children}
     </div>
@@ -286,7 +286,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                 extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} />}
                 rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
                 styles={{
-                    body: { background: '#f5f5f5', padding: isMobile ? '14px' : '18px', overflowX: 'hidden' },
+                    body: { background: 'var(--qc-bg)', padding: isMobile ? '14px' : '18px', overflowX: 'hidden' },
                     wrapper: isMobile ? { height: '100%', width: '100%' } : {},
                 }}
                 footer={
@@ -312,7 +312,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                         {selectedPersona ? (
                             <div style={{
                                 display: 'flex', alignItems: 'center', gap: 12,
-                                background: '#f0faf9', border: '2px solid #155153',
+                                background: 'rgba(21,81,83,0.12)', border: '2px solid #155153',
                                 borderRadius: 8, padding: '10px 14px',
                             }}>
                                 <Avatar style={{ background: '#155153', flexShrink: 0 }} icon={<UserOutlined />} />
@@ -385,7 +385,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: 10,
                                                     padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-                                                    border: '1.5px solid #e5e7eb', background: '#fff',
+                                                    border: '1.5px solid var(--qc-border)', background: 'var(--qc-surface)',
                                                     transition: 'border-color 0.12s',
                                                 }}
                                                 onMouseEnter={e => e.currentTarget.style.borderColor = '#155153'}
@@ -415,16 +415,16 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                     {/* ── TABLA DE PRODUCTOS (tipo factura) ────── */}
                     <SECTION icon={<ShoppingOutlined />} title="Productos">
 
-                        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                        <div style={{ border: '1px solid var(--qc-border)', borderRadius: 8, overflow: 'hidden' }}>
 
                             {/* Encabezado columnas */}
                             <div style={{
                                 display: 'grid',
                                 gridTemplateColumns: '1fr 72px 82px 28px',
                                 gap: 6,
-                                background: '#f1f5f9',
+                                background: 'var(--qc-surface-2)',
                                 padding: '6px 10px',
-                                borderBottom: '1px solid #e5e7eb',
+                                borderBottom: '1px solid var(--qc-border)',
                             }}>
                                 <span style={HDR}>Descripción</span>
                                 <span style={{ ...HDR, textAlign: 'center' }}>Cant.</span>
@@ -445,8 +445,8 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                                         gap: 6,
                                         alignItems: 'start',
                                         padding: '8px 10px',
-                                        borderBottom: idx < lineItems.length - 1 ? '1px solid #f1f5f9' : 'none',
-                                        background: idx % 2 === 0 ? '#fff' : '#fafafa',
+                                        borderBottom: idx < lineItems.length - 1 ? '1px solid var(--qc-border)' : 'none',
+                                        background: idx % 2 === 0 ? 'var(--qc-surface)' : 'var(--qc-surface-2)',
                                     }}>
 
                                         {/* Descripción: select + precio unitario */}

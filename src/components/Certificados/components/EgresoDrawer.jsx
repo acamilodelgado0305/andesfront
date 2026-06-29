@@ -23,7 +23,7 @@ const { Text } = Typography;
 
 const FL = ({ label, required, children }) => (
     <div style={{ marginBottom: 16 }}>
-        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--qc-text-muted)', marginBottom: 6 }}>
             {label}{required && <span style={{ color: '#ef4444' }}> *</span>}
         </label>
         {children}
@@ -136,7 +136,7 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                 extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} />}
                 rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
                 styles={{
-                    body: { background: '#f9fafb', padding: isMobile ? '16px' : '24px', overflowX: 'hidden' },
+                    body: { background: 'var(--qc-bg)', padding: isMobile ? '16px' : '24px', overflowX: 'hidden' },
                     wrapper: isMobile ? { height: '100%', width: '100%' } : {},
                 }}
                 footer={
@@ -157,16 +157,16 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                 <Form form={form} layout="vertical" requiredMark={false}>
 
                     {/* ── CONTACTO PROVEEDOR ──────────────────── */}
-                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 18px', marginBottom: 16 }}>
+                    <div style={{ background: 'var(--qc-surface)', border: '1px solid var(--qc-border)', borderRadius: 10, padding: '16px 18px', marginBottom: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                             <ShopOutlined style={{ color: '#ea580c' }} />
-                            <Text strong style={{ fontSize: 13, color: '#1e293b' }}>Proveedor (opcional)</Text>
+                            <Text strong style={{ fontSize: 13, color: 'var(--qc-text)' }}>Proveedor (opcional)</Text>
                         </div>
 
                         {selectedPersona ? (
                             <div style={{
                                 display: 'flex', alignItems: 'center', gap: 12,
-                                background: '#fff7ed', border: '2px solid #ea580c',
+                                background: 'rgba(234,88,12,0.12)', border: '2px solid #ea580c',
                                 borderRadius: 8, padding: '10px 14px',
                             }}>
                                 <Avatar style={{ background: '#ea580c', flexShrink: 0 }} icon={<ShopOutlined />} />
@@ -230,7 +230,7 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: 10,
                                                     padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-                                                    border: '1.5px solid #e5e7eb', background: '#fff',
+                                                    border: '1.5px solid var(--qc-border)', background: 'var(--qc-surface)',
                                                     transition: 'border-color 0.12s',
                                                 }}
                                                 onMouseEnter={e => e.currentTarget.style.borderColor = '#ea580c'}
@@ -260,10 +260,10 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                     </div>
 
                     {/* ── DETALLES DEL GASTO ──────────────────── */}
-                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 18px', marginBottom: 16 }}>
+                    <div style={{ background: 'var(--qc-surface)', border: '1px solid var(--qc-border)', borderRadius: 10, padding: '16px 18px', marginBottom: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                             <CalendarOutlined style={{ color: '#155153' }} />
-                            <Text strong style={{ fontSize: 13, color: '#1e293b' }}>Detalles del Gasto</Text>
+                            <Text strong style={{ fontSize: 13, color: 'var(--qc-text)' }}>Detalles del Gasto</Text>
                         </div>
 
                         <FL label="Descripción / Motivo" required>
@@ -289,10 +289,10 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                     </div>
 
                     {/* ── MONTO Y CUENTA ──────────────────────── */}
-                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 18px' }}>
+                    <div style={{ background: 'var(--qc-surface)', border: '1px solid var(--qc-border)', borderRadius: 10, padding: '16px 18px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                             <DollarCircleOutlined style={{ color: '#155153' }} />
-                            <Text strong style={{ fontSize: 13, color: '#1e293b' }}>Monto</Text>
+                            <Text strong style={{ fontSize: 13, color: 'var(--qc-text)' }}>Monto</Text>
                         </div>
 
                         <Row gutter={12}>

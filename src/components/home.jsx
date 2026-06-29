@@ -26,6 +26,7 @@ import {
   RightOutlined,
 } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
+import { useTheme } from '../ThemeContext';
 import { getAllIngresos, getAllEgresos, getIngresosDiarios, getIngresosMensuales } from '../services/controlapos/posService';
 import { formatCurrency } from '../utils/currency';
 import useIsMobile from '../hooks/useIsMobile';
@@ -124,7 +125,17 @@ const TONE_STYLES = {
 const Home = () => {
   const [greeting, setGreeting] = useState('');
   const { user } = useContext(AuthContext);
+  const { isDark } = useTheme();
   const isMobile = useIsMobile();
+
+  // Paleta para las superficies con estilo inline (no cubiertas por Tailwind).
+  const card = {
+    bg: isDark ? '#30302e' : '#fff',
+    border: isDark ? '#403e3a' : '#e5e7eb',
+    borderHover: isDark ? '#56544e' : '#cbd5e1',
+    title: isDark ? '#faf9f5' : '#0f172a',
+    muted: isDark ? '#a8a59e' : '#94a3b8',
+  };
   const [period, setPeriod] = useState('today');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -207,21 +218,21 @@ const Home = () => {
       <div className="mx-auto max-w-6xl space-y-8">
 
         {/* SALUDO */}
-        <section className="rounded-2xl border border-slate-200 bg-white/60 p-6 shadow-sm">
-          <Title level={2} className="!mb-1 text-slate-800">
+        <section className="rounded-2xl border border-slate-200 dark:border-[#403e3a] bg-white/60 dark:bg-[#30302e]/70 p-6 shadow-sm">
+          <Title level={2} className="!mb-1 text-slate-800 dark:!text-[#faf9f5]">
             {greeting}, {user?.name || 'Usuario'}!
           </Title>
-          <p className="text-slate-500">
+          <p className="text-slate-500 dark:text-[#a8a59e]">
             Aquí tienes un resumen de tu negocio.
           </p>
         </section>
 
         {/* RESUMEN FINANCIERO */}
-        <section className="rounded-2xl border border-slate-200 bg-white/70 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <section className="rounded-2xl border border-slate-200 dark:border-[#403e3a] bg-white/70 dark:bg-[#30302e]/70 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-[#403e3a]">
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Resumen financiero</p>
-              <p className="text-sm font-medium text-slate-700">{PERIOD_LABELS[period]}</p>
+              <p className="text-sm font-medium text-slate-700 dark:text-[#c9c6bd]">{PERIOD_LABELS[period]}</p>
             </div>
             <div className="relative" ref={menuRef}>
               <button
@@ -305,7 +316,7 @@ const Home = () => {
         </section>
 
         {/* GRÁFICA INGRESOS */}
-        <section className="rounded-2xl border border-slate-200 bg-white/70 shadow-sm overflow-hidden">
+        <section className="rounded-2xl border border-slate-200 dark:border-[#403e3a] bg-white/70 dark:bg-[#30302e]/70 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Ingresos</p>
@@ -422,8 +433,8 @@ const Home = () => {
                     key={item.key}
                     to={item.key}
                     style={{
-                      background: '#fff',
-                      border: '1px solid #e5e7eb',
+                      background: card.bg,
+                      border: `1px solid ${card.border}`,
                       borderRadius: 14,
                       padding: isMobile ? '12px 10px' : 16,
                       display: 'flex',
@@ -436,12 +447,12 @@ const Home = () => {
                       textAlign: isMobile ? 'center' : 'left',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#cbd5e1';
+                      e.currentTarget.style.borderColor = card.borderHover;
                       e.currentTarget.style.transform = 'translateY(-1px)';
                       e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.06)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = '#e5e7eb';
+                      e.currentTarget.style.borderColor = card.border;
                       e.currentTarget.style.transform = 'none';
                       e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.03)';
                     }}
@@ -455,10 +466,10 @@ const Home = () => {
                       {item.icon}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a', marginBottom: 2 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: card.title, marginBottom: 2 }}>
                         {item.label}
                       </div>
-                      <div style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: 12, color: card.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {item.hint}
                       </div>
                     </div>

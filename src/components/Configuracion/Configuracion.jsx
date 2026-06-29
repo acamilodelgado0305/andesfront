@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   Form, Input, Button, message, Typography, Divider,
-  Spin, Avatar, Upload, Tag, Select, Row, Col, Tooltip,
+  Spin, Avatar, Upload, Tag, Select, Row, Col, Tooltip, Segmented,
 } from 'antd';
 import {
   EditOutlined, SaveOutlined, DeleteOutlined, ShopOutlined,
   WarningOutlined, EnvironmentOutlined, PhoneOutlined,
   MailOutlined, GlobalOutlined, BankOutlined, CameraOutlined,
   CheckCircleOutlined, LoadingOutlined, BuildOutlined,
+  SunOutlined, MoonOutlined, DesktopOutlined, BgColorsOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
 import { AuthContext } from '../../AuthContext';
+import { useTheme } from '../../ThemeContext';
 import { LATAM_COUNTRIES, getFlagUrl, COUNTRY_CURRENCY_MAP } from '../../utils/currency';
 
 const { Title, Text } = Typography;
@@ -40,35 +42,39 @@ const INDUSTRY_OPTIONS = [
 ];
 
 // ── Sección contenedora ───────────────────────────────────────────────────────
-const Section = ({ icon, title, subtitle, children, borderColor = '#e5e7eb' }) => (
-  <div style={{
-    background: '#fff',
-    borderRadius: 16,
-    border: `1px solid ${borderColor}`,
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-    marginBottom: 20,
-    overflow: 'hidden',
-  }}>
-    <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #f1f5f9' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10,
-          background: borderColor === '#fecaca' ? '#fef2f2' : '#f0fafa',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: borderColor === '#fecaca' ? '#ef4444' : '#155153',
-          fontSize: 16,
-        }}>
-          {icon}
-        </div>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: borderColor === '#fecaca' ? '#dc2626' : '#1f2937' }}>{title}</div>
-          {subtitle && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 1 }}>{subtitle}</div>}
+const Section = ({ icon, title, subtitle, children, borderColor = '#e5e7eb' }) => {
+  const { isDark } = useTheme();
+  const isDanger = borderColor === '#fecaca';
+  return (
+    <div style={{
+      background: isDark ? '#30302e' : '#fff',
+      borderRadius: 16,
+      border: `1px solid ${isDark ? (isDanger ? '#7f1d1d' : '#403e3a') : borderColor}`,
+      boxShadow: isDark ? '0 1px 4px rgba(0,0,0,0.4)' : '0 1px 4px rgba(0,0,0,0.06)',
+      marginBottom: 20,
+      overflow: 'hidden',
+    }}>
+      <div style={{ padding: '18px 24px 14px', borderBottom: `1px solid ${isDark ? '#403e3a' : '#f1f5f9'}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: isDanger ? (isDark ? '#3f1d1d' : '#fef2f2') : (isDark ? '#3a3a38' : '#f0fafa'),
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: isDanger ? '#ef4444' : (isDark ? '#2dd4bf' : '#155153'),
+            fontSize: 16,
+          }}>
+            {icon}
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: isDanger ? '#dc2626' : (isDark ? '#faf9f5' : '#1f2937') }}>{title}</div>
+            {subtitle && <div style={{ fontSize: 12, color: isDark ? '#a8a59e' : '#94a3b8', marginTop: 1 }}>{subtitle}</div>}
+          </div>
         </div>
       </div>
+      <div style={{ padding: '20px 24px' }}>{children}</div>
     </div>
-    <div style={{ padding: '20px 24px' }}>{children}</div>
-  </div>
-);
+  );
+};
 
 // ── Etiqueta de campo ─────────────────────────────────────────────────────────
 const FieldLabel = ({ children, required }) => (
@@ -82,6 +88,7 @@ const FieldLabel = ({ children, required }) => (
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Configuracion() {
   const { user, login, patchUser } = useContext(AuthContext);
+  const { mode: themeMode, isDark, setTheme } = useTheme();
 
   const [infoForm] = Form.useForm();
   const [loading, setLoading]     = useState(true);
@@ -256,6 +263,26 @@ export default function Configuracion() {
         </div>
       ) : (
         <>
+          {/* ── APARIENCIA (modo oscuro) ── */}
+          <Section icon={<BgColorsOutlined />} title="Apariencia" subtitle="Elige cómo se ve el sistema. Tu preferencia se guarda en tu cuenta.">
+            <Segmented
+              value={themeMode}
+              onChange={setTheme}
+              size="large"
+              block
+              options={[
+                { label: 'Claro', value: 'light', icon: <SunOutlined /> },
+                { label: 'Oscuro', value: 'dark', icon: <MoonOutlined /> },
+                { label: 'Automático', value: 'system', icon: <DesktopOutlined /> },
+              ]}
+            />
+            <div style={{ marginTop: 10, fontSize: 12, color: isDark ? '#9ca3af' : '#6b7280' }}>
+              {themeMode === 'system'
+                ? 'Automático sigue la configuración de tu sistema operativo.'
+                : `Tema fijo en modo ${themeMode === 'dark' ? 'oscuro' : 'claro'}.`}
+            </div>
+          </Section>
+
           {/* ── LOGO ── */}
           <Section icon={<CameraOutlined />} title="Logo del negocio" subtitle="Imagen que representa tu negocio en documentos y el sistema">
             <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>

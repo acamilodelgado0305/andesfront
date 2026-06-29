@@ -213,7 +213,7 @@ function Certificados() {
 
       {/* Tabla + Stats integrados */}
       <Card className="shadow-md rounded-xl border-0 overflow-hidden" bodyStyle={{ padding: 0 }}>
-        <Tabs defaultActiveKey="ingresos" size={isMobile ? 'middle' : 'large'} tabBarStyle={{ padding: isMobile ? '0 12px' : '0 24px', backgroundColor: '#fff', marginBottom: 0 }}>
+        <Tabs defaultActiveKey="ingresos" size={isMobile ? 'middle' : 'large'} tabBarStyle={{ padding: isMobile ? '0 12px' : '0 24px', backgroundColor: 'var(--qc-surface)', marginBottom: 0 }}>
 
           <TabPane tab={<span style={{ fontWeight: 600 }}><ArrowUpOutlined style={{ color: '#16a34a' }} /> Ingresos</span>} key="ingresos">
             <div className="p-4">

@@ -22,11 +22,11 @@ const ToggleBtn = ({ active, onClick, icon, label, color = '#155153' }) => (
         onClick={onClick}
         style={{
             flex: 1, padding: '10px 12px', borderRadius: 10,
-            border: `1.5px solid ${active ? color : '#e5e7eb'}`,
-            background: active ? `${color}12` : '#fafafa',
+            border: `1.5px solid ${active ? color : 'var(--qc-border)'}`,
+            background: active ? `${color}12` : 'var(--qc-surface-2)',
             cursor: 'pointer', display: 'flex', alignItems: 'center',
             justifyContent: 'center', gap: 7, fontWeight: 600, fontSize: 13,
-            color: active ? color : '#64748b', transition: 'all 0.15s ease',
+            color: active ? color : 'var(--qc-text-muted)', transition: 'all 0.15s ease',
             position: 'relative',
         }}
     >
@@ -37,7 +37,7 @@ const ToggleBtn = ({ active, onClick, icon, label, color = '#155153' }) => (
 
 const FieldLabel = ({ label, required, children }) => (
     <div style={{ marginBottom: 14 }}>
-        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 5 }}>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--qc-text-muted)', marginBottom: 5 }}>
             {label} {required && <span style={{ color: '#ef4444' }}>*</span>}
         </label>
         {children}

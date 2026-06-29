@@ -34,6 +34,10 @@ const buildUserFromPayload = (payload, base = {}) => ({
     trial_ends_at: base.trial_ends_at ?? payload.trial_ends_at ?? null,
     onboarding_completed_at: base.onboarding_completed_at ?? payload.onboarding_completed_at ?? null,
     country: base.country ?? payload.country ?? 'CO',
+    // Preferencia de tema (modo oscuro). Viene en el `user` de la respuesta de
+    // login; no está en el JWT, por eso se toma de `base`. ThemeContext la usa
+    // como fuente de verdad cross-device.
+    theme_preference: base.theme_preference ?? payload.theme_preference ?? null,
 });
 
 export const AuthProvider = ({ children }) => {

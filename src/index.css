@@ -2,11 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===========================================================================
+   TEMA / MODO OSCURO
+   El modo oscuro se activa con la clase `dark` en <html> (ver ThemeContext y
+   el script pre-paint de index.html). Ant Design se adapta solo vía
+   darkAlgorithm; aquí cubrimos lo que NO es AntD: fondos de página, superficies
+   con Tailwind hardcodeado y elementos nativos.
+   =========================================================================== */
+
+/* Variables de tema. --qc-bg la usan el loader inicial y los spinners. */
+:root {
+  --qc-bg: #f9fafb;        /* fondo de página */
+  --qc-surface: #ffffff;   /* tarjetas / paneles */
+  --qc-surface-2: #f8fafc; /* superficies sutiles */
+  --qc-border: #e5e7eb;    /* bordes */
+  --qc-text: #1f2937;      /* texto principal */
+  --qc-text-muted: #6b7280;/* texto secundario */
+}
+
+/* Paleta de modo oscuro estilo Claude: tonos cálidos (carbón/tierra),
+   texto crema y acento terracota. */
+html.dark {
+  --qc-bg: #262624;        /* fondo de página (warm charcoal) */
+  --qc-surface: #30302e;   /* tarjetas / paneles / sidebar */
+  --qc-surface-2: #3a3a38; /* superficies sutiles / hover */
+  --qc-border: #403e3a;    /* bordes cálidos */
+  --qc-text: #faf9f5;      /* crema (texto principal) */
+  --qc-text-muted: #a8a59e;/* gris cálido (texto secundario) */
+  --qc-accent: #d97757;    /* terracota Claude (acento opcional) */
+}
+
+html.dark body {
+  background-color: var(--qc-bg);
+  color: var(--qc-text);
+}
+
+/* Scrollbars en modo oscuro (paleta cálida Claude) */
+html.dark ::-webkit-scrollbar { width: 12px; height: 12px; }
+html.dark ::-webkit-scrollbar-track { background: #262624; }
+html.dark ::-webkit-scrollbar-thumb {
+  background: #4a4844; border-radius: 8px; border: 3px solid #262624;
+}
+html.dark ::-webkit-scrollbar-thumb:hover { background: #5a5852; }
+
+/* ---------------------------------------------------------------------------
+   Adaptación global de utilidades Tailwind más comunes en superficies
+   personalizadas (tarjetas, fondos, textos y bordes hardcodeados).
+   Se scopean con :where(.dark) → especificidad 0: cualquier variante `dark:`
+   explícita en un componente SIEMPRE gana. Para código nuevo, prefiere usar
+   variantes `dark:` directas (ver convención en CLAUDE.md), no dependas de esto.
+   --------------------------------------------------------------------------- */
+:where(html.dark) .bg-white { background-color: var(--qc-surface); }
+:where(html.dark) .bg-gray-50,
+:where(html.dark) .bg-gray-100 { background-color: var(--qc-surface-2); }
+:where(html.dark) .bg-slate-50,
+:where(html.dark) .bg-slate-100 { background-color: var(--qc-surface-2); }
+
+:where(html.dark) .text-gray-900,
+:where(html.dark) .text-gray-800,
+:where(html.dark) .text-slate-900,
+:where(html.dark) .text-slate-800 { color: var(--qc-text); }
+:where(html.dark) .text-gray-700,
+:where(html.dark) .text-gray-600,
+:where(html.dark) .text-gray-500,
+:where(html.dark) .text-slate-700,
+:where(html.dark) .text-slate-600,
+:where(html.dark) .text-slate-500 { color: var(--qc-text-muted); }
+
+:where(html.dark) .border-gray-100,
+:where(html.dark) .border-gray-200,
+:where(html.dark) .border-gray-300,
+:where(html.dark) .border-slate-100,
+:where(html.dark) .border-slate-200,
+:where(html.dark) .border-slate-300 { border-color: var(--qc-border); }
+
+:where(html.dark) .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
+:where(html.dark) .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+:where(html.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+:where(html.dark) .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--qc-border);
+}
 
 /* --- Estilo para Drawer personalizado --- */
 .top-right-drawer .ant-drawer-content-wrapper {
   /* Define un ancho fijo en lugar de 100% */
-  width: 500px !important; 
+  width: 500px !important;
 
   /* Anula la posición izquierda y lo alinea a la derecha */
   left: auto !important;

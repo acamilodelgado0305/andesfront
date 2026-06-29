@@ -1,6 +1,7 @@
 import React, { Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { ConfigProvider, theme as antdTheme } from "antd";
 import "./index.css";
 
 import { lazyWithRetry } from "./lib/lazyWithRetry";
@@ -8,6 +9,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 
 // Contexto de autenticación (necesario de inmediato → import estático)
 import { AuthProvider } from "./AuthContext";
+import { ThemeProvider, useTheme } from "./ThemeContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
 // Registra los interceptores globales de axios (manejo de sesión expirada → 401).
@@ -72,7 +74,43 @@ const PagoResultado = lazyWithRetry(() => import("./components/auth/PagoResultad
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
+// Color primario de marca, compartido con el tema de AntD.
+const PRIMARY_COLOR = "#1d4ed8";
+
+// Proveedor de tema global de Ant Design. Cambia entre algoritmo claro y
+// oscuro según ThemeContext, de modo que TODAS las pantallas (incluidas las
+// públicas como Login) hereden el modo oscuro automáticamente.
+const ThemedConfigProvider = ({ children }) => {
+  const { isDark } = useTheme();
+  return (
+    <ConfigProvider
+      theme={{
+        algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+        token: {
+          colorPrimary: PRIMARY_COLOR,
+          // Paleta oscura cálida estilo Claude (sobreescribe los grises azulados
+          // que genera darkAlgorithm por defecto).
+          ...(isDark
+            ? {
+                colorBgBase: '#262624',
+                colorTextBase: '#faf9f5',
+                colorBgContainer: '#30302e',
+                colorBgElevated: '#363633',
+                colorBgLayout: '#262624',
+                colorBorder: '#403e3a',
+                colorBorderSecondary: '#35332f',
+              }
+            : {}),
+        },
+      }}
+    >
+      {children}
+    </ConfigProvider>
+  );
+};
+
 // Spinner ligero (sin dependencias) mostrado mientras carga cada chunk.
+// Usa la variable de tema --qc-bg para respetar el modo oscuro.
 const PageLoader = () => (
   <div
     style={{
@@ -80,7 +118,7 @@ const PageLoader = () => (
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      background: "#f9fafb",
+      background: "var(--qc-bg, #f9fafb)",
     }}
   >
     <div
@@ -108,9 +146,11 @@ const App = () => (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <Router>
         <AuthProvider>
-          <ErrorBoundary>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
+          <ThemeProvider>
+            <ThemedConfigProvider>
+              <ErrorBoundary>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
                 {/* Rutas públicas */}
                 <Route path="/" element={<Navigate to="/login" replace />} />
                 <Route path="/login" element={<Login />} />
@@ -172,9 +212,11 @@ const App = () => (
 
                 {/* Ruta de error */}
                 <Route path="*" element={<ErrorPage />} />
-              </Routes>
-            </Suspense>
-          </ErrorBoundary>
+                  </Routes>
+                </Suspense>
+              </ErrorBoundary>
+            </ThemedConfigProvider>
+          </ThemeProvider>
         </AuthProvider>
       </Router>
     </GoogleOAuthProvider>
