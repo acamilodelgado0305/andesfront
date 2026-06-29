@@ -58,6 +58,7 @@ const MyStudentEvaluationsPage = lazyWithRetry(() => import("./components/Evalua
 const RegistroExpress = lazyWithRetry(() => import("./components/PublicForms/RegistroExpress"));
 const PedidosDashboard = lazyWithRetry(() => import("./components/pedidos/PedidosDashboard"));
 const DocumentosVentaDashboard = lazyWithRetry(() => import("./components/documentosVenta/DocumentosVentaDashboard"));
+const CuentasPorPagarDashboard = lazyWithRetry(() => import("./components/cuentasPorPagar/CuentasPorPagarDashboard"));
 const ModulosPage = lazyWithRetry(() => import("./components/Modulos/ModulosPage"));
 const ModuloDetalle = lazyWithRetry(() => import("./components/Modulos/ModuloDetalle"));
 const StudentModulosPage = lazyWithRetry(() => import("./components/Modulos/StudentModulosPage"));
@@ -163,6 +164,7 @@ const App = () => (
                   <Route path="crm" element={<CrmDashboard />} />
                   <Route path="pedidos" element={<PedidosDashboard />} />
                   <Route path="documentos-venta" element={<DocumentosVentaDashboard />} />
+                  <Route path="cuentas-por-pagar" element={<CuentasPorPagarDashboard />} />
                   <Route path="students/facturas/:id" element={<Facturas />} />
                   <Route path="students/view/:id" element={<StudentInformacion />} />
                   <Route path="configuracion" element={<Configuracion />} />

@@ -74,6 +74,7 @@ const MENU_MASTER = [
       { key: '/inicio/crm',          icon: <UsergroupAddOutlined />, label: 'CRM',        path: '/inicio/crm' },
       { key: '/inicio/pedidos',         icon: <ShoppingCartOutlined />, label: 'Pedidos',              path: '/inicio/pedidos' },
       { key: '/inicio/documentos-venta', icon: <FileTextOutlined />,     label: 'Facturas / Cotizaciones', path: '/inicio/documentos-venta' },
+      { key: '/inicio/cuentas-por-pagar', icon: <BankOutlined />,        label: 'Cuentas por Pagar',    path: '/inicio/cuentas-por-pagar' },
     ]
   },
 
@@ -443,6 +444,7 @@ const RootLayout = () => {
       const allPosItems = [
         { key: '/inicio/certificados',     navKey: 'movimientos', icon: <SwapOutlined />,         label: 'Movimientos',  path: '/inicio/certificados' },
         { key: '/inicio/documentos-venta', navKey: 'facturas',    icon: <FileDoneOutlined />,     label: 'Facturas',     path: '/inicio/documentos-venta' },
+        { key: '/inicio/cuentas-por-pagar', navKey: 'cuentas-por-pagar', icon: <BankOutlined />,   label: 'Cuentas por Pagar', path: '/inicio/cuentas-por-pagar' },
         { key: '/inicio/personas',         navKey: 'contactos',   icon: <ContactsOutlined />,     label: 'Contactos',    path: '/inicio/personas' },
         { key: '/inicio/crm',              navKey: 'crm',         icon: <UsergroupAddOutlined />, label: 'CRM',          path: '/inicio/crm' },
         { key: '/inicio/inventario',       navKey: 'inventario',  icon: <InboxOutlined />,        label: 'Inventario',   path: '/inicio/inventario' },
