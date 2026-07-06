@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Tabs, Card, Button, Tag, Table, Typography, Spin, Empty, Badge,
   Modal, Drawer, Form, Input, Switch, InputNumber, Space, Tooltip, Popconfirm,
@@ -9,26 +9,33 @@ import {
   PlusOutlined, DeleteOutlined, FilePdfOutlined, FileTextOutlined,
   TrophyOutlined, InboxOutlined, CheckCircleOutlined, CloseCircleOutlined,
   UnorderedListOutlined, WhatsAppOutlined, LinkOutlined, EyeOutlined,
-  ScheduleOutlined, SwapOutlined, CopyOutlined, AppstoreAddOutlined
+  ScheduleOutlined, SwapOutlined, CopyOutlined, AppstoreAddOutlined,
+  SolutionOutlined, MailOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import CreateProgramModal from './addProgram';
 import HorarioDrawer from '../Horarios/HorarioDrawer';
+import MateriaDetalle from '../materias/MateriaDetalle';
 import useCurrency from '../../hooks/useCurrency';
 import {
   getMateriasByPrograma, createMateria, updateMateria, deleteMateria
 } from '../../services/materias/serviceMateria';
-import { getAllDocentes } from '../../services/docentes/serviceDocente';
+import {
+  getAllDocentes, createDocente, getProgramaDocentes,
+  addDocenteToPrograma, removeDocenteFromPrograma
+} from '../../services/docentes/serviceDocente';
 import {
   getEvaluations, getStudentAssignmentsAdmin,
   assignToSelectedStudents, removeAssignment
 } from '../../services/evaluation/evaluationService';
+import { generateJoinLink, toggleJoinLink } from '../../services/programas/programasService';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Dragger } = Upload;
 const API = import.meta.env.VITE_API_BACKEND;
+const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
 const PRIMARY = '#155153';
 const PURPLE  = '#7c3aed';
 
@@ -41,6 +48,8 @@ export default function ProgramaDetalle() {
   const [programa, setPrograma] = useState(null);
   const [estudiantes, setEstudiantes] = useState([]);
   const [busquedaEstudiante, setBusquedaEstudiante] = useState('');
+  const [activeTab, setActiveTab] = useState('info');
+  const [aulaMateriaId, setAulaMateriaId] = useState(null);
   const [modulos, setModulos]   = useState([]);
 
   // Evaluaciones por estudiante
@@ -53,6 +62,14 @@ export default function ProgramaDetalle() {
 
   // Editar programa
   const [editProgramaOpen, setEditProgramaOpen] = useState(false);
+
+  // Enlace de inscripción (join link)
+  const [joinModalOpen, setJoinModalOpen]           = useState(false);
+  const [coordinadores, setCoordinadores]           = useState([]);
+  const [loadingCoordinadores, setLoadingCoordinadores] = useState(false);
+  const [joinCoordinadorId, setJoinCoordinadorId]   = useState(null);
+  const [generatingJoinLink, setGeneratingJoinLink] = useState(false);
+  const [togglingJoinLink, setTogglingJoinLink]     = useState(false);
 
   // Módulos
   const [moduloModalOpen, setModuloModalOpen] = useState(false);
@@ -82,6 +99,16 @@ export default function ProgramaDetalle() {
   const [savingTransfer, setSavingTransfer]   = useState(false);
   const [materiaForm] = Form.useForm();
 
+  // Docentes del programa (muchos a muchos)
+  const [programaDocentes, setProgramaDocentes]         = useState([]);
+  const [loadingProgramaDocentes, setLoadingProgramaDocentes] = useState(false);
+  const [addDocenteId, setAddDocenteId]                 = useState(null);
+  const [addingDocente, setAddingDocente]               = useState(false);
+  const [removingDocenteId, setRemovingDocenteId]       = useState(null);
+  const [docenteModalOpen, setDocenteModalOpen]         = useState(false);
+  const [savingNewDocente, setSavingNewDocente]         = useState(false);
+  const [docenteForm] = Form.useForm();
+
   const token = localStorage.getItem('authToken');
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -100,6 +127,58 @@ export default function ProgramaDetalle() {
     }
   }, [id]);
 
+  // ─── Enlace de inscripción ──────────────────────────────────────────────────
+  const openJoinModal = useCallback(async () => {
+    setJoinModalOpen(true);
+    setJoinCoordinadorId(programa?.join_coordinador_id || null);
+    if (coordinadores.length) return;
+    setLoadingCoordinadores(true);
+    try {
+      const { data } = await axios.get(`${API_AUTH_URL}/api/businesses/my/users`, { headers });
+      setCoordinadores(data || []);
+    } catch {
+      message.error('No se pudieron cargar los coordinadores.');
+    } finally {
+      setLoadingCoordinadores(false);
+    }
+  }, [programa, coordinadores.length]);
+
+  const handleGenerateJoinLink = async () => {
+    if (!joinCoordinadorId) {
+      message.warning('Selecciona un coordinador para el enlace.');
+      return;
+    }
+    setGeneratingJoinLink(true);
+    try {
+      const { data } = await generateJoinLink(id, joinCoordinadorId);
+      setPrograma((prev) => ({ ...prev, ...data }));
+      setJoinModalOpen(false);
+      message.success('Enlace de inscripción generado.');
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Error al generar el enlace.');
+    } finally {
+      setGeneratingJoinLink(false);
+    }
+  };
+
+  const handleToggleJoinLink = async (enabled) => {
+    setTogglingJoinLink(true);
+    try {
+      const { data } = await toggleJoinLink(id, enabled);
+      setPrograma((prev) => ({ ...prev, ...data }));
+    } catch {
+      message.error('Error al actualizar el enlace.');
+    } finally {
+      setTogglingJoinLink(false);
+    }
+  };
+
+  const handleCopyJoinLink = () => {
+    const url = `${window.location.origin}/unirse/${programa.join_token}`;
+    navigator.clipboard.writeText(url);
+    message.success('Enlace copiado al portapapeles.');
+  };
+
   const fetchMaterias = useCallback(async () => {
     setLoadingMaterias(true);
     try {
@@ -107,6 +186,15 @@ export default function ProgramaDetalle() {
       setMaterias(data);
     } catch { /* ignore */ }
     finally { setLoadingMaterias(false); }
+  }, [id]);
+
+  const fetchProgramaDocentes = useCallback(async () => {
+    setLoadingProgramaDocentes(true);
+    try {
+      const data = await getProgramaDocentes(id);
+      setProgramaDocentes(data);
+    } catch { /* ignore */ }
+    finally { setLoadingProgramaDocentes(false); }
   }, [id]);
 
   const [evaluaciones, setEvaluaciones] = useState([]);
@@ -135,10 +223,22 @@ export default function ProgramaDetalle() {
   useEffect(() => {
     fetchDetalle();
     fetchMaterias();
+    fetchProgramaDocentes();
     fetchDocentes();
     fetchAllProgramas();
     fetchEvaluaciones();
-  }, [fetchDetalle, fetchMaterias]);
+  }, [fetchDetalle, fetchMaterias, fetchProgramaDocentes]);
+
+  // Solo auto-selecciona la primera materia una vez, al cargar el programa.
+  // (si no, cada clic en otra pestaña —que limpia aulaMateriaId— volvería a
+  // seleccionarla y el usuario quedaría "atrapado" en el aula)
+  const autoSelectedMateria = useRef(false);
+  useEffect(() => {
+    if (!autoSelectedMateria.current && materias.length > 0) {
+      autoSelectedMateria.current = true;
+      setAulaMateriaId(materias[0].id);
+    }
+  }, [materias]);
 
   // ─── Hooks SIEMPRE antes de cualquier return condicional ─────────────────
   const modulosByMateria = useMemo(() => {
@@ -323,6 +423,84 @@ export default function ProgramaDetalle() {
     finally { setSavingTransfer(false); }
   };
 
+  // ─── Docentes del programa ─────────────────────────────────────────────────
+  const handleAddDocente = async () => {
+    if (!addDocenteId) return message.warning('Selecciona un docente.');
+    setAddingDocente(true);
+    try {
+      await addDocenteToPrograma(id, addDocenteId);
+      message.success('Docente asociado al programa');
+      setAddDocenteId(null);
+      fetchProgramaDocentes();
+    } catch (e) {
+      message.error(e?.response?.data?.message || 'Error al asociar el docente');
+    } finally {
+      setAddingDocente(false);
+    }
+  };
+
+  const handleRemoveDocente = async (docenteId) => {
+    setRemovingDocenteId(docenteId);
+    try {
+      await removeDocenteFromPrograma(id, docenteId);
+      message.success('Docente quitado del programa');
+      fetchProgramaDocentes();
+    } catch {
+      message.error('Error al quitar el docente');
+    } finally {
+      setRemovingDocenteId(null);
+    }
+  };
+
+  const openCreateDocente = () => { docenteForm.resetFields(); setDocenteModalOpen(true); };
+
+  const handleCreateDocente = async (values) => {
+    setSavingNewDocente(true);
+    try {
+      const nuevo = await createDocente(values);
+      // Asociar automáticamente el docente recién creado a este programa
+      try { await addDocenteToPrograma(id, nuevo.id); } catch { /* el docente se creó igual */ }
+      message.success('Docente creado y asociado al programa');
+      setDocenteModalOpen(false);
+      docenteForm.resetFields();
+      await Promise.all([fetchDocentes(), fetchProgramaDocentes()]);
+    } catch (e) {
+      // El docente ya existe (email duplicado) → asociar el existente en vez de fallar
+      if (e?.response?.status === 409) {
+        const emailNorm = (values.email || '').trim().toLowerCase();
+        let existente = docentes.find((d) => (d.email || '').trim().toLowerCase() === emailNorm);
+        if (!existente) {
+          // Refrescar por si la lista local estaba desactualizada
+          try {
+            const fresh = await getAllDocentes();
+            setDocentes(fresh);
+            existente = fresh.find((d) => (d.email || '').trim().toLowerCase() === emailNorm);
+          } catch { /* ignore */ }
+        }
+        if (existente) {
+          if (programaDocentes.some((pd) => pd.id === existente.id)) {
+            message.info('Ese docente ya existe y ya está asociado a este programa.');
+            setDocenteModalOpen(false);
+          } else {
+            try {
+              await addDocenteToPrograma(id, existente.id);
+              message.success('Ese docente ya existía; lo asociamos a este programa.');
+              setDocenteModalOpen(false);
+              docenteForm.resetFields();
+              await fetchProgramaDocentes();
+            } catch {
+              message.error('No se pudo asociar el docente existente. Usa el selector "Asociar docente existente".');
+            }
+          }
+          return;
+        }
+      }
+      message.error(e?.response?.data?.message || 'Error al crear el docente');
+    } finally {
+      setSavingNewDocente(false);
+    }
+  };
+
   // ─── Evaluaciones por estudiante ───────────────────────────────────────────
   const fetchStudentEvals = async (studentId) => {
     setLoadingStudentEvals(true);
@@ -450,7 +628,12 @@ export default function ProgramaDetalle() {
   ];
 
   const materiasCols = [
-    { title: 'Materia', dataIndex: 'nombre', ellipsis: true },
+    { title: 'Materia', dataIndex: 'nombre', ellipsis: true,
+      render: (v, r) => (
+        <a className="font-medium" style={{ color: '#2563eb' }}
+          onClick={() => navigate(`/inicio/programas/${id}/materias/${r.id}`)}>{v}</a>
+      ),
+    },
     { title: 'Docente', dataIndex: 'docente_nombre', render: (v) => v || <span className="text-gray-300">Sin asignar</span> },
     { title: 'Estado', dataIndex: 'activa', width: 100,
       render: (v, r) => (
@@ -461,9 +644,10 @@ export default function ProgramaDetalle() {
       ),
     },
     {
-      title: '', width: 160,
+      title: '', width: 200,
       render: (_, r) => (
         <Space size={2}>
+          <Tooltip title="Abrir aula de la materia"><Button type="text" size="small" icon={<EyeOutlined />} style={{ color: '#2563eb' }} onClick={() => navigate(`/inicio/programas/${id}/materias/${r.id}`)} /></Tooltip>
           <Tooltip title="Horarios"><Button type="text" size="small" icon={<ScheduleOutlined />} style={{ color: '#059669' }} onClick={() => setHorarioMateria(r)} /></Tooltip>
           <Tooltip title="Editar"><Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEditMateria(r)} /></Tooltip>
           <Tooltip title="Mover"><Button type="text" size="small" icon={<SwapOutlined />} style={{ color: '#2563eb' }} onClick={() => { setTransferProgramaId(null); setTransferModal({ materia: r, mode: 'mover' }); }} /></Tooltip>
@@ -476,7 +660,39 @@ export default function ProgramaDetalle() {
     },
   ];
 
+  const docentesCols = [
+    {
+      title: 'Docente',
+      render: (_, r) => (
+        <div>
+          <div className="font-medium">{r.nombre_completo}</div>
+          {r.especialidad && <div className="text-xs text-gray-400">{r.especialidad}</div>}
+        </div>
+      ),
+    },
+    {
+      title: 'Email', dataIndex: 'email',
+      render: (v) => v
+        ? <span className="text-xs flex items-center gap-1"><MailOutlined style={{ color: '#9ca3af' }} />{v}</span>
+        : <span className="text-gray-300">—</span>,
+    },
+    {
+      title: '', width: 70, align: 'center',
+      render: (_, r) => (
+        <Popconfirm title="¿Quitar docente del programa?" onConfirm={() => handleRemoveDocente(r.id)}
+          okText="Sí" cancelText="No" okButtonProps={{ danger: true }}>
+          <Button type="text" size="small" danger icon={<DeleteOutlined />}
+            loading={removingDocenteId === r.id} />
+        </Popconfirm>
+      ),
+    },
+  ];
+
   const otrosProgramas = allProgramas.filter((p) => p.id !== parseInt(id));
+
+  const docentesDisponibles = docentes.filter(
+    (d) => !programaDocentes.some((pd) => pd.id === d.id)
+  );
 
   const terminoEstudiante = busquedaEstudiante.trim().toLowerCase();
   const estudiantesFiltrados = terminoEstudiante
@@ -490,422 +706,9 @@ export default function ProgramaDetalle() {
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/inicio/programas')} />
-          <div
-            style={{
-              width: 44, height: 44, borderRadius: 12,
-              background: 'linear-gradient(135deg, #155153, #28a5a5)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 20, color: '#fff', flexShrink: 0,
-            }}
-          >
-            <BookOutlined />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Title level={4} style={{ margin: 0 }}>{programa.nombre}</Title>
-              <Tag color="blue">{programa.tipo_programa}</Tag>
-              <Tag color={programa.activo ? 'success' : 'error'}>
-                {programa.activo ? 'Activo' : 'Inactivo'}
-              </Tag>
-            </div>
-            <Text type="secondary" className="text-sm">
-              {programa.duracion_meses} meses · {formatCurrency(programa.monto_total)} total
-            </Text>
-          </div>
-        </div>
-        <Button icon={<EditOutlined />} onClick={() => setEditProgramaOpen(true)}>
-          Editar programa
-        </Button>
-      </div>
-
-      {/* Stats rápidas */}
-      <div className="grid grid-cols-5 gap-3 mb-5">
-        {[
-          { label: 'Estudiantes', value: estudiantes.length, icon: <TeamOutlined />, color: '#155153' },
-          { label: 'Materias', value: materias.length, icon: <UnorderedListOutlined />, color: '#2563eb' },
-          { label: 'Módulos', value: modulos.length, icon: <AppstoreAddOutlined />, color: PURPLE },
-          { label: 'Evaluaciones', value: Object.values(evaluacionesByMateria).flat().length, icon: <TrophyOutlined />, color: '#d97706' },
-          { label: 'Duración', value: `${programa.duracion_meses} m`, icon: <BookOutlined />, color: '#6b7280' },
-        ].map((s) => (
-          <Card key={s.label} size="small" className="rounded-xl">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm flex-shrink-0"
-                style={{ backgroundColor: s.color }}>
-                {s.icon}
-              </div>
-              <div>
-                <div className="text-lg font-bold text-gray-800">{s.value}</div>
-                <div className="text-xs text-gray-500">{s.label}</div>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      {/* Tabs */}
-      <Tabs defaultActiveKey="estudiantes" items={[
-
-        // ── ESTUDIANTES ─────────────────────────────────────────────────────
-        {
-          key: 'estudiantes',
-          label: <span><TeamOutlined /> Estudiantes <Badge count={estudiantes.length} /></span>,
-          children: (
-            <div className="space-y-3">
-              <Input
-                allowClear
-                prefix={<TeamOutlined style={{ color: '#9ca3af' }} />}
-                placeholder="Buscar por nombre o número de documento..."
-                value={busquedaEstudiante}
-                onChange={(e) => setBusquedaEstudiante(e.target.value)}
-                style={{ maxWidth: 380 }}
-              />
-              <Card bodyStyle={{ padding: 0 }} className="rounded-xl overflow-hidden">
-                <Table columns={estudiantesCols} dataSource={estudiantesFiltrados} rowKey="id" size="middle"
-                  pagination={{ pageSize: 15 }}
-                  locale={{ emptyText: terminoEstudiante
-                    ? 'No se encontraron estudiantes que coincidan con la búsqueda'
-                    : 'No hay estudiantes inscritos en este programa' }} />
-              </Card>
-            </div>
-          ),
-        },
-
-        // ── MATERIAS ────────────────────────────────────────────────────────
-        {
-          key: 'materias',
-          label: <span><UnorderedListOutlined /> Materias <Badge count={materias.length} style={{ backgroundColor: '#2563eb' }} /></span>,
-          children: (
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button type="primary" icon={<PlusOutlined />} onClick={openCreateMateria}
-                  style={{ backgroundColor: PRIMARY, borderColor: PRIMARY }}>
-                  Nueva Materia
-                </Button>
-              </div>
-
-              {materiaFormOpen && (
-                <Card size="small" className="rounded-xl bg-gray-50 border-gray-200">
-                  <Text strong>{editingMateria ? 'Editar materia' : 'Nueva materia'}</Text>
-                  <Divider style={{ margin: '10px 0' }} />
-                  <Form form={materiaForm} layout="vertical" onFinish={handleSaveMateria}>
-                    <div className="grid grid-cols-2 gap-x-4">
-                      <Form.Item name="nombre" label="Nombre" className="col-span-1"
-                        rules={[{ required: true, message: 'Requerido' }]}>
-                        <Input placeholder="Ej: Matemáticas Básicas" />
-                      </Form.Item>
-                      <Form.Item name="docente_id" label="Docente (opcional)" className="col-span-1">
-                        <Select placeholder="Selecciona un docente" allowClear>
-                          {docentes.map((d) => (
-                            <Select.Option key={d.id} value={d.id}>{d.nombre_completo}</Select.Option>
-                          ))}
-                        </Select>
-                      </Form.Item>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button onClick={() => { setMateriaFormOpen(false); setEditingMateria(null); materiaForm.resetFields(); }}>
-                        Cancelar
-                      </Button>
-                      <Button type="primary" htmlType="submit" loading={savingMateria}
-                        style={{ backgroundColor: PRIMARY, borderColor: PRIMARY }}>
-                        {editingMateria ? 'Guardar cambios' : 'Crear materia'}
-                      </Button>
-                    </div>
-                  </Form>
-                </Card>
-              )}
-
-              <Card bodyStyle={{ padding: 0 }} className="rounded-xl overflow-hidden">
-                <Spin spinning={loadingMaterias}>
-                  <Table columns={materiasCols} dataSource={materias} rowKey="id" size="small"
-                    pagination={false}
-                    locale={{ emptyText: 'No hay materias en este programa' }} />
-                </Spin>
-              </Card>
-            </div>
-          ),
-        },
-
-        // ── MÓDULOS ─────────────────────────────────────────────────────────
-        {
-          key: 'modulos',
-          label: <span><AppstoreAddOutlined /> Módulos <Badge count={modulos.length} style={{ backgroundColor: PURPLE }} /></span>,
-          children: (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Text type="secondary" className="text-sm">
-                  Los módulos se crean por materia y se asignan automáticamente a los{' '}
-                  <strong>{estudiantes.length}</strong> estudiantes del programa.
-                </Text>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreateModulo()}
-                  style={{ backgroundColor: PURPLE, borderColor: PURPLE }}>
-                  Nuevo Módulo
-                </Button>
-              </div>
-
-              {materias.length === 0 ? (
-                <Empty description={
-                  <div className="text-center py-6">
-                    <UnorderedListOutlined style={{ fontSize: 32, color: '#d1d5db' }} />
-                    <div className="mt-2 text-gray-500">Crea materias primero para poder agregar módulos</div>
-                  </div>
-                } />
-              ) : (
-                <Collapse
-                  defaultActiveKey={materias.map((m) => String(m.id))}
-                  expandIconPosition="start"
-                  className="rounded-xl overflow-hidden"
-                >
-                  {materias.map((mat) => {
-                    const mods = modulosByMateria[mat.id] || [];
-                    return (
-                      <Collapse.Panel
-                        key={String(mat.id)}
-                        header={
-                          <div className="flex items-center gap-2">
-                            <UnorderedListOutlined style={{ color: '#2563eb' }} />
-                            <span className="font-semibold">{mat.nombre}</span>
-                            {mat.docente_nombre && (
-                              <span className="text-xs text-gray-400">· {mat.docente_nombre}</span>
-                            )}
-                            <Badge
-                              count={mods.length}
-                              style={{ backgroundColor: mods.length ? PURPLE : '#d1d5db', marginLeft: 4 }}
-                              showZero
-                            />
-                          </div>
-                        }
-                        extra={
-                          <Button
-                            size="small"
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={(e) => { e.stopPropagation(); openCreateModulo(mat.id); }}
-                            style={{ backgroundColor: PURPLE, borderColor: PURPLE }}
-                          >
-                            Módulo
-                          </Button>
-                        }
-                      >
-                        {mods.length === 0 ? (
-                          <Empty
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            description="Sin módulos en esta materia"
-                            style={{ margin: '12px 0' }}
-                          >
-                            <Button size="small" icon={<PlusOutlined />}
-                              onClick={() => openCreateModulo(mat.id)}
-                              style={{ backgroundColor: PURPLE, borderColor: PURPLE, color: '#fff' }}>
-                              Crear módulo
-                            </Button>
-                          </Empty>
-                        ) : (
-                          <Table
-                            columns={modulosCols}
-                            dataSource={mods}
-                            rowKey="id"
-                            size="small"
-                            pagination={false}
-                            style={{ marginTop: 4 }}
-                          />
-                        )}
-                      </Collapse.Panel>
-                    );
-                  })}
-
-                  {/* Módulos sin materia asignada */}
-                  {(modulosByMateria['sin_materia'] || []).length > 0 && (
-                    <Collapse.Panel
-                      key="sin_materia"
-                      header={
-                        <div className="flex items-center gap-2">
-                          <AppstoreAddOutlined style={{ color: '#9ca3af' }} />
-                          <span className="text-gray-500">Sin materia asignada</span>
-                          <Badge count={modulosByMateria['sin_materia'].length} style={{ backgroundColor: '#9ca3af' }} />
-                        </div>
-                      }
-                    >
-                      <Table
-                        columns={modulosCols}
-                        dataSource={modulosByMateria['sin_materia']}
-                        rowKey="id"
-                        size="small"
-                        pagination={false}
-                      />
-                    </Collapse.Panel>
-                  )}
-                </Collapse>
-              )}
-            </div>
-          ),
-        },
-
-        // ── EVALUACIONES ────────────────────────────────────────────────────
-        {
-          key: 'evaluaciones',
-          label: (
-            <span>
-              <TrophyOutlined /> Evaluaciones{' '}
-              <Badge count={Object.values(evaluacionesByMateria).flat().length} style={{ backgroundColor: '#d97706' }} />
-            </span>
-          ),
-          children: (
-            <div className="space-y-4">
-              <Text type="secondary" className="text-sm">
-                Evaluaciones asociadas a las materias de este programa.
-              </Text>
-
-              {materias.length === 0 ? (
-                <Empty description="Crea materias primero para poder ver evaluaciones" />
-              ) : (
-                <Collapse
-                  defaultActiveKey={materias.map((m) => String(m.id))}
-                  expandIconPosition="start"
-                  className="rounded-xl overflow-hidden"
-                >
-                  {materias.map((mat) => {
-                    const evs = evaluacionesByMateria[mat.id] || [];
-                    return (
-                      <Collapse.Panel
-                        key={String(mat.id)}
-                        header={
-                          <div className="flex items-center gap-2">
-                            <TrophyOutlined style={{ color: '#d97706' }} />
-                            <span className="font-semibold">{mat.nombre}</span>
-                            {mat.docente_nombre && (
-                              <span className="text-xs text-gray-400">· {mat.docente_nombre}</span>
-                            )}
-                            <Badge
-                              count={evs.length}
-                              style={{ backgroundColor: evs.length ? '#d97706' : '#d1d5db', marginLeft: 4 }}
-                              showZero
-                            />
-                          </div>
-                        }
-                        extra={
-                          <Button
-                            size="small"
-                            icon={<PlusOutlined />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/inicio/evaluaciones`);
-                            }}
-                            style={{ borderColor: '#d97706', color: '#d97706' }}
-                          >
-                            Nueva
-                          </Button>
-                        }
-                      >
-                        {evs.length === 0 ? (
-                          <Empty
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            description="Sin evaluaciones en esta materia"
-                            style={{ margin: '12px 0' }}
-                          />
-                        ) : (
-                          <Table
-                            columns={[
-                              {
-                                title: 'Evaluación',
-                                dataIndex: 'titulo',
-                                render: (t, r) => (
-                                  <div>
-                                    <div className="font-semibold text-sm">{t}</div>
-                                    {r.descripcion && (
-                                      <div className="text-xs text-gray-400 line-clamp-1">{r.descripcion}</div>
-                                    )}
-                                  </div>
-                                ),
-                              },
-                              {
-                                title: 'Preguntas',
-                                dataIndex: 'total_preguntas',
-                                width: 90,
-                                align: 'center',
-                                render: (v) => <Tag>{v || 0}</Tag>,
-                              },
-                              {
-                                title: 'Estado',
-                                dataIndex: 'activa',
-                                width: 90,
-                                render: (v) => (
-                                  <Tag color={v ? 'green' : 'default'}>
-                                    {v ? 'Activa' : 'Inactiva'}
-                                  </Tag>
-                                ),
-                              },
-                              {
-                                title: '',
-                                width: 60,
-                                align: 'center',
-                                render: (_, r) => (
-                                  <Tooltip title="Ver / Editar">
-                                    <Button
-                                      type="text"
-                                      size="small"
-                                      icon={<EyeOutlined />}
-                                      onClick={() => navigate(`/inicio/evaluaciones/${r.id}/builder`)}
-                                    />
-                                  </Tooltip>
-                                ),
-                              },
-                            ]}
-                            dataSource={evs}
-                            rowKey="id"
-                            size="small"
-                            pagination={false}
-                            style={{ marginTop: 4 }}
-                          />
-                        )}
-                      </Collapse.Panel>
-                    );
-                  })}
-
-                  {/* Evaluaciones sin materia asignada */}
-                  {(evaluacionesByMateria['sin_materia'] || []).length > 0 && (
-                    <Collapse.Panel
-                      key="sin_materia"
-                      header={
-                        <div className="flex items-center gap-2">
-                          <TrophyOutlined style={{ color: '#9ca3af' }} />
-                          <span className="text-gray-500">Sin materia asignada</span>
-                          <Badge
-                            count={evaluacionesByMateria['sin_materia'].length}
-                            style={{ backgroundColor: '#9ca3af' }}
-                          />
-                        </div>
-                      }
-                    >
-                      <Table
-                        columns={[
-                          { title: 'Evaluación', dataIndex: 'titulo' },
-                          {
-                            title: 'Estado', dataIndex: 'activa', width: 90,
-                            render: (v) => <Tag color={v ? 'green' : 'default'}>{v ? 'Activa' : 'Inactiva'}</Tag>,
-                          },
-                          {
-                            title: '', width: 60, align: 'center',
-                            render: (_, r) => (
-                              <Button type="text" size="small" icon={<EyeOutlined />}
-                                onClick={() => navigate(`/inicio/evaluaciones/${r.id}/builder`)} />
-                            ),
-                          },
-                        ]}
-                        dataSource={evaluacionesByMateria['sin_materia']}
-                        rowKey="id"
-                        size="small"
-                        pagination={false}
-                      />
-                    </Collapse.Panel>
-                  )}
-                </Collapse>
-              )}
-            </div>
-          ),
-        },
+      {/* Contenido: sidebar 20% / contenido 80% */}
+      {(() => {
+        const tabItems = [
 
         // ── INFO ────────────────────────────────────────────────────────────
         {
@@ -938,7 +741,235 @@ export default function ProgramaDetalle() {
             </Card>
           ),
         },
-      ]} />
+
+        // ── ENLACE DE INSCRIPCIÓN ───────────────────────────────────────────
+        {
+          key: 'enlace',
+          label: <span><LinkOutlined /> Enlace de inscripción</span>,
+          children: (
+            <Card size="small" className="rounded-xl max-w-xl dark:bg-[#30302e] dark:border-[#403e3a]">
+              {!programa.join_token ? (
+                <div className="space-y-3">
+                  <Text type="secondary" className="text-sm dark:text-[#a8a59e]">
+                    Generá un enlace para que los estudiantes se inscriban solos a este
+                    programa (se registran si son nuevos o se unen si ya tienen cuenta).
+                  </Text>
+                  <div>
+                    <Button type="primary" icon={<LinkOutlined />} onClick={openJoinModal}
+                      style={{ backgroundColor: PRIMARY, borderColor: PRIMARY }}>
+                      Generar enlace
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Input
+                      readOnly
+                      value={`${window.location.origin}/unirse/${programa.join_token}`}
+                      style={{ maxWidth: 380 }}
+                    />
+                    <Button icon={<CopyOutlined />} onClick={handleCopyJoinLink}>Copiar</Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={!!programa.join_enabled}
+                      loading={togglingJoinLink}
+                      onChange={handleToggleJoinLink}
+                    />
+                    <Text className="text-sm dark:text-[#faf9f5]">
+                      {programa.join_enabled ? 'Enlace activo' : 'Enlace desactivado'}
+                    </Text>
+                  </div>
+                  <Button size="small" onClick={openJoinModal}>Regenerar enlace</Button>
+                </div>
+              )}
+            </Card>
+          ),
+        },
+
+        // ── DOCENTES ────────────────────────────────────────────────────────
+        {
+          key: 'docentes',
+          label: <span><SolutionOutlined /> Docentes</span>,
+          children: (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <Text type="secondary" className="text-sm">
+                  Docentes asociados a este programa. Podés crear uno nuevo o asociar uno existente.
+                </Text>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openCreateDocente}
+                  style={{ backgroundColor: PRIMARY, borderColor: PRIMARY }}>
+                  Nuevo docente
+                </Button>
+              </div>
+
+              <Card size="small" className="rounded-xl">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Text type="secondary" className="text-xs">Asociar docente existente al programa</Text>
+                    <Select
+                      style={{ width: '100%' }}
+                      placeholder={docentes.length === 0
+                        ? 'Aún no hay docentes — crea el primero con "Nuevo docente"'
+                        : docentesDisponibles.length
+                          ? 'Selecciona un docente'
+                          : 'Todos los docentes ya están asociados'}
+                      value={addDocenteId}
+                      onChange={setAddDocenteId}
+                      showSearch
+                      allowClear
+                      disabled={!docentesDisponibles.length}
+                      filterOption={(input, opt) => (opt.children || '').toLowerCase().includes(input.toLowerCase())}
+                    >
+                      {docentesDisponibles.map((d) => (
+                        <Select.Option key={d.id} value={d.id}>{d.nombre_completo}</Select.Option>
+                      ))}
+                    </Select>
+                  </div>
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    loading={addingDocente}
+                    disabled={!addDocenteId}
+                    onClick={handleAddDocente}
+                    style={{ backgroundColor: PRIMARY, borderColor: PRIMARY }}
+                  >
+                    Asociar
+                  </Button>
+                </div>
+              </Card>
+
+              <Card bodyStyle={{ padding: 0 }} className="rounded-xl overflow-hidden">
+                <Spin spinning={loadingProgramaDocentes}>
+                  <Table columns={docentesCols} dataSource={programaDocentes} rowKey="id" size="small"
+                    pagination={false}
+                    locale={{ emptyText: 'No hay docentes asociados a este programa' }} />
+                </Spin>
+              </Card>
+            </div>
+          ),
+        },
+
+        // ── ESTUDIANTES ─────────────────────────────────────────────────────
+        {
+          key: 'estudiantes',
+          label: <span><TeamOutlined /> Estudiantes</span>,
+          children: (
+            <div className="space-y-3">
+              <Input
+                allowClear
+                prefix={<TeamOutlined style={{ color: '#9ca3af' }} />}
+                placeholder="Buscar por nombre o número de documento..."
+                value={busquedaEstudiante}
+                onChange={(e) => setBusquedaEstudiante(e.target.value)}
+                style={{ maxWidth: 380 }}
+              />
+              <Card bodyStyle={{ padding: 0 }} className="rounded-xl overflow-hidden">
+                <Table columns={estudiantesCols} dataSource={estudiantesFiltrados} rowKey="id" size="middle"
+                  pagination={{ pageSize: 15 }}
+                  locale={{ emptyText: terminoEstudiante
+                    ? 'No se encontraron estudiantes que coincidan con la búsqueda'
+                    : 'No hay estudiantes inscritos en este programa' }} />
+              </Card>
+            </div>
+          ),
+        },
+        ];
+        const active = tabItems.find((t) => t.key === activeTab) || tabItems[0];
+        return (
+          <div className="flex flex-col md:flex-row gap-3 items-start">
+            {/* Sidebar 20% (sin fondo) */}
+            <div className="w-full md:w-[20%] md:flex-shrink-0">
+              {/* Volver a programas (compacto, ahorra espacio) */}
+              <button
+                type="button"
+                onClick={() => navigate('/inicio/programas')}
+                className="flex items-center gap-1.5 mb-3 px-1 text-sm text-gray-500 dark:text-[#a8a59e] hover:text-gray-800 dark:hover:text-[#faf9f5] transition-colors"
+              >
+                <ArrowLeftOutlined /> Programas
+              </button>
+
+              {/* Apartados del programa */}
+              <div className="flex flex-col gap-1 mb-4">
+                {tabItems.map((t) => {
+                  const isActive = !aulaMateriaId && t.key === active.key;
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => { setActiveTab(t.key); setAulaMateriaId(null); }}
+                      className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                        isActive
+                          ? 'bg-[#155153] text-white font-semibold'
+                          : 'text-gray-600 dark:text-[#a8a59e] hover:bg-gray-100 dark:hover:bg-[#3a3a38]'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Materias del programa — debajo de los apartados; clic abre el aula en el panel */}
+              <div>
+                <div className="flex items-center justify-between px-3 mb-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-[#a8a59e]">
+                    Materias
+                  </span>
+                  <Tooltip title="Nueva materia">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<PlusOutlined />}
+                      onClick={openCreateMateria}
+                    />
+                  </Tooltip>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  {materias.map((m) => {
+                    const isSel = aulaMateriaId === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        title={m.nombre}
+                        onClick={() => setAulaMateriaId(m.id)}
+                        className={`flex items-center gap-1.5 text-left px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                          isSel
+                            ? 'bg-[#155153] text-white font-semibold'
+                            : 'text-gray-600 dark:text-[#a8a59e] hover:bg-gray-100 dark:hover:bg-[#3a3a38]'
+                        }`}
+                      >
+                        <UnorderedListOutlined className={isSel ? 'text-white flex-shrink-0' : 'text-gray-400 flex-shrink-0'} />
+                        <span className="truncate">{m.nombre}</span>
+                      </button>
+                    );
+                  })}
+                  {materias.length === 0 && (
+                    <span className="px-3 py-1 text-xs text-gray-400">Sin materias aún</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* Contenido 80% — apartado seleccionado o aula completa de la materia */}
+            <div className="w-full md:flex-1 min-w-0 md:-mr-5 p-3 md:p-4 bg-white dark:bg-[#30302e] border border-gray-200 dark:border-[#403e3a] rounded-xl min-h-[60vh]">
+              {aulaMateriaId ? (
+                <MateriaDetalle
+                  key={aulaMateriaId}
+                  materiaId={aulaMateriaId}
+                  programaId={id}
+                  embedded
+                  onBack={() => setAulaMateriaId(null)}
+                  onChanged={fetchMaterias}
+                />
+              ) : (
+                active.children
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Drawer crear/editar módulo ────────────────────────────────────── */}
       <Drawer
@@ -1077,6 +1108,32 @@ export default function ProgramaDetalle() {
         </Form>
       </Drawer>
 
+      {/* ── Modal crear/editar materia ────────────────────────────────────── */}
+      <Modal
+        title={editingMateria ? 'Editar materia' : 'Nueva materia'}
+        open={materiaFormOpen}
+        onCancel={() => { setMateriaFormOpen(false); setEditingMateria(null); materiaForm.resetFields(); }}
+        onOk={() => materiaForm.submit()}
+        okText={editingMateria ? 'Guardar cambios' : 'Crear materia'}
+        confirmLoading={savingMateria}
+        destroyOnClose
+        okButtonProps={{ style: { backgroundColor: PRIMARY, borderColor: PRIMARY } }}
+      >
+        <Form form={materiaForm} layout="vertical" onFinish={handleSaveMateria} style={{ marginTop: 8 }}>
+          <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: 'Requerido' }]}>
+            <Input placeholder="Ej: Matemáticas Básicas" />
+          </Form.Item>
+          <Form.Item name="docente_id" label="Docente (opcional)">
+            <Select placeholder="Selecciona un docente" allowClear showSearch
+              filterOption={(input, opt) => (opt.children || '').toLowerCase().includes(input.toLowerCase())}>
+              {docentes.map((d) => (
+                <Select.Option key={d.id} value={d.id}>{d.nombre_completo}</Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+
       {/* ── Modal editar programa ─────────────────────────────────────────── */}
       <CreateProgramModal
         isOpen={editProgramaOpen}
@@ -1084,6 +1141,36 @@ export default function ProgramaDetalle() {
         onSuccess={fetchDetalle}
         programToEdit={programa}
       />
+
+      {/* ── Modal generar enlace de inscripción ───────────────────────────── */}
+      <Modal
+        open={joinModalOpen}
+        title={programa?.join_token ? 'Regenerar enlace de inscripción' : 'Generar enlace de inscripción'}
+        okText="Generar"
+        cancelText="Cancelar"
+        onOk={handleGenerateJoinLink}
+        onCancel={() => setJoinModalOpen(false)}
+        confirmLoading={generatingJoinLink}
+        okButtonProps={{ style: { backgroundColor: PRIMARY, borderColor: PRIMARY } }}
+      >
+        <p className="text-sm text-gray-600 dark:text-[#a8a59e] mb-3">
+          Elegí el coordinador que quedará asignado a los estudiantes que se
+          inscriban solos a través de este enlace.
+        </p>
+        <Select
+          style={{ width: '100%' }}
+          placeholder="Selecciona un coordinador"
+          value={joinCoordinadorId}
+          onChange={setJoinCoordinadorId}
+          loading={loadingCoordinadores}
+          showSearch
+          filterOption={(input, opt) => (opt.children || '').toLowerCase().includes(input.toLowerCase())}
+        >
+          {coordinadores.map((u) => (
+            <Select.Option key={u.id} value={u.id}>{u.name} ({u.email})</Select.Option>
+          ))}
+        </Select>
+      </Modal>
 
       {/* ── Modal mover/duplicar materia ──────────────────────────────────── */}
       <Modal
@@ -1208,6 +1295,43 @@ export default function ProgramaDetalle() {
             />
           )}
         </Spin>
+      </Modal>
+
+      {/* ── Modal crear docente ───────────────────────────────────────────── */}
+      <Modal
+        title="Nuevo docente"
+        open={docenteModalOpen}
+        onCancel={() => setDocenteModalOpen(false)}
+        footer={null}
+        destroyOnClose
+      >
+        <div className="mb-3 p-3 bg-teal-50 border border-teal-100 rounded-xl text-sm text-teal-700">
+          <SolutionOutlined className="mr-2" />
+          Al crearlo, el docente quedará <strong>asociado automáticamente</strong> a este programa.
+        </div>
+        <Form form={docenteForm} layout="vertical" onFinish={handleCreateDocente} style={{ marginTop: 8 }}>
+          <Form.Item name="nombre_completo" label="Nombre completo"
+            rules={[{ required: true, message: 'Ingresa el nombre completo' }]}>
+            <Input prefix={<SolutionOutlined style={{ color: '#d1d5db' }} />} placeholder="Ej: Juan Pérez" />
+          </Form.Item>
+          <Form.Item name="email" label="Email"
+            rules={[
+              { required: true, message: 'Ingresa el email' },
+              { type: 'email', message: 'El email no es válido' },
+            ]}>
+            <Input prefix={<MailOutlined style={{ color: '#d1d5db' }} />} placeholder="docente@correo.com" />
+          </Form.Item>
+          <Form.Item name="especialidad" label="Especialidad (opcional)">
+            <Input placeholder="Ej: Matemáticas" />
+          </Form.Item>
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => setDocenteModalOpen(false)}>Cancelar</Button>
+            <Button type="primary" htmlType="submit" loading={savingNewDocente}
+              style={{ backgroundColor: PRIMARY, borderColor: PRIMARY }}>
+              Crear y asociar
+            </Button>
+          </div>
+        </Form>
       </Modal>
 
       {/* ── Horario drawer ────────────────────────────────────────────────── */}

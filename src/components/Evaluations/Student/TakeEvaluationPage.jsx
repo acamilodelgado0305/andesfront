@@ -130,8 +130,11 @@ const TakeEvaluationPage = () => {
 
           message.destroy(msgKey);
 
+          const cursoCompletado = data.cursoCompletado;
+          const materiaCompletada = data.materiaCompletada;
+
           Modal.success({
-            title: "¡Evaluación enviada!",
+            title: cursoCompletado ? "¡Evaluación aprobada!" : "¡Evaluación enviada!",
             content: (
               <div style={{ textAlign: "center", padding: "16px 0" }}>
                 <div
@@ -161,14 +164,23 @@ const TakeEvaluationPage = () => {
                 >
                   {data.calificacion}
                 </p>
+                {cursoCompletado && (
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#16a34a", marginTop: 12 }}>
+                    Completaste todos los temas de {materiaCompletada?.nombre}
+                  </p>
+                )}
               </div>
             ),
-            okText: "Volver al portal",
+            okText: cursoCompletado ? "Ver mi logro" : "Volver al portal",
             onOk: () => {
-              navigate("/Reporte", {
-                state: { activeTab: "evaluaciones", fromEvaluation: true },
-                replace: true,
-              });
+              if (cursoCompletado && materiaCompletada?.id) {
+                navigate(`/portal/materias/${materiaCompletada.id}/completado`, { replace: true });
+              } else {
+                navigate("/Reporte", {
+                  state: { activeTab: "programas", fromEvaluation: true },
+                  replace: true,
+                });
+              }
             },
           });
         } catch (err) {
@@ -244,7 +256,7 @@ const TakeEvaluationPage = () => {
         <div style={styles.headerInner}>
           <button
             style={styles.backBtn}
-            onClick={() => navigate("/Reporte", { state: { activeTab: "evaluaciones" }, replace: true })}
+            onClick={() => navigate("/Reporte", { state: { activeTab: "programas" }, replace: true })}
             onMouseOver={(e) =>
               (e.currentTarget.style.background = "rgba(255,255,255,0.18)")
             }

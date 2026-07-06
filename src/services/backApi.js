@@ -90,6 +90,18 @@ const handleUnauthorized = async (error) => {
     return Promise.reject(error);
   }
 
+  // Este interceptor es global (backApi + axios) y también recibe los 401 de
+  // las llamadas del portal de estudiante, que nunca tienen refreshToken de
+  // admin. Sin este check, cualquier 401 del lado estudiante (evaluaciones,
+  // foro, módulos, o el propio vencimiento del token de 8h) terminaba en
+  // forceLogout() → redirección dura a /login (la página de admin), sacando
+  // al estudiante del portal en medio de la sesión. Si no hay sesión de admin
+  // activa, dejamos que el componente que hizo la llamada maneje el 401 él
+  // mismo (los del portal de estudiante ya lo hacen sin recargar la página).
+  if (!localStorage.getItem("authToken")) {
+    return Promise.reject(error);
+  }
+
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
     forceLogout();

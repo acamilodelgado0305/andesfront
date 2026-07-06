@@ -40,3 +40,21 @@ export const deleteDocente = async (docenteId) => {
   const response = await backApi.delete(`/api/docentes/${docenteId}`);
   return response.data;
 };
+
+// ─── Docentes asociados a un programa (muchos a muchos) ───
+export const getProgramaDocentes = async (programaId) => {
+  const response = await backApi.get(`/api/programas/${programaId}/docentes`);
+  return response.data;
+};
+
+export const addDocenteToPrograma = async (programaId, docenteId) => {
+  const response = await backApi.post(`/api/programas/${programaId}/docentes`, {
+    docente_id: docenteId,
+  });
+  return response.data;
+};
+
+export const removeDocenteFromPrograma = async (programaId, docenteId) => {
+  const response = await backApi.delete(`/api/programas/${programaId}/docentes/${docenteId}`);
+  return response.data;
+};

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Card, Button, Row, Col, Tag, Typography, notification, Spin, Empty, Alert, Modal } from 'antd';
-import { 
-  DownloadOutlined, 
-  SafetyCertificateOutlined, 
-  IdcardOutlined, 
+import { Card, Button, Row, Col, Tag, Typography, notification, Spin, Empty, Alert, Modal, Tabs } from 'antd';
+import {
+  DownloadOutlined,
+  SafetyCertificateOutlined,
+  IdcardOutlined,
   CheckCircleOutlined,
   EyeOutlined,
   TrophyOutlined,
   CloseCircleOutlined
 } from '@ant-design/icons';
+import StudentPazSalvoTab from './StudentPazSalvoTab';
 
 const { Title, Text } = Typography;
 
@@ -131,13 +132,11 @@ const StudentCertificationsTab = ({ studentInfo }) => {
     }
   };
 
-  if (courses.length === 0) {
-    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No tienes certificaciones registradas." />;
-  }
-
-  return (
+  const diplomasContent = courses.length === 0 ? (
+    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No tienes certificaciones registradas." />
+  ) : (
     <div style={{ padding: '10px' }}>
-      <Alert 
+      <Alert
         message="Diplomas y Certificaciones"
         description="Aquí puedes visualizar y descargar tus certificados oficiales firmados."
         type="success"
@@ -216,6 +215,34 @@ const StudentCertificationsTab = ({ studentInfo }) => {
           );
         })}
       </Row>
+    </div>
+  );
+
+  return (
+    <>
+      <Tabs
+        defaultActiveKey="diplomas"
+        items={[
+          {
+            key: 'diplomas',
+            label: (
+              <span>
+                <TrophyOutlined /> Diplomas y Certificados
+              </span>
+            ),
+            children: diplomasContent,
+          },
+          {
+            key: 'pazsalvo',
+            label: (
+              <span>
+                <SafetyCertificateOutlined /> Paz y Salvo
+              </span>
+            ),
+            children: <StudentPazSalvoTab studentInfo={studentInfo} />,
+          },
+        ]}
+      />
 
       {/* --- MODAL DE VISTA PREVIA --- */}
       <Modal
@@ -228,10 +255,10 @@ const StudentCertificationsTab = ({ studentInfo }) => {
           <Button key="close" onClick={handleCloseModal}>
             Cerrar
           </Button>,
-          <Button 
-            key="download" 
-            type="primary" 
-            icon={<DownloadOutlined />} 
+          <Button
+            key="download"
+            type="primary"
+            icon={<DownloadOutlined />}
             onClick={handleDownloadFromModal}
             size="large"
           >
@@ -242,11 +269,11 @@ const StudentCertificationsTab = ({ studentInfo }) => {
         {previewUrl ? (
           <div style={{ height: '600px', width: '100%', background: '#f0f0f0', borderRadius: '8px' }}>
             {/* IFRAME PARA MOSTRAR EL PDF */}
-            <iframe 
-              src={previewUrl} 
+            <iframe
+              src={previewUrl}
               title="Vista Previa Documento"
-              width="100%" 
-              height="100%" 
+              width="100%"
+              height="100%"
               style={{ border: 'none', borderRadius: '8px' }}
             />
           </div>
@@ -256,7 +283,7 @@ const StudentCertificationsTab = ({ studentInfo }) => {
           </div>
         )}
       </Modal>
-    </div>
+    </>
   );
 };
 

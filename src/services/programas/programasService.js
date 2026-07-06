@@ -56,3 +56,25 @@ export const deletePrograma = async (id) => {
   const response = await backApi.delete(`/api/programas/${id}`);
   return response.data;
 };
+
+/**
+ * Generar (o regenerar) el enlace de inscripción de un programa.
+ * @param {number} id - ID del programa.
+ * @param {number} coordinadorId - Coordinador que recibirán los estudiantes que se auto-inscriban.
+ */
+export const generateJoinLink = async (id, coordinadorId) => {
+  const response = await backApi.post(`/api/programas/${id}/join-link`, {
+    coordinador_id: coordinadorId,
+  });
+  return response.data;
+};
+
+/**
+ * Activar/desactivar el enlace de inscripción sin regenerarlo.
+ * @param {number} id - ID del programa.
+ * @param {boolean} enabled
+ */
+export const toggleJoinLink = async (id, enabled) => {
+  const response = await backApi.patch(`/api/programas/${id}/join-link`, { enabled });
+  return response.data;
+};

@@ -1,5 +1,6 @@
 // src/services/auth/studentAuthService.js
 import backApi from "../backApi";
+import { decodeJwt } from "../../utils/jwt.js";
 
 const STUDENT_TOKEN_KEY = "student_portal_token";
 const STUDENT_DATA_KEY = "student_portal_data";
@@ -75,17 +76,38 @@ export const getStudentProfile = async () => {
   return response.data;
 };
 
+// Info pública del programa a partir del token del enlace de inscripción
+// GET /api/public/programas/join/:token
+export const getJoinInfo = async (token) => {
+  const response = await backApi.get(`/api/public/programas/join/${token}`);
+  return response.data;
+};
+
+// Unirse a un programa por enlace: registra (si es nuevo) o inscribe (si ya existe)
+// y devuelve sesión de estudiante ya lista para usar.
+// POST /api/student-portal/join/:token
+export const joinPrograma = async (token, payload) => {
+  const response = await backApi.post(`/api/student-portal/join/${token}`, payload);
+
+  const { token: studentToken, student } = response.data;
+
+  if (studentToken) {
+    saveStudentToken(studentToken);
+    saveStudentData(student);
+  }
+
+  return response.data;
+};
+
 // Check if a session can be restored (token exists + not expired)
 export const canRestoreSession = () => {
   const token = getStudentToken();
   if (!token) return false;
 
-  try {
-    // Decode JWT payload (without verification — the server verifies)
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    const now = Math.floor(Date.now() / 1000);
-    return payload.exp > now;
-  } catch {
-    return false;
-  }
+  // Decode JWT payload (without verification — the server verifies)
+  const payload = decodeJwt(token);
+  if (!payload) return false;
+
+  const now = Math.floor(Date.now() / 1000);
+  return payload.exp > now;
 };

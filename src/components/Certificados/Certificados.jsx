@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext,useMemo } from 'react';
 import { Card, Tabs, Typography, Button, message, Spin } from 'antd';
-import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
+import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined, BarChartOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import 'moment/locale/es';
 import axios from 'axios';
@@ -24,6 +24,7 @@ import EgresoDrawer from './components/EgresoDrawer';
 
 import DashboardStats from './DashboardStats';
 import TransactionTable from './TransactionTable';
+import EstadisticasMovimientos from './EstadisticasMovimientos';
 import DocumentoVentaForm from '../documentosVenta/DocumentoVentaForm';
 
 const { Title } = Typography;
@@ -257,6 +258,10 @@ function Certificados() {
                 vendedores={vendedores}
               />
             </div>
+          </TabPane>
+
+          <TabPane tab={<span style={{ fontWeight: 600 }}><BarChartOutlined style={{ color: '#155153' }} /> Estadísticas</span>} key="estadisticas">
+            <EstadisticasMovimientos />
           </TabPane>
 
         </Tabs>

@@ -1,6 +1,7 @@
 // src/services/evaluationService.js
 import axios from "axios";
 import backApi from "../backApi"; // para rutas de ADMIN
+import { getFlexAuthToken } from "../../utils/authToken";
 
 // Instancia separada para rutas del ESTUDIANTE — usa student_portal_token, no authToken
 const BACK_URL = import.meta.env.VITE_API_BACKEND || "http://localhost:3002";
@@ -9,7 +10,7 @@ const studentApi = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 studentApi.interceptors.request.use((config) => {
-  const token = localStorage.getItem("student_portal_token");
+  const token = getFlexAuthToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });

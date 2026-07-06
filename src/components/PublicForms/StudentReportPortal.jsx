@@ -8,22 +8,13 @@ import {
 import {
   LogoutOutlined,
   UserOutlined,
-  ReadOutlined,
-  FileTextOutlined,
   SafetyCertificateOutlined,
-  BookOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined,
-  CalendarOutlined,
-  AppstoreOutlined,
-  ArrowLeftOutlined,
-  RightOutlined,
-  SafetyOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 
-import { generateGradeReportPDF } from "../Utilidades/generateGradeReportPDF";
-import { getStudentAssignments } from "../../services/evaluation/evaluationService";
+import { getStudentMaterias } from "../../services/foro/serviceForo";
 import {
   loginStudent,
   clearStudentToken,
@@ -35,12 +26,8 @@ import { getStudentGradesAndInfoByDocument } from "../../services/gardes/gradesS
 
 import StudentLoginForm from "./StudentLoginForm";
 import StudentInfoTab from "./StudentInfoTab";
-import StudentEvaluationsTab from "./StudentEvaluationsTab";
-import StudentGradesTab from "./StudentGradesTab";
 import StudentCertificationsTab from "./StudentCertificationsTab";
-import StudentHorarioTab from "./StudentHorarioTab";
-import StudentPazSalvoTab from "./StudentPazSalvoTab";
-import StudentModulosPage from "../Modulos/StudentModulosPage";
+import StudentProgramasSection from "./StudentProgramasSection";
 
 const { Text } = Typography;
 
@@ -59,15 +46,56 @@ function StudentPortal() {
   const [studentInfo, setStudentInfo] = useState(null);
   const [gradesInfo, setGradesInfo] = useState([]);
   const [gradesByCierre, setGradesByCierre] = useState([]);
-  const [evaluations, setEvaluations] = useState([]);
   const [currentStudentId, setCurrentStudentId] = useState(null);
-  const [tieneModulos, setTieneModulos] = useState(false);
 
-  // Apartado actualmente abierto (null = menú principal de botones)
-  const [activeSection, setActiveSection] = useState(null);
+  // Apartado actualmente abierto en el sidebar (por defecto "Mis Programas")
+  const [activeSection, setActiveSection] = useState("programas");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Navegación de "Mis Programas" (programa seleccionado → materias → materia)
+  const [programaId, setProgramaId] = useState(null);
+  const [materiaId, setMateriaId] = useState(null);
+  const [materias, setMaterias] = useState([]);
+  const [loadingMaterias, setLoadingMaterias] = useState(true);
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Carga las materias del estudiante (para el sub-listado por programa) una vez
+  // que sabemos quién es.
+  useEffect(() => {
+    if (!currentStudentId) return;
+    setLoadingMaterias(true);
+    getStudentMaterias(currentStudentId)
+      .then((data) => setMaterias(data.materias || []))
+      .catch(() => setMaterias([]))
+      .finally(() => setLoadingMaterias(false));
+  }, [currentStudentId]);
+
+  // Selecciona el primer programa por defecto cuando llegan los datos del estudiante.
+  useEffect(() => {
+    if (!programaId && studentInfo?.programas_asociados?.length) {
+      setProgramaId(studentInfo.programas_asociados[0].programa_id);
+    }
+  }, [studentInfo, programaId]);
+
+  const programaSel = studentInfo?.programas_asociados?.find(
+    (p) => String(p.programa_id) === String(programaId)
+  ) || null;
+  const materiasDelPrograma = programaId
+    ? materias.filter((m) => String(m.programa_id) === String(programaId))
+    : [];
+  const materiaSel = materiasDelPrograma.find((m) => String(m.id) === String(materiaId)) || null;
+
+  const selectPrograma = (id) => {
+    setActiveSection("programas");
+    setProgramaId(id);
+    setMateriaId(null);
+  };
+
+  // Vista inmersiva: cuando el estudiante entra a una clase, ocultamos el sidebar
+  // para darle todo el ancho al contenido; al salir de la clase se restaura.
+  const handleImmersive = useCallback((on) => setSidebarOpen(!on), []);
 
   // Prevent browser back button from exiting the portal when logged in
   useEffect(() => {
@@ -110,29 +138,6 @@ function StudentPortal() {
 
       if (!student || !studentId) throw new Error("Datos académicos no encontrados.");
 
-      let assignedEvaluations = [];
-      try {
-        const evData = await getStudentAssignments(studentId);
-        assignedEvaluations =
-          evData.asignaciones || (Array.isArray(evData) ? evData : []);
-      } catch (e) {
-        console.warn("Error cargando evaluaciones", e);
-      }
-
-      // Verificar si el estudiante tiene módulos asignados
-      try {
-        const token = localStorage.getItem('student_portal_token') || localStorage.getItem('authToken');
-        const API = import.meta.env.VITE_API_BACKEND;
-        const modRes = await fetch(
-          `${API}/api/modulos/estudiante/${studentId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const modData = await modRes.json();
-        setTieneModulos((modData.modulos || []).length > 0);
-      } catch {
-        setTieneModulos(false);
-      }
-
       const extraCertData = await loadCertificateData(doc);
 
       const finalStudentInfo = {
@@ -144,7 +149,6 @@ function StudentPortal() {
       setStudentInfo(finalStudentInfo);
       setGradesInfo(grades || []);
       setGradesByCierre(gbc || []);
-      setEvaluations(assignedEvaluations);
       setCurrentStudentId(studentId);
       setDocumentNumber(doc);
     },
@@ -182,6 +186,7 @@ function StudentPortal() {
         }
 
         setIsLoggedIn(true);
+        setActiveSection((prev) => prev ?? "programas");
       } catch (err) {
         console.warn("Session restore failed:", err);
         // Only clear token on auth errors (401/403), not on network/server errors
@@ -205,30 +210,12 @@ function StudentPortal() {
     restoreSession();
   }, [loadStudentAcademicData]);
 
-  // ===== If coming back from evaluation, refresh data =====
+  // ===== If coming back from evaluation, reopen the indicated tab =====
   useEffect(() => {
-    // Si volvemos con un apartado indicado (p. ej. desde una evaluación), abrirlo
     if (location.state?.activeTab) {
       setActiveSection(location.state.activeTab);
     }
-    if (
-      location.state?.fromEvaluation &&
-      isLoggedIn &&
-      currentStudentId
-    ) {
-      const refreshEvaluations = async () => {
-        try {
-          const evData = await getStudentAssignments(currentStudentId);
-          setEvaluations(
-            evData.asignaciones || (Array.isArray(evData) ? evData : [])
-          );
-        } catch (e) {
-          console.warn("Error refreshing evaluations:", e);
-        }
-      };
-      refreshEvaluations();
-    }
-  }, [location.state, isLoggedIn, currentStudentId]);
+  }, [location.state]);
 
   // ===== LOGIN =====
   const handleLogin = async () => {
@@ -250,6 +237,7 @@ function StudentPortal() {
       const { student } = await loginStudent(doc, pass);
       await loadStudentAcademicData(student.documento || doc, student);
       setIsLoggedIn(true);
+      setActiveSection("programas");
       notification.success({ message: `Bienvenido, ${student.nombre}` });
     } catch (err) {
       console.error(err);
@@ -269,41 +257,15 @@ function StudentPortal() {
     setPasswordDoc("");
     setStudentInfo(null);
     setGradesInfo([]);
-    setEvaluations([]);
-    setTieneModulos(false);
-    setActiveSection(null);
+    setActiveSection("programas");
+    setProgramaId(null);
+    setMateriaId(null);
+    setMaterias([]);
     clearStudentToken();
   };
 
-  const handleDownloadReport = async () => {
-    if (!studentInfo || !currentStudentId) return;
-    setLoading(true);
-    try {
-      await generateGradeReportPDF(studentInfo, gradesInfo, currentStudentId);
-    } catch (e) {
-      notification.error({ message: "Error generando reporte de notas" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStartEvaluation = (evaluation) => {
-    const assignId = evaluation.asignacion_id || evaluation.asignacionId || evaluation.id;
-    if (assignId) {
-      navigate(`/evaluaciones/asignacion/${assignId}`);
-    }
-  };
-
-  // ===== Computed stats =====
-  const pendingEvals = evaluations.filter(
-    (e) => (e.estado || "pendiente") === "pendiente"
-  ).length;
-  const completedEvals = evaluations.filter(
-    (e) => e.estado === "resuelta"
-  ).length;
-  const programCount = studentInfo?.programas_asociados?.length || 0;
-
-  // ===== Apartados del dashboard (botones del menú) =====
+  // ===== Apartados generales del sidebar (no incluye "Mis Programas", que se
+  // arma aparte con la lista real de programas del estudiante) =====
   const sections = [
     {
       key: "info",
@@ -313,59 +275,28 @@ function StudentPortal() {
       gradient: "linear-gradient(135deg, #6366f1, #818cf8)",
     },
     {
-      key: "horario",
-      label: "Horario",
-      description: "Tus clases y horarios asignados",
-      icon: <CalendarOutlined />,
-      gradient: "linear-gradient(135deg, #0ea5e9, #38bdf8)",
-    },
-    {
-      key: "evaluaciones",
-      label: "Evaluaciones",
-      description: "Pruebas y exámenes asignados",
-      icon: <ReadOutlined />,
-      gradient: "linear-gradient(135deg, #f59e0b, #fbbf24)",
-      badge: pendingEvals,
-    },
-    {
-      key: "notas",
-      label: "Notas",
-      description: "Calificaciones por materia",
-      icon: <FileTextOutlined />,
-      gradient: "linear-gradient(135deg, #3b82f6, #60a5fa)",
-    },
-    {
       key: "certificados",
       label: "Certificados",
       description: "Certificaciones y vencimientos",
       icon: <SafetyCertificateOutlined />,
       gradient: "linear-gradient(135deg, #10b981, #34d399)",
     },
-    {
-      key: "pazsalvo",
-      label: "Paz y Salvo",
-      description: "Estado académico y financiero",
-      icon: <SafetyOutlined />,
-      gradient: "linear-gradient(135deg, #14b8a6, #2dd4bf)",
-    },
-    ...(tieneModulos
-      ? [
-          {
-            key: "modulos",
-            label: "Módulos",
-            description: "Contenido y material del curso",
-            icon: <AppstoreOutlined />,
-            gradient: "linear-gradient(135deg, #8b5cf6, #a78bfa)",
-          },
-        ]
-      : []),
   ];
-
-  const activeMeta = sections.find((s) => s.key === activeSection);
 
   // ===== Render del contenido del apartado seleccionado =====
   const renderSectionContent = (key) => {
     switch (key) {
+      case "programas":
+        return (
+          <StudentProgramasSection
+            programaSel={programaSel}
+            materiaSel={materiaSel}
+            materiasDelPrograma={materiasDelPrograma}
+            loadingMaterias={loadingMaterias}
+            onSelectMateria={setMateriaId}
+            onImmersiveChange={handleImmersive}
+          />
+        );
       case "info":
         return (
           <StudentInfoTab
@@ -374,32 +305,8 @@ function StudentPortal() {
             currentStudentId={currentStudentId}
           />
         );
-      case "horario":
-        return <StudentHorarioTab currentStudentId={currentStudentId} />;
-      case "evaluaciones":
-        return (
-          <StudentEvaluationsTab
-            evaluations={evaluations}
-            onStartEvaluation={handleStartEvaluation}
-          />
-        );
-      case "notas":
-        return (
-          <StudentGradesTab
-            gradesInfo={gradesInfo}
-            gradesByCierre={gradesByCierre}
-            studentInfo={studentInfo}
-            currentStudentId={currentStudentId}
-            loading={loading}
-            onDownloadReport={handleDownloadReport}
-          />
-        );
       case "certificados":
         return <StudentCertificationsTab studentInfo={studentInfo} />;
-      case "pazsalvo":
-        return <StudentPazSalvoTab studentInfo={studentInfo} />;
-      case "modulos":
-        return <StudentModulosPage />;
       default:
         return null;
     }
@@ -420,7 +327,6 @@ function StudentPortal() {
   // ===== RENDER =====
   return (
     <div style={styles.page}>
-      <style>{menuCss}</style>
       {!isLoggedIn ? (
         <StudentLoginForm
           usernameDoc={usernameDoc}
@@ -433,120 +339,98 @@ function StudentPortal() {
         />
       ) : (
         <div style={styles.portalContainer}>
-          {/* ===== HEADER ===== */}
-          <div style={styles.header}>
-            <div style={styles.headerDecoCircle1} />
-            <div style={styles.headerDecoCircle2} />
-            <div style={styles.headerInner}>
-              <div style={styles.headerTop}>
-                <div style={styles.headerLeft}>
-                  <div style={styles.avatar}>
-                    {(studentInfo?.nombre || "E").charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h2 style={styles.headerName}>
-                      {studentInfo?.nombre_completo ||
-                        `${studentInfo?.nombre || ""} ${studentInfo?.apellido || ""}`.trim() ||
-                        "Estudiante"}
-                    </h2>
-                    <p style={styles.headerDoc}>
-                      Doc: {documentNumber || studentInfo?.documento || "—"}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  icon={<LogoutOutlined />}
-                  onClick={handleLogout}
-                  style={styles.logoutBtn}
-                  type="text"
-                >
-                  Cerrar sesión
-                </Button>
+          {/* ===== HEADER (fijo al hacer scroll) ===== */}
+          <div className="sticky top-0 z-20 flex items-center justify-between gap-3 py-4 mb-4 border-b border-gray-200 dark:border-[#403e3a] bg-[#f5f6f8] dark:bg-[#262624]">
+            <div className="flex items-center gap-3 min-w-0">
+              <Button
+                type="text"
+                icon={sidebarOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+                onClick={() => setSidebarOpen((v) => !v)}
+                title={sidebarOpen ? "Ocultar menú" : "Mostrar menú"}
+                className="dark:text-[#a8a59e]"
+              />
+              <div className="w-9 h-9 rounded-full bg-[#155153] text-white flex items-center justify-center font-bold flex-shrink-0">
+                {(studentInfo?.nombre || "E").charAt(0).toUpperCase()}
               </div>
-
-              {/* Stats */}
-              <div style={styles.statsRow}>
-                <StatBadge
-                  icon={<BookOutlined />}
-                  value={programCount}
-                  label="Programas"
-                  color="#818cf8"
-                />
-                <StatBadge
-                  icon={<ClockCircleOutlined />}
-                  value={pendingEvals}
-                  label="Pendientes"
-                  color="#fb923c"
-                />
-                <StatBadge
-                  icon={<CheckCircleOutlined />}
-                  value={completedEvals}
-                  label="Completadas"
-                  color="#4ade80"
-                />
-                <StatBadge
-                  icon={<FileTextOutlined />}
-                  value={gradesInfo.length}
-                  label="Materias"
-                  color="#60a5fa"
-                />
+              <div className="min-w-0">
+                <h2 className="m-0 text-base font-semibold text-gray-800 dark:text-[#faf9f5] truncate">
+                  {studentInfo?.nombre_completo ||
+                    `${studentInfo?.nombre || ""} ${studentInfo?.apellido || ""}`.trim() ||
+                    "Estudiante"}
+                </h2>
+                <p className="m-0 text-xs text-gray-500 dark:text-[#a8a59e]">
+                  Doc: {documentNumber || studentInfo?.documento || "—"}
+                </p>
               </div>
             </div>
+            <Button icon={<LogoutOutlined />} onClick={handleLogout}>
+              Cerrar sesión
+            </Button>
           </div>
 
-          {/* ===== CONTENIDO ===== */}
-          {!activeSection ? (
-            /* --- Menú de botones con iconos --- */
-            <div>
-              <h3 style={styles.menuHeading}>¿Qué deseas consultar?</h3>
-              <p style={styles.menuSub}>
-                Selecciona una opción para ver tu información
-              </p>
-              <div style={styles.menuGrid}>
-                {sections.map((s) => (
-                  <button
-                    key={s.key}
-                    type="button"
-                    className="qc-menu-card"
-                    style={styles.menuCard}
-                    onClick={() => setActiveSection(s.key)}
-                  >
-                    <div style={{ ...styles.menuIcon, background: s.gradient }}>
-                      {s.icon}
+          {/* ===== SIDEBAR + CONTENIDO ===== */}
+          <div className="flex flex-col md:flex-row gap-3 items-start">
+            {/* Sidebar 20% (colapsable) */}
+            <div className={sidebarOpen ? "w-full md:w-[22%] md:flex-shrink-0" : "hidden"}>
+              <div className="flex flex-col gap-1 mb-4">
+                {sections.map((s) => {
+                  const isActive = activeSection === s.key;
+                  return (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() => setActiveSection(s.key)}
+                      className={`flex items-center justify-between gap-2 text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                        isActive
+                          ? 'bg-[#155153] text-white font-semibold'
+                          : 'text-gray-600 dark:text-[#a8a59e] hover:bg-gray-100 dark:hover:bg-[#3a3a38]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">{s.icon} {s.label}</span>
                       {s.badge > 0 && (
-                        <span style={styles.menuIconBadge}>{s.badge}</span>
+                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {s.badge}
+                        </span>
                       )}
-                    </div>
-                    <div style={styles.menuCardText}>
-                      <div style={styles.menuCardTitle}>{s.label}</div>
-                      <div style={styles.menuCardDesc}>{s.description}</div>
-                    </div>
-                    <RightOutlined className="qc-arrow" style={styles.menuCardArrow} />
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
+
+              <div className="flex flex-col gap-1 mb-4">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-[#a8a59e] px-3 mb-1">
+                  Mis Programas
+                </span>
+                {(studentInfo?.programas_asociados || []).map((p) => {
+                  const isActive = activeSection === 'programas' && String(programaId) === String(p.programa_id);
+                  return (
+                    <button
+                      key={p.programa_id}
+                      type="button"
+                      title={p.nombre}
+                      onClick={() => selectPrograma(p.programa_id)}
+                      className={`text-left px-3 py-2 rounded-lg text-sm transition-colors truncate ${
+                        isActive
+                          ? 'bg-[#155153] text-white font-semibold'
+                          : 'text-gray-600 dark:text-[#a8a59e] hover:bg-gray-100 dark:hover:bg-[#3a3a38]'
+                      }`}
+                    >
+                      {p.nombre}
+                    </button>
+                  );
+                })}
+                {!studentInfo?.programas_asociados?.length && (
+                  <span className="px-3 py-1 text-xs text-gray-400 dark:text-[#a8a59e]">Sin programas aún</span>
+                )}
+              </div>
+
             </div>
-          ) : (
-            /* --- Vista del apartado seleccionado --- */
-            <div style={styles.content}>
-              <div style={styles.sectionBar}>
-                <button
-                  type="button"
-                  className="qc-back-btn"
-                  style={styles.backBtn}
-                  onClick={() => setActiveSection(null)}
-                >
-                  <ArrowLeftOutlined /> Volver al menú
-                </button>
-                <div style={styles.sectionTitle}>
-                  {activeMeta?.icon} {activeMeta?.label}
-                </div>
-              </div>
-              <div style={styles.tabContent}>
-                {renderSectionContent(activeSection)}
-              </div>
+
+            {/* Contenido 80% */}
+            <div className="w-full md:flex-1 min-w-0 p-3 md:p-4 bg-white dark:bg-[#30302e] border border-gray-200 dark:border-[#403e3a] rounded-xl min-h-[60vh]">
+              {renderSectionContent(activeSection)}
             </div>
-          )}
+          </div>
 
           {/* Footer */}
           <div style={styles.footer}>Rapictrl © 2025</div>
@@ -555,69 +439,6 @@ function StudentPortal() {
     </div>
   );
 }
-
-/* ===== STAT BADGE ===== */
-function StatBadge({ icon, value, label, color }) {
-  return (
-    <div style={statStyles.wrapper}>
-      <span style={{ ...statStyles.icon, color }}>{icon}</span>
-      <div>
-        <div style={statStyles.value}>{value}</div>
-        <div style={statStyles.label}>{label}</div>
-      </div>
-    </div>
-  );
-}
-
-const statStyles = {
-  wrapper: {
-    background: "rgba(255,255,255,0.08)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    padding: "8px 16px",
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    minWidth: 110,
-  },
-  icon: { fontSize: 17 },
-  value: {
-    fontSize: 18,
-    fontWeight: 800,
-    color: "#fff",
-    lineHeight: 1.1,
-  },
-  label: {
-    fontSize: 10,
-    color: "rgba(255,255,255,0.4)",
-    fontWeight: 500,
-    textTransform: "uppercase",
-    letterSpacing: "0.3px",
-  },
-};
-
-/* ===== CSS para hover (no se puede con estilos inline) ===== */
-const menuCss = `
-  .qc-menu-card {
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-  }
-  .qc-menu-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.10);
-    border-color: #d4d4ff;
-  }
-  .qc-menu-card:hover .qc-arrow {
-    transform: translateX(3px);
-    opacity: 1;
-  }
-  .qc-back-btn {
-    transition: background 0.15s ease, color 0.15s ease;
-  }
-  .qc-back-btn:hover {
-    background: #eef2ff;
-    color: #4f46e5;
-  }
-`;
 
 /* ===== STYLES ===== */
 const styles = {
@@ -636,220 +457,9 @@ const styles = {
     background: "#f5f6f8",
   },
   portalContainer: {
-    maxWidth: 960,
-    margin: "0 auto",
-    padding: "0 16px 40px",
-  },
-
-  /* Header */
-  header: {
-    background:
-      "linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%)",
-    borderRadius: "0 0 24px 24px",
-    padding: "28px 32px 24px",
-    marginBottom: 24,
-    position: "relative",
-    overflow: "hidden",
-  },
-  headerDecoCircle1: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: "50%",
-    background: "rgba(255,255,255,0.03)",
-    top: -60,
-    right: -30,
-  },
-  headerDecoCircle2: {
-    position: "absolute",
-    width: 100,
-    height: 100,
-    borderRadius: "50%",
-    background: "rgba(99,102,241,0.08)",
-    bottom: -30,
-    right: 160,
-  },
-  headerInner: { position: "relative", zIndex: 1 },
-  headerTop: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 16,
-    marginBottom: 20,
-  },
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.12)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 22,
-    fontWeight: 800,
-    color: "#fff",
-    backdropFilter: "blur(8px)",
-    border: "1px solid rgba(255,255,255,0.15)",
-  },
-  headerName: {
-    margin: 0,
-    fontSize: 22,
-    fontWeight: 800,
-    color: "#fff",
-    letterSpacing: "-0.4px",
-  },
-  headerDoc: {
-    margin: "2px 0 0",
-    fontSize: 13,
-    color: "rgba(255,255,255,0.45)",
-  },
-  logoutBtn: {
-    color: "rgba(255,255,255,0.6)",
-    borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.12)",
-    fontWeight: 500,
-    fontSize: 13,
-  },
-  statsRow: {
-    display: "flex",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-
-  /* Menú de botones */
-  menuHeading: {
-    margin: "0 0 2px",
-    fontSize: 19,
-    fontWeight: 800,
-    color: "#1f2937",
-    letterSpacing: "-0.4px",
-  },
-  menuSub: {
-    margin: "0 0 18px",
-    fontSize: 13.5,
-    color: "#9ca3af",
-  },
-  menuGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-    gap: 16,
-  },
-  menuCard: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-    textAlign: "left",
-    background: "#fff",
-    border: "1px solid #ececf3",
-    borderRadius: 16,
-    padding: "18px 18px",
-    cursor: "pointer",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
     width: "100%",
-    fontFamily: "inherit",
-  },
-  menuIcon: {
-    position: "relative",
-    flexShrink: 0,
-    width: 50,
-    height: 50,
-    borderRadius: 14,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 22,
-    color: "#fff",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.12)",
-  },
-  menuIconBadge: {
-    position: "absolute",
-    top: -6,
-    right: -6,
-    minWidth: 20,
-    height: 20,
-    padding: "0 5px",
-    borderRadius: 99,
-    background: "#ef4444",
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: 700,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    border: "2px solid #fff",
-  },
-  menuCardText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  menuCardTitle: {
-    fontSize: 15.5,
-    fontWeight: 700,
-    color: "#1f2937",
-    lineHeight: 1.2,
-  },
-  menuCardDesc: {
-    fontSize: 12.5,
-    color: "#9ca3af",
-    marginTop: 3,
-    lineHeight: 1.35,
-  },
-  menuCardArrow: {
-    color: "#c4c4d4",
-    fontSize: 13,
-    opacity: 0.7,
-    transition: "transform 0.18s ease, opacity 0.18s ease",
-  },
-
-  /* Barra del apartado seleccionado */
-  sectionBar: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottom: "1px solid #f0f0f0",
-    flexWrap: "wrap",
-  },
-  backBtn: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    background: "#f5f6f8",
-    border: "1px solid #ececf3",
-    borderRadius: 10,
-    padding: "8px 14px",
-    fontSize: 13,
-    fontWeight: 600,
-    color: "#4b5563",
-    cursor: "pointer",
-    fontFamily: "inherit",
-  },
-  sectionTitle: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    fontSize: 16,
-    fontWeight: 700,
-    color: "#1f2937",
-  },
-
-  /* Content */
-  content: {
-    background: "#fff",
-    borderRadius: 20,
-    padding: "24px 28px 32px",
-    boxShadow: "0 1px 6px rgba(0,0,0,0.04)",
-    border: "1px solid #f0f0f0",
-  },
-  tabContent: {
-    paddingTop: 8,
+    margin: "0 auto",
+    padding: "0 24px 40px",
   },
 
   /* Footer */

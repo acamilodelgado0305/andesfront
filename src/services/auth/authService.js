@@ -1,5 +1,6 @@
 // src/services/auth/authService.js
 import axios from "axios";
+import { decodeJwt } from "../../utils/jwt.js";
 
 // Access environment variable for backend URL
 const BACK_URL = import.meta.env.VITE_API_BACKEND || "http://localhost:3002";
@@ -86,24 +87,7 @@ export const removeUser = () => {
  * @param {string} token 
  * @returns {object|null}
  */
-export const decodeToken = (token) => {
-  try {
-    const payloadBase64 = token.split(".")[1];
-    // Fix for special characters in base64
-    const payloadJson = decodeURIComponent(
-      atob(payloadBase64)
-        .split("")
-        .map(function (c) {
-          return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
-        })
-        .join("")
-    );
-    return JSON.parse(payloadJson);
-  } catch (error) {
-    console.error("Error al decodificar el token:", error);
-    return null;
-  }
-};
+export const decodeToken = (token) => decodeJwt(token);
 
 /**
  * Perform login request to the Auth Service.

@@ -40,6 +40,7 @@ const StudentInformacion = lazyWithRetry(() => import("./components/Students/Stu
 const Calificaciones = lazyWithRetry(() => import("./components/Calificaciones/Calificaciones"));
 const CalificacionesPrograma = lazyWithRetry(() => import("./components/Calificaciones/CalificacionesPrograma"));
 const StudentReportPortal = lazyWithRetry(() => import("./components/PublicForms/StudentReportPortal"));
+const JoinProgramaPage = lazyWithRetry(() => import("./components/PublicForms/JoinProgramaPage"));
 const Sales = lazyWithRetry(() => import("./sales/Sales"));
 const Generacion = lazyWithRetry(() => import("./components/Certificados/Generacion"));
 const DashboardClients = lazyWithRetry(() => import("./components/admin/DashboardClients"));
@@ -63,8 +64,11 @@ const DocumentosVentaDashboard = lazyWithRetry(() => import("./components/docume
 const CuentasPorPagarDashboard = lazyWithRetry(() => import("./components/cuentasPorPagar/CuentasPorPagarDashboard"));
 const ModulosPage = lazyWithRetry(() => import("./components/Modulos/ModulosPage"));
 const ModuloDetalle = lazyWithRetry(() => import("./components/Modulos/ModuloDetalle"));
-const StudentModulosPage = lazyWithRetry(() => import("./components/Modulos/StudentModulosPage"));
+const ClaseDetalle = lazyWithRetry(() => import("./components/Clases/ClaseDetalle"));
+const StudentClaseDetalle = lazyWithRetry(() => import("./components/Clases/StudentClaseDetalle"));
 const ProgramaDetalle = lazyWithRetry(() => import("./components/programas/ProgramaDetalle"));
+const MateriaDetalle = lazyWithRetry(() => import("./components/materias/MateriaDetalle"));
+const CursoCompletadoPage = lazyWithRetry(() => import("./components/materias/CursoCompletadoPage"));
 
 const Register = lazyWithRetry(() => import("./components/auth/register"));
 const Configuracion = lazyWithRetry(() => import("./components/Configuracion/Configuracion"));
@@ -157,6 +161,8 @@ const App = () => (
                 <Route path="/verificacion" element={<Verificacion />} />
                 <Route path="/consulta" element={<ConsultaPreRegistro />} />
                 <Route path="/Reporte" element={<StudentReportPortal />} />
+                <Route path="/join/:token" element={<JoinProgramaPage />} />
+                <Route path="/unirse/:token" element={<JoinProgramaPage />} />
                 <Route path="/certitec" element={<StudentRegistrationForm1 />} />
                 <Route path="/alianzacapacitarte" element={<StudentAlianza />} />
                 <Route path="/Adrianabenitez" element={<StudentRegistrationForm />} />
@@ -172,7 +178,10 @@ const App = () => (
                 <Route path="/pago/resultado" element={<PagoResultado />} />
 
                 {/* 🔹 Portal estudiante: módulos */}
-                <Route path="/portal/modulos" element={<StudentModulosPage />} />
+                {/* Reemplazado por Mis Programas → Materias dentro de /Reporte */}
+                <Route path="/portal/modulos" element={<Navigate to="/Reporte" replace />} />
+                <Route path="/portal/clases/:claseId" element={<StudentClaseDetalle />} />
+                <Route path="/portal/materias/:materiaId/completado" element={<CursoCompletadoPage />} />
 
                 {/* 🔹 Portal estudiante: evaluaciones */}
                 <Route path="/evaluaciones/mias" element={<MyStudentEvaluationsPage />} />
@@ -185,6 +194,7 @@ const App = () => (
                   <Route path="students" element={<Students />} />
                   <Route path="programas" element={<Programs />} />
                   <Route path="programas/:id" element={<ProgramaDetalle />} />
+                  <Route path="programas/:id/materias/:materiaId" element={<MateriaDetalle />} />
                   <Route path="docentes" element={<Docentes />} />
 
                   {/* 🔹 Admin evaluaciones */}
@@ -192,6 +202,7 @@ const App = () => (
                   <Route path="evaluaciones/:evaluationId/builder" element={<EvaluationBuilder />} />
                   <Route path="modulos" element={<ModulosPage />} />
                   <Route path="modulos/:id" element={<ModuloDetalle />} />
+                  <Route path="clases/:claseId" element={<ClaseDetalle />} />
 
                   <Route path="adminclients" element={<DashboardClients />} />
                   <Route path="usuarios-negocio" element={<UsersDashboard />} />
