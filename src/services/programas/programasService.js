@@ -78,3 +78,37 @@ export const toggleJoinLink = async (id, enabled) => {
   const response = await backApi.patch(`/api/programas/${id}/join-link`, { enabled });
   return response.data;
 };
+
+/* ===================== ENLACES POR COORDINADOR (varios por programa) ===================== */
+
+// Lista los enlaces de inscripción de un programa (uno por coordinador).
+export const getJoinLinks = async (id) => {
+  const response = await backApi.get(`/api/programas/${id}/join-links`);
+  return response.data?.data || [];
+};
+
+// Crea un enlace para un coordinador. 409 si ese coordinador ya tiene uno.
+export const createJoinLink = async (id, coordinadorId) => {
+  const response = await backApi.post(`/api/programas/${id}/join-links`, {
+    coordinador_id: coordinadorId,
+  });
+  return response.data?.data;
+};
+
+// Activa/desactiva un enlace específico sin regenerarlo.
+export const setJoinLinkEnabled = async (id, linkId, enabled) => {
+  const response = await backApi.patch(`/api/programas/${id}/join-links/${linkId}`, { enabled });
+  return response.data?.data;
+};
+
+// Regenera el token de un enlace específico (invalida el anterior).
+export const regenerateJoinLink = async (id, linkId) => {
+  const response = await backApi.post(`/api/programas/${id}/join-links/${linkId}/regenerate`);
+  return response.data?.data;
+};
+
+// Elimina un enlace específico.
+export const deleteJoinLink = async (id, linkId) => {
+  const response = await backApi.delete(`/api/programas/${id}/join-links/${linkId}`);
+  return response.data;
+};

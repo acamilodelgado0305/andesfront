@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Tabs, Card, Button, Tag, Table, Typography, Spin, Empty, Badge,
   Modal, Drawer, Form, Input, Switch, InputNumber, Space, Tooltip, Popconfirm,
-  message, Upload, Select, Divider, List, Collapse
+  message, Upload, Select, Divider, List, Collapse, Avatar
 } from 'antd';
 import {
   ArrowLeftOutlined, BookOutlined, TeamOutlined, EditOutlined,
@@ -10,7 +10,7 @@ import {
   TrophyOutlined, InboxOutlined, CheckCircleOutlined, CloseCircleOutlined,
   UnorderedListOutlined, WhatsAppOutlined, LinkOutlined, EyeOutlined,
   ScheduleOutlined, SwapOutlined, CopyOutlined, AppstoreAddOutlined,
-  SolutionOutlined, MailOutlined
+  SolutionOutlined, MailOutlined, ReloadOutlined, UserOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -29,7 +29,10 @@ import {
   getEvaluations, getStudentAssignmentsAdmin,
   assignToSelectedStudents, removeAssignment
 } from '../../services/evaluation/evaluationService';
-import { generateJoinLink, toggleJoinLink } from '../../services/programas/programasService';
+import {
+  getJoinLinks, createJoinLink, setJoinLinkEnabled,
+  regenerateJoinLink, deleteJoinLink,
+} from '../../services/programas/programasService';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -63,13 +66,15 @@ export default function ProgramaDetalle() {
   // Editar programa
   const [editProgramaOpen, setEditProgramaOpen] = useState(false);
 
-  // Enlace de inscripción (join link)
+  // Enlaces de inscripción (varios por programa, uno por coordinador)
   const [joinModalOpen, setJoinModalOpen]           = useState(false);
   const [coordinadores, setCoordinadores]           = useState([]);
   const [loadingCoordinadores, setLoadingCoordinadores] = useState(false);
   const [joinCoordinadorId, setJoinCoordinadorId]   = useState(null);
   const [generatingJoinLink, setGeneratingJoinLink] = useState(false);
-  const [togglingJoinLink, setTogglingJoinLink]     = useState(false);
+  const [joinLinks, setJoinLinks]                   = useState([]);
+  const [loadingJoinLinks, setLoadingJoinLinks]     = useState(false);
+  const [busyLinkId, setBusyLinkId]                 = useState(null); // enlace en proceso (toggle/regenerar/eliminar)
 
   // Módulos
   const [moduloModalOpen, setModuloModalOpen] = useState(false);
@@ -127,10 +132,8 @@ export default function ProgramaDetalle() {
     }
   }, [id]);
 
-  // ─── Enlace de inscripción ──────────────────────────────────────────────────
-  const openJoinModal = useCallback(async () => {
-    setJoinModalOpen(true);
-    setJoinCoordinadorId(programa?.join_coordinador_id || null);
+  // ─── Enlaces de inscripción (varios por programa, uno por coordinador) ──────
+  const fetchCoordinadores = useCallback(async () => {
     if (coordinadores.length) return;
     setLoadingCoordinadores(true);
     try {
@@ -141,17 +144,54 @@ export default function ProgramaDetalle() {
     } finally {
       setLoadingCoordinadores(false);
     }
-  }, [programa, coordinadores.length]);
+  }, [coordinadores.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleGenerateJoinLink = async () => {
+  const fetchJoinLinks = useCallback(async () => {
+    setLoadingJoinLinks(true);
+    try {
+      setJoinLinks(await getJoinLinks(id));
+    } catch {
+      message.error('No se pudieron cargar los enlaces de inscripción.');
+    } finally {
+      setLoadingJoinLinks(false);
+    }
+  }, [id]);
+
+  // Carga inicial de enlaces + coordinadores al entrar al programa.
+  useEffect(() => {
+    if (!id) return;
+    fetchJoinLinks();
+    fetchCoordinadores();
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Nombre legible del coordinador dueño de un enlace (los usuarios viven en el
+  // auth-service; el backend de enlaces solo guarda el id).
+  const coordinadorNombre = useCallback((coordinadorId) => {
+    const u = coordinadores.find((c) => String(c.id) === String(coordinadorId));
+    return u ? (u.name || u.email || `Coordinador #${coordinadorId}`) : `Coordinador #${coordinadorId}`;
+  }, [coordinadores]);
+
+  // Coordinadores que aún no tienen enlace en este programa (para el selector).
+  const coordinadoresDisponibles = useMemo(
+    () => coordinadores.filter((c) => !joinLinks.some((l) => String(l.coordinador_id) === String(c.id))),
+    [coordinadores, joinLinks],
+  );
+
+  const openJoinModal = () => {
+    setJoinCoordinadorId(null);
+    setJoinModalOpen(true);
+    fetchCoordinadores();
+  };
+
+  const handleCreateJoinLink = async () => {
     if (!joinCoordinadorId) {
       message.warning('Selecciona un coordinador para el enlace.');
       return;
     }
     setGeneratingJoinLink(true);
     try {
-      const { data } = await generateJoinLink(id, joinCoordinadorId);
-      setPrograma((prev) => ({ ...prev, ...data }));
+      const nuevo = await createJoinLink(id, joinCoordinadorId);
+      setJoinLinks((prev) => [...prev, nuevo]);
       setJoinModalOpen(false);
       message.success('Enlace de inscripción generado.');
     } catch (err) {
@@ -161,21 +201,47 @@ export default function ProgramaDetalle() {
     }
   };
 
-  const handleToggleJoinLink = async (enabled) => {
-    setTogglingJoinLink(true);
+  const handleToggleJoinLink = async (link, enabled) => {
+    setBusyLinkId(link.id);
     try {
-      const { data } = await toggleJoinLink(id, enabled);
-      setPrograma((prev) => ({ ...prev, ...data }));
+      const upd = await setJoinLinkEnabled(id, link.id, enabled);
+      setJoinLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, ...upd } : l)));
     } catch {
       message.error('Error al actualizar el enlace.');
     } finally {
-      setTogglingJoinLink(false);
+      setBusyLinkId(null);
     }
   };
 
-  const handleCopyJoinLink = () => {
-    const url = `${window.location.origin}/unirse/${programa.join_token}`;
-    navigator.clipboard.writeText(url);
+  const handleRegenerateJoinLink = async (link) => {
+    setBusyLinkId(link.id);
+    try {
+      const upd = await regenerateJoinLink(id, link.id);
+      setJoinLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, ...upd } : l)));
+      message.success('Enlace regenerado. El anterior dejó de funcionar.');
+    } catch {
+      message.error('Error al regenerar el enlace.');
+    } finally {
+      setBusyLinkId(null);
+    }
+  };
+
+  const handleDeleteJoinLink = async (link) => {
+    setBusyLinkId(link.id);
+    try {
+      await deleteJoinLink(id, link.id);
+      setJoinLinks((prev) => prev.filter((l) => l.id !== link.id));
+      message.success('Enlace eliminado.');
+    } catch {
+      message.error('Error al eliminar el enlace.');
+    } finally {
+      setBusyLinkId(null);
+    }
+  };
+
+  const joinUrl = (tokenValue) => `${window.location.origin}/unirse/${tokenValue}`;
+  const handleCopyJoinLink = (tokenValue) => {
+    navigator.clipboard.writeText(joinUrl(tokenValue));
     message.success('Enlace copiado al portapapeles.');
   };
 
@@ -745,46 +811,80 @@ export default function ProgramaDetalle() {
         // ── ENLACE DE INSCRIPCIÓN ───────────────────────────────────────────
         {
           key: 'enlace',
-          label: <span><LinkOutlined /> Enlace de inscripción</span>,
+          label: <span><LinkOutlined /> Enlaces de inscripción</span>,
           children: (
-            <Card size="small" className="rounded-xl max-w-xl dark:bg-[#30302e] dark:border-[#403e3a]">
-              {!programa.join_token ? (
-                <div className="space-y-3">
-                  <Text type="secondary" className="text-sm dark:text-[#a8a59e]">
-                    Generá un enlace para que los estudiantes se inscriban solos a este
-                    programa (se registran si son nuevos o se unen si ya tienen cuenta).
-                  </Text>
-                  <div>
-                    <Button type="primary" icon={<LinkOutlined />} onClick={openJoinModal}
-                      style={{ backgroundColor: PRIMARY, borderColor: PRIMARY }}>
-                      Generar enlace
-                    </Button>
+            <div className="space-y-4 max-w-2xl">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <Text type="secondary" className="text-sm dark:text-[#a8a59e] max-w-md">
+                  Creá un enlace de inscripción por coordinador. Cada uno comparte el suyo y
+                  recibe automáticamente a los estudiantes que se inscriben con ese enlace
+                  (se registran si son nuevos o se unen si ya tienen cuenta).
+                </Text>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openJoinModal}
+                  style={{ backgroundColor: PRIMARY, borderColor: PRIMARY }}>
+                  Nuevo enlace
+                </Button>
+              </div>
+
+              <Spin spinning={loadingJoinLinks}>
+                {joinLinks.length === 0 ? (
+                  <Card size="small" className="rounded-xl dark:bg-[#30302e] dark:border-[#403e3a]">
+                    <Empty description="Aún no hay enlaces de inscripción" image={Empty.PRESENTED_IMAGE_SIMPLE}>
+                      <Button type="primary" icon={<PlusOutlined />} onClick={openJoinModal}
+                        style={{ backgroundColor: PRIMARY, borderColor: PRIMARY }}>
+                        Crear el primer enlace
+                      </Button>
+                    </Empty>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {joinLinks.map((link) => (
+                      <Card key={link.id} size="small" className="rounded-xl dark:bg-[#30302e] dark:border-[#403e3a]">
+                        {/* Coordinador dueño del enlace + estado + eliminar */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                          <span className="flex items-center gap-2 min-w-0">
+                            <Avatar size="small" style={{ backgroundColor: PRIMARY }} icon={<UserOutlined />} />
+                            <span className="font-semibold text-sm dark:text-[#faf9f5] truncate">
+                              {coordinadorNombre(link.coordinador_id)}
+                            </span>
+                            <Tag color={link.enabled ? 'green' : 'default'}>
+                              {link.enabled ? 'Activo' : 'Desactivado'}
+                            </Tag>
+                          </span>
+                          <Popconfirm title="¿Eliminar este enlace?" okText="Sí, eliminar" cancelText="Cancelar"
+                            okButtonProps={{ danger: true }} onConfirm={() => handleDeleteJoinLink(link)}>
+                            <Tooltip title="Eliminar enlace">
+                              <Button size="small" type="text" danger icon={<DeleteOutlined />} loading={busyLinkId === link.id} />
+                            </Tooltip>
+                          </Popconfirm>
+                        </div>
+
+                        {/* URL + copiar */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Input readOnly value={joinUrl(link.token)} style={{ maxWidth: 360 }} />
+                          <Button icon={<CopyOutlined />} onClick={() => handleCopyJoinLink(link.token)}>Copiar</Button>
+                        </div>
+
+                        {/* Activar/desactivar + regenerar */}
+                        <div className="flex items-center gap-4 flex-wrap mt-2">
+                          <span className="flex items-center gap-2">
+                            <Switch size="small" checked={!!link.enabled} loading={busyLinkId === link.id}
+                              onChange={(v) => handleToggleJoinLink(link, v)} />
+                            <Text className="text-xs dark:text-[#a8a59e]">
+                              {link.enabled ? 'Enlace activo' : 'Enlace desactivado'}
+                            </Text>
+                          </span>
+                          <Popconfirm title="¿Regenerar el enlace? El actual dejará de funcionar."
+                            okText="Sí, regenerar" cancelText="Cancelar" onConfirm={() => handleRegenerateJoinLink(link)}>
+                            <Button size="small" icon={<ReloadOutlined />} loading={busyLinkId === link.id}>Regenerar</Button>
+                          </Popconfirm>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Input
-                      readOnly
-                      value={`${window.location.origin}/unirse/${programa.join_token}`}
-                      style={{ maxWidth: 380 }}
-                    />
-                    <Button icon={<CopyOutlined />} onClick={handleCopyJoinLink}>Copiar</Button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={!!programa.join_enabled}
-                      loading={togglingJoinLink}
-                      onChange={handleToggleJoinLink}
-                    />
-                    <Text className="text-sm dark:text-[#faf9f5]">
-                      {programa.join_enabled ? 'Enlace activo' : 'Enlace desactivado'}
-                    </Text>
-                  </div>
-                  <Button size="small" onClick={openJoinModal}>Regenerar enlace</Button>
-                </div>
-              )}
-            </Card>
+                )}
+              </Spin>
+            </div>
           ),
         },
 
@@ -1142,20 +1242,20 @@ export default function ProgramaDetalle() {
         programToEdit={programa}
       />
 
-      {/* ── Modal generar enlace de inscripción ───────────────────────────── */}
+      {/* ── Modal nuevo enlace de inscripción ─────────────────────────────── */}
       <Modal
         open={joinModalOpen}
-        title={programa?.join_token ? 'Regenerar enlace de inscripción' : 'Generar enlace de inscripción'}
-        okText="Generar"
+        title="Nuevo enlace de inscripción"
+        okText="Generar enlace"
         cancelText="Cancelar"
-        onOk={handleGenerateJoinLink}
+        onOk={handleCreateJoinLink}
         onCancel={() => setJoinModalOpen(false)}
         confirmLoading={generatingJoinLink}
         okButtonProps={{ style: { backgroundColor: PRIMARY, borderColor: PRIMARY } }}
       >
         <p className="text-sm text-gray-600 dark:text-[#a8a59e] mb-3">
-          Elegí el coordinador que quedará asignado a los estudiantes que se
-          inscriban solos a través de este enlace.
+          Elegí el coordinador dueño de este enlace. Los estudiantes que se inscriban
+          con él quedarán asignados a ese coordinador.
         </p>
         <Select
           style={{ width: '100%' }}
@@ -1165,8 +1265,14 @@ export default function ProgramaDetalle() {
           loading={loadingCoordinadores}
           showSearch
           filterOption={(input, opt) => (opt.children || '').toLowerCase().includes(input.toLowerCase())}
+          notFoundContent={
+            loadingCoordinadores ? 'Cargando...'
+              : coordinadoresDisponibles.length === 0
+                ? 'Todos los coordinadores ya tienen un enlace'
+                : 'Sin coordinadores'
+          }
         >
-          {coordinadores.map((u) => (
+          {coordinadoresDisponibles.map((u) => (
             <Select.Option key={u.id} value={u.id}>{u.name} ({u.email})</Select.Option>
           ))}
         </Select>
