@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Tabs, Card, Button, Tag, Table, Typography, Spin, Empty, Badge, Collapse, Radio,
   Modal, Drawer, Form, Input, Switch, InputNumber, Space, Tooltip, Popconfirm,
-  message, Upload, Select, Divider, List, Avatar, DatePicker, Dropdown
+  message, Upload, Select, Divider, List, Avatar, DatePicker, Dropdown, Progress
 } from 'antd';
 import {
   ArrowLeftOutlined, BookOutlined, EditOutlined, PlusOutlined, DeleteOutlined,
@@ -15,7 +15,7 @@ import {
   FileWordOutlined, FileExcelOutlined, FileZipOutlined, FileImageOutlined,
   FileOutlined, DownloadOutlined, PlayCircleOutlined, VideoCameraOutlined,
   UploadOutlined, TrophyOutlined, FundProjectionScreenOutlined, FilePptOutlined,
-  Html5Outlined
+  Html5Outlined, ArrowRightOutlined, ReloadOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -23,7 +23,8 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/es';
 import {
-  getMateriaDetalle, updateMateria, deleteMateria, createMateria, uploadMateriaBanner
+  getMateriaDetalle, updateMateria, deleteMateria, createMateria, uploadMateriaBanner,
+  getMateriaProgresoEstudiante
 } from '../../services/materias/serviceMateria';
 import { getAllDocentes } from '../../services/docentes/serviceDocente';
 import HorarioDrawer from '../Horarios/HorarioDrawer';
@@ -120,6 +121,10 @@ export default function MateriaDetalle({
   // embebido aquí mismo (sin navegar a /evaluaciones/asignacion/:id). null = no hay
   // examen abierto. Guarda { asignacion_id, titulo, descripcion, estado, calificacion, moduloId }.
   const [studentExamen, setStudentExamen] = useState(null);
+
+  // Progreso del estudiante en la materia (nivel clase) para el botón
+  // "Iniciar materia" / "Continuar · Clase N" del dashboard. Solo readOnly.
+  const [materiaProgreso, setMateriaProgreso] = useState(null);
 
   // Al abrir/cerrar una clase o examen (estudiante) avisamos al portal para ocultar
   // el sidebar y dar vista inmersiva; al desmontar la materia lo restauramos.
@@ -250,6 +255,19 @@ export default function MateriaDetalle({
     fetchModulos();
     fetchEvaluaciones();
   }, [fetchMateria, fetchForo, fetchModulos, fetchEvaluaciones]);
+
+  // Progreso a nivel clase (solo readOnly): alimenta el botón iniciar/continuar.
+  const fetchProgresoMateria = useCallback(async () => {
+    if (!readOnly) return;
+    try { setMateriaProgreso(await getMateriaProgresoEstudiante(materiaId)); }
+    catch { /* ignore */ }
+  }, [materiaId, readOnly]);
+
+  // Refresca el progreso al entrar al dashboard y al volver de una clase/examen
+  // (studentClaseId/studentExamen vuelven a null), para reflejar el avance.
+  useEffect(() => {
+    if (readOnly && !studentClaseId && !studentExamen) fetchProgresoMateria();
+  }, [readOnly, studentClaseId, studentExamen, fetchProgresoMateria]);
 
   // Catálogos para el menú de gestión (docentes + programas destino) — solo
   // aplica al admin; el estudiante nunca ve ese menú.
@@ -1187,6 +1205,50 @@ export default function MateriaDetalle({
           </span>
         </div>
       </div>
+
+      {/* CTA del estudiante: iniciar la materia o continuar en la clase donde se
+          quedó. Siempre visible en el dashboard de la materia (solo readOnly). */}
+      {readOnly && materiaProgreso && materiaProgreso.totalClases > 0 && (() => {
+        const { iniciada, siguienteClase, clasesCompletadas, totalClases, primeraClaseId } = materiaProgreso;
+        const todas = clasesCompletadas >= totalClases || !siguienteClase;
+        const pct = totalClases ? Math.round((clasesCompletadas / totalClases) * 100) : 0;
+        let titulo; let sub; let label; let icon; let target; let color;
+        if (todas) {
+          titulo = '¡Materia completada!';
+          sub = `Completaste las ${totalClases} clases`;
+          label = 'Repasar materia'; icon = <ReloadOutlined />; target = primeraClaseId; color = '#16a34a';
+        } else if (!iniciada) {
+          titulo = 'Aún no has iniciado esta materia';
+          sub = `${totalClases} clase${totalClases > 1 ? 's' : ''} por ver`;
+          label = 'Iniciar materia'; icon = <PlayCircleOutlined />; target = siguienteClase.id; color = PURPLE;
+        } else {
+          titulo = 'Continúa donde lo dejaste';
+          sub = `Clase ${siguienteClase.numero}: ${siguienteClase.titulo}`;
+          label = `Continuar · Clase ${siguienteClase.numero}`; icon = <ArrowRightOutlined />; target = siguienteClase.id; color = PURPLE;
+        }
+        return (
+          <div className="mb-4 rounded-xl border p-4 flex items-center justify-between gap-4 flex-wrap bg-white dark:bg-[#30302e] border-gray-200 dark:border-[#403e3a]">
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-gray-800 dark:text-[#faf9f5]">{titulo}</div>
+              <div className="text-xs text-gray-500 dark:text-[#a8a59e] truncate">{sub}</div>
+              <div className="mt-2 flex items-center gap-2 max-w-xs">
+                <Progress percent={pct} size="small" showInfo={false}
+                  strokeColor={todas ? '#16a34a' : PURPLE} style={{ flex: 1, margin: 0 }} />
+                <span className="text-xs text-gray-500 dark:text-[#a8a59e] whitespace-nowrap tabular-nums">
+                  {clasesCompletadas}/{totalClases}
+                </span>
+              </div>
+            </div>
+            <Button
+              type="primary" size="large" icon={icon} disabled={!target}
+              onClick={() => target && setStudentClaseId(target)}
+              style={{ backgroundColor: color, borderColor: color }}
+            >
+              {label}
+            </Button>
+          </div>
+        );
+      })()}
 
       {/* Tabs debajo del banner */}
       <Tabs

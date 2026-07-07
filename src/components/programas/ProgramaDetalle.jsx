@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Tabs, Card, Button, Tag, Table, Typography, Spin, Empty, Badge,
   Modal, Drawer, Form, Input, Switch, InputNumber, Space, Tooltip, Popconfirm,
-  message, Upload, Select, Divider, List, Collapse, Avatar
+  message, Upload, Select, Divider, List, Collapse, Avatar, Progress
 } from 'antd';
 import {
   ArrowLeftOutlined, BookOutlined, TeamOutlined, EditOutlined,
@@ -10,7 +10,8 @@ import {
   TrophyOutlined, InboxOutlined, CheckCircleOutlined, CloseCircleOutlined,
   UnorderedListOutlined, WhatsAppOutlined, LinkOutlined, EyeOutlined,
   ScheduleOutlined, SwapOutlined, CopyOutlined, AppstoreAddOutlined,
-  SolutionOutlined, MailOutlined, ReloadOutlined, UserOutlined
+  SolutionOutlined, MailOutlined, ReloadOutlined, UserOutlined,
+  ClockCircleOutlined, BarChartOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -32,6 +33,7 @@ import {
 import {
   getJoinLinks, createJoinLink, setJoinLinkEnabled,
   regenerateJoinLink, deleteJoinLink,
+  getProgramaProgreso, getEstudianteProgresoPrograma,
 } from '../../services/programas/programasService';
 
 const { Title, Text, Paragraph } = Typography;
@@ -54,6 +56,13 @@ export default function ProgramaDetalle() {
   const [activeTab, setActiveTab] = useState('info');
   const [aulaMateriaId, setAulaMateriaId] = useState(null);
   const [modulos, setModulos]   = useState([]);
+
+  // Avance por estudiante (clases vistas / pendientes)
+  const [progreso, setProgreso]                   = useState({ total_clases: 0, estudiantes: [] });
+  const [loadingProgreso, setLoadingProgreso]     = useState(false);
+  const [progresoStudent, setProgresoStudent]     = useState(null); // estudiante del drawer de detalle
+  const [progresoDetalle, setProgresoDetalle]     = useState(null);
+  const [loadingDetalle, setLoadingDetalle]       = useState(false);
 
   // Evaluaciones por estudiante
   const [evalStudent, setEvalStudent]             = useState(null); // estudiante seleccionado
@@ -331,6 +340,28 @@ export default function ProgramaDetalle() {
     return map;
   }, [evaluaciones, materias]);
 
+  // ─── Avance por estudiante (clases vistas / pendientes) ────────────────────
+  // IMPORTANTE: estos hooks van ANTES de los return condicionales de abajo.
+  // Si se colocan después, en el primer render (loading=true) no se ejecutan y
+  // al pasar a loading=false React lanza "Rendered more hooks than during the
+  // previous render" → el ErrorBoundary muestra la página de error.
+  const fetchProgreso = useCallback(async () => {
+    setLoadingProgreso(true);
+    try {
+      setProgreso(await getProgramaProgreso(id));
+    } catch { /* ignore */ }
+    finally { setLoadingProgreso(false); }
+  }, [id]);
+
+  useEffect(() => { if (id) fetchProgreso(); }, [id, fetchProgreso]);
+
+  // estudiante_id → { completadas, ultima_actividad } para pintar la barra en la tabla.
+  const progresoMap = useMemo(() => {
+    const m = {};
+    (progreso.estudiantes || []).forEach((e) => { m[e.estudiante_id] = e; });
+    return m;
+  }, [progreso]);
+
   if (loading) return <div className="flex items-center justify-center h-64"><Spin size="large" /></div>;
   if (!programa) return <Empty description="Programa no encontrado" />;
 
@@ -567,6 +598,19 @@ export default function ProgramaDetalle() {
     }
   };
 
+  const openProgresoDetalle = async (student) => {
+    setProgresoStudent(student);
+    setProgresoDetalle(null);
+    setLoadingDetalle(true);
+    try {
+      setProgresoDetalle(await getEstudianteProgresoPrograma(id, student.id));
+    } catch {
+      message.error('Error al cargar el avance del estudiante');
+    } finally {
+      setLoadingDetalle(false);
+    }
+  };
+
   // ─── Evaluaciones por estudiante ───────────────────────────────────────────
   const fetchStudentEvals = async (studentId) => {
     setLoadingStudentEvals(true);
@@ -674,9 +718,30 @@ export default function ProgramaDetalle() {
     { title: 'Estado matrícula', dataIndex: 'estado_matricula', width: 130,
       render: (v) => <Tag color={v === 'activo' ? 'green' : 'default'}>{v || '—'}</Tag> },
     {
-      title: '', width: 110,
+      title: 'Avance', width: 180,
+      render: (_, r) => {
+        const total = progreso.total_clases || 0;
+        const done = progresoMap[r.id]?.completadas || 0;
+        const pct = total ? Math.round((done / total) * 100) : 0;
+        return total === 0 ? (
+          <span className="text-xs text-gray-400 dark:text-[#a8a59e]">Sin clases</span>
+        ) : (
+          <div style={{ minWidth: 150 }}>
+            <Progress percent={pct} size="small"
+              strokeColor={pct === 100 ? '#16a34a' : '#7c3aed'}
+              format={() => <span className="text-xs">{done}/{total}</span>} />
+          </div>
+        );
+      },
+    },
+    {
+      title: '', width: 150,
       render: (_, r) => (
         <Space size={4}>
+          <Tooltip title="Ver avance de clases">
+            <Button size="small" icon={<BarChartOutlined />} style={{ color: '#7c3aed', borderColor: '#7c3aed' }}
+              onClick={() => openProgresoDetalle(r)} />
+          </Tooltip>
           <Tooltip title="Evaluaciones del estudiante">
             <Button size="small" icon={<TrophyOutlined />} style={{ color: '#d97706', borderColor: '#d97706' }}
               onClick={() => openStudentEvals(r)} />
@@ -1302,6 +1367,87 @@ export default function ProgramaDetalle() {
           {otrosProgramas.map((p) => <Select.Option key={p.id} value={p.id}>{p.nombre}</Select.Option>)}
         </Select>
       </Modal>
+
+      {/* ── Drawer avance del estudiante (clases vistas / pendientes) ─────── */}
+      <Drawer
+        open={!!progresoStudent}
+        onClose={() => setProgresoStudent(null)}
+        width={640}
+        destroyOnClose
+        title={progresoStudent
+          ? `Avance — ${progresoStudent.nombre} ${progresoStudent.apellido || ''}`
+          : 'Avance'}
+      >
+        <Spin spinning={loadingDetalle}>
+          {progresoDetalle && (() => {
+            const total = progresoDetalle.total_clases || 0;
+            const done = progresoDetalle.completadas || 0;
+            const pct = total ? Math.round((done / total) * 100) : 0;
+            const fmt = (d) => (d ? new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
+            return (
+              <>
+                <div className="mb-4 p-3 rounded-xl bg-gray-50 dark:bg-[#262624] border border-gray-100 dark:border-[#403e3a]">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-gray-700 dark:text-[#faf9f5]">Progreso total</span>
+                    <span className="text-sm font-semibold text-gray-800 dark:text-[#faf9f5]">{done}/{total} clases</span>
+                  </div>
+                  <Progress percent={pct} strokeColor={pct === 100 ? '#16a34a' : '#7c3aed'} />
+                </div>
+
+                {(!progresoDetalle.materias || progresoDetalle.materias.length === 0) ? (
+                  <Empty description="Este programa aún no tiene clases" />
+                ) : progresoDetalle.materias.map((mat) => (
+                  <div key={mat.id ?? mat.nombre} className="mb-4">
+                    <div className="font-semibold text-sm mb-2 text-gray-800 dark:text-[#faf9f5] flex items-center gap-2">
+                      <BookOutlined style={{ color: '#2563eb' }} /> {mat.nombre}
+                    </div>
+                    <Collapse
+                      items={mat.temas.map((tema) => {
+                        const tDone = tema.clases.filter((c) => c.estado === 'completado').length;
+                        const tTotal = tema.clases.length;
+                        return {
+                          key: String(tema.id),
+                          label: (
+                            <div className="flex items-center justify-between gap-2 min-w-0">
+                              <span className="font-medium truncate">{tema.titulo}</span>
+                              <Tag color={tTotal > 0 && tDone === tTotal ? 'success' : 'default'}>{tDone}/{tTotal}</Tag>
+                            </div>
+                          ),
+                          children: (
+                            <List
+                              size="small"
+                              dataSource={tema.clases}
+                              rowKey="id"
+                              locale={{ emptyText: 'Sin clases' }}
+                              renderItem={(c) => (
+                                <List.Item>
+                                  <div className="flex items-center justify-between gap-2 w-full">
+                                    <span className="flex items-center gap-2 min-w-0">
+                                      {c.estado === 'completado'
+                                        ? <CheckCircleOutlined style={{ color: '#16a34a', flexShrink: 0 }} />
+                                        : <ClockCircleOutlined style={{ color: '#9ca3af', flexShrink: 0 }} />}
+                                      <span className={`truncate ${c.estado === 'completado' ? 'text-gray-700 dark:text-[#faf9f5]' : 'text-gray-500 dark:text-[#a8a59e]'}`}>
+                                        {c.titulo}
+                                      </span>
+                                    </span>
+                                    {c.estado === 'completado'
+                                      ? <span className="text-xs text-green-600 flex-shrink-0 whitespace-nowrap">Vista{c.fecha_completado ? ` · ${fmt(c.fecha_completado)}` : ''}</span>
+                                      : <Tag className="!m-0" color="default">Pendiente</Tag>}
+                                  </div>
+                                </List.Item>
+                              )}
+                            />
+                          ),
+                        };
+                      })}
+                    />
+                  </div>
+                ))}
+              </>
+            );
+          })()}
+        </Spin>
+      </Drawer>
 
       {/* ── Modal evaluaciones del estudiante ─────────────────────────────── */}
       <Modal

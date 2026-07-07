@@ -112,3 +112,18 @@ export const deleteJoinLink = async (id, linkId) => {
   const response = await backApi.delete(`/api/programas/${id}/join-links/${linkId}`);
   return response.data;
 };
+
+/* ===================== AVANCE POR ESTUDIANTE (clases vistas / pendientes) ===================== */
+
+// Resumen: por cada estudiante del programa, cuántas clases completó de cuántas.
+// Devuelve { total_clases, estudiantes: [{ estudiante_id, nombre, apellido, documento, completadas, ultima_actividad }] }.
+export const getProgramaProgreso = async (id) => {
+  const response = await backApi.get(`/api/programas/${id}/progreso`);
+  return response.data;
+};
+
+// Detalle de un estudiante: materias → temas → clases con su estado y fecha.
+export const getEstudianteProgresoPrograma = async (id, estudianteId) => {
+  const response = await backApi.get(`/api/programas/${id}/estudiantes/${estudianteId}/progreso`);
+  return response.data;
+};
