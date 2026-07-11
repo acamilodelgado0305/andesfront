@@ -20,7 +20,7 @@ import HorarioDrawer from '../Horarios/HorarioDrawer';
 import MateriaDetalle from '../materias/MateriaDetalle';
 import useCurrency from '../../hooks/useCurrency';
 import {
-  getMateriasByPrograma, createMateria, updateMateria, deleteMateria
+  getMateriasByPrograma, createMateria, updateMateria, deleteMateria, duplicarMateria
 } from '../../services/materias/serviceMateria';
 import {
   getAllDocentes, createDocente, getProgramaDocentes,
@@ -517,8 +517,9 @@ export default function ProgramaDetalle() {
         await updateMateria(materia.id, { nombre: materia.nombre, programa_id: transferProgramaId, docente_id: materia.docente_id, activa: materia.activa });
         message.success(`"${materia.nombre}" movida`);
       } else {
-        await createMateria({ nombre: materia.nombre, programa_id: transferProgramaId, docente_id: materia.docente_id });
-        message.success(`"${materia.nombre}" duplicada`);
+        // Copia profunda: temas, clases, PDFs, presentaciones y evaluaciones.
+        await duplicarMateria(materia.id, { programa_id_destino: transferProgramaId });
+        message.success(`"${materia.nombre}" duplicada con todo su contenido`);
       }
       setTransferModal(null);
       fetchMaterias();
@@ -1381,10 +1382,10 @@ export default function ProgramaDetalle() {
         confirmLoading={savingTransfer}
         okButtonProps={{ style: { backgroundColor: transferModal?.mode === 'mover' ? '#2563eb' : PURPLE } }}
       >
-        <p className="text-sm text-gray-600 mb-3">
+        <p className="text-sm text-gray-600 dark:text-[#a8a59e] mb-3">
           {transferModal?.mode === 'mover'
             ? 'Selecciona el programa destino. Dejará de pertenecer a este programa.'
-            : 'Selecciona el programa destino. El original se mantiene aquí.'}
+            : 'Selecciona el programa destino. Se copiará la materia con todo su contenido (temas, clases, PDFs, presentaciones y evaluaciones). El original se mantiene aquí. Puede tardar unos segundos.'}
         </p>
         <Select style={{ width: '100%' }} placeholder="Programa destino" value={transferProgramaId}
           onChange={setTransferProgramaId} showSearch

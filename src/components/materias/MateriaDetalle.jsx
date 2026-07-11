@@ -933,7 +933,10 @@ export default function MateriaDetalle({
                     title={
                       <span
                         className="cursor-pointer hover:text-purple-600"
-                        onClick={() => (readOnly ? setStudentClaseId(it.id) : navigate(`/inicio/clases/${it.id}`))}
+                        // Estudiante: abre la vista inmersiva de la clase.
+                        // Admin: NO entra a la clase (esa visualización es solo del
+                        // portal del estudiante); el clic abre la edición de la clase.
+                        onClick={() => (readOnly ? setStudentClaseId(it.id) : openEditClase(m.id, it))}
                       >
                         {!readOnly && <span className="text-gray-400 dark:text-[#a8a59e] font-normal mr-1">Clase {it._num}:</span>}
                         {it.titulo}

@@ -76,6 +76,17 @@ export const deleteMateria = async (materiaId) => {
   return response.data;
 };
 
+// Copia profunda de la materia en otro programa: clona temas, clases, PDFs,
+// presentaciones y evaluaciones (con preguntas/opciones), y copia físicamente los
+// archivos de GCS. Puede tardar unos segundos si hay videos/archivos grandes.
+export const duplicarMateria = async (materiaId, { programa_id_destino, nombre } = {}) => {
+  const response = await backApi.post(`/api/materias/${materiaId}/duplicar`, {
+    programa_id_destino,
+    nombre,
+  });
+  return response.data;
+};
+
 export const uploadMateriaBanner = async (materiaId, file) => {
   const fd = new FormData();
   fd.append('banner', file);

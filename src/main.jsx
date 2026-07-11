@@ -62,7 +62,6 @@ const RegistroExpress = lazyWithRetry(() => import("./components/PublicForms/Reg
 const PedidosDashboard = lazyWithRetry(() => import("./components/pedidos/PedidosDashboard"));
 const DocumentosVentaDashboard = lazyWithRetry(() => import("./components/documentosVenta/DocumentosVentaDashboard"));
 const CuentasPorPagarDashboard = lazyWithRetry(() => import("./components/cuentasPorPagar/CuentasPorPagarDashboard"));
-const ClaseDetalle = lazyWithRetry(() => import("./components/Clases/ClaseDetalle"));
 const StudentClaseDetalle = lazyWithRetry(() => import("./components/Clases/StudentClaseDetalle"));
 const ProgramaDetalle = lazyWithRetry(() => import("./components/programas/ProgramaDetalle"));
 const MateriaDetalle = lazyWithRetry(() => import("./components/materias/MateriaDetalle"));
@@ -198,7 +197,6 @@ const App = () => (
                   {/* 🔹 Admin evaluaciones */}
                   <Route path="evaluaciones" element={<AdminEvaluationPage />} />
                   <Route path="evaluaciones/:evaluationId/builder" element={<EvaluationBuilder />} />
-                  <Route path="clases/:claseId" element={<ClaseDetalle />} />
 
                   <Route path="adminclients" element={<DashboardClients />} />
                   <Route path="usuarios-negocio" element={<UsersDashboard />} />
