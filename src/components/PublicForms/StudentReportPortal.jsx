@@ -306,7 +306,12 @@ function StudentPortal() {
           />
         );
       case "certificados":
-        return <StudentCertificationsTab studentInfo={studentInfo} />;
+        return (
+          <StudentCertificationsTab
+            studentInfo={studentInfo}
+            documento={documentNumber || studentInfo?.documento}
+          />
+        );
       default:
         return null;
     }

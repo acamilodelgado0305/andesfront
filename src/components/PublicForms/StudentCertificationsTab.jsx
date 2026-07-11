@@ -10,13 +10,21 @@ import {
   CloseCircleOutlined
 } from '@ant-design/icons';
 import StudentPazSalvoTab from './StudentPazSalvoTab';
+import StudentUploadedCertificados from './StudentUploadedCertificados';
 
 const { Title, Text } = Typography;
 
 // Asegúrate de que esta variable sea correcta
 const API_BACKEND_URL = import.meta.env.VITE_API_BACKEND || 'https://backendcoalianza.vercel.app/api';
 
-const StudentCertificationsTab = ({ studentInfo }) => {
+const StudentCertificationsTab = ({ studentInfo, documento }) => {
+  // Número de documento del estudiante (para traer los certificados cargados).
+  const docNumber =
+    documento ||
+    studentInfo?.numeroDeDocumento ||
+    studentInfo?.documento ||
+    studentInfo?.numero_documento;
+
   const [loadingAction, setLoadingAction] = useState(null); // 'certificado-CursoName' o null
   const [previewUrl, setPreviewUrl] = useState(null);       // URL del Blob PDF para el iframe
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -132,10 +140,15 @@ const StudentCertificationsTab = ({ studentInfo }) => {
     }
   };
 
-  const diplomasContent = courses.length === 0 ? (
-    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No tienes certificaciones registradas." />
-  ) : (
+  const diplomasContent = (
     <div style={{ padding: '10px' }}>
+      {/* Certificados cargados por la institución (admin) */}
+      <div style={{ marginBottom: 24 }}>
+        <StudentUploadedCertificados documento={docNumber} />
+      </div>
+
+      {courses.length > 0 && (
+      <>
       <Alert
         message="Diplomas y Certificaciones"
         description="Aquí puedes visualizar y descargar tus certificados oficiales firmados."
@@ -215,6 +228,8 @@ const StudentCertificationsTab = ({ studentInfo }) => {
           );
         })}
       </Row>
+      </>
+      )}
     </div>
   );
 
@@ -239,7 +254,7 @@ const StudentCertificationsTab = ({ studentInfo }) => {
                 <SafetyCertificateOutlined /> Paz y Salvo
               </span>
             ),
-            children: <StudentPazSalvoTab studentInfo={studentInfo} />,
+            children: <StudentPazSalvoTab studentInfo={studentInfo} documento={docNumber} />,
           },
         ]}
       />

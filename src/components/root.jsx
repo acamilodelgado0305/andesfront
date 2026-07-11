@@ -31,7 +31,6 @@ import {
   FileDoneOutlined,
   ToolOutlined,
   CrownOutlined,
-  AppstoreAddOutlined,
   BulbOutlined,
   BulbFilled,
 } from '@ant-design/icons';
@@ -93,7 +92,6 @@ const MENU_MASTER = [
       { key: '/inicio/docentes', icon: <UserSwitchOutlined />, label: 'Docentes', path: '/inicio/docentes' },
       { key: '/inicio/programas', icon: <ReadOutlined />, label: 'Programas', path: '/inicio/programas' },
       { key: '/inicio/evaluaciones', icon: <TrophyOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
-      { key: '/inicio/modulos', icon: <AppstoreAddOutlined />, label: 'Módulos', path: '/inicio/modulos' },
       { key: '/inicio/calificaciones', icon: <BarChartOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
     ],
   },
@@ -140,7 +138,7 @@ const MENU_MASTER = [
 // Si un rol está listado, solo verá los paths indicados.
 const ROLE_CHILD_RESTRICTIONS = {
   ACADEMICO: {
-    user: ['/inicio/students', '/inicio/calificaciones', '/inicio/modulos'],
+    user: ['/inicio/students', '/inicio/calificaciones'],
     // docente: ['/inicio/students', '/inicio/calificaciones', '/inicio/evaluaciones'],
   },
   // Puedes agregar restricciones para otros módulos:
@@ -487,7 +485,6 @@ const RootLayout = () => {
         { key: '/inicio/docentes',       icon: <UserSwitchOutlined />, label: 'Docentes',      path: '/inicio/docentes' },
         { key: '/inicio/programas',      icon: <ReadOutlined />,       label: 'Programas',     path: '/inicio/programas' },
         { key: '/inicio/evaluaciones',   icon: <TrophyOutlined />,     label: 'Evaluaciones',  path: '/inicio/evaluaciones' },
-        { key: '/inicio/modulos',        icon: <AppstoreAddOutlined />, label: 'Módulos',       path: '/inicio/modulos' },
         { key: '/inicio/calificaciones', icon: <BarChartOutlined />,   label: 'Calificaciones', path: '/inicio/calificaciones' },
       ];
 

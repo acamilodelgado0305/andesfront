@@ -493,7 +493,13 @@ export default function ProgramaDetalle() {
   };
 
   const handleDeleteMateria = async (materiaId) => {
-    try { await deleteMateria(materiaId); message.success('Materia eliminada'); fetchMaterias(); }
+    try {
+      await deleteMateria(materiaId);
+      message.success('Materia eliminada');
+      // Si estábamos viendo el aula de la materia recién eliminada, cerrarla.
+      if (aulaMateriaId === materiaId) setAulaMateriaId(null);
+      fetchMaterias();
+    }
     catch { message.error('Error al eliminar materia'); }
   };
 
@@ -1095,20 +1101,39 @@ export default function ProgramaDetalle() {
                   {materias.map((m) => {
                     const isSel = aulaMateriaId === m.id;
                     return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        title={m.nombre}
-                        onClick={() => setAulaMateriaId(m.id)}
-                        className={`flex items-center gap-1.5 text-left px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                          isSel
-                            ? 'bg-[#155153] text-white font-semibold'
-                            : 'text-gray-600 dark:text-[#a8a59e] hover:bg-gray-100 dark:hover:bg-[#3a3a38]'
-                        }`}
-                      >
-                        <UnorderedListOutlined className={isSel ? 'text-white flex-shrink-0' : 'text-gray-400 flex-shrink-0'} />
-                        <span className="truncate">{m.nombre}</span>
-                      </button>
+                      <div key={m.id} className="group flex items-center gap-1">
+                        <button
+                          type="button"
+                          title={m.nombre}
+                          onClick={() => setAulaMateriaId(m.id)}
+                          className={`flex-1 min-w-0 flex items-center gap-1.5 text-left px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                            isSel
+                              ? 'bg-[#155153] text-white font-semibold'
+                              : 'text-gray-600 dark:text-[#a8a59e] hover:bg-gray-100 dark:hover:bg-[#3a3a38]'
+                          }`}
+                        >
+                          <UnorderedListOutlined className={isSel ? 'text-white flex-shrink-0' : 'text-gray-400 flex-shrink-0'} />
+                          <span className="truncate">{m.nombre}</span>
+                        </button>
+                        <Popconfirm
+                          title="¿Eliminar esta materia?"
+                          description="Se eliminará la materia y su contenido (temas, clases, etc.)."
+                          okText="Sí, eliminar"
+                          cancelText="Cancelar"
+                          okButtonProps={{ danger: true }}
+                          onConfirm={() => handleDeleteMateria(m.id)}
+                        >
+                          <Tooltip title="Eliminar materia">
+                            <Button
+                              type="text"
+                              size="small"
+                              danger
+                              icon={<DeleteOutlined />}
+                              className="flex-shrink-0 opacity-60 hover:opacity-100"
+                            />
+                          </Tooltip>
+                        </Popconfirm>
+                      </div>
                     );
                   })}
                   {materias.length === 0 && (

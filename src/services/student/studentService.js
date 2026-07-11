@@ -319,6 +319,44 @@ export const deleteStudentDocument = async (studentId, documentId) => {
   return response.data; // { message: "Documento eliminado correctamente" }
 };
 
+// ========================= CERTIFICADOS DEL ESTUDIANTE ========================= //
+// El admin sube certificados (PDF) al estudiante; el estudiante los ve en su
+// portal, en las secciones "Certificados" y "Paz y Salvo".
+
+export const uploadStudentCertificado = async (studentId, file) => {
+  const formData = new FormData();
+  // "certificado" debe coincidir con .single("certificado") en el backend
+  formData.append("certificado", file);
+
+  const response = await backApi.post(
+    `/api/students/${studentId}/certificados`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return response.data; // { message, certificado }
+};
+
+export const getStudentCertificados = async (studentId) => {
+  const response = await backApi.get(`/api/students/${studentId}/certificados`);
+  return response.data; // array de certificados
+};
+
+export const deleteStudentCertificado = async (studentId, certificadoId) => {
+  const response = await backApi.delete(
+    `/api/students/${studentId}/certificados/${certificadoId}`
+  );
+  return response.data; // { message }
+};
+
+// PÚBLICO (portal del estudiante): certificados por número de documento.
+// No requiere token — endpoint público como el de datos por documento.
+export const getStudentCertificadosByDocument = async (numeroDocumento) => {
+  const response = await axios.get(
+    `${API_BACKEND}/api/students/document/${numeroDocumento}/certificados`
+  );
+  return response.data; // array de certificados
+};
+
 // ========================= COMENTARIOS DEL ESTUDIANTE ========================= //
 
 export const getStudentComments = async (studentId) => {

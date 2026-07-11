@@ -36,6 +36,9 @@ import {
     uploadStudentDocument,
     getStudentDocuments,
     deleteStudentDocument,
+    uploadStudentCertificado,
+    getStudentCertificados,
+    deleteStudentCertificado,
 } from "../../services/student/studentService";
 import StudentHorario from "../Horarios/StudentHorario";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
@@ -88,6 +91,11 @@ const StudentDetails = ({ studentId }) => {
     const [uploadingDoc, setUploadingDoc] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [previewDoc, setPreviewDoc] = useState(null);
+
+    // === Certificados del estudiante (PDF que verá en su portal) ===
+    const [certificados, setCertificados] = useState([]);
+    const [certsLoading, setCertsLoading] = useState(false);
+    const [uploadingCert, setUploadingCert] = useState(false);
 
     // formatear fecha solo para display
     const formatDate = useCallback((dateString) => {
@@ -174,10 +182,26 @@ const StudentDetails = ({ studentId }) => {
         }
     }, [studentId]);
 
+    /* ========== Cargar certificados del estudiante ========== */
+    const fetchStudentCertificados = useCallback(async () => {
+        if (!studentId) return;
+        setCertsLoading(true);
+        try {
+            const data = await getStudentCertificados(studentId);
+            setCertificados(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error(error);
+            message.error("Error al cargar los certificados del estudiante");
+        } finally {
+            setCertsLoading(false);
+        }
+    }, [studentId]);
+
     useEffect(() => {
         fetchStudentData();
         fetchStudentDocuments();
-    }, [fetchStudentData, fetchStudentDocuments]);
+        fetchStudentCertificados();
+    }, [fetchStudentData, fetchStudentDocuments, fetchStudentCertificados]);
 
     /* ========== Programas asignables por usuario ========== */
     const fetchUserAssignablePrograms = async () => {
@@ -385,6 +409,54 @@ const StudentDetails = ({ studentId }) => {
         } finally {
             setUploadingDoc(false);
         }
+    };
+
+    /* ========== Subida / eliminación de certificados (PDF) ========== */
+    const handleUploadCertificado = async (options) => {
+        const { file, onSuccess, onError } = options;
+        if (!studentId) return;
+
+        if (file.type !== "application/pdf") {
+            message.error("El certificado debe ser un archivo PDF.");
+            onError && onError(new Error("Formato inválido"));
+            return;
+        }
+
+        try {
+            setUploadingCert(true);
+            const data = await uploadStudentCertificado(studentId, file);
+            message.success("Certificado subido correctamente");
+            onSuccess && onSuccess(data);
+            fetchStudentCertificados();
+        } catch (error) {
+            console.error("Error al subir certificado:", error);
+            const msg =
+                error.response?.data?.error || "Error al subir el certificado";
+            message.error(msg);
+            onError && onError(error);
+        } finally {
+            setUploadingCert(false);
+        }
+    };
+
+    const handleDeleteCertificado = (cert) => {
+        Modal.confirm({
+            title: "¿Eliminar certificado?",
+            content: `¿Deseas eliminar el certificado "${cert.nombre}"? El estudiante dejará de verlo en su portal.`,
+            okText: "Eliminar",
+            cancelText: "Cancelar",
+            okButtonProps: { danger: true },
+            onOk: async () => {
+                try {
+                    await deleteStudentCertificado(studentId, cert.id);
+                    message.success("Certificado eliminado correctamente");
+                    fetchStudentCertificados();
+                } catch (error) {
+                    console.error("Error al eliminar certificado:", error);
+                    message.error("Error al eliminar el certificado");
+                }
+            },
+        });
     };
 
     const handlePreviewDocument = (doc) => {
@@ -1008,6 +1080,87 @@ const StudentDetails = ({ studentId }) => {
                                     Puedes otorgar uno, el otro o ambos. El estudiante
                                     verá este estado en su portal.
                                 </Text>
+                            </div>
+                        </InfoSection>
+
+                        {/* ========== CERTIFICADOS DEL ESTUDIANTE ========== */}
+                        <InfoSection title="Certificados del Estudiante">
+                            <div className="space-y-4">
+                                <div>
+                                    <Text className="text-xs text-slate-500 font-semibold block mb-1">
+                                        Cargar certificado (PDF)
+                                    </Text>
+                                    <Upload
+                                        showUploadList={false}
+                                        customRequest={handleUploadCertificado}
+                                        accept=".pdf,application/pdf"
+                                        disabled={uploadingCert}
+                                    >
+                                        <Button
+                                            loading={uploadingCert}
+                                            icon={<FaGraduationCap />}
+                                            className="w-full"
+                                        >
+                                            Subir certificado PDF
+                                        </Button>
+                                    </Upload>
+                                    <Text type="secondary" className="text-[11px]">
+                                        El estudiante verá estos certificados en su portal,
+                                        en las secciones <b>Certificados</b> y <b>Paz y Salvo</b>.
+                                    </Text>
+                                </div>
+
+                                <div>
+                                    <Text className="text-xs text-slate-500 font-semibold block mb-2">
+                                        Certificados cargados
+                                    </Text>
+                                    {certsLoading ? (
+                                        <div className="flex items-center gap-2">
+                                            <Spin size="small" />
+                                            <Text>Cargando certificados...</Text>
+                                        </div>
+                                    ) : certificados.length === 0 ? (
+                                        <Text type="secondary" className="text-sm">
+                                            No hay certificados cargados para este estudiante.
+                                        </Text>
+                                    ) : (
+                                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                                            {certificados.map((cert) => (
+                                                <div
+                                                    key={cert.id}
+                                                    className="flex items-center justify-between px-3 py-2 border border-slate-200 rounded-md bg-slate-50"
+                                                >
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-sm font-medium text-slate-800 truncate">
+                                                            {cert.nombre}
+                                                        </span>
+                                                        <span className="text-[11px] text-slate-500">
+                                                            {cert.created_at
+                                                                ? formatDate(cert.created_at)
+                                                                : "Certificado PDF"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        <a
+                                                            href={cert.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            <Button size="small">Ver</Button>
+                                                        </a>
+                                                        <Button
+                                                            size="small"
+                                                            danger
+                                                            onClick={() => handleDeleteCertificado(cert)}
+                                                        >
+                                                            Eliminar
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </InfoSection>
 

@@ -9,6 +9,7 @@ import {
   DownloadOutlined,
 } from "@ant-design/icons";
 import { generatePazSalvoPDF } from "../Utilidades/generatePazSalvoPDF";
+import StudentUploadedCertificados from "./StudentUploadedCertificados";
 
 /* Formatea una fecha ISO a algo legible en español */
 function formatDate(value) {
@@ -63,7 +64,7 @@ function StatusCard({ icon, title, isClear, fecha }) {
   );
 }
 
-function StudentPazSalvoTab({ studentInfo }) {
+function StudentPazSalvoTab({ studentInfo, documento }) {
   if (!studentInfo) {
     return (
       <div style={{ textAlign: "center", padding: 40, color: "#9ca3af" }}>
@@ -183,6 +184,18 @@ function StudentPazSalvoTab({ studentInfo }) {
         El paz y salvo es asignado por la institución. Si crees que hay un error
         en tu estado, comunícate con la secretaría académica o el área financiera.
       </p>
+
+      {/* Certificados cargados por la institución */}
+      <div style={{ marginTop: 24 }}>
+        <StudentUploadedCertificados
+          documento={
+            documento ||
+            studentInfo.documento ||
+            studentInfo.numeroDeDocumento ||
+            studentInfo.numero_documento
+          }
+        />
+      </div>
     </div>
   );
 }
