@@ -44,11 +44,20 @@ export const getMateriasByPrograma = async (programaId) => {
   return response.data;
 };
 
-// flexAuth en el backend: usamos studentApi (cae a authToken si no hay sesión
-// de estudiante) para que este mismo endpoint sirva tanto al admin
-// (ProgramaDetalle) como al portal de estudiante (MateriaDetalle solo-lectura).
-export const getMateriaDetalle = async (materiaId) => {
-  const response = await studentApi.get(`/api/materias/${materiaId}/detalle`);
+// flexAuth en el backend: el endpoint sirve tanto al admin (ProgramaDetalle,
+// scopeado por business_id) como al portal de estudiante (MateriaDetalle
+// solo-lectura, scopeado por inscripción del estudiante).
+//
+// IMPORTANTE: el token debe corresponder al CONTEXTO real:
+//  - admin  → backApi (authToken). Si usáramos studentApi y quedó un
+//    student_portal_token VIGENTE en ese dominio (p. ej. alguien probó el
+//    portal), el backend trataría al admin como estudiante y respondería
+//    "Materia no encontrada" (pasa en prod, no en local por localStorage
+//    distinto por dominio).
+//  - estudiante (readOnly) → studentApi (token de estudiante).
+export const getMateriaDetalle = async (materiaId, { asStudent = false } = {}) => {
+  const client = asStudent ? studentApi : backApi;
+  const response = await client.get(`/api/materias/${materiaId}/detalle`);
   return response.data;
 };
 

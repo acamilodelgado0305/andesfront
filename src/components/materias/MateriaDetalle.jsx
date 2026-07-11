@@ -197,14 +197,17 @@ export default function MateriaDetalle({
   const fetchMateria = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getMateriaDetalle(materiaId);
+      // En modo admin (readOnly=false) se envía el token de admin; en el portal
+      // del estudiante (readOnly=true) se envía el token de estudiante. Así el
+      // backend scopea por business_id o por inscripción según corresponda.
+      const data = await getMateriaDetalle(materiaId, { asStudent: readOnly });
       setMateria(data);
     } catch {
       message.error('Error al cargar la materia');
     } finally {
       setLoading(false);
     }
-  }, [materiaId]);
+  }, [materiaId, readOnly]);
 
   const fetchForo = useCallback(async () => {
     setLoadingForo(true);
