@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Tabs, Card, Button, Tag, Table, Typography, Spin, Empty, Badge,
   Modal, Drawer, Form, Input, Switch, InputNumber, Space, Tooltip, Popconfirm,
-  message, Upload, Select, Divider, List, Collapse, Avatar, Progress
+  message, Upload, Select, Divider, List, Collapse, Avatar, Progress, Radio
 } from 'antd';
 import {
   ArrowLeftOutlined, BookOutlined, TeamOutlined, EditOutlined,
@@ -11,7 +11,8 @@ import {
   UnorderedListOutlined, WhatsAppOutlined, LinkOutlined, EyeOutlined,
   ScheduleOutlined, SwapOutlined, CopyOutlined, AppstoreAddOutlined,
   SolutionOutlined, MailOutlined, ReloadOutlined, UserOutlined,
-  ClockCircleOutlined, BarChartOutlined
+  ClockCircleOutlined, BarChartOutlined, UserDeleteOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -34,7 +35,9 @@ import {
   getJoinLinks, createJoinLink, setJoinLinkEnabled,
   regenerateJoinLink, deleteJoinLink,
   getProgramaProgreso, getEstudianteProgresoPrograma,
+  removeEstudianteDePrograma,
 } from '../../services/programas/programasService';
+import { archiveStudent } from '../../services/student/studentService';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -43,6 +46,17 @@ const API = import.meta.env.VITE_API_BACKEND;
 const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
 const PRIMARY = '#155153';
 const PURPLE  = '#7c3aed';
+
+// Motivos de archivado (mismos que en la tabla principal de estudiantes).
+const ARCHIVE_REASONS = [
+  'Retiro voluntario',
+  'Problemas económicos',
+  'Traslado a otra institución',
+  'Inactividad prolongada',
+  'Culminó el programa',
+  'Incumplimiento de requisitos',
+  'Otro motivo',
+];
 
 export default function ProgramaDetalle() {
   const { id } = useParams();
@@ -53,6 +67,13 @@ export default function ProgramaDetalle() {
   const [programa, setPrograma] = useState(null);
   const [estudiantes, setEstudiantes] = useState([]);
   const [busquedaEstudiante, setBusquedaEstudiante] = useState('');
+
+  // Acciones sobre estudiantes del programa (archivar / sacar del programa)
+  const [removingEstudianteId, setRemovingEstudianteId] = useState(null);
+  const [archiveModal, setArchiveModal] = useState({ open: false, studentId: null, studentName: '' });
+  const [archiveReason, setArchiveReason] = useState(null);
+  const [archiveCustomReason, setArchiveCustomReason] = useState('');
+  const [archivingEstudiante, setArchivingEstudiante] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
   const [aulaMateriaId, setAulaMateriaId] = useState(null);
   const [modulos, setModulos]   = useState([]);
@@ -618,6 +639,49 @@ export default function ProgramaDetalle() {
     }
   };
 
+  // ─── Sacar / archivar estudiante ───────────────────────────────────────────
+  // "Sacar del programa": lo desvincula solo de ESTE programa (sigue existiendo).
+  const handleRemoveEstudianteDePrograma = async (student) => {
+    setRemovingEstudianteId(student.id);
+    try {
+      await removeEstudianteDePrograma(id, student.id);
+      setEstudiantes((prev) => prev.filter((e) => e.id !== student.id));
+      message.success(`${student.nombre} ${student.apellido} fue sacado del programa`);
+      fetchProgreso();
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Error al sacar el estudiante del programa');
+    } finally {
+      setRemovingEstudianteId(null);
+    }
+  };
+
+  // "Archivar": archiva al estudiante globalmente (misma acción que la tabla principal).
+  const openArchiveEstudiante = (student) => {
+    setArchiveReason(null);
+    setArchiveCustomReason('');
+    setArchiveModal({ open: true, studentId: student.id, studentName: `${student.nombre} ${student.apellido}` });
+  };
+
+  const confirmArchiveEstudiante = async () => {
+    const finalReason = archiveReason === 'Otro motivo' ? archiveCustomReason.trim() : archiveReason;
+    if (!finalReason) {
+      message.warning('Selecciona o escribe la razón del archivado.');
+      return;
+    }
+    setArchivingEstudiante(true);
+    try {
+      await archiveStudent(archiveModal.studentId, finalReason);
+      setEstudiantes((prev) => prev.filter((e) => e.id !== archiveModal.studentId));
+      message.success('Estudiante archivado correctamente');
+      setArchiveModal({ open: false, studentId: null, studentName: '' });
+      fetchProgreso();
+    } catch (err) {
+      message.error(err?.response?.data?.error || 'Error al archivar el estudiante');
+    } finally {
+      setArchivingEstudiante(false);
+    }
+  };
+
   // ─── Evaluaciones por estudiante ───────────────────────────────────────────
   const fetchStudentEvals = async (studentId) => {
     setLoadingStudentEvals(true);
@@ -721,7 +785,21 @@ export default function ProgramaDetalle() {
       ),
     },
     { title: 'Email', dataIndex: 'email', render: (v) => <span className="text-xs">{v || '—'}</span> },
-    { title: 'WhatsApp', dataIndex: 'telefono_whatsapp', render: (v) => <span className="text-xs">{v || '—'}</span> },
+    {
+      title: 'WhatsApp', dataIndex: 'telefono_whatsapp', width: 180,
+      render: (v, r) => {
+        const num = (v || r.telefono_llamadas || '').trim();
+        if (!num) return <span className="text-gray-400 dark:text-[#a8a59e]">—</span>;
+        let phone = num.replace(/\D/g, '');
+        if (phone && !phone.startsWith('57')) phone = `57${phone}`;
+        return (
+          <a href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer"
+            className="inline-flex items-center gap-1.5 font-medium" style={{ color: '#25D366' }}>
+            <WhatsAppOutlined /> {num}
+          </a>
+        );
+      },
+    },
     { title: 'Estado matrícula', dataIndex: 'estado_matricula', width: 130,
       render: (v) => <Tag color={v === 'activo' ? 'green' : 'default'}>{v || '—'}</Tag> },
     {
@@ -742,7 +820,7 @@ export default function ProgramaDetalle() {
       },
     },
     {
-      title: '', width: 150,
+      title: 'Acciones', width: 180,
       render: (_, r) => (
         <Space size={4}>
           <Tooltip title="Ver avance de clases">
@@ -753,13 +831,26 @@ export default function ProgramaDetalle() {
             <Button size="small" icon={<TrophyOutlined />} style={{ color: '#d97706', borderColor: '#d97706' }}
               onClick={() => openStudentEvals(r)} />
           </Tooltip>
-          {r.telefono_whatsapp && (
-            <Tooltip title="WhatsApp">
-              <a href={`https://wa.me/${r.telefono_whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer">
-                <Button size="small" icon={<WhatsAppOutlined />} style={{ color: '#25D366', borderColor: '#25D366' }} />
-              </a>
+          <Tooltip title="Archivar estudiante">
+            <Button size="small" icon={<InboxOutlined />} style={{ color: '#8c8c8c' }}
+              onClick={() => openArchiveEstudiante(r)} />
+          </Tooltip>
+          <Popconfirm
+            title="¿Sacar del programa?"
+            description={
+              <span className="block max-w-[220px]">
+                Se quitará a <strong>{r.nombre} {r.apellido}</strong> de este programa.
+                El estudiante seguirá existiendo y en sus otros programas.
+              </span>
+            }
+            okText="Sí, sacar" cancelText="Cancelar" okButtonProps={{ danger: true }}
+            onConfirm={() => handleRemoveEstudianteDePrograma(r)}
+          >
+            <Tooltip title="Sacar del programa">
+              <Button size="small" danger icon={<UserDeleteOutlined />}
+                loading={removingEstudianteId === r.id} />
             </Tooltip>
-          )}
+          </Popconfirm>
         </Space>
       ),
     },
@@ -1618,6 +1709,58 @@ export default function ProgramaDetalle() {
         programa={programa}
         onClose={() => setHorarioMateria(null)}
       />
+
+      {/* ── Modal razón de archivado (archiva al estudiante globalmente) ────── */}
+      <Modal
+        open={archiveModal.open}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ExclamationCircleOutlined style={{ color: '#fa8c16', fontSize: 18 }} />
+            <span>Archivar estudiante</span>
+          </div>
+        }
+        okText="Archivar"
+        cancelText="Cancelar"
+        okButtonProps={{
+          style: { background: '#fa8c16', borderColor: '#fa8c16' },
+          disabled: !archiveReason || (archiveReason === 'Otro motivo' && !archiveCustomReason.trim()),
+          loading: archivingEstudiante,
+        }}
+        onOk={confirmArchiveEstudiante}
+        onCancel={() => setArchiveModal({ open: false, studentId: null, studentName: '' })}
+      >
+        <p className="mb-4 text-gray-600 dark:text-[#a8a59e]">
+          ¿Por qué vas a archivar a <strong>{archiveModal.studentName}</strong>? El estudiante
+          quedará archivado y saldrá de la lista de estudiantes activos.
+        </p>
+
+        <Radio.Group
+          value={archiveReason}
+          onChange={(e) => { setArchiveReason(e.target.value); setArchiveCustomReason(''); }}
+          style={{ width: '100%' }}
+        >
+          <Space direction="vertical" style={{ width: '100%' }}>
+            {ARCHIVE_REASONS.map((reason) => (
+              <Radio key={reason} value={reason} style={{ padding: '4px 0' }}>
+                {reason}
+              </Radio>
+            ))}
+          </Space>
+        </Radio.Group>
+
+        {archiveReason === 'Otro motivo' && (
+          <Input.TextArea
+            style={{ marginTop: 12 }}
+            placeholder="Describe el motivo..."
+            rows={3}
+            maxLength={300}
+            showCount
+            value={archiveCustomReason}
+            onChange={(e) => setArchiveCustomReason(e.target.value)}
+            autoFocus
+          />
+        )}
+      </Modal>
     </div>
   );
 }

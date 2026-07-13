@@ -127,3 +127,12 @@ export const getEstudianteProgresoPrograma = async (id, estudianteId) => {
   const response = await backApi.get(`/api/programas/${id}/estudiantes/${estudianteId}/progreso`);
   return response.data;
 };
+
+/* ===================== ESTUDIANTES DEL PROGRAMA ===================== */
+
+// Saca a un estudiante de un programa (lo desvincula). No lo archiva ni lo borra:
+// el estudiante sigue existiendo y puede seguir en otros programas.
+export const removeEstudianteDePrograma = async (id, estudianteId) => {
+  const response = await backApi.delete(`/api/programas/${id}/estudiantes/${estudianteId}`);
+  return response.data;
+};

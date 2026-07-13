@@ -5,9 +5,9 @@ import {
 } from "antd";
 import {
   DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined,
-  ReloadOutlined, BookOutlined, CheckCircleOutlined, CloseCircleOutlined,
+  ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined,
   UnorderedListOutlined, SwapOutlined, CopyOutlined, ScheduleOutlined,
-  FolderOpenOutlined,
+  FolderOpenOutlined, TeamOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { getPrograms, deleteProgram } from "../../services/programs/programService";
@@ -17,7 +17,7 @@ import CreateProgramModal from "./addProgram";
 import HorarioDrawer from "../Horarios/HorarioDrawer";
 import useCurrency from "../../hooks/useCurrency";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 const PRIMARY_COLOR = "#155153";
 
@@ -422,12 +422,6 @@ const ProgramsManagement = () => {
     );
   }, [programas, searchText]);
 
-  const totalPrograms = programas.length;
-  const activePrograms = programas.filter((p) => p.activo).length;
-  const techPrograms = programas.filter((p) =>
-    (p.tipo_programa || "").toLowerCase().includes("tecnico")
-  ).length;
-
   const handleOpenCreate = () => {
     setEditingProgram(null);
     setIsModalOpen(true);
@@ -497,6 +491,27 @@ const ProgramsManagement = () => {
       dataIndex: "duracion_meses",
       key: "duracion",
       render: (val) => (val ? `${val} Meses` : "—"),
+    },
+    {
+      title: "Estudiantes",
+      dataIndex: "total_estudiantes",
+      key: "total_estudiantes",
+      align: "center",
+      width: 120,
+      sorter: (a, b) => (a.total_estudiantes || 0) - (b.total_estudiantes || 0),
+      render: (val) => (
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontWeight: 600,
+            color: PRIMARY_COLOR,
+          }}
+        >
+          <TeamOutlined /> {val || 0}
+        </span>
+      ),
     },
     {
       title: "Mensualidad",
@@ -577,87 +592,8 @@ const ProgramsManagement = () => {
     },
   ];
 
-  const statCards = [
-    {
-      label: "Total Programas",
-      value: totalPrograms,
-      icon: <BookOutlined />,
-      gradient: "linear-gradient(135deg, #155153, #28a5a5)",
-      shadow: "rgba(21, 81, 83, 0.25)",
-    },
-    {
-      label: "Activos",
-      value: activePrograms,
-      icon: <CheckCircleOutlined />,
-      gradient: "linear-gradient(135deg, #0f9b0f, #4ecf4e)",
-      shadow: "rgba(15, 155, 15, 0.25)",
-    },
-    {
-      label: "Técnicos",
-      value: techPrograms,
-      icon: <BookOutlined />,
-      gradient: "linear-gradient(135deg, #2c3e50, #5390d9)",
-      shadow: "rgba(44, 62, 80, 0.25)",
-    },
-  ];
-
   return (
     <div style={{ padding: "8px 0" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            marginBottom: 8,
-          }}
-        >
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: "linear-gradient(135deg, #155153, #28a5a5)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 22,
-              color: "#fff",
-              boxShadow: "0 4px 12px rgba(21, 81, 83, 0.3)",
-            }}
-          >
-            <BookOutlined />
-          </div>
-          <div>
-            <Title
-              level={2}
-              style={{ margin: 0, color: "#1a1a2e", letterSpacing: "-0.5px" }}
-            >
-              Programas Académicos
-            </Title>
-            <Text style={{ color: "#6b7280", fontSize: 15 }}>
-              Gestiona la oferta educativa, sus costos y sus materias
-            </Text>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: 16,
-          marginBottom: 28,
-          maxWidth: 650,
-        }}
-      >
-        {statCards.map((card, i) => (
-          <StatCard key={i} card={card} loading={loading} />
-        ))}
-      </div>
-
       {/* Search & Actions */}
       <div
         style={{
@@ -666,11 +602,6 @@ const ProgramsManagement = () => {
           alignItems: "center",
           gap: 12,
           marginBottom: 20,
-          padding: "16px 20px",
-          background: "#fff",
-          borderRadius: 14,
-          border: "1px solid #e8ecf0",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
         }}
       >
         <Input
@@ -727,7 +658,7 @@ const ProgramsManagement = () => {
       <div
         style={{
           background: "#fff",
-          borderRadius: 14,
+          borderRadius: 4,
           border: "1px solid #e8ecf0",
           boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
           overflow: "hidden",
@@ -778,9 +709,9 @@ const ProgramsManagement = () => {
         .ant-table-thead > tr > th {
           background: #f8fafb !important;
           font-weight: 600 !important;
-          font-size: 12px !important;
-          text-transform: uppercase;
-          letter-spacing: 0.3px;
+          font-size: 13px !important;
+          text-transform: none !important;
+          letter-spacing: normal;
           color: #4b5563 !important;
           border-bottom: 2px solid #e5e7eb !important;
         }
@@ -794,89 +725,5 @@ const ProgramsManagement = () => {
     </div>
   );
 };
-
-/* ── StatCard ── */
-function StatCard({ card, loading }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        borderRadius: 16,
-        padding: "20px 22px",
-        background: "#fff",
-        border: "1px solid #e8ecf0",
-        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        transform: hovered ? "translateY(-3px)" : "translateY(0)",
-        boxShadow: hovered
-          ? `0 12px 28px ${card.shadow}`
-          : "0 2px 8px rgba(0,0,0,0.05)",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 4,
-          background: card.gradient,
-          borderRadius: "16px 16px 0 0",
-        }}
-      />
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: card.gradient,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 20,
-            color: "#fff",
-            flexShrink: 0,
-            transition: "transform 0.3s ease",
-            transform: hovered ? "scale(1.08)" : "scale(1)",
-          }}
-        >
-          {card.icon}
-        </div>
-        <div>
-          <div
-            style={{
-              fontSize: 12,
-              color: "#9ca3af",
-              fontWeight: 500,
-              textTransform: "uppercase",
-              letterSpacing: "0.4px",
-              marginBottom: 2,
-            }}
-          >
-            {card.label}
-          </div>
-          {loading ? (
-            <Spin size="small" />
-          ) : (
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 700,
-                color: "#1a1a2e",
-                lineHeight: 1.1,
-              }}
-            >
-              {card.value}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default ProgramsManagement;
