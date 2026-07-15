@@ -1,10 +1,14 @@
 // src/services/student/studentGradesService.js
 import backApi from "../backApi";
 
-// Obtiene info del estudiante + notas por número de documento
-// Respuesta: { student, grades, gradesByCierre, studentId }
-export const getStudentGradesAndInfoByDocument = async (documentNumber) => {
-    const response = await backApi.get(`/api/grades/student/${documentNumber}`);
+// Obtiene info del estudiante + notas por número de documento.
+// Respuesta: { student, grades, gradesByCierre, studentId }.
+// studentId (opcional) escopa a una institución concreta cuando el mismo
+// documento existe en varias (multi-institución).
+export const getStudentGradesAndInfoByDocument = async (documentNumber, studentId = null) => {
+    const response = await backApi.get(`/api/grades/student/${documentNumber}`, {
+        params: studentId ? { studentId } : {},
+    });
     return response.data;
 };
 

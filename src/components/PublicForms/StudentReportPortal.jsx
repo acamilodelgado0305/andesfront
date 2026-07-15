@@ -4,6 +4,7 @@ import {
   Button,
   notification,
   Spin,
+  Select,
 } from "antd";
 import {
   LogoutOutlined,
@@ -11,12 +12,17 @@ import {
   SafetyCertificateOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  BankOutlined,
+  SwapOutlined,
+  ArrowRightOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 
 import { getStudentMaterias } from "../../services/foro/serviceForo";
 import {
   loginStudent,
+  selectInstitution,
+  switchInstitution,
   clearStudentToken,
   getStudentProfile,
   canRestoreSession,
@@ -44,6 +50,11 @@ function StudentPortal() {
 
   const [documentNumber, setDocumentNumber] = useState("");
   const [studentInfo, setStudentInfo] = useState(null);
+
+  // Multi-institución: cuando el documento está en varias instituciones, el login
+  // devuelve la lista y mostramos un selector antes de entrar al campus.
+  const [institucionesPicker, setInstitucionesPicker] = useState(null); // array | null
+  const [pickerDoc, setPickerDoc] = useState("");
   const [gradesInfo, setGradesInfo] = useState([]);
   const [gradesByCierre, setGradesByCierre] = useState([]);
   const [currentStudentId, setCurrentStudentId] = useState(null);
@@ -133,23 +144,30 @@ function StudentPortal() {
     async (doc, authStudentData) => {
       if (!doc.trim()) throw new Error("Documento inválido.");
 
-      const data = await getStudentGradesAndInfoByDocument(doc);
-      const { student, grades, gradesByCierre: gbc, studentId } = data;
+      // studentId de la institución ELEGIDA (viene del login/select/switch o del
+      // perfil). Escopamos las notas a esa institución para no mezclar datos de
+      // otra institución con el mismo documento.
+      const chosenId = authStudentData?.id || null;
 
-      if (!student || !studentId) throw new Error("Datos académicos no encontrados.");
+      const data = await getStudentGradesAndInfoByDocument(doc, chosenId);
+      const { student, grades, gradesByCierre: gbc, studentId } = data;
 
       const extraCertData = await loadCertificateData(doc);
 
       const finalStudentInfo = {
         ...authStudentData,
         ...student,
+        // No dejamos que las notas pisen la identidad de la institución elegida.
         ...extraCertData,
+        instituciones: authStudentData?.instituciones || undefined,
+        business_id: authStudentData?.business_id,
+        business_name: authStudentData?.business_name,
       };
 
       setStudentInfo(finalStudentInfo);
       setGradesInfo(grades || []);
       setGradesByCierre(gbc || []);
-      setCurrentStudentId(studentId);
+      setCurrentStudentId(chosenId || studentId);
       setDocumentNumber(doc);
     },
     []
@@ -234,7 +252,16 @@ function StudentPortal() {
 
     setLoading(true);
     try {
-      const { student } = await loginStudent(doc, pass);
+      const data = await loginStudent(doc, pass);
+
+      // El documento está en varias instituciones → mostrar el selector de campus.
+      if (data.multi) {
+        setPickerDoc(data.documento || doc);
+        setInstitucionesPicker(data.instituciones || []);
+        return;
+      }
+
+      const student = data.student;
       await loadStudentAcademicData(student.documento || doc, student);
       setIsLoggedIn(true);
       setActiveSection("programas");
@@ -250,11 +277,54 @@ function StudentPortal() {
     }
   };
 
+  // ===== SELECCIONAR INSTITUCIÓN (login multi-institución) =====
+  const handleSelectInstitution = async (inst) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { student } = await selectInstitution(pickerDoc, inst.studentId);
+      await loadStudentAcademicData(student.documento || pickerDoc, student);
+      setInstitucionesPicker(null);
+      setPickerDoc("");
+      setIsLoggedIn(true);
+      setActiveSection("programas");
+      notification.success({ message: `Bienvenido, ${student.nombre} · ${student.business_name}` });
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.error || "No se pudo entrar a la institución seleccionada.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===== CAMBIAR DE INSTITUCIÓN (ya dentro del campus) =====
+  const handleSwitchInstitution = async (studentId) => {
+    if (!studentId || String(studentId) === String(currentStudentId)) return;
+    setLoading(true);
+    try {
+      const { student } = await switchInstitution(studentId);
+      // Reiniciar la navegación de programas/materias del campus anterior.
+      setProgramaId(null);
+      setMateriaId(null);
+      setMaterias([]);
+      await loadStudentAcademicData(student.documento, student);
+      setActiveSection("programas");
+      notification.success({ message: `Ahora estás en ${student.business_name}` });
+    } catch (err) {
+      console.error(err);
+      notification.error({ message: err.response?.data?.error || "No se pudo cambiar de institución." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ===== LOGOUT =====
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUsernameDoc("");
     setPasswordDoc("");
+    setInstitucionesPicker(null);
+    setPickerDoc("");
     setStudentInfo(null);
     setGradesInfo([]);
     setActiveSection("programas");
@@ -333,15 +403,74 @@ function StudentPortal() {
   return (
     <div style={styles.page}>
       {!isLoggedIn ? (
-        <StudentLoginForm
-          usernameDoc={usernameDoc}
-          passwordDoc={passwordDoc}
-          loading={loading}
-          error={error}
-          onChangeUsername={setUsernameDoc}
-          onChangePassword={setPasswordDoc}
-          onSubmit={handleLogin}
-        />
+        institucionesPicker ? (
+          /* ===== SELECTOR DE INSTITUCIÓN (documento en varias instituciones) ===== */
+          <div className="relative flex min-h-screen w-full items-center justify-center bg-slate-50 dark:bg-[#262624] px-4 py-10">
+            <div className="w-full max-w-md">
+              <div className="mb-6 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: "#fbeaec" }}>
+                  <BankOutlined className="text-2xl" style={{ color: "#7a1f2b" }} />
+                </div>
+                <h1 className="text-2xl font-bold text-slate-800 dark:text-[#faf9f5]">Elige tu institución</h1>
+                <p className="mt-1 text-sm text-slate-500 dark:text-[#a8a59e]">
+                  Tu documento está registrado en varias instituciones. Selecciona a qué campus quieres entrar.
+                </p>
+              </div>
+
+              {error && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {institucionesPicker.map((inst) => (
+                  <button
+                    key={inst.studentId}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleSelectInstitution(inst)}
+                    className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-[#7a1f2b] hover:shadow-md disabled:opacity-60 dark:border-[#403e3a] dark:bg-[#30302e] dark:hover:border-[#9b2b39]"
+                  >
+                    <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-white" style={{ background: "linear-gradient(135deg,#7a1f2b,#9b2b39)" }}>
+                      <BankOutlined className="text-lg" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold text-slate-800 dark:text-[#faf9f5]">{inst.business_name}</span>
+                      <span className="block text-xs text-slate-400 dark:text-[#a8a59e]">Entrar a este campus</span>
+                    </span>
+                    <ArrowRightOutlined className="text-slate-300 transition group-hover:text-[#7a1f2b] dark:text-[#6b6862]" />
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => { setInstitucionesPicker(null); setPickerDoc(""); setError(null); }}
+                  className="text-sm text-slate-500 hover:text-[#7a1f2b] dark:text-[#a8a59e]"
+                >
+                  ← Volver
+                </button>
+              </div>
+            </div>
+            {loading && (
+              <div className="pointer-events-none fixed inset-0 flex items-center justify-center bg-black/10">
+                <Spin size="large" />
+              </div>
+            )}
+          </div>
+        ) : (
+          <StudentLoginForm
+            usernameDoc={usernameDoc}
+            passwordDoc={passwordDoc}
+            loading={loading}
+            error={error}
+            onChangeUsername={setUsernameDoc}
+            onChangePassword={setPasswordDoc}
+            onSubmit={handleLogin}
+          />
+        )
       ) : (
         <div style={styles.portalContainer}>
           {/* ===== HEADER (fijo al hacer scroll) ===== */}
@@ -363,14 +492,36 @@ function StudentPortal() {
                     `${studentInfo?.nombre || ""} ${studentInfo?.apellido || ""}`.trim() ||
                     "Estudiante"}
                 </h2>
-                <p className="m-0 text-xs text-gray-500 dark:text-[#a8a59e]">
+                <p className="m-0 text-xs text-gray-500 dark:text-[#a8a59e] flex items-center gap-1 truncate">
+                  <BankOutlined className="flex-shrink-0" />
+                  <span className="truncate">{studentInfo?.business_name || "Institución"}</span>
+                  <span className="mx-1 text-gray-300 dark:text-[#4a4844]">·</span>
                   Doc: {documentNumber || studentInfo?.documento || "—"}
                 </p>
               </div>
             </div>
-            <Button icon={<LogoutOutlined />} onClick={handleLogout}>
-              Cerrar sesión
-            </Button>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Selector de institución (solo si el estudiante pertenece a varias) */}
+              {studentInfo?.instituciones?.length > 1 && (
+                <Select
+                  size="small"
+                  value={currentStudentId}
+                  onChange={handleSwitchInstitution}
+                  loading={loading}
+                  suffixIcon={<SwapOutlined />}
+                  className="min-w-[150px] max-w-[240px]"
+                  title="Cambiar de institución"
+                  options={studentInfo.instituciones.map((i) => ({
+                    value: i.studentId,
+                    label: i.business_name,
+                  }))}
+                />
+              )}
+              <Button icon={<LogoutOutlined />} onClick={handleLogout}>
+                <span className="hidden sm:inline">Cerrar sesión</span>
+              </Button>
+            </div>
           </div>
 
           {/* ===== SIDEBAR + CONTENIDO ===== */}

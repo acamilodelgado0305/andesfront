@@ -38,6 +38,8 @@ export const getSavedStudentData = () => {
 // ===== Auth API calls =====
 
 // Login: POST /api/student-portal/login
+// Si el documento está en UNA institución → { ok, token, student }.
+// Si está en VARIAS → { ok, multi:true, documento, instituciones:[...] } (sin token).
 export const loginStudent = async (documento, password) => {
   const response = await backApi.post("/api/student-portal/login", {
     documento,
@@ -45,13 +47,42 @@ export const loginStudent = async (documento, password) => {
   });
 
   const { token, student } = response.data;
-
   if (token) {
     saveStudentToken(token);
     saveStudentData(student);
   }
 
+  return response.data; // incluye multi / instituciones / documento cuando aplica
+};
+
+// Elegir institución tras el login (multi-institución): POST /api/student-portal/select
+export const selectInstitution = async (documento, studentId) => {
+  const response = await backApi.post("/api/student-portal/select", {
+    documento,
+    studentId,
+  });
+  const { token, student } = response.data;
+  if (token) {
+    saveStudentToken(token);
+    saveStudentData(student);
+  }
   return { token, student };
+};
+
+// Cambiar de institución ya dentro del campus: POST /api/student-portal/switch
+export const switchInstitution = async (studentId) => {
+  const token = getStudentToken();
+  const response = await backApi.post(
+    "/api/student-portal/switch",
+    { studentId },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const { token: newToken, student } = response.data;
+  if (newToken) {
+    saveStudentToken(newToken);
+    saveStudentData(student);
+  }
+  return { token: newToken, student };
 };
 
 // Profile: GET /api/student-portal/me (validates token is still valid)
