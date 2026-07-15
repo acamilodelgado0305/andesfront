@@ -880,7 +880,6 @@ export default function ProgramaDetalle() {
           <Tooltip title="Horarios"><Button type="text" size="small" icon={<ScheduleOutlined />} style={{ color: '#059669' }} onClick={() => setHorarioMateria(r)} /></Tooltip>
           <Tooltip title="Editar"><Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEditMateria(r)} /></Tooltip>
           <Tooltip title="Mover"><Button type="text" size="small" icon={<SwapOutlined />} style={{ color: '#2563eb' }} onClick={() => { setTransferProgramaId(null); setTransferModal({ materia: r, mode: 'mover' }); }} /></Tooltip>
-          <Tooltip title="Duplicar"><Button type="text" size="small" icon={<CopyOutlined />} style={{ color: PURPLE }} onClick={() => { setTransferProgramaId(null); setTransferModal({ materia: r, mode: 'duplicar' }); }} /></Tooltip>
           <Popconfirm title="¿Eliminar materia?" onConfirm={() => handleDeleteMateria(r.id)} okText="Sí" cancelText="No">
             <Button type="text" size="small" icon={<DeleteOutlined />} danger />
           </Popconfirm>

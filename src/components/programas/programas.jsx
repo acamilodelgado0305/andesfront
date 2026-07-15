@@ -11,7 +11,7 @@ import {
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { getPrograms, deleteProgram } from "../../services/programs/programService";
-import { getMateriasByPrograma, createMateria, updateMateria, deleteMateria } from "../../services/materias/serviceMateria";
+import { getMateriasByPrograma, createMateria, updateMateria, deleteMateria, duplicarMateria } from "../../services/materias/serviceMateria";
 import { getAllDocentes } from "../../services/docentes/serviceDocente";
 import CreateProgramModal from "./addProgram";
 import HorarioDrawer from "../Horarios/HorarioDrawer";
@@ -147,12 +147,9 @@ function MateriasDrawer({ programa, programas, onClose }) {
         });
         message.success(`"${materia.nombre}" movida al programa seleccionado.`);
       } else {
-        await createMateria({
-          nombre: materia.nombre,
-          programa_id: transferProgramaId,
-          docente_id: materia.docente_id,
-        });
-        message.success(`"${materia.nombre}" duplicada en el programa seleccionado.`);
+        // Copia profunda: temas, clases, videos, PDFs, presentaciones y evaluaciones.
+        await duplicarMateria(materia.id, { programa_id_destino: transferProgramaId });
+        message.success(`"${materia.nombre}" duplicada con todo su contenido.`);
       }
       setTransferModal(null);
       fetchMaterias();
@@ -213,9 +210,6 @@ function MateriasDrawer({ programa, programas, onClose }) {
           </Tooltip>
           <Tooltip title="Mover a otro programa">
             <Button type="text" size="small" icon={<SwapOutlined />} onClick={() => openTransfer(record, "mover")} style={{ color: "#2563eb" }} />
-          </Tooltip>
-          <Tooltip title="Duplicar en otro programa">
-            <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => openTransfer(record, "duplicar")} style={{ color: "#7c3aed" }} />
           </Tooltip>
           <Popconfirm
             title="¿Eliminar esta materia?"

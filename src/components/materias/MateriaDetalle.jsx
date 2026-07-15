@@ -15,7 +15,7 @@ import {
   FileWordOutlined, FileExcelOutlined, FileZipOutlined, FileImageOutlined,
   FileOutlined, DownloadOutlined, PlayCircleOutlined, VideoCameraOutlined,
   UploadOutlined, TrophyOutlined, FundProjectionScreenOutlined, FilePptOutlined,
-  Html5Outlined, ArrowRightOutlined, ReloadOutlined
+  Html5Outlined, ArrowRightOutlined, ReloadOutlined, LoadingOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -23,7 +23,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/es';
 import {
-  getMateriaDetalle, updateMateria, deleteMateria, createMateria, uploadMateriaBanner,
+  getMateriaDetalle, updateMateria, deleteMateria, createMateria, duplicarMateria, uploadMateriaBanner,
   getMateriaProgresoEstudiante
 } from '../../services/materias/serviceMateria';
 import { getAllDocentes } from '../../services/docentes/serviceDocente';
@@ -766,11 +766,9 @@ export default function MateriaDetalle({
         onChanged?.();
         if (embedded && onBack) onBack(); else navigate(`/inicio/programas/${transferProgramaId}`);
       } else {
-        await createMateria({
-          nombre: materia.nombre, programa_id: transferProgramaId,
-          docente_id: materia.docente_id || null,
-        });
-        message.success(`"${materia.nombre}" duplicada`);
+        // Copia profunda: temas, clases, videos, PDFs, presentaciones y evaluaciones.
+        await duplicarMateria(materia.id, { programa_id_destino: transferProgramaId });
+        message.success(`"${materia.nombre}" duplicada con todo su contenido`);
         setTransferModal(null);
         onChanged?.();
       }
@@ -1681,26 +1679,52 @@ export default function MateriaDetalle({
       {/* ── Modal mover/duplicar materia ──────────────────────────────────── */}
       <Modal
         open={!!transferModal}
-        title={transferModal?.mode === 'mover'
-          ? `Mover "${materia.nombre}"`
-          : `Duplicar "${materia.nombre}"`}
+        title={savingTransfer && transferModal?.mode === 'duplicar'
+          ? null
+          : transferModal?.mode === 'mover'
+            ? `Mover "${materia.nombre}"`
+            : `Duplicar "${materia.nombre}"`}
         okText={transferModal?.mode === 'mover' ? 'Mover' : 'Duplicar'}
         cancelText="Cancelar"
         onOk={handleTransferConfirm}
         onCancel={() => setTransferModal(null)}
         confirmLoading={savingTransfer}
+        // Mientras duplica (proceso largo) ocultamos el footer y bloqueamos el cierre:
+        // el loader del cuerpo comunica el progreso y evitamos cancelar a media copia.
+        footer={savingTransfer && transferModal?.mode === 'duplicar' ? null : undefined}
+        closable={!savingTransfer}
+        maskClosable={!savingTransfer}
+        keyboard={!savingTransfer}
         okButtonProps={{ style: { backgroundColor: transferModal?.mode === 'mover' ? '#2563eb' : PURPLE } }}
       >
-        <p className="text-sm text-gray-500 mb-3">
-          {transferModal?.mode === 'mover'
-            ? 'Selecciona el programa destino. La materia dejará de pertenecer a este programa.'
-            : 'Selecciona el programa destino. El original se mantiene aquí.'}
-        </p>
-        <Select style={{ width: '100%' }} placeholder="Programa destino" value={transferProgramaId}
-          onChange={setTransferProgramaId} showSearch
-          filterOption={(i, o) => (o.children || '').toLowerCase().includes(i.toLowerCase())}>
-          {otrosProgramas.map((p) => <Select.Option key={p.id} value={p.id}>{p.nombre}</Select.Option>)}
-        </Select>
+        {savingTransfer && transferModal?.mode === 'duplicar' ? (
+          <div className="flex flex-col items-center justify-center text-center py-6 px-2">
+            <Spin indicator={<LoadingOutlined style={{ fontSize: 42, color: PURPLE }} spin />} />
+            <div className="mt-5 text-base font-semibold text-gray-800 dark:text-[#faf9f5]">
+              Duplicando la materia…
+            </div>
+            <div className="mt-1 text-sm text-gray-500 dark:text-[#a8a59e]">
+              Copiando temas, clases, evaluaciones y archivos.
+            </div>
+            <div className="mt-6 max-w-xs text-xs leading-relaxed text-gray-400 dark:text-[#8a8780]">
+              Este proceso está tardando un poco más de lo esperado, ya que este tipo de
+              operaciones puede demorar unos segundos en completarse. Por favor no cierres esta ventana.
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500 dark:text-[#a8a59e] mb-3">
+              {transferModal?.mode === 'mover'
+                ? 'Selecciona el programa destino. La materia dejará de pertenecer a este programa.'
+                : 'Selecciona el programa destino. Se copiará la materia con todo su contenido (temas, clases, evaluaciones y archivos). El original se mantiene aquí.'}
+            </p>
+            <Select style={{ width: '100%' }} placeholder="Programa destino" value={transferProgramaId}
+              onChange={setTransferProgramaId} showSearch
+              filterOption={(i, o) => (o.children || '').toLowerCase().includes(i.toLowerCase())}>
+              {otrosProgramas.map((p) => <Select.Option key={p.id} value={p.id}>{p.nombre}</Select.Option>)}
+            </Select>
+          </>
+        )}
       </Modal>
 
       {/* ── Modal adjuntar enlace (foro) ───────────────────────────────────── */}
