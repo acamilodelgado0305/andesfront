@@ -50,6 +50,7 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
 const API = import.meta.env.VITE_API_BACKEND;
+const API_AUTH = import.meta.env.VITE_API_AUTH_SERVICE;
 const PRIMARY = '#155153';
 const PURPLE  = '#7c3aed';
 const AMBER   = '#d97706';
@@ -58,6 +59,22 @@ const AUTOR_META = {
   admin:      { color: '#155153', label: 'Admin' },
   docente:    { color: '#2563eb', label: 'Docente' },
   estudiante: { color: '#7c3aed', label: 'Estudiante' },
+};
+
+// Avatar del autor de una publicación: si tiene foto de perfil se muestra; si no,
+// iniciales del nombre (estilo Microsoft) en un círculo con color por persona.
+const initialsFromName = (name) => {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
+const AVATAR_COLORS = ['#0d9488', '#2563eb', '#7c3aed', '#db2777', '#d97706', '#059669', '#dc2626', '#4f46e5', '#0891b2', '#ca8a04'];
+const colorFromName = (name) => {
+  const s = name || '?';
+  let h = 0;
+  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
 };
 
 // Presentaciones que ve el estudiante en el visor 16:9 (PDF/PPTX/SVG/HTML).
@@ -89,6 +106,9 @@ export default function MateriaDetalle({
   // ─── Foro ───────────────────────────────────────────────────────────────
   const [posts, setPosts] = useState([]);
   const [viewer, setViewer] = useState(null);
+  // Mapa autor_id → avatar_url (foto de perfil) de los usuarios del negocio.
+  // Solo se puede consultar con token admin; los estudiantes ven iniciales.
+  const [avatarMap, setAvatarMap] = useState({});
   const [loadingForo, setLoadingForo] = useState(false);
   const [newPost, setNewPost] = useState('');
   const [posting, setPosting] = useState(false);
@@ -218,6 +238,23 @@ export default function MateriaDetalle({
     } catch { /* ignore */ }
     finally { setLoadingForo(false); }
   }, [materiaId]);
+
+  // Cargar las fotos de perfil de los usuarios del negocio (para las publicaciones
+  // de autores admin/docente). Solo si el que ve es admin: el endpoint requiere
+  // token de negocio; con token de estudiante daría 401 → se quedan las iniciales.
+  useEffect(() => {
+    if (viewer?.tipo !== 'admin' || !API_AUTH) return;
+    let cancel = false;
+    axios.get(`${API_AUTH}/api/businesses/my/users`, { headers })
+      .then(({ data }) => {
+        if (cancel) return;
+        const map = {};
+        (data || []).forEach((u) => { if (u.avatar_url) map[String(u.id)] = u.avatar_url; });
+        setAvatarMap(map);
+      })
+      .catch(() => { /* silencioso: se muestran iniciales */ });
+    return () => { cancel = true; };
+  }, [viewer?.tipo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchModulos = useCallback(async () => {
     setLoadingModulos(true);
@@ -1043,11 +1080,17 @@ export default function MateriaDetalle({
   // ─── Render de un post del foro ───────────────────────────────────────────
   const renderPost = (post, isReply = false) => {
     const meta = AUTOR_META[post.autor_tipo] || AUTOR_META.admin;
+    // Foto de perfil del autor (solo usuarios admin/docente la tienen); si no,
+    // iniciales del nombre estilo Microsoft.
+    const avatarSrc = post.autor_tipo !== 'estudiante' ? avatarMap[String(post.autor_id)] : null;
     return (
       <div key={post.id} className={isReply ? 'ml-10 mt-3' : ''}>
         <div className="flex gap-3">
-          <Avatar style={{ backgroundColor: meta.color, flexShrink: 0 }} icon={<UserOutlined />}>
-            {(post.autor_nombre || '?').charAt(0).toUpperCase()}
+          <Avatar
+            src={avatarSrc || undefined}
+            style={{ backgroundColor: avatarSrc ? 'transparent' : colorFromName(post.autor_nombre), flexShrink: 0, fontWeight: 600 }}
+          >
+            {initialsFromName(post.autor_nombre)}
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">

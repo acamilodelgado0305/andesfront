@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Select, Button, Card, Typography, Alert, Spin, Result } from 'antd';
-import { UserAddOutlined, BookOutlined, IdcardOutlined } from '@ant-design/icons';
+import { UserAddOutlined, BookOutlined, IdcardOutlined, WhatsAppOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getJoinInfo, joinPrograma } from '../../services/auth/studentAuthService';
 
@@ -44,8 +44,9 @@ export default function JoinProgramaPage() {
         nombre: values.nombre,
         apellido: values.apellido,
         email: values.email,
+        telefono_whatsapp: values.telefono_whatsapp,
       });
-      navigate('/Reporte', { replace: true });
+      navigate('/campus', { replace: true });
     } catch (err) {
       setSubmitError(err.response?.data?.error || 'No se pudo completar la inscripción.');
     } finally {
@@ -138,6 +139,24 @@ export default function JoinProgramaPage() {
                 ]}
               >
                 <Input placeholder="correo@ejemplo.com" />
+              </Form.Item>
+
+              <Form.Item
+                name="telefono_whatsapp"
+                label="Número de WhatsApp"
+                rules={[
+                  { required: true, message: 'Ingresa tu número de WhatsApp' },
+                  {
+                    validator: (_, value) => {
+                      const digits = (value || '').replace(/\D/g, '');
+                      return digits.length >= 7
+                        ? Promise.resolve()
+                        : Promise.reject(new Error('Ingresa un número de WhatsApp válido'));
+                    },
+                  },
+                ]}
+              >
+                <Input prefix={<WhatsAppOutlined />} placeholder="Ej. 3001234567" inputMode="tel" />
               </Form.Item>
 
               <Button

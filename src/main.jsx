@@ -69,6 +69,7 @@ const CursoCompletadoPage = lazyWithRetry(() => import("./components/materias/Cu
 
 const Register = lazyWithRetry(() => import("./components/auth/register"));
 const Configuracion = lazyWithRetry(() => import("./components/Configuracion/Configuracion"));
+const MiPerfil = lazyWithRetry(() => import("./components/Perfil/MiPerfil"));
 const PreciosPage = lazyWithRetry(() => import("./components/auth/Precios"));
 const Pago = lazyWithRetry(() => import("./components/auth/Pago"));
 const PagoResultado = lazyWithRetry(() => import("./components/auth/PagoResultado"));
@@ -157,7 +158,9 @@ const App = () => (
                 <Route path="/login" element={<Login />} />
                 <Route path="/verificacion" element={<Verificacion />} />
                 <Route path="/consulta" element={<ConsultaPreRegistro />} />
-                <Route path="/Reporte" element={<StudentReportPortal />} />
+                <Route path="/campus" element={<StudentReportPortal />} />
+                {/* Compatibilidad: la ruta antes se llamaba /Reporte */}
+                <Route path="/Reporte" element={<Navigate to="/campus" replace />} />
                 <Route path="/join/:token" element={<JoinProgramaPage />} />
                 <Route path="/unirse/:token" element={<JoinProgramaPage />} />
                 <Route path="/certitec" element={<StudentRegistrationForm1 />} />
@@ -175,8 +178,8 @@ const App = () => (
                 <Route path="/pago/resultado" element={<PagoResultado />} />
 
                 {/* 🔹 Portal estudiante: módulos */}
-                {/* Reemplazado por Mis Programas → Materias dentro de /Reporte */}
-                <Route path="/portal/modulos" element={<Navigate to="/Reporte" replace />} />
+                {/* Reemplazado por Mis Programas → Materias dentro de /campus */}
+                <Route path="/portal/modulos" element={<Navigate to="/campus" replace />} />
                 <Route path="/portal/clases/:claseId" element={<StudentClaseDetalle />} />
                 <Route path="/portal/materias/:materiaId/completado" element={<CursoCompletadoPage />} />
 
@@ -213,6 +216,7 @@ const App = () => (
                   <Route path="students/facturas/:id" element={<Facturas />} />
                   <Route path="students/view/:id" element={<StudentInformacion />} />
                   <Route path="configuracion" element={<Configuracion />} />
+                  <Route path="perfil" element={<MiPerfil />} />
                 </Route>
 
                 {/* Ruta de error */}

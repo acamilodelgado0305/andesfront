@@ -118,9 +118,9 @@ export default function Configuracion() {
     })),
   []);
 
-  // ── Cargar datos del negocio ──────────────────────────────────────────────────
+  // ── Cargar datos del negocio (solo admins; los demás solo ven Mi perfil) ──────
   useEffect(() => {
-    if (!user?.bid) return;
+    if (!user?.bid || !isAdmin) { setLoading(false); return; }
     setLoading(true);
     axios
       .get(`${API_AUTH_URL}/api/businesses/${user.bid}`, getAuthHeaders())
@@ -220,15 +220,6 @@ export default function Configuracion() {
     }
   };
 
-  // ── Acceso denegado ───────────────────────────────────────────────────────────
-  if (!isAdmin) {
-    return (
-      <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>
-        No tienes permisos para acceder a esta sección.
-      </div>
-    );
-  }
-
   const logoUrl = bizData?.profile_picture_url || bizData?.profilePictureUrl;
   const initials = (bizData?.name || user?.business_name || '?')
     .split(' ').filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
@@ -248,41 +239,42 @@ export default function Configuracion() {
           </div>
           <div>
             <Title level={4} style={{ margin: 0, color: '#155153' }}>
-              Administración del Negocio
+              Configuración
             </Title>
             <Text type="secondary" style={{ fontSize: 13 }}>
-              Configura la información de <strong>{user?.business_name}</strong>
+              Apariencia{isAdmin ? <> y la administración de <strong>{user?.business_name}</strong></> : ''}
             </Text>
           </div>
         </div>
       </div>
 
-      {loading ? (
+      {/* ── APARIENCIA (modo oscuro) — todos los usuarios ── */}
+      <Section icon={<BgColorsOutlined />} title="Apariencia" subtitle="Elige cómo se ve el sistema. Tu preferencia se guarda en tu cuenta.">
+        <Segmented
+          value={themeMode}
+          onChange={setTheme}
+          size="large"
+          block
+          options={[
+            { label: 'Claro', value: 'light', icon: <SunOutlined /> },
+            { label: 'Oscuro', value: 'dark', icon: <MoonOutlined /> },
+            { label: 'Automático', value: 'system', icon: <DesktopOutlined /> },
+          ]}
+        />
+        <div style={{ marginTop: 10, fontSize: 12, color: isDark ? '#9ca3af' : '#6b7280' }}>
+          {themeMode === 'system'
+            ? 'Automático sigue la configuración de tu sistema operativo.'
+            : `Tema fijo en modo ${themeMode === 'dark' ? 'oscuro' : 'claro'}.`}
+        </div>
+      </Section>
+
+      {/* ── Administración del negocio (solo admins) ── */}
+      {isAdmin && (loading ? (
         <div style={{ textAlign: 'center', padding: 60 }}>
           <Spin size="large" />
         </div>
       ) : (
         <>
-          {/* ── APARIENCIA (modo oscuro) ── */}
-          <Section icon={<BgColorsOutlined />} title="Apariencia" subtitle="Elige cómo se ve el sistema. Tu preferencia se guarda en tu cuenta.">
-            <Segmented
-              value={themeMode}
-              onChange={setTheme}
-              size="large"
-              block
-              options={[
-                { label: 'Claro', value: 'light', icon: <SunOutlined /> },
-                { label: 'Oscuro', value: 'dark', icon: <MoonOutlined /> },
-                { label: 'Automático', value: 'system', icon: <DesktopOutlined /> },
-              ]}
-            />
-            <div style={{ marginTop: 10, fontSize: 12, color: isDark ? '#9ca3af' : '#6b7280' }}>
-              {themeMode === 'system'
-                ? 'Automático sigue la configuración de tu sistema operativo.'
-                : `Tema fijo en modo ${themeMode === 'dark' ? 'oscuro' : 'claro'}.`}
-            </div>
-          </Section>
-
           {/* ── LOGO ── */}
           <Section icon={<CameraOutlined />} title="Logo del negocio" subtitle="Imagen que representa tu negocio en documentos y el sistema">
             <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -536,7 +528,7 @@ export default function Configuracion() {
             </Section>
           )}
         </>
-      )}
+      ))}
     </div>
   );
 }

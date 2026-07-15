@@ -176,7 +176,7 @@ const TakeEvaluationPage = () => {
               if (cursoCompletado && materiaCompletada?.id) {
                 navigate(`/portal/materias/${materiaCompletada.id}/completado`, { replace: true });
               } else {
-                navigate("/Reporte", {
+                navigate("/campus", {
                   state: { activeTab: "programas", fromEvaluation: true },
                   replace: true,
                 });
@@ -256,7 +256,7 @@ const TakeEvaluationPage = () => {
         <div style={styles.headerInner}>
           <button
             style={styles.backBtn}
-            onClick={() => navigate("/Reporte", { state: { activeTab: "programas" }, replace: true })}
+            onClick={() => navigate("/campus", { state: { activeTab: "programas" }, replace: true })}
             onMouseOver={(e) =>
               (e.currentTarget.style.background = "rgba(255,255,255,0.18)")
             }

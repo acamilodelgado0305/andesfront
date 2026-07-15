@@ -38,6 +38,9 @@ const buildUserFromPayload = (payload, base = {}) => ({
     // login; no está en el JWT, por eso se toma de `base`. ThemeContext la usa
     // como fuente de verdad cross-device.
     theme_preference: base.theme_preference ?? payload.theme_preference ?? null,
+    // Foto de perfil del usuario. No está en el JWT; se carga vía GET /api/users/me
+    // (o al subirla en Configuración) y se propaga con patchUser.
+    avatar_url: base.avatar_url ?? payload.avatar_url ?? null,
 });
 
 export const AuthProvider = ({ children }) => {

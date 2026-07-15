@@ -72,7 +72,7 @@ export default function CursoCompletadoPage() {
               type="primary"
               icon={<BookOutlined />}
               style={{ backgroundColor: '#7c3aed', borderColor: '#7c3aed' }}
-              onClick={() => navigate('/Reporte')}
+              onClick={() => navigate('/campus')}
             >
               Ir al portal
             </Button>

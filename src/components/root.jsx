@@ -297,9 +297,21 @@ const TrialBanner = ({ user, navigate }) => {
 
 const RootLayout = () => {
   // 1. OBTENER USUARIO DEL CONTEXTO
-  const { user, login, logout, loading: authLoading } = useContext(AuthContext);
+  const { user, login, logout, patchUser, loading: authLoading } = useContext(AuthContext);
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
+
+  // Cargar la foto de perfil una vez (no viene en el JWT) para mostrarla en el
+  // sidebar. Si ya está en el contexto, no repetimos la llamada.
+  useEffect(() => {
+    if (!user || user.avatar_url) return;
+    let cancel = false;
+    import('../services/user/userProfileService')
+      .then(({ getMyProfile }) => getMyProfile())
+      .then((p) => { if (!cancel && p?.avatar_url) patchUser({ avatar_url: p.avatar_url }); })
+      .catch(() => { /* silencioso */ });
+    return () => { cancel = true; };
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Paleta del shell según el tema. Las superficies del layout (sidebar,
   // header, fondo) se pintan a mano porque usan estilos inline, no AntD.
@@ -706,6 +718,7 @@ const RootLayout = () => {
   // Menú de perfil para el avatar (modo colapsado)
   const collapsedProfileMenu = (
     <Menu items={[
+      { key: 'perfil', icon: <UserOutlined />, label: <Link to="/inicio/perfil">Mi perfil</Link> },
       { key: '1', icon: <SettingOutlined />, label: <Link to="/inicio/configuracion">Configuración</Link> },
       {
         key: 'theme',
@@ -910,6 +923,7 @@ const RootLayout = () => {
                   >
                     <Avatar
                       size={30}
+                      src={user?.avatar_url || undefined}
                       style={{ backgroundColor: '#e5e7eb', color: '#374151', fontSize: 13, fontWeight: 700, flexShrink: 0 }}
                     >
                       {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -995,6 +1009,7 @@ const RootLayout = () => {
               >
                 <Avatar
                   size={28}
+                  src={user?.avatar_url || undefined}
                   style={{ backgroundColor: isDark ? '#374151' : '#e5e7eb', color: isDark ? '#e5e7eb' : '#374151', fontSize: 12, fontWeight: 700, flexShrink: 0 }}
                 >
                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
