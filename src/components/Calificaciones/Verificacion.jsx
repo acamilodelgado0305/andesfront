@@ -176,6 +176,10 @@ const Verificacion = () => {
           tipoDocumento,
           curso: courseName,
           intensidadHoraria: intensity,
+          // Fecha real de expedición del registro (el backend cae a la fecha
+          // actual si no llega). 'fechaFinalizacion' la usa la variante 'excel'.
+          fechaExpedicion: studentData.createdAt,
+          fechaFinalizacion: studentData.createdAt,
         });
       } else {
         endpoint = `${API_BACKEND_URL}/api/generar-carnet`;
@@ -184,6 +188,10 @@ const Verificacion = () => {
         fd.append('numeroDocumento', numeroDeDocumento);
         fd.append('tipoDocumento', tipoDocumento);
         fd.append('intensidadHoraria', intensity);
+        // Fechas reales del registro (expedición y vencimiento). Si no hay
+        // vencimiento, el backend usa expedición + 1 año.
+        if (studentData.createdAt) fd.append('fechaExpedicion', studentData.createdAt);
+        if (studentData.fechaVencimiento) fd.append('fechaVencimiento', studentData.fechaVencimiento);
         opts.body = fd;
       }
 
