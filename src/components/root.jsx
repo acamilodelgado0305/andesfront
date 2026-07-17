@@ -41,6 +41,7 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import OnboardingWizard from './Onboarding/OnboardingWizard';
 import PaymentWall from './PaymentWall';
+import DocentePerfilGate from './Perfil/DocentePerfilGate';
 
 const { Title } = Typography;
 
@@ -91,7 +92,6 @@ const MENU_MASTER = [
       { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
       { key: '/inicio/docentes', icon: <UserSwitchOutlined />, label: 'Docentes', path: '/inicio/docentes' },
       { key: '/inicio/programas', icon: <ReadOutlined />, label: 'Programas', path: '/inicio/programas' },
-      { key: '/inicio/evaluaciones', icon: <TrophyOutlined />, label: 'Evaluaciones', path: '/inicio/evaluaciones' },
       { key: '/inicio/calificaciones', icon: <BarChartOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
     ],
   },
@@ -412,6 +412,15 @@ const RootLayout = () => {
     }
   }, [authLoading, user, navigate]);
 
+  // --- ATERRIZAJE DEL DOCENTE ---
+  // El docente no usa el dashboard general; su inicio es "Mis Programas".
+  useEffect(() => {
+    if (authLoading || !user || user.role !== 'docente') return;
+    if (location.pathname === '/inicio' || location.pathname === '/inicio/dashboard') {
+      navigate('/inicio/mis-programas', { replace: true });
+    }
+  }, [authLoading, user, location.pathname, navigate]);
+
   // ── Determinar si el usuario puede acceder ──────────────────
   const trialActive = user?.is_trial && dayjs(user.trial_ends_at).isAfter(dayjs());
   const paidActive  = !user?.is_trial && subscriptionData.active === true;
@@ -456,6 +465,20 @@ const RootLayout = () => {
     const isDocente    = user.role === 'docente';
     const hasBoth      = hasPOS && hasACAD;
 
+    // Docente: experiencia acotada — solo sus programas (el perfil se abre desde
+    // el dropdown del header). No hereda POS/Configuración aunque el negocio
+    // tenga esos módulos en la suscripción.
+    if (isDocente) {
+      return [
+        {
+          sectionLabel: null,
+          items: [
+            { key: '/inicio/mis-programas', icon: <ReadOutlined />, label: 'Mis Programas', path: '/inicio/mis-programas' },
+          ],
+        },
+      ];
+    }
+
     const sections = [];
 
     // — General —
@@ -496,7 +519,6 @@ const RootLayout = () => {
         { key: '/inicio/students',       icon: <TeamOutlined />,       label: 'Estudiantes',   path: '/inicio/students' },
         { key: '/inicio/docentes',       icon: <UserSwitchOutlined />, label: 'Docentes',      path: '/inicio/docentes' },
         { key: '/inicio/programas',      icon: <ReadOutlined />,       label: 'Programas',     path: '/inicio/programas' },
-        { key: '/inicio/evaluaciones',   icon: <TrophyOutlined />,     label: 'Evaluaciones',  path: '/inicio/evaluaciones' },
         { key: '/inicio/calificaciones', icon: <BarChartOutlined />,   label: 'Calificaciones', path: '/inicio/calificaciones' },
       ];
 
@@ -508,8 +530,9 @@ const RootLayout = () => {
         ];
       }
 
-      // Restricción para rol 'user' educativo o docente
-      if (user.role === 'user' || isDocente) {
+      // Restricción para rol 'user' educativo (los docentes salen antes con su
+      // propia sección acotada).
+      if (user.role === 'user') {
         const allowed = ROLE_CHILD_RESTRICTIONS.ACADEMICO?.user || [];
         acadItems = acadItems.filter(i => allowed.includes(i.path));
       }
@@ -1125,6 +1148,12 @@ const RootLayout = () => {
       <OnboardingWizard
         open={showOnboarding}
         onClose={() => setShowOnboarding(false)}
+      />
+
+      {/* ── Gate de perfil del docente (primer ingreso) ── */}
+      <DocentePerfilGate
+        user={user}
+        onAvatarUpdated={(url) => patchUser({ avatar_url: url })}
       />
     </ConfigProvider>
   );

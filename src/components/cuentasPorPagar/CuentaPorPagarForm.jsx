@@ -41,7 +41,7 @@ import useCurrency from '../../hooks/useCurrency';
 const { Text } = Typography;
 const { TextArea } = Input;
 
-const ACCENT = '#ea580c'; // naranja → cuentas por pagar / proveedor
+const ACCENT = '#262626'; // near-black neutro → botones, iconos, selección
 
 const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
   const formatCurrency = useCurrency();
@@ -167,7 +167,7 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 34, height: 34, borderRadius: 8, background: '#fff7ed',
+              width: 34, height: 34, borderRadius: 8, background: '#fafafa',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <FileProtectOutlined style={{ color: ACCENT, fontSize: 16 }} />
@@ -222,8 +222,8 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
             {/* Toggle préstamo */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: esPrestamo ? '#fff7ed' : '#f9fafb',
-              border: `1px solid ${esPrestamo ? '#fed7aa' : '#e5e7eb'}`,
+              background: esPrestamo ? '#fafafa' : '#f9fafb',
+              border: `1px solid ${esPrestamo ? '#e5e7eb' : '#e5e7eb'}`,
               borderRadius: 10, padding: '10px 14px', marginBottom: esPrestamo ? 0 : 14,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -270,8 +270,8 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
 
               {loanLocked && (
                 <div style={{
-                  background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 8,
-                  padding: '8px 12px', marginBottom: 14, fontSize: 12, color: '#854d0e',
+                  background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 8,
+                  padding: '8px 12px', marginBottom: 14, fontSize: 12, color: '#595959',
                 }}>
                   Este préstamo ya tiene cuotas pagadas; sus parámetros no se pueden modificar.
                 </div>
@@ -322,7 +322,7 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
 
               {/* Vista previa */}
               {resumen.total > 0 && (
-                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '12px 14px' }}>
+                <div style={{ background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
                     <Text type="secondary">Tasa mensual equivalente</Text>
                     <Text>{(resumen.tasaMensual * 100).toFixed(3)}%</Text>
@@ -377,7 +377,7 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
             {selectedPersona ? (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 12,
-                background: '#fff7ed', border: `2px solid ${ACCENT}`,
+                background: '#fafafa', border: `2px solid ${ACCENT}`,
                 borderRadius: 10, padding: '10px 14px',
               }}>
                 <Avatar style={{ background: ACCENT, flexShrink: 0 }} icon={<UserOutlined />} />

@@ -87,7 +87,6 @@ const buildQuickAccess = (user) => {
       { key: '/inicio/students',       icon: <TeamOutlined />,       label: 'Estudiantes',   hint: 'Matrícula y fichas',      tone: 'purple' },
       { key: '/inicio/docentes',       icon: <UserSwitchOutlined />, label: 'Docentes',      hint: 'Equipo académico',        tone: 'purple' },
       { key: '/inicio/programas',      icon: <ReadOutlined />,       label: 'Programas',     hint: 'Cursos y planes',         tone: 'purple' },
-      { key: '/inicio/evaluaciones',   icon: <TrophyOutlined />,     label: 'Evaluaciones',  hint: 'Exámenes y pruebas',      tone: 'purple' },
       { key: '/inicio/calificaciones', icon: <BarChartOutlined />,   label: 'Calificaciones', hint: 'Notas y reportes',       tone: 'purple' },
     ];
     if (user.role === 'user' || isDocente) {

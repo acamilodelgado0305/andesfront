@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Table, Button, Modal, Form, Input, message, Spin, Typography, Space, Popconfirm, Tooltip,
+  Table, Button, Modal, Form, Input, message, Spin, Typography, Space, Popconfirm, Tooltip, Tag,
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, IdcardOutlined,
   SearchOutlined, ReloadOutlined, MailOutlined, UserOutlined,
+  KeyOutlined, LockOutlined, CheckCircleOutlined, StopOutlined,
 } from '@ant-design/icons';
-import { getAllDocentes, createDocente, deleteDocente, updateDocente } from '../../services/docentes/serviceDocente';
+import {
+  getAllDocentes, createDocente, deleteDocente, updateDocente,
+  activarAccesoDocente, resetAccesoPassword, revocarAccesoDocente,
+} from '../../services/docentes/serviceDocente';
 
 const { Title, Text } = Typography;
 const PRIMARY_COLOR = '#155153';
@@ -18,6 +22,11 @@ function Docentes() {
   const [editingDocente, setEditingDocente] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
+
+  // Acceso (login) del docente
+  const [accessModal, setAccessModal] = useState({ open: false, docente: null, mode: 'activate' });
+  const [accessForm] = Form.useForm();
+  const [accessLoading, setAccessLoading] = useState(false);
 
   const fetchDocentes = async () => {
     try {
@@ -102,6 +111,56 @@ function Docentes() {
     }
   };
 
+  // ─── Acceso (login) del docente ───
+  const openAccessModal = (docente, mode) => {
+    setAccessModal({ open: true, docente, mode });
+    accessForm.resetFields();
+  };
+
+  const closeAccessModal = () => {
+    setAccessModal({ open: false, docente: null, mode: 'activate' });
+  };
+
+  const onAccessFinish = async (values) => {
+    const { docente, mode } = accessModal;
+    if (!docente) return;
+    setAccessLoading(true);
+    try {
+      if (mode === 'activate') {
+        if (!docente.email) {
+          message.error('Este docente no tiene email. Edítalo y agrégale un email antes de activar el acceso.');
+          return;
+        }
+        await activarAccesoDocente(docente, values.password);
+        message.success(`Acceso activado para ${docente.nombre_completo}. Ya puede iniciar sesión con su email.`);
+      } else {
+        await resetAccesoPassword(docente.user_id, values.password);
+        message.success('Contraseña restablecida correctamente.');
+      }
+      closeAccessModal();
+      fetchDocentes();
+    } catch (error) {
+      const msg = error.response?.data?.error || error.response?.data?.message || 'No se pudo completar la acción.';
+      message.error(msg);
+    } finally {
+      setAccessLoading(false);
+    }
+  };
+
+  const handleRevokeAccess = async (docente) => {
+    try {
+      setLoading(true);
+      await revocarAccesoDocente(docente);
+      message.success('Acceso revocado.');
+      fetchDocentes();
+    } catch (error) {
+      const msg = error.response?.data?.error || error.response?.data?.message || 'No se pudo revocar el acceso.';
+      message.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const columns = [
     {
       title: 'Nombre Completo',
@@ -138,6 +197,55 @@ function Docentes() {
         ) : (
           <span style={{ color: '#d1d5db' }}>Sin especialidad</span>
         ),
+    },
+    {
+      title: 'Acceso',
+      key: 'acceso',
+      align: 'center',
+      width: 220,
+      render: (_, record) => {
+        const tieneAcceso = !!record.user_id;
+        return (
+          <Space size="small" wrap>
+            {tieneAcceso ? (
+              <>
+                <Tag icon={<CheckCircleOutlined />} color="success" style={{ margin: 0 }}>
+                  Con acceso
+                </Tag>
+                <Tooltip title="Restablecer contraseña">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<KeyOutlined />}
+                    onClick={() => openAccessModal(record, 'reset')}
+                  />
+                </Tooltip>
+                <Popconfirm
+                  title="¿Revocar el acceso de este docente?"
+                  description="No podrá iniciar sesión. Su información de docente se conserva."
+                  onConfirm={() => handleRevokeAccess(record)}
+                  okText="Revocar"
+                  cancelText="Cancelar"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Tooltip title="Revocar acceso">
+                    <Button type="text" size="small" icon={<StopOutlined />} danger />
+                  </Tooltip>
+                </Popconfirm>
+              </>
+            ) : (
+              <Button
+                size="small"
+                icon={<LockOutlined />}
+                onClick={() => openAccessModal(record, 'activate')}
+                disabled={!record.email}
+              >
+                Activar acceso
+              </Button>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: 'Acciones',
@@ -301,6 +409,51 @@ function Docentes() {
               <Button type="primary" htmlType="submit" loading={loading}
                 style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}>
                 {editingDocente ? 'Guardar Cambios' : 'Crear Docente'}
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Modal: acceso (activar / restablecer contraseña) */}
+      <Modal
+        title={
+          accessModal.mode === 'activate'
+            ? `Activar acceso — ${accessModal.docente?.nombre_completo || ''}`
+            : `Restablecer contraseña — ${accessModal.docente?.nombre_completo || ''}`
+        }
+        open={accessModal.open}
+        onCancel={closeAccessModal}
+        footer={null}
+        destroyOnClose
+      >
+        <Form form={accessForm} layout="vertical" onFinish={onAccessFinish} style={{ marginTop: 16 }}>
+          {accessModal.mode === 'activate' && (
+            <Form.Item label="Email (usuario para iniciar sesión)">
+              <Input value={accessModal.docente?.email} disabled prefix={<MailOutlined style={{ color: '#d1d5db' }} />} />
+            </Form.Item>
+          )}
+          <Form.Item
+            name="password"
+            label={accessModal.mode === 'activate' ? 'Contraseña inicial' : 'Nueva contraseña'}
+            rules={[
+              { required: true, message: 'Ingresa una contraseña' },
+              { min: 6, message: 'Mínimo 6 caracteres' },
+            ]}
+          >
+            <Input.Password prefix={<KeyOutlined style={{ color: '#d1d5db' }} />} placeholder="Mínimo 6 caracteres" />
+          </Form.Item>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            {accessModal.mode === 'activate'
+              ? 'El docente iniciará sesión con su email y esta contraseña. Al entrar por primera vez se le pedirá completar su perfil.'
+              : 'El docente deberá usar esta nueva contraseña la próxima vez que inicie sesión.'}
+          </Text>
+          <Form.Item style={{ textAlign: 'right', marginTop: 24, marginBottom: 0 }}>
+            <Space>
+              <Button onClick={closeAccessModal}>Cancelar</Button>
+              <Button type="primary" htmlType="submit" loading={accessLoading}
+                style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}>
+                {accessModal.mode === 'activate' ? 'Activar acceso' : 'Guardar contraseña'}
               </Button>
             </Space>
           </Form.Item>

@@ -28,6 +28,9 @@ export const deleteCuentaPorPagar = (id) =>
 export const registrarAbono = (id, data) =>
   api.post(`/cuentas-por-pagar/${id}/abonar`, data).then((r) => r.data);
 
+export const aumentarDeuda = (id, data) =>
+  api.post(`/cuentas-por-pagar/${id}/aumentar`, data).then((r) => r.data);
+
 export const pagarCuota = (id, numero, data) =>
   api.post(`/cuentas-por-pagar/${id}/cuotas/${numero}/pagar`, data).then((r) => r.data);
 

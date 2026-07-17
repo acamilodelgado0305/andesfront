@@ -12,7 +12,9 @@ import { pagarCuota, revertirCuota } from '../../services/cuentaPorPagar/cuentaP
 
 const { Text } = Typography;
 
-const ACCENT = '#ea580c';
+const ACCENT = '#262626'; // near-black neutro
+const DANGER = '#dc2626'; // rojo: saldo pendiente
+const MUTED  = '#8c8c8c'; // gris: barra de progreso
 const CUENTAS = ['Efectivo', 'Nequi', 'Daviplata', 'Bancolombia', 'Transferencia', 'Otra'];
 
 const parseCuotas = (raw) =>
@@ -115,10 +117,10 @@ const CronogramaModal = ({ open, doc, onClose, onChanged }) => {
         estado === 'PAGADA'
           ? (
             <Tooltip title={rec.fecha_pago ? `Pagada ${dayjs(rec.fecha_pago).format('DD/MM/YYYY')}${rec.cuenta ? ' · ' + rec.cuenta : ''}` : 'Pagada'}>
-              <Tag icon={<CheckCircleOutlined />} color="green">Pagada</Tag>
+              <Tag icon={<CheckCircleOutlined />}>Pagada</Tag>
             </Tooltip>
           )
-          : <Tag icon={<ClockCircleOutlined />} color="gold">Pendiente</Tag>,
+          : <Tag icon={<ClockCircleOutlined />}>Pendiente</Tag>,
     },
     {
       title: '',
@@ -168,7 +170,7 @@ const CronogramaModal = ({ open, doc, onClose, onChanged }) => {
       }
     >
       {/* Resumen */}
-      <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 10, padding: '12px 16px', marginBottom: 14 }}>
+      <div style={{ background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 16px', marginBottom: 14 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, marginBottom: 8 }}>
           <div>
             <div style={{ fontSize: 11, color: '#94a3b8' }}>Total del préstamo</div>
@@ -176,18 +178,18 @@ const CronogramaModal = ({ open, doc, onClose, onChanged }) => {
           </div>
           <div>
             <div style={{ fontSize: 11, color: '#94a3b8' }}>Pagado</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#16a34a' }}>{formatCurrency(abonado)}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#595959' }}>{formatCurrency(abonado)}</div>
           </div>
           <div>
             <div style={{ fontSize: 11, color: '#94a3b8' }}>Saldo pendiente</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: ACCENT }}>{formatCurrency(saldo)}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: DANGER }}>{formatCurrency(saldo)}</div>
           </div>
           <div>
             <div style={{ fontSize: 11, color: '#94a3b8' }}>Cuotas</div>
             <div style={{ fontSize: 15, fontWeight: 700 }}>{pagadas} / {cuotas.length}</div>
           </div>
         </div>
-        <Progress percent={pct} size="small" strokeColor="#16a34a" />
+        <Progress percent={pct} size="small" strokeColor={MUTED} />
       </div>
 
       {/* Medio de pago para registrar cuotas */}

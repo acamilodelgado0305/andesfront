@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Layout, Typography, Button, Table, Tag, Modal,
   message, Input, Space, Card, Statistic,
-  Dropdown, Select, InputNumber, Progress, Tooltip as AntTooltip,
+  Dropdown, Select, InputNumber, Progress, Switch, Tooltip as AntTooltip,
 } from 'antd';
 import {
   PlusOutlined, FileProtectOutlined,
@@ -10,6 +10,7 @@ import {
   SearchOutlined, ReloadOutlined, MoreOutlined,
   CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined,
   DollarOutlined, WalletOutlined, BankOutlined, UnorderedListOutlined,
+  PlusCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import useCurrency from '../../hooks/useCurrency';
@@ -19,6 +20,7 @@ import {
   deleteCuentaPorPagar,
   updateCuentaPorPagar,
   registrarAbono,
+  aumentarDeuda,
 } from '../../services/cuentaPorPagar/cuentaPorPagarService';
 import CuentaPorPagarForm from './CuentaPorPagarForm';
 import CronogramaModal from './CronogramaModal';
@@ -26,12 +28,14 @@ import CronogramaModal from './CronogramaModal';
 const { Content } = Layout;
 const { Title, Text } = Typography;
 
-const ACCENT = '#ea580c';
+const ACCENT = '#262626'; // near-black: botones, iconos, énfasis neutro
+const DANGER = '#dc2626'; // rojo: saldo/deuda, aumentos, vencidos
+const MUTED  = '#8c8c8c'; // gris: barras de progreso e iconos secundarios
 
 const ESTADO_COLOR = {
-  PENDIENTE: 'gold',
-  ABONO:     'orange',
-  PAGADA:    'green',
+  PENDIENTE: 'default',
+  ABONO:     'default',
+  PAGADA:    'default',
   ANULADA:   'red',
 };
 
@@ -45,6 +49,81 @@ const ESTADO_ICON = {
 const ESTADOS = ['PENDIENTE', 'PAGADA', 'ANULADA'];
 const CUENTAS = ['Efectivo', 'Nequi', 'Daviplata', 'Bancolombia', 'Transferencia', 'Otra'];
 
+const parseArr = (raw) =>
+  Array.isArray(raw) ? raw : (typeof raw === 'string' ? JSON.parse(raw || '[]') : []);
+
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+// Reconstruye el estado de cuenta (movimientos con saldo corrido) de una cuenta.
+// El saldo final coincide con total − total_abonado.
+const buildMovimientos = (rec) => {
+  const total      = Number(rec.total || 0);
+  const abonos     = parseArr(rec.abonos);
+  const cargos     = parseArr(rec.cargos);
+  const cuotas     = parseArr(rec.cuotas);
+  const esPrestamo = !!rec.es_prestamo;
+  const sumCargos  = cargos.reduce((s, c) => s + Number(c.monto || 0), 0);
+
+  const eventos = [];
+
+  // Deuda / préstamo inicial (base antes de aumentos)
+  eventos.push({
+    key:      'inicial',
+    fecha:    rec.fecha_emision || rec.created_at,
+    tipo:     'inicial',
+    concepto: esPrestamo ? 'Préstamo inicial' : 'Deuda inicial',
+    detalle:  null,
+    monto:    esPrestamo ? total : round2(total - sumCargos),
+  });
+
+  // Aumentos de deuda
+  cargos.forEach((c, i) => eventos.push({
+    key:      c.id || `cargo-${i}`,
+    fecha:    c.fecha,
+    tipo:     'aumento',
+    concepto: 'Aumento de deuda',
+    detalle:  c.nota || null,
+    monto:    Number(c.monto || 0),
+  }));
+
+  if (esPrestamo) {
+    // Cuotas pagadas del préstamo
+    cuotas
+      .filter((c) => c.estado === 'PAGADA')
+      .forEach((c) => eventos.push({
+        key:      `cuota-${c.numero}`,
+        fecha:    c.fecha_pago,
+        tipo:     'cuota',
+        concepto: `Cuota #${c.numero}`,
+        detalle:  c.cuenta || null,
+        monto:    -Number(c.valor || 0),
+      }));
+  } else {
+    // Abonos
+    abonos.forEach((a, i) => eventos.push({
+      key:      a.id || `abono-${i}`,
+      fecha:    a.fecha,
+      tipo:     'abono',
+      concepto: 'Abono',
+      detalle:  [a.cuenta, a.nota].filter(Boolean).join(' · ') || null,
+      monto:    -Number(a.monto || 0),
+    }));
+  }
+
+  // Orden cronológico (el inicial siempre primero)
+  eventos.sort((a, b) => {
+    if (a.tipo === 'inicial') return -1;
+    if (b.tipo === 'inicial') return 1;
+    return dayjs(a.fecha).valueOf() - dayjs(b.fecha).valueOf();
+  });
+
+  // Saldo corrido
+  let saldo = 0;
+  for (const e of eventos) { saldo = round2(saldo + e.monto); e.saldo = saldo; }
+  return eventos;
+};
+
+
 const CuentasPorPagarDashboard = () => {
   const formatCurrency = useCurrency();
 
@@ -52,6 +131,7 @@ const CuentasPorPagarDashboard = () => {
   const [stats, setStats]     = useState([]);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState('');
+  const [verPagadas, setVerPagadas] = useState(false); // las pagadas se archivan (ocultas por defecto)
 
   const [formOpen, setFormOpen]     = useState(false);
   const [editingDoc, setEditingDoc] = useState(null);
@@ -64,6 +144,11 @@ const CuentasPorPagarDashboard = () => {
   const [abonoCuenta, setAbonoCuenta]       = useState('Efectivo');
   const [abonoNota, setAbonoNota]           = useState('');
   const [guardandoAbono, setGuardandoAbono] = useState(false);
+
+  const [aumentarModal, setAumentarModal]       = useState({ open: false, doc: null });
+  const [aumentarMonto, setAumentarMonto]       = useState(null);
+  const [aumentarNota, setAumentarNota]         = useState('');
+  const [guardandoAumento, setGuardandoAumento] = useState(false);
 
   // ─── Carga ────────────────────────────────────────────────────────────────────
   const cargarDatos = useCallback(async () => {
@@ -107,6 +192,10 @@ const CuentasPorPagarDashboard = () => {
     qty:   pendientes.qty + abonadas.qty,
     saldo: pendientes.saldo + abonadas.saldo,
   };
+
+  // Las cuentas pagadas se archivan: no se muestran salvo que se active "Ver pagadas"
+  const docsVisibles = verPagadas ? docs : docs.filter((d) => d.estado !== 'PAGADA');
+  const pagadasOcultas = docs.length - docsVisibles.length;
 
   // ─── Eliminar ─────────────────────────────────────────────────────────────────
   const handleEliminar = (doc) => {
@@ -161,6 +250,150 @@ const CuentasPorPagarDashboard = () => {
     }
   };
 
+  const confirmarAumento = async () => {
+    const doc = aumentarModal.doc;
+    if (!doc || !aumentarMonto) return;
+    setGuardandoAumento(true);
+    try {
+      await aumentarDeuda(doc.id, { monto: aumentarMonto, nota: aumentarNota });
+      message.success('Deuda aumentada correctamente');
+      setAumentarModal({ open: false, doc: null });
+      setAumentarMonto(null);
+      setAumentarNota('');
+      cargarDatos();
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Error al aumentar la deuda');
+    } finally {
+      setGuardandoAumento(false);
+    }
+  };
+
+  const abrirAumentar = (doc) => {
+    setAumentarMonto(null);
+    setAumentarNota('');
+    setAumentarModal({ open: true, doc });
+  };
+
+  // ─── Fila expandible: estado de cuenta / movimientos ──────────────────────────
+  const expandedRowRender = (rec) => {
+    const total   = Number(rec.total || 0);
+    const abonado = Number(rec.total_abonado || 0);
+    const saldo   = Math.max(0, total - abonado);
+    const pct     = total > 0 ? Math.min(100, Math.round((abonado / total) * 100)) : 0;
+    const cuotas        = parseArr(rec.cuotas);
+    const cuotasPagadas = cuotas.filter((c) => c.estado === 'PAGADA').length;
+    const movimientos   = buildMovimientos(rec);
+
+    const movColumns = [
+      {
+        title: 'Fecha',
+        dataIndex: 'fecha',
+        key: 'fecha',
+        width: 108,
+        render: (f) => <Text style={{ fontSize: 12 }}>{f ? dayjs(f).format('DD/MM/YYYY') : '—'}</Text>,
+      },
+      {
+        title: 'Concepto',
+        dataIndex: 'concepto',
+        key: 'concepto',
+        render: (c, r) => (
+          <div>
+            <Space size={6}>
+              <Tag
+                color={r.tipo === 'aumento' ? 'red' : 'default'}
+                style={{ fontSize: 10, marginInlineEnd: 0 }}
+              >
+                {r.tipo === 'inicial' ? 'Inicial' : (r.tipo === 'aumento' ? 'Aumento' : (r.tipo === 'cuota' ? 'Cuota' : 'Abono'))}
+              </Tag>
+              <Text style={{ fontSize: 12, fontWeight: 600 }}>{c}</Text>
+            </Space>
+            {r.detalle && <div style={{ fontSize: 11, color: '#94a3b8' }}>{r.detalle}</div>}
+          </div>
+        ),
+      },
+      {
+        title: 'Movimiento',
+        dataIndex: 'monto',
+        key: 'monto',
+        align: 'right',
+        width: 130,
+        render: (m, r) => {
+          const abona = r.tipo === 'abono' || r.tipo === 'cuota';
+          return (
+            <Text strong style={{ fontSize: 12, color: abona ? '#595959' : DANGER }}>
+              {abona ? '−' : '+'}{formatCurrency(Math.abs(m))}
+            </Text>
+          );
+        },
+      },
+      {
+        title: 'Saldo',
+        dataIndex: 'saldo',
+        key: 'saldo',
+        align: 'right',
+        width: 120,
+        render: (s) => <Text style={{ fontSize: 12 }}>{formatCurrency(s)}</Text>,
+      },
+    ];
+
+    return (
+      <div style={{ padding: '2px 4px 8px' }}>
+        {/* Detalle de movimientos (líneas de la "factura") */}
+        <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 6 }}>
+          Movimientos ({movimientos.length})
+        </Text>
+        <Table
+          columns={movColumns}
+          dataSource={movimientos}
+          rowKey="key"
+          size="small"
+          pagination={false}
+          scroll={{ x: 460 }}
+        />
+
+        {/* Totales alineados a la derecha, estilo factura */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+          <div style={{ width: 260, maxWidth: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 13 }}>
+              <Text type="secondary">Total</Text>
+              <Text strong>{formatCurrency(total)}</Text>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 13 }}>
+              <Text type="secondary">{rec.es_prestamo ? 'Pagado' : 'Abonado'}</Text>
+              <Text style={{ color: '#595959' }}>−{formatCurrency(abonado)}</Text>
+            </div>
+            {rec.es_prestamo && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 13 }}>
+                <Text type="secondary">Cuotas pagadas</Text>
+                <Text>{cuotasPagadas} / {cuotas.length}</Text>
+              </div>
+            )}
+            <div style={{ borderTop: '1px solid #e5e7eb', margin: '6px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '2px 0', fontSize: 15, fontWeight: 700 }}>
+              <span>Saldo</span>
+              <span style={{ color: DANGER }}>{formatCurrency(saldo)}</span>
+            </div>
+            <Progress percent={pct} size="small" strokeColor={MUTED} showInfo={false} style={{ marginTop: 4, marginBottom: 0 }} />
+            {rec.es_prestamo && (
+              <div style={{ textAlign: 'right', marginTop: 10 }}>
+                <Button size="small" icon={<UnorderedListOutlined />} onClick={() => setCronogramaId(rec.id)}>
+                  Ver cronograma
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {rec.notas && (
+          <div style={{ marginTop: 10, fontSize: 12 }}>
+            <Text type="secondary">Notas: </Text>
+            <Text style={{ fontSize: 12 }}>{rec.notas}</Text>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // ─── Columnas ─────────────────────────────────────────────────────────────────
   const columns = [
     {
@@ -175,7 +408,7 @@ const CuentasPorPagarDashboard = () => {
             : <FileProtectOutlined style={{ color: ACCENT }} />}
           <Text strong style={{ fontSize: 13 }}>{titulo || '—'}</Text>
           {rec.es_prestamo && (
-            <Tag color="orange" style={{ fontSize: 10, marginInlineStart: 2 }}>
+            <Tag style={{ fontSize: 10, marginInlineStart: 2 }}>
               Préstamo{rec.num_cuotas ? ` · ${rec.num_cuotas} cuotas` : ''}
             </Tag>
           )}
@@ -207,28 +440,53 @@ const CuentasPorPagarDashboard = () => {
       },
     },
     {
-      title: 'Total',
+      title: 'Saldo',
       dataIndex: 'total',
       key: 'total',
       align: 'right',
-      sorter: (a, b) => Number(a.total || 0) - Number(b.total || 0),
+      // Ordena por saldo pendiente (lo que realmente falta por pagar)
+      sorter: (a, b) =>
+        (Number(a.total || 0) - Number(a.total_abonado || 0)) -
+        (Number(b.total || 0) - Number(b.total_abonado || 0)),
       render: (t, rec) => {
-        const abonado = Number(rec.total_abonado || 0);
         const total   = Number(t || 0);
-        if (abonado > 0 && rec.estado !== 'PAGADA') {
-          const pct   = Math.min(100, Math.round((abonado / total) * 100));
-          const saldo = total - abonado;
+        const abonado = Number(rec.total_abonado || 0);
+        const saldo   = Math.max(0, total - abonado);
+        const cargos  = parseArr(rec.cargos);
+
+        // Pagada: saldo en 0, se muestra cuánto se pagó en total
+        if (rec.estado === 'PAGADA') {
           return (
-            <AntTooltip title={`Abonado: ${formatCurrency(abonado)} · Saldo: ${formatCurrency(saldo)}`}>
+            <AntTooltip title={`Total pagado: ${formatCurrency(total)}`}>
               <div style={{ minWidth: 110 }}>
-                <Text strong style={{ fontSize: 12 }}>{formatCurrency(total)}</Text>
-                <Progress percent={pct} size="small" showInfo={false} strokeColor={ACCENT} style={{ marginBottom: 0 }} />
-                <Text type="secondary" style={{ fontSize: 11 }}>Saldo: {formatCurrency(saldo)}</Text>
+                <Text strong style={{ fontSize: 13, color: MUTED }}>{formatCurrency(0)}</Text>
+                <div><Text type="secondary" style={{ fontSize: 11 }}>Pagado {formatCurrency(total)}</Text></div>
               </div>
             </AntTooltip>
           );
         }
-        return <Text strong>{formatCurrency(t)}</Text>;
+
+        // Con abonos o con aumentos: saldo (que va cambiando) + referencia del total
+        if (abonado > 0 || cargos.length > 0) {
+          const pct = total > 0 ? Math.min(100, Math.round((abonado / total) * 100)) : 0;
+          return (
+            <AntTooltip title={`Total: ${formatCurrency(total)} · Abonado: ${formatCurrency(abonado)} · Saldo: ${formatCurrency(saldo)}`}>
+              <div style={{ minWidth: 110 }}>
+                <Text strong style={{ fontSize: 13, color: DANGER }}>{formatCurrency(saldo)}</Text>
+                <Progress percent={pct} size="small" showInfo={false} strokeColor={MUTED} style={{ marginBottom: 0 }} />
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  de {formatCurrency(total)}
+                  {cargos.length > 0 && (
+                    <span style={{ color: DANGER }}> · +{cargos.length} aumento{cargos.length > 1 ? 's' : ''}</span>
+                  )}
+                </Text>
+              </div>
+            </AntTooltip>
+          );
+        }
+
+        // Sin movimientos: el saldo es igual al total
+        return <Text strong>{formatCurrency(saldo)}</Text>;
       },
     },
     {
@@ -284,6 +542,13 @@ const CuentasPorPagarDashboard = () => {
             disabled: ['PAGADA', 'ANULADA'].includes(rec.estado),
             onClick: () => { setAbonoMonto(null); setAbonoCuenta('Efectivo'); setAbonoNota(''); setAbonoModal({ open: true, doc: rec }); },
           });
+          items.push({
+            key: 'aumentar',
+            icon: <PlusCircleOutlined />,
+            label: 'Aumentar deuda',
+            disabled: rec.estado === 'ANULADA',
+            onClick: () => abrirAumentar(rec),
+          });
         }
         items.push({ type: 'divider' });
         items.push({
@@ -329,8 +594,8 @@ const CuentasPorPagarDashboard = () => {
             title="Total a pagar"
             value={porPagar.saldo}
             formatter={(v) => formatCurrency(v)}
-            prefix={<DollarOutlined style={{ color: ACCENT }} />}
-            valueStyle={{ color: ACCENT, fontSize: 15 }}
+            prefix={<DollarOutlined style={{ color: MUTED }} />}
+            valueStyle={{ color: DANGER, fontSize: 15 }}
           />
           <Text type="secondary" style={{ fontSize: 11 }}>{porPagar.qty} cuentas pendientes</Text>
         </Card>
@@ -339,8 +604,8 @@ const CuentasPorPagarDashboard = () => {
             title="Pendientes"
             value={pendientes.sum}
             formatter={(v) => formatCurrency(v)}
-            prefix={<ClockCircleOutlined style={{ color: '#d97706' }} />}
-            valueStyle={{ color: '#d97706', fontSize: 15 }}
+            prefix={<ClockCircleOutlined style={{ color: MUTED }} />}
+            valueStyle={{ color: ACCENT, fontSize: 15 }}
           />
           <Text type="secondary" style={{ fontSize: 11 }}>{pendientes.qty} cuentas</Text>
         </Card>
@@ -349,8 +614,8 @@ const CuentasPorPagarDashboard = () => {
             title="Con abonos"
             value={abonadas.saldo}
             formatter={(v) => formatCurrency(v)}
-            prefix={<WalletOutlined style={{ color: '#ea580c' }} />}
-            valueStyle={{ color: '#ea580c', fontSize: 15 }}
+            prefix={<WalletOutlined style={{ color: MUTED }} />}
+            valueStyle={{ color: ACCENT, fontSize: 15 }}
           />
           <Text type="secondary" style={{ fontSize: 11 }}>{abonadas.qty} · saldo restante</Text>
         </Card>
@@ -359,8 +624,8 @@ const CuentasPorPagarDashboard = () => {
             title="Pagadas"
             value={pagadas.sum}
             formatter={(v) => formatCurrency(v)}
-            prefix={<CheckCircleOutlined style={{ color: '#16a34a' }} />}
-            valueStyle={{ color: '#16a34a', fontSize: 15 }}
+            prefix={<CheckCircleOutlined style={{ color: MUTED }} />}
+            valueStyle={{ color: ACCENT, fontSize: 15 }}
           />
           <Text type="secondary" style={{ fontSize: 11 }}>{pagadas.qty} cuentas</Text>
         </Card>
@@ -377,15 +642,26 @@ const CuentasPorPagarDashboard = () => {
           style={{ width: 280 }}
         />
         <Button icon={<ReloadOutlined />} onClick={cargarDatos} loading={loading} />
+        <Space size={6}>
+          <Switch size="small" checked={verPagadas} onChange={setVerPagadas} />
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Ver pagadas{!verPagadas && pagadasOcultas > 0 ? ` (${pagadasOcultas})` : ''}
+          </Text>
+        </Space>
       </div>
 
       {/* Tabla */}
       <Table
         columns={columns}
-        dataSource={docs}
+        dataSource={docsVisibles}
         rowKey="id"
         loading={loading}
         size="small"
+        expandable={{
+          expandedRowRender,
+          rowExpandable: () => true,
+          columnWidth: 40,
+        }}
         pagination={{ pageSize: 20, showSizeChanger: false, showTotal: (t) => `${t} cuentas` }}
         scroll={{ x: 720 }}
       />
@@ -432,7 +708,7 @@ const CuentasPorPagarDashboard = () => {
             : (typeof abonoModal.doc.abonos === 'string' ? JSON.parse(abonoModal.doc.abonos || '[]') : []);
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '12px 14px' }}>
+              <div style={{ background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                   <Text type="secondary">Cuenta</Text>
                   <Text strong>{abonoModal.doc.titulo}</Text>
@@ -444,17 +720,17 @@ const CuentasPorPagarDashboard = () => {
                 {abonado > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                     <Text type="secondary">Ya abonado</Text>
-                    <Text style={{ color: '#16a34a' }}>{formatCurrency(abonado)}</Text>
+                    <Text style={{ color: '#595959' }}>{formatCurrency(abonado)}</Text>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700 }}>
                   <span>Saldo pendiente</span>
-                  <span style={{ color: ACCENT }}>{formatCurrency(saldo)}</span>
+                  <span style={{ color: DANGER }}>{formatCurrency(saldo)}</span>
                 </div>
                 {abonado > 0 && (
                   <Progress
                     percent={Math.min(100, Math.round((abonado / total) * 100))}
-                    size="small" strokeColor="#16a34a" style={{ marginTop: 8, marginBottom: 0 }}
+                    size="small" strokeColor={MUTED} style={{ marginTop: 8, marginBottom: 0 }}
                   />
                 )}
               </div>
@@ -506,11 +782,116 @@ const CuentasPorPagarDashboard = () => {
                         background: '#f9fafb', borderRadius: 6, padding: '6px 10px', fontSize: 12,
                       }}>
                         <div>
-                          <span style={{ fontWeight: 600, color: '#16a34a' }}>{formatCurrency(a.monto)}</span>
+                          <span style={{ fontWeight: 600, color: '#595959' }}>{formatCurrency(a.monto)}</span>
                           <span style={{ color: '#94a3b8', marginLeft: 6 }}>{a.cuenta}</span>
                           {a.nota && <span style={{ color: '#94a3b8', marginLeft: 6 }}>· {a.nota}</span>}
                         </div>
                         <Text type="secondary" style={{ fontSize: 11 }}>{dayjs(a.fecha).format('DD/MM/YY')}</Text>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </Modal>
+
+      {/* Modal aumentar deuda */}
+      <Modal
+        open={aumentarModal.open}
+        title={
+          <Space>
+            <PlusCircleOutlined style={{ color: ACCENT }} />
+            <span>Aumentar deuda</span>
+          </Space>
+        }
+        okText="Aumentar deuda"
+        cancelText="Cancelar"
+        onCancel={() => setAumentarModal({ open: false, doc: null })}
+        onOk={confirmarAumento}
+        confirmLoading={guardandoAumento}
+        okButtonProps={{ disabled: !aumentarMonto || aumentarMonto <= 0 }}
+        width={400}
+      >
+        {aumentarModal.doc && (() => {
+          const total   = Number(aumentarModal.doc.total || 0);
+          const abonado = Number(aumentarModal.doc.total_abonado || 0);
+          const saldo   = total - abonado;
+          const inc         = Number(aumentarMonto || 0);
+          const nuevoTotal  = total + inc;
+          const nuevoSaldo  = saldo + inc;
+          const cargos  = parseArr(aumentarModal.doc.cargos);
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Suma un nuevo monto a esta deuda (por ejemplo, si {aumentarModal.doc.persona_nombre || aumentarModal.doc.proveedor_nombre || 'el proveedor'} te prestó otra vez). El saldo pendiente aumentará.
+              </Text>
+
+              <div style={{ background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                  <Text type="secondary">Cuenta</Text>
+                  <Text strong>{aumentarModal.doc.titulo}</Text>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                  <Text type="secondary">Total actual</Text>
+                  <Text strong>{formatCurrency(total)}</Text>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <Text type="secondary">Saldo actual</Text>
+                  <Text style={{ color: DANGER }}>{formatCurrency(saldo)}</Text>
+                </div>
+                {inc > 0 && (
+                  <>
+                    <div style={{ borderTop: '1px dashed #e5e7eb', margin: '10px 0 8px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                      <Text type="secondary">Nuevo total</Text>
+                      <Text strong>{formatCurrency(nuevoTotal)}</Text>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700 }}>
+                      <span>Nuevo saldo</span>
+                      <span style={{ color: DANGER }}>{formatCurrency(nuevoSaldo)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div>
+                <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>
+                  Monto a aumentar <span style={{ color: '#ef4444' }}>*</span>
+                </Text>
+                <InputNumber
+                  style={{ width: '100%' }} size="large" min={1}
+                  value={aumentarMonto}
+                  onChange={setAumentarMonto}
+                  formatter={(v) => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(v) => v.replace(/\$\s?|(,*)/g, '')}
+                  placeholder="Monto a sumar"
+                />
+              </div>
+
+              <div>
+                <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>Motivo / nota (opcional)</Text>
+                <Input
+                  value={aumentarNota} onChange={(e) => setAumentarNota(e.target.value)}
+                  placeholder="Ej: Nuevo préstamo del 15/07"
+                />
+              </div>
+
+              {cargos.length > 0 && (
+                <div>
+                  <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 6 }}>Historial de aumentos</Text>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 130, overflowY: 'auto' }}>
+                    {cargos.map((c, i) => (
+                      <div key={c.id || i} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        background: '#f9fafb', borderRadius: 6, padding: '6px 10px', fontSize: 12,
+                      }}>
+                        <div>
+                          <span style={{ fontWeight: 600, color: DANGER }}>+{formatCurrency(c.monto)}</span>
+                          {c.nota && <span style={{ color: '#94a3b8', marginLeft: 6 }}>· {c.nota}</span>}
+                        </div>
+                        <Text type="secondary" style={{ fontSize: 11 }}>{dayjs(c.fecha).format('DD/MM/YY')}</Text>
                       </div>
                     ))}
                   </div>

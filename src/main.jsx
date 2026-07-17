@@ -53,9 +53,8 @@ const Docentes = lazyWithRetry(() => import("./GestionAcademica/Docentes/Docente
 const ConsultaPreRegistro = lazyWithRetry(() => import("./components/Calificaciones/ConsultaPreRegistro"));
 const StudentAlianza = lazyWithRetry(() => import("./components/PublicForms/formAlianza"));
 
-// ✅ Evaluaciones (ADMIN + ESTUDIANTE)
-const AdminEvaluationPage = lazyWithRetry(() => import("./components/Evaluations/Admin/AdminEvaluationsPage"));
-const EvaluationBuilder = lazyWithRetry(() => import("./components/Evaluations/Admin/EvaluationBuilder"));
+// ✅ Evaluaciones (ESTUDIANTE). El dashboard admin standalone se removió; las
+// evaluaciones se gestionan dentro de cada materia (Aula de Materia).
 const TakeEvaluationPage = lazyWithRetry(() => import("./components/Evaluations/Student/TakeEvaluationPage"));
 const MyStudentEvaluationsPage = lazyWithRetry(() => import("./components/Evaluations/MyStudentEvaluationsPage"));
 const RegistroExpress = lazyWithRetry(() => import("./components/PublicForms/RegistroExpress"));
@@ -64,6 +63,7 @@ const DocumentosVentaDashboard = lazyWithRetry(() => import("./components/docume
 const CuentasPorPagarDashboard = lazyWithRetry(() => import("./components/cuentasPorPagar/CuentasPorPagarDashboard"));
 const StudentClaseDetalle = lazyWithRetry(() => import("./components/Clases/StudentClaseDetalle"));
 const ProgramaDetalle = lazyWithRetry(() => import("./components/programas/ProgramaDetalle"));
+const MisProgramas = lazyWithRetry(() => import("./components/programas/MisProgramas"));
 const MateriaDetalle = lazyWithRetry(() => import("./components/materias/MateriaDetalle"));
 const CursoCompletadoPage = lazyWithRetry(() => import("./components/materias/CursoCompletadoPage"));
 
@@ -193,13 +193,10 @@ const App = () => (
                   <Route path="dashboard" element={<Home />} />
                   <Route path="students" element={<Students />} />
                   <Route path="programas" element={<Programs />} />
+                  <Route path="mis-programas" element={<MisProgramas />} />
                   <Route path="programas/:id" element={<ProgramaDetalle />} />
                   <Route path="programas/:id/materias/:materiaId" element={<MateriaDetalle />} />
                   <Route path="docentes" element={<Docentes />} />
-
-                  {/* 🔹 Admin evaluaciones */}
-                  <Route path="evaluaciones" element={<AdminEvaluationPage />} />
-                  <Route path="evaluaciones/:evaluationId/builder" element={<EvaluationBuilder />} />
 
                   <Route path="adminclients" element={<DashboardClients />} />
                   <Route path="usuarios-negocio" element={<UsersDashboard />} />
