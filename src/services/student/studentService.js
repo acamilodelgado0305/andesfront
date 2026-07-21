@@ -182,6 +182,17 @@ export const archiveStudent = async (studentId, reason) => {
   }
 };
 
+// Marcar estudiante como graduado (genera diplomas automáticamente en Certificados)
+export const graduateStudent = async (studentId) => {
+  try {
+    const response = await backApi.put(`/api/students/${studentId}/graduate`);
+    return response.data;
+  } catch (error) {
+    logApiError(`Error al graduar el estudiante con ID ${studentId}`, error);
+    throw error;
+  }
+};
+
 // Restaurar estudiante archivado
 export const restoreStudent = async (studentId) => {
   try {

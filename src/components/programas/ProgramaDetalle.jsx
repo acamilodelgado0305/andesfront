@@ -37,7 +37,8 @@ import {
   getProgramaProgreso, getEstudianteProgresoPrograma,
   removeEstudianteDePrograma,
 } from '../../services/programas/programasService';
-import { archiveStudent } from '../../services/student/studentService';
+import { archiveStudent, graduateStudent } from '../../services/student/studentService';
+import { FaUserGraduate } from 'react-icons/fa';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -68,8 +69,9 @@ export default function ProgramaDetalle() {
   const [estudiantes, setEstudiantes] = useState([]);
   const [busquedaEstudiante, setBusquedaEstudiante] = useState('');
 
-  // Acciones sobre estudiantes del programa (archivar / sacar del programa)
+  // Acciones sobre estudiantes del programa (archivar / sacar del programa / graduar)
   const [removingEstudianteId, setRemovingEstudianteId] = useState(null);
+  const [graduatingId, setGraduatingId] = useState(null);
   const [archiveModal, setArchiveModal] = useState({ open: false, studentId: null, studentName: '' });
   const [archiveReason, setArchiveReason] = useState(null);
   const [archiveCustomReason, setArchiveCustomReason] = useState('');
@@ -655,6 +657,26 @@ export default function ProgramaDetalle() {
     }
   };
 
+  // "Graduar": marca al estudiante como graduado y genera sus diplomas (aparecen
+  // en el apartado de Certificados de su portal). Refresca la lista al terminar.
+  const handleGraduateEstudiante = async (student) => {
+    setGraduatingId(student.id);
+    try {
+      const res = await graduateStudent(student.id);
+      const generados = res?.diplomas_generados ?? 0;
+      message.success(
+        generados > 0
+          ? `${student.nombre} ${student.apellido} graduado. Se generaron ${generados} diploma(s) en Certificados.`
+          : `${student.nombre} ${student.apellido} marcado como graduado.`
+      );
+      fetchDetalle();
+    } catch (err) {
+      message.error(err?.response?.data?.error || 'Error al graduar el estudiante');
+    } finally {
+      setGraduatingId(null);
+    }
+  };
+
   // "Archivar": archiva al estudiante globalmente (misma acción que la tabla principal).
   const openArchiveEstudiante = (student) => {
     setArchiveReason(null);
@@ -820,7 +842,7 @@ export default function ProgramaDetalle() {
       },
     },
     {
-      title: 'Acciones', width: 180,
+      title: 'Acciones', width: 220,
       render: (_, r) => (
         <Space size={4}>
           <Tooltip title="Ver avance de clases">
@@ -831,6 +853,30 @@ export default function ProgramaDetalle() {
             <Button size="small" icon={<TrophyOutlined />} style={{ color: '#d97706', borderColor: '#d97706' }}
               onClick={() => openStudentEvals(r)} />
           </Tooltip>
+          {r.fecha_graduacion ? (
+            <Tooltip title={`Graduado el ${new Date(r.fecha_graduacion).toLocaleDateString('es-CO')}`}>
+              <Button size="small" icon={<FaUserGraduate />} disabled
+                style={{ color: '#16a34a', borderColor: '#16a34a' }} />
+            </Tooltip>
+          ) : (
+            <Popconfirm
+              title="¿Marcar como graduado?"
+              description={
+                <span className="block max-w-[240px]">
+                  Se generarán los diplomas de <strong>{r.nombre} {r.apellido}</strong> y
+                  aparecerán en su apartado de Certificados. El estudiante quedará como graduado.
+                </span>
+              }
+              okText="Sí, graduar" cancelText="Cancelar"
+              onConfirm={() => handleGraduateEstudiante(r)}
+            >
+              <Tooltip title="Marcar como graduado">
+                <Button size="small" icon={<FaUserGraduate />}
+                  style={{ color: '#16a34a', borderColor: '#16a34a' }}
+                  loading={graduatingId === r.id} />
+              </Tooltip>
+            </Popconfirm>
+          )}
           <Tooltip title="Archivar estudiante">
             <Button size="small" icon={<InboxOutlined />} style={{ color: '#8c8c8c' }}
               onClick={() => openArchiveEstudiante(r)} />
@@ -950,6 +996,7 @@ export default function ProgramaDetalle() {
                   { label: 'Tipo de programa', value: programa.tipo_programa },
                   { label: 'Descripción', value: programa.descripcion || '—' },
                   { label: 'Duración', value: programa.duracion_meses ? `${programa.duracion_meses} meses` : '—' },
+                  { label: 'Intensidad horaria', value: programa.intensidad_horaria ? `${programa.intensidad_horaria} horas` : '—' },
                   { label: 'Valor matrícula', value: formatCurrency(programa.valor_matricula) },
                   { label: 'Mensualidad', value: formatCurrency(programa.valor_mensualidad) },
                   { label: 'Derechos de grado', value: formatCurrency(programa.derechos_grado) },

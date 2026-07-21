@@ -28,7 +28,8 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
           valor_matricula: Number(programToEdit.valor_matricula),
           valor_mensualidad: Number(programToEdit.valor_mensualidad),
           duracion_meses: Number(programToEdit.duracion_meses),
-          derechos_grado: Number(programToEdit.derechos_grado)
+          derechos_grado: Number(programToEdit.derechos_grado),
+          intensidad_horaria: programToEdit.intensidad_horaria != null ? Number(programToEdit.intensidad_horaria) : undefined
         });
         calculateTotal(); // Calcular total inicial
       } else {
@@ -72,6 +73,7 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
         valor_matricula: Number(values.valor_matricula),
         valor_mensualidad: Number(values.valor_mensualidad),
         derechos_grado: Number(values.derechos_grado),
+        intensidad_horaria: values.intensidad_horaria != null && values.intensidad_horaria !== '' ? Number(values.intensidad_horaria) : null,
         // No enviamos monto_total, dejamos que el backend lo calcule o lo enviamos si queremos consistencia visual
         monto_total: totalCalculado
       };
@@ -162,6 +164,14 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
 
         <Form.Item name="descripcion" label="Descripción (Opcional)">
           <Input.TextArea rows={2} placeholder="Breve descripción del programa..." />
+        </Form.Item>
+
+        <Form.Item
+          name="intensidad_horaria"
+          label="Intensidad horaria (horas)"
+          tooltip="Horas teórico-prácticas que se imprimen en el diploma al graduar al estudiante."
+        >
+          <InputNumber min={0} max={10000} style={{ width: '100%' }} addonAfter="horas" placeholder="Ej: 60" />
         </Form.Item>
 
         <Divider orientation="left">Configuración Financiera</Divider>

@@ -354,13 +354,19 @@ const StudentDetails = ({ studentId }) => {
             onOk: async () => {
                 try {
                     const token = localStorage.getItem("authToken");
-                    await axios.put(
+                    const { data } = await axios.put(
                         `${API_URL}/api/students/${student.id}/graduate`,
                         {},
                         { headers: { Authorization: `Bearer ${token}` } }
                     );
-                    message.success("Estudiante graduado exitosamente");
+                    const generados = data?.diplomas_generados || 0;
+                    message.success(
+                        generados > 0
+                            ? `Estudiante graduado. Se generaron ${generados} diploma(s) en Certificados.`
+                            : "Estudiante graduado exitosamente"
+                    );
                     fetchStudentData();
+                    fetchStudentCertificados();
                 } catch (error) {
                     console.error("Error al graduar el estudiante:", error);
                     const msg = error.response?.data?.error || "Error al graduar el estudiante";
