@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Permite que el título de un panel Collapse se trunque en lugar de empujar el
+   contenido `extra` (acciones) fuera del encabezado. Clave en móvil, donde un
+   título largo desbordaba la fila del tema. */
+.ant-collapse-header-text { min-width: 0; }
+
+/* Full-bleed (borde a borde) SOLO en móvil: hace que el elemento ocupe todo el
+   ancho de la ventana sin importar el padding de los contenedores. Se usa en el
+   visor de presentación de la clase del estudiante. En escritorio no aplica. */
+@media (max-width: 767px) {
+  .qc-pres-fullbleed {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    border-radius: 0;
+  }
+  .qc-pres-fullbleed > * { border-radius: 0 !important; }
+}
+
 /* ===========================================================================
    TEMA / MODO OSCURO
    El modo oscuro se activa con la clase `dark` en <html> (ver ThemeContext y

@@ -29,7 +29,7 @@ import {
 import moment from "moment";
 import { bulkMoveToPrograma } from "../../services/student/studentService";
 import { getProgramas } from "../../services/programas/programasService";
-import StudentDetailModal from "./StudentDetailModal";
+import StudentDetailDrawer from "./StudentDetailDrawer";
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -1054,7 +1054,7 @@ const StudentTable = ({ onArchive, onRestore, showArchived = false, students = [
         </div>
       </Modal>
 
-      <StudentDetailModal
+      <StudentDetailDrawer
         open={detailModal.open}
         studentId={detailModal.studentId}
         onClose={() => setDetailModal({ open: false, studentId: null })}

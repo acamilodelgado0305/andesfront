@@ -182,10 +182,12 @@ export const archiveStudent = async (studentId, reason) => {
   }
 };
 
-// Marcar estudiante como graduado (genera diplomas automáticamente en Certificados)
-export const graduateStudent = async (studentId) => {
+// Marcar estudiante como graduado (genera diplomas automáticamente en Certificados).
+// Si se pasa programaId, gradúa SOLO de ese programa (no de todos).
+export const graduateStudent = async (studentId, programaId = null) => {
   try {
-    const response = await backApi.put(`/api/students/${studentId}/graduate`);
+    const body = programaId ? { programa_id: programaId } : {};
+    const response = await backApi.put(`/api/students/${studentId}/graduate`, body);
     return response.data;
   } catch (error) {
     logApiError(`Error al graduar el estudiante con ID ${studentId}`, error);

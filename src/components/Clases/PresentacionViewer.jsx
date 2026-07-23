@@ -248,16 +248,19 @@ export default function PresentacionViewer({ presentaciones = [] }) {
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-100 dark:border-[#403e3a] bg-gray-50 dark:bg-[#262624]">
         <span className="flex items-center gap-2 min-w-0 text-sm text-gray-700 dark:text-[#faf9f5]">
           {iconFor(slide?.tipo)}
-          <span className="truncate">Presentación</span>
+          <span className="truncate hidden sm:inline">Presentación</span>
         </span>
         <div className="flex items-center gap-2 flex-shrink-0">
           {multi && started && (
             <span className="text-xs text-gray-500 dark:text-[#a8a59e] tabular-nums">{idx + 1} / {total}</span>
           )}
           <Tooltip title={isFs ? 'Salir de pantalla completa' : 'Pantalla completa'}>
-            <Button size="small" type="text"
+            <Button size="small"
               icon={isFs ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-              onClick={toggleFs} />
+              onClick={toggleFs}>
+              {/* Etiqueta visible solo en móvil para que el botón sea evidente */}
+              <span className="sm:hidden">{isFs ? 'Salir' : 'Pantalla completa'}</span>
+            </Button>
           </Tooltip>
         </div>
       </div>

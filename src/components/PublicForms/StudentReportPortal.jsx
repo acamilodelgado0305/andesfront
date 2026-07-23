@@ -474,54 +474,78 @@ function StudentPortal() {
       ) : (
         <div style={styles.portalContainer}>
           {/* ===== HEADER (fijo al hacer scroll) ===== */}
-          <div className="sticky top-0 z-20 flex items-center justify-between gap-3 py-4 mb-4 border-b border-gray-200 dark:border-[#403e3a] bg-[#f5f6f8] dark:bg-[#262624]">
-            <div className="flex items-center gap-3 min-w-0">
-              <Button
-                type="text"
-                icon={sidebarOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
-                onClick={() => setSidebarOpen((v) => !v)}
-                title={sidebarOpen ? "Ocultar menú" : "Mostrar menú"}
-                className="dark:text-[#a8a59e]"
-              />
-              <div className="w-9 h-9 rounded-full bg-[#155153] text-white flex items-center justify-center font-bold flex-shrink-0">
-                {(studentInfo?.nombre || "E").charAt(0).toUpperCase()}
+          <div className="sticky top-0 z-20 mb-4 border-b border-gray-200 dark:border-[#403e3a] bg-[#f5f6f8] dark:bg-[#262624]">
+            <div className="flex items-center justify-between gap-3 py-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <Button
+                  type="text"
+                  icon={sidebarOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+                  onClick={() => setSidebarOpen((v) => !v)}
+                  title={sidebarOpen ? "Ocultar menú" : "Mostrar menú"}
+                  className="dark:text-[#a8a59e]"
+                />
+                <div className="w-9 h-9 rounded-full bg-[#155153] text-white flex items-center justify-center font-bold flex-shrink-0">
+                  {(studentInfo?.nombre || "E").charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <h2 className="m-0 text-base font-semibold text-gray-800 dark:text-[#faf9f5] truncate">
+                    {studentInfo?.nombre_completo ||
+                      `${studentInfo?.nombre || ""} ${studentInfo?.apellido || ""}`.trim() ||
+                      "Estudiante"}
+                  </h2>
+                  <p className="m-0 text-xs text-gray-500 dark:text-[#a8a59e] flex items-center gap-1 truncate">
+                    <BankOutlined className="flex-shrink-0" />
+                    <span className="truncate">{studentInfo?.business_name || "Institución"}</span>
+                    <span className="mx-1 text-gray-300 dark:text-[#4a4844]">·</span>
+                    Doc: {documentNumber || studentInfo?.documento || "—"}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h2 className="m-0 text-base font-semibold text-gray-800 dark:text-[#faf9f5] truncate">
-                  {studentInfo?.nombre_completo ||
-                    `${studentInfo?.nombre || ""} ${studentInfo?.apellido || ""}`.trim() ||
-                    "Estudiante"}
-                </h2>
-                <p className="m-0 text-xs text-gray-500 dark:text-[#a8a59e] flex items-center gap-1 truncate">
-                  <BankOutlined className="flex-shrink-0" />
-                  <span className="truncate">{studentInfo?.business_name || "Institución"}</span>
-                  <span className="mx-1 text-gray-300 dark:text-[#4a4844]">·</span>
-                  Doc: {documentNumber || studentInfo?.documento || "—"}
-                </p>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Selector de institución en escritorio (en móvil va en su propia fila abajo) */}
+                {studentInfo?.instituciones?.length > 1 && (
+                  <span className="hidden sm:block">
+                    <Select
+                      size="small"
+                      value={currentStudentId}
+                      onChange={handleSwitchInstitution}
+                      loading={loading}
+                      suffixIcon={<SwapOutlined />}
+                      className="min-w-[150px] max-w-[240px]"
+                      title="Cambiar de institución"
+                      options={studentInfo.instituciones.map((i) => ({
+                        value: i.studentId,
+                        label: i.business_name,
+                      }))}
+                    />
+                  </span>
+                )}
+                <Button icon={<LogoutOutlined />} onClick={handleLogout}>
+                  <span className="hidden sm:inline">Cerrar sesión</span>
+                </Button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Selector de institución (solo si el estudiante pertenece a varias) */}
-              {studentInfo?.instituciones?.length > 1 && (
+            {/* Selector de institución en MÓVIL: fila propia, ancho completo (evita
+                que se amontone junto al avatar). */}
+            {studentInfo?.instituciones?.length > 1 && (
+              <div className="sm:hidden pb-3">
                 <Select
                   size="small"
                   value={currentStudentId}
                   onChange={handleSwitchInstitution}
                   loading={loading}
                   suffixIcon={<SwapOutlined />}
-                  className="min-w-[150px] max-w-[240px]"
+                  className="w-full"
                   title="Cambiar de institución"
                   options={studentInfo.instituciones.map((i) => ({
                     value: i.studentId,
                     label: i.business_name,
                   }))}
                 />
-              )}
-              <Button icon={<LogoutOutlined />} onClick={handleLogout}>
-                <span className="hidden sm:inline">Cerrar sesión</span>
-              </Button>
-            </div>
+              </div>
+            )}
           </div>
 
           {/* ===== SIDEBAR + CONTENIDO ===== */}

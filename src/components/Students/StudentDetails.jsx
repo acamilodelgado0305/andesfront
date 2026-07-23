@@ -40,6 +40,7 @@ import {
     getStudentCertificados,
     deleteStudentCertificado,
 } from "../../services/student/studentService";
+import { getProgramas } from "../../services/programas/programasService";
 import StudentHorario from "../Horarios/StudentHorario";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 
@@ -203,16 +204,11 @@ const StudentDetails = ({ studentId }) => {
         fetchStudentCertificados();
     }, [fetchStudentData, fetchStudentDocuments, fetchStudentCertificados]);
 
-    /* ========== Programas asignables por usuario ========== */
+    /* ========== Programas asignables ========== */
     const fetchUserAssignablePrograms = async () => {
-        const userId = localStorage.getItem("userId");
-        if (!userId) {
-            message.error("No se pudo encontrar el ID de usuario.");
-            return;
-        }
         try {
-            const response = await axios.get(`${API_URL}/api/programas`);
-            setAllPrograms(response.data || []);
+            const data = await getProgramas();
+            setAllPrograms(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error(error);
             message.error("No se pudo cargar la lista de programas.");

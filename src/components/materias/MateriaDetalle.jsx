@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Tabs, Card, Button, Tag, Table, Typography, Spin, Empty, Badge, Collapse, Radio,
   Modal, Drawer, Form, Input, Switch, InputNumber, Space, Tooltip, Popconfirm,
-  message, Upload, Select, Divider, List, Avatar, DatePicker, Dropdown, Progress
+  message, Upload, Select, Divider, List, Avatar, DatePicker, Dropdown, Progress, Grid
 } from 'antd';
 import {
   ArrowLeftOutlined, BookOutlined, EditOutlined, PlusOutlined, DeleteOutlined,
@@ -99,6 +99,11 @@ export default function MateriaDetalle({
   const navigate = useNavigate();
   const materiaId = materiaIdProp ?? params.materiaId;
   const programaId = programaIdProp ?? params.id;
+
+  // En móvil (< md) condensamos las acciones de cada tema en un menú para que
+  // el encabezado del tema no se desborde en pantallas angostas.
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
 
   const [materia, setMateria] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -859,25 +864,46 @@ export default function MateriaDetalle({
         </div>
       ),
       extra: readOnly ? null : (
-        <Space onClick={(e) => e.stopPropagation()}>
-          <Dropdown
-            trigger={['click']}
-            menu={{
-              items: [
-                { key: 'clase', icon: <PlayCircleOutlined />, label: 'Agregar clase', onClick: () => openCreateClase(m.id) },
-                { key: 'examen', icon: <TrophyOutlined />, label: 'Agregar examen', onClick: () => openAddExamen(m.id) },
-              ],
-            }}
-          >
-            <Button size="small" type="primary" icon={<PlusOutlined />}
-              style={{ backgroundColor: PURPLE, borderColor: PURPLE }} />
-          </Dropdown>
-          <Tooltip title="Ver detalle"><Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/inicio/modulos/${m.id}`)} /></Tooltip>
-          <Tooltip title="Editar tema"><Button size="small" icon={<EditOutlined />} onClick={() => openEditModulo(m)} /></Tooltip>
-          <Popconfirm title="¿Eliminar tema?" onConfirm={() => handleDeleteModulo(m.id)} okText="Sí" cancelText="No">
-            <Button size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
+        isMobile ? (
+          // Móvil: todas las acciones en un solo menú para no desbordar el encabezado.
+          <span onClick={(e) => e.stopPropagation()}>
+            <Dropdown
+              trigger={['click']}
+              menu={{
+                items: [
+                  { key: 'clase', icon: <PlayCircleOutlined />, label: 'Agregar clase', onClick: () => openCreateClase(m.id) },
+                  { key: 'examen', icon: <TrophyOutlined />, label: 'Agregar examen', onClick: () => openAddExamen(m.id) },
+                  { type: 'divider' },
+                  { key: 'ver', icon: <EyeOutlined />, label: 'Ver detalle', onClick: () => navigate(`/inicio/modulos/${m.id}`) },
+                  { key: 'editar', icon: <EditOutlined />, label: 'Editar tema', onClick: () => openEditModulo(m) },
+                  { key: 'eliminar', icon: <DeleteOutlined />, danger: true, label: 'Eliminar tema', onClick: () => handleDeleteModulo(m.id) },
+                ],
+              }}
+            >
+              <Button size="small" icon={<MoreOutlined />} />
+            </Dropdown>
+          </span>
+        ) : (
+          <Space onClick={(e) => e.stopPropagation()}>
+            <Dropdown
+              trigger={['click']}
+              menu={{
+                items: [
+                  { key: 'clase', icon: <PlayCircleOutlined />, label: 'Agregar clase', onClick: () => openCreateClase(m.id) },
+                  { key: 'examen', icon: <TrophyOutlined />, label: 'Agregar examen', onClick: () => openAddExamen(m.id) },
+                ],
+              }}
+            >
+              <Button size="small" type="primary" icon={<PlusOutlined />}
+                style={{ backgroundColor: PURPLE, borderColor: PURPLE }} />
+            </Dropdown>
+            <Tooltip title="Ver detalle"><Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/inicio/modulos/${m.id}`)} /></Tooltip>
+            <Tooltip title="Editar tema"><Button size="small" icon={<EditOutlined />} onClick={() => openEditModulo(m)} /></Tooltip>
+            <Popconfirm title="¿Eliminar tema?" onConfirm={() => handleDeleteModulo(m.id)} okText="Sí" cancelText="No">
+              <Button size="small" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          </Space>
+        )
       ),
       children: (
         <Spin spinning={loadingClasesModulo === m.id}>

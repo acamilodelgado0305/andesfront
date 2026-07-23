@@ -292,7 +292,7 @@ export default function StudentClaseDetalle({
           ) : (
             <>
               <div className="flex items-start justify-between gap-3">
-                <Title level={3} className="!mb-0">{clase.titulo}</Title>
+                <Title level={3} className="!mb-0 !text-lg sm:!text-2xl">{clase.titulo}</Title>
                 {estado === 'completado' && (
                   <Tag color="success" icon={<CheckCircleOutlined />} className="flex-shrink-0 mt-1">Completada</Tag>
                 )}
@@ -315,7 +315,9 @@ export default function StudentClaseDetalle({
               )}
 
               {presentaciones.length > 0 && (
-                <PresentacionViewer presentaciones={presentaciones} />
+                <div className="qc-pres-fullbleed">
+                  <PresentacionViewer presentaciones={presentaciones} />
+                </div>
               )}
 
               <div className="flex justify-center">

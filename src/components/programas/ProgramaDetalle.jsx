@@ -39,6 +39,7 @@ import {
 } from '../../services/programas/programasService';
 import { archiveStudent, graduateStudent } from '../../services/student/studentService';
 import { FaUserGraduate } from 'react-icons/fa';
+import StudentDetailDrawer from '../Students/StudentDetailDrawer';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -72,6 +73,8 @@ export default function ProgramaDetalle() {
   // Acciones sobre estudiantes del programa (archivar / sacar del programa / graduar)
   const [removingEstudianteId, setRemovingEstudianteId] = useState(null);
   const [graduatingId, setGraduatingId] = useState(null);
+  // Drawer de detalle del estudiante (info, pagos, etc.)
+  const [detailStudent, setDetailStudent] = useState({ open: false, studentId: null });
   const [archiveModal, setArchiveModal] = useState({ open: false, studentId: null, studentName: '' });
   const [archiveReason, setArchiveReason] = useState(null);
   const [archiveCustomReason, setArchiveCustomReason] = useState('');
@@ -657,17 +660,18 @@ export default function ProgramaDetalle() {
     }
   };
 
-  // "Graduar": marca al estudiante como graduado y genera sus diplomas (aparecen
-  // en el apartado de Certificados de su portal). Refresca la lista al terminar.
+  // "Graduar": marca al estudiante como graduado SOLO de este programa y genera su
+  // diploma (aparece en el apartado de Certificados de su portal). No afecta a los
+  // demás programas del estudiante. Refresca la lista al terminar.
   const handleGraduateEstudiante = async (student) => {
     setGraduatingId(student.id);
     try {
-      const res = await graduateStudent(student.id);
+      const res = await graduateStudent(student.id, id);
       const generados = res?.diplomas_generados ?? 0;
       message.success(
         generados > 0
-          ? `${student.nombre} ${student.apellido} graduado. Se generaron ${generados} diploma(s) en Certificados.`
-          : `${student.nombre} ${student.apellido} marcado como graduado.`
+          ? `${student.nombre} ${student.apellido} graduado de este programa. Se generó su diploma en Certificados.`
+          : `${student.nombre} ${student.apellido} graduado de este programa.`
       );
       fetchDetalle();
     } catch (err) {
@@ -801,7 +805,13 @@ export default function ProgramaDetalle() {
       title: 'Estudiante',
       render: (_, r) => (
         <div>
-          <div className="font-medium">{r.nombre} {r.apellido}</div>
+          <a
+            className="font-medium"
+            style={{ color: '#2563eb' }}
+            onClick={() => setDetailStudent({ open: true, studentId: r.id })}
+          >
+            {r.nombre} {r.apellido}
+          </a>
           <div className="text-xs text-gray-400">{r.numero_documento}</div>
         </div>
       ),
@@ -1152,6 +1162,7 @@ export default function ProgramaDetalle() {
               <Card bodyStyle={{ padding: 0 }} className="rounded-xl overflow-hidden">
                 <Spin spinning={loadingProgramaDocentes}>
                   <Table columns={docentesCols} dataSource={programaDocentes} rowKey="id" size="small"
+                    scroll={{ x: 'max-content' }}
                     pagination={false}
                     locale={{ emptyText: 'No hay docentes asociados a este programa' }} />
                 </Spin>
@@ -1176,6 +1187,7 @@ export default function ProgramaDetalle() {
               />
               <Card bodyStyle={{ padding: 0 }} className="rounded-xl overflow-hidden">
                 <Table columns={estudiantesCols} dataSource={estudiantesFiltrados} rowKey="id" size="middle"
+                  scroll={{ x: 'max-content' }}
                   pagination={{ pageSize: 15 }}
                   locale={{ emptyText: terminoEstudiante
                     ? 'No se encontraron estudiantes que coincidan con la búsqueda'
@@ -1468,6 +1480,13 @@ export default function ProgramaDetalle() {
         onClose={() => setEditProgramaOpen(false)}
         onSuccess={fetchDetalle}
         programToEdit={programa}
+      />
+
+      {/* ── Drawer de detalle del estudiante (info, pagos, etc.) ───────────── */}
+      <StudentDetailDrawer
+        open={detailStudent.open}
+        studentId={detailStudent.studentId}
+        onClose={() => setDetailStudent({ open: false, studentId: null })}
       />
 
       {/* ── Modal nuevo enlace de inscripción ─────────────────────────────── */}
