@@ -95,9 +95,11 @@ function CalificacionesPrograma() {
     const init = async () => {
       const data = await fetchCierres();
       if (data.length > 0) {
-        // Auto-seleccionar el primer cierre abierto, o el más reciente si todos cerrados
-        const open = data.find((c) => !c.cerrado);
-        setSelectedCierre(open || data[data.length - 1]);
+        // Auto-seleccionar el PERIODO ACTUAL (el abierto de menor orden, que
+        // marca el backend); si ya están todos cerrados, el más avanzado.
+        const actual = data.find((c) => c.es_actual);
+        const noHistoricos = data.filter((c) => !c.es_historico);
+        setSelectedCierre(actual || noHistoricos[noHistoricos.length - 1] || data[data.length - 1]);
       }
     };
     init();
@@ -392,8 +394,10 @@ function CalificacionesPrograma() {
                         ? <LockOutlined style={{ color: '#6b7280', fontSize: 12 }} />
                         : <UnlockOutlined style={{ color: '#10b981', fontSize: 12 }} />}
                       {c.nombre}
-                      {c.cerrado && <Tag color="default" style={{ marginLeft: 4, fontSize: 10 }}>Cerrado</Tag>}
-                      {!c.cerrado && <Tag color="green" style={{ marginLeft: 4, fontSize: 10 }}>Activo</Tag>}
+                      {c.es_actual && <Tag color="blue" style={{ marginLeft: 4, fontSize: 10 }}>En curso</Tag>}
+                      {c.es_historico && <Tag color="default" style={{ marginLeft: 4, fontSize: 10 }}>Histórico</Tag>}
+                      {c.cerrado && !c.es_historico && <Tag color="default" style={{ marginLeft: 4, fontSize: 10 }}>Cerrado</Tag>}
+                      {!c.cerrado && !c.es_actual && <Tag color="green" style={{ marginLeft: 4, fontSize: 10 }}>Abierto</Tag>}
                     </div>
                   </Option>
                 ))}

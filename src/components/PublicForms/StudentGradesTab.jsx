@@ -1,34 +1,36 @@
-import React from "react";
-import { Typography, Table, Button, Tag } from "antd";
+import React, { useState } from "react";
+import { Table, Button, Tag, Tooltip } from "antd";
 import { DownloadOutlined, LockOutlined } from "@ant-design/icons";
 
-const { Title, Text } = Typography;
+const NOTA_APROBACION = 3.0;
+
+const promedioDe = (items = []) => {
+    const nums = items.map((g) => Number(g.nota)).filter((n) => !Number.isNaN(n));
+    if (!nums.length) return null;
+    return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2));
+};
+
+const notaTag = (nota) => {
+    if (nota === null || nota === undefined || String(nota).trim() === "") {
+        return <Tag>N/A</Tag>;
+    }
+    const n = parseFloat(nota);
+    if (isNaN(n)) return <Tag>N/A</Tag>;
+    return (
+        <Tag color={n >= NOTA_APROBACION ? "green" : "orange"} style={{ fontWeight: 700, fontSize: 11, lineHeight: "14px", padding: "0 6px", margin: 0 }}>
+            {n.toFixed(1)}
+        </Tag>
+    );
+};
 
 const gradeColumns = [
-    {
-        title: "Materia",
-        dataIndex: "materia",
-        key: "materia",
-        width: "70%",
-    },
-    {
-        title: "Calificación",
-        dataIndex: "nota",
-        key: "nota",
-        width: "30%",
-        align: "center",
-        render: (nota) => {
-            if (nota === null || nota === undefined || String(nota).trim() === "") {
-                return <span style={{ color: "#9ca3af" }}>N/A</span>;
-            }
-            const n = parseFloat(nota);
-            if (isNaN(n)) return <span style={{ color: "#9ca3af" }}>N/A</span>;
-            const color = n >= 3.0 ? "#16a34a" : "#dc2626";
-            return <span style={{ fontWeight: 700, color }}>{n.toFixed(1)}</span>;
-        },
-    },
+    { title: "Materia", dataIndex: "materia", key: "materia" },
+    { title: "Nota", dataIndex: "nota", key: "nota", width: 90, align: "center", render: notaTag },
 ];
 
+// Boletín del estudiante. Se enfoca en el PERIODO ACTUAL (el abierto de menor
+// orden, que marca el backend con `es_actual`); los periodos ya cerrados y el
+// histórico quedan detrás de "Ver periodos anteriores".
 function StudentGradesTab({
     gradesInfo = [],
     gradesByCierre,
@@ -37,108 +39,196 @@ function StudentGradesTab({
     loading,
     onDownloadReport,
 }) {
-    const hasCierres = gradesByCierre && gradesByCierre.length > 0;
+    const [showAnteriores, setShowAnteriores] = useState(false);
+    const periodos = gradesByCierre || [];
+    const hasPeriodos = periodos.length > 0;
+
+    // Periodo actual: el que marca el backend. Si todos están cerrados, se toma
+    // el último no histórico como el más avanzado.
+    const noHistoricos = periodos.filter((p) => !p.es_historico);
+    const periodoActual =
+        periodos.find((p) => p.es_actual) ||
+        noHistoricos[noHistoricos.length - 1] ||
+        periodos[periodos.length - 1] ||
+        null;
+
+    const periodosAnteriores = periodos.filter((p) => p !== periodoActual);
+
+    const gradesActuales = periodoActual ? periodoActual.grades : gradesInfo;
+    const promedioPeriodo = promedioDe(gradesActuales);
+
+    // Nota final acumulada: promedio simple de los periodos NO históricos que ya
+    // tienen notas (Periodo 1, 2 y 3 pesan igual).
+    const promediosPeriodos = noHistoricos
+        .map((p) => promedioDe(p.grades))
+        .filter((n) => n !== null);
+    const promedioFinal = promediosPeriodos.length
+        ? Number((promediosPeriodos.reduce((a, b) => a + b, 0) / promediosPeriodos.length).toFixed(2))
+        : null;
+
+    const nombre =
+        studentInfo?.nombre_completo ||
+        `${studentInfo?.nombre || ""} ${studentInfo?.apellido || ""}`.trim() ||
+        "Estudiante";
+    const documento = studentInfo?.documento || studentInfo?.numero_documento || "—";
+
+    const tableProps = {
+        columns: gradeColumns,
+        pagination: false,
+        bordered: true,
+        size: "small",
+    };
+
+    const NotaGrande = ({ valor, etiqueta, tooltip }) => (
+        <Tooltip title={tooltip}>
+            <div className="flex flex-col items-center px-5 py-2 rounded-xl bg-gray-50 dark:bg-[#262624] border border-gray-200 dark:border-[#403e3a] flex-shrink-0">
+                <span
+                    className={`text-2xl font-bold ${
+                        valor >= NOTA_APROBACION
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-amber-600 dark:text-amber-400"
+                    }`}
+                >
+                    {valor.toFixed(1)}
+                </span>
+                <span className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-[#a8a59e]">
+                    {etiqueta}
+                </span>
+            </div>
+        </Tooltip>
+    );
+
+    const renderTablaPeriodo = (periodo, { actual = false } = {}) => {
+        const prom = promedioDe(periodo.grades);
+        return (
+            <div key={periodo.cierre_id ?? "sin-periodo"} className="mb-6 rounded-xl overflow-hidden border border-gray-200 dark:border-[#403e3a]">
+                <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-gray-50 dark:bg-[#262624] border-b border-gray-200 dark:border-[#403e3a]">
+                    <div className="flex items-center gap-2 min-w-0">
+                        {periodo.cerrado && <LockOutlined className="text-gray-400 dark:text-[#a8a59e]" style={{ fontSize: 13 }} />}
+                        <span className="font-semibold text-sm text-gray-700 dark:text-[#faf9f5] truncate">{periodo.nombre}</span>
+                        {actual ? (
+                            <Tag color="blue" style={{ marginInlineEnd: 0, fontSize: 11 }}>En curso</Tag>
+                        ) : periodo.es_historico ? (
+                            <Tag style={{ marginInlineEnd: 0, fontSize: 11 }}>Histórico</Tag>
+                        ) : (
+                            <Tag color="green" style={{ marginInlineEnd: 0, fontSize: 11 }}>Cerrado</Tag>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                        {prom !== null && (
+                            <span className="text-xs text-gray-500 dark:text-[#a8a59e]">
+                                Promedio <strong className={prom >= NOTA_APROBACION ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}>{prom.toFixed(1)}</strong>
+                            </span>
+                        )}
+                        {periodo.fecha_cierre && (
+                            <span className="text-xs text-gray-400 dark:text-[#a8a59e] hidden sm:inline">
+                                {new Date(periodo.fecha_cierre).toLocaleDateString("es-CO", {
+                                    year: "numeric", month: "long", day: "numeric",
+                                })}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <Table
+                    {...tableProps}
+                    className="notas-tabla-compacta"
+                    dataSource={periodo.grades.map((g, i) => ({ ...g, key: `${periodo.cierre_id}-${g.materia}-${i}` }))}
+                    locale={{ emptyText: "Sin calificaciones en este periodo." }}
+                />
+            </div>
+        );
+    };
 
     return (
-        <>
-            <Title level={4} style={{ color: "#003366", marginBottom: 16 }}>
-                Mis notas
-            </Title>
+        <div>
+            <div className="rounded-2xl border border-gray-200 dark:border-[#403e3a] bg-white dark:bg-[#30302e] overflow-hidden mb-4">
+                <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="min-w-0">
+                        <div className="font-semibold text-lg text-gray-800 dark:text-[#faf9f5] truncate">{nombre}</div>
+                        <div className="text-sm text-gray-500 dark:text-[#a8a59e]">Documento: {documento}</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {promedioPeriodo !== null && (
+                            <NotaGrande
+                                valor={promedioPeriodo}
+                                etiqueta={periodoActual?.nombre || "Promedio"}
+                                tooltip="Promedio de las materias en el periodo actual"
+                            />
+                        )}
+                        {promedioFinal !== null && promediosPeriodos.length > 1 && (
+                            <NotaGrande
+                                valor={promedioFinal}
+                                etiqueta="Acumulado"
+                                tooltip="Promedio de todos los periodos cursados (cada periodo pesa igual)"
+                            />
+                        )}
+                    </div>
+                </div>
+            </div>
 
-            {hasCierres ? (
-                gradesByCierre.map((cierre) => (
-                    <div key={cierre.cierre_id} style={{ marginBottom: 28 }}>
-                        {/* Encabezado del cierre */}
-                        <div
-                            style={{
-                                background: "#eef2ff",
-                                border: "1px solid #c7d2fe",
-                                borderRadius: "8px 8px 0 0",
-                                padding: "10px 16px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                            }}
-                        >
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <LockOutlined style={{ color: "#4f46e5", fontSize: 14 }} />
-                                <span style={{ fontWeight: 700, color: "#3730a3", fontSize: 14 }}>
-                                    {cierre.nombre}
-                                </span>
-                                <Tag color="green" style={{ marginLeft: 4, fontSize: 11 }}>
-                                    Cerrado
-                                </Tag>
-                            </div>
-                            {cierre.fecha_cierre && (
-                                <span style={{ fontSize: 12, color: "#6b7280" }}>
-                                    {new Date(cierre.fecha_cierre).toLocaleDateString("es-CO", {
-                                        year: "numeric",
-                                        month: "long",
-                                        day: "numeric",
-                                    })}
-                                </span>
+            {/* Periodo actual; los demás quedan colapsados abajo. */}
+            {hasPeriodos ? (
+                <>
+                    {periodoActual && renderTablaPeriodo(periodoActual, { actual: true })}
+
+                    {periodosAnteriores.length > 0 && (
+                        <div className="mb-4">
+                            <button
+                                type="button"
+                                onClick={() => setShowAnteriores((v) => !v)}
+                                className="text-sm font-medium text-[#155153] dark:text-[#2dd4bf] hover:underline"
+                            >
+                                {showAnteriores
+                                    ? "Ocultar periodos anteriores"
+                                    : `Ver periodos anteriores (${periodosAnteriores.length})`}
+                            </button>
+
+                            {showAnteriores && (
+                                <div className="mt-3">
+                                    {periodosAnteriores.slice().reverse().map((p) => renderTablaPeriodo(p))}
+                                </div>
                             )}
                         </div>
-
-                        <Table
-                            columns={gradeColumns}
-                            dataSource={cierre.grades.map((g, i) => ({
-                                ...g,
-                                key: `${cierre.cierre_id}-${g.materia}-${i}`,
-                            }))}
-                            pagination={false}
-                            bordered
-                            size="middle"
-                            style={{ borderRadius: "0 0 8px 8px", overflow: "hidden" }}
-                            locale={{ emptyText: "Sin calificaciones en este cierre." }}
-                        />
-                    </div>
-                ))
-            ) : (
-                /* Fallback: vista plana (datos sin cierres o vacío) */
-                <>
-                    <Table
-                        columns={gradeColumns}
-                        dataSource={gradesInfo.map((grade, index) => ({
-                            ...grade,
-                            key: `${grade.materia}-${index}-${currentStudentId}`,
-                        }))}
-                        pagination={false}
-                        bordered
-                        size="middle"
-                        locale={{ emptyText: "No hay calificaciones registradas." }}
-                        style={{ borderRadius: 6, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}
-                    />
-                    {gradesInfo.length === 0 && studentInfo && (
-                        <Text type="warning" style={{ display: "block", textAlign: "center", marginTop: 10 }}>
-                            El estudiante no tiene calificaciones registradas.
-                        </Text>
                     )}
                 </>
+            ) : (
+                <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-[#403e3a]">
+                    <Table
+                        {...tableProps}
+                        className="notas-tabla-compacta"
+                        dataSource={gradesInfo.map((grade, index) => ({ ...grade, key: `${grade.materia}-${index}-${currentStudentId}` }))}
+                        locale={{ emptyText: "No hay calificaciones registradas." }}
+                    />
+                </div>
             )}
 
+            <style>{`
+                .notas-tabla-compacta .ant-table-thead > tr > th {
+                    padding: 4px 10px !important;
+                    font-size: 11px !important;
+                }
+                .notas-tabla-compacta .ant-table-tbody > tr > td {
+                    padding: 0px 10px !important;
+                    line-height: 15px !important;
+                    font-size: 12px !important;
+                }
+            `}</style>
+
             <Button
-                type="default"
+                type="primary"
                 icon={<DownloadOutlined />}
-                onClick={onDownloadReport}
+                onClick={() => onDownloadReport?.(gradesActuales)}
                 loading={loading}
                 block
                 size="large"
-                style={{
-                    marginTop: 24,
-                    borderRadius: 6,
-                    background: "#28a745",
-                    color: "white",
-                    borderColor: "#28a745",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                }}
+                className="mt-5"
+                style={{ backgroundColor: "#155153", borderColor: "#155153" }}
                 disabled={!studentInfo || !currentStudentId}
             >
-                {loading ? "Procesando..." : "Descargar reporte en PDF"}
+                {loading ? "Generando..." : "Descargar boletín en PDF"}
             </Button>
-        </>
+        </div>
     );
 }
 

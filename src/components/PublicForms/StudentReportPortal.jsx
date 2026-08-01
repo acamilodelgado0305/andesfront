@@ -29,6 +29,8 @@ import {
   getSavedStudentData,
 } from "../../services/auth/studentAuthService";
 import { getStudentGradesAndInfoByDocument } from "../../services/gardes/gradesService";
+import { getBusinessPublicInfo } from "../../services/business/businessService";
+import { generateGradeReportPDF } from "../Utilidades/generateGradeReportPDF";
 
 import StudentLoginForm from "./StudentLoginForm";
 import StudentInfoTab from "./StudentInfoTab";
@@ -58,6 +60,7 @@ function StudentPortal() {
   const [gradesInfo, setGradesInfo] = useState([]);
   const [gradesByCierre, setGradesByCierre] = useState([]);
   const [currentStudentId, setCurrentStudentId] = useState(null);
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
   // Apartado actualmente abierto en el sidebar (por defecto "Mis Programas")
   const [activeSection, setActiveSection] = useState("programas");
@@ -82,6 +85,22 @@ function StudentPortal() {
       .catch(() => setMaterias([]))
       .finally(() => setLoadingMaterias(false));
   }, [currentStudentId]);
+
+  // Logo del negocio (para los PDFs: boletín, paz y salvo). El portal del
+  // estudiante no tiene JWT de auth-service, así que se pide por el endpoint
+  // público /api/businesses/:id/public en vez de reenviar un token.
+  useEffect(() => {
+    const bizId = studentInfo?.business_id;
+    if (!bizId || studentInfo?.business?.id === bizId) return;
+    let cancelled = false;
+    getBusinessPublicInfo(bizId)
+      .then((biz) => {
+        if (cancelled) return;
+        setStudentInfo((prev) => (prev ? { ...prev, business: biz } : prev));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [studentInfo?.business_id, studentInfo?.business?.id]);
 
   // Selecciona el primer programa por defecto cuando llegan los datos del estudiante.
   useEffect(() => {
@@ -334,6 +353,26 @@ function StudentPortal() {
     clearStudentToken();
   };
 
+  // ===== BOLETÍN: descarga del PDF de calificaciones (recibe solo las notas
+  // del programa actual, ya filtradas por StudentProgramasSection) =====
+  const handleDownloadReport = async (gradesForReport) => {
+    setDownloadingReport(true);
+    try {
+      await generateGradeReportPDF(
+        {
+          ...studentInfo,
+          business: studentInfo?.business || { name: studentInfo?.business_name || "Institución Educativa" },
+        },
+        gradesForReport
+      );
+    } catch (err) {
+      console.error(err);
+      notification.error({ message: "No se pudo generar el boletín en PDF." });
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
+
   // ===== Apartados generales del sidebar (no incluye "Mis Programas", que se
   // arma aparte con la lista real de programas del estudiante) =====
   const sections = [
@@ -365,6 +404,12 @@ function StudentPortal() {
             loadingMaterias={loadingMaterias}
             onSelectMateria={setMateriaId}
             onImmersiveChange={handleImmersive}
+            gradesInfo={gradesInfo}
+            gradesByCierre={gradesByCierre}
+            studentInfo={studentInfo}
+            currentStudentId={currentStudentId}
+            downloadingReport={downloadingReport}
+            onDownloadReport={handleDownloadReport}
           />
         );
       case "info":

@@ -1,18 +1,13 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-// ELIMINADO: Ya no importamos un logo por defecto.
 
 /**
- * Función auxiliar para cargar una imagen desde una URL y convertirla a formato Base64.
- * @param {string} url - La URL de la imagen a cargar.
- * @returns {Promise<string|null>} Una promesa que se resuelve con la imagen en Base64 o null si hay un error.
+ * Carga una imagen desde una URL y la convierte a Base64 (para el logo).
  */
 const getImageAsBase64 = async (url) => {
     try {
         const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`La respuesta de la red no fue exitosa: ${response.statusText}`);
-        }
+        if (!response.ok) throw new Error(response.statusText);
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -21,109 +16,179 @@ const getImageAsBase64 = async (url) => {
             reader.readAsDataURL(blob);
         });
     } catch (error) {
-        console.error("No se pudo cargar la imagen para el PDF desde la URL:", error);
-        return null; // Si algo falla, devolvemos null.
+        console.warn('No se pudo cargar el logo para el boletín:', error);
+        return null;
     }
 };
 
+const NAVY = [15, 52, 96];
+const GREEN = [22, 163, 74];
+const AMBER = [217, 119, 6];
+const NOTA_APROBACION = 3.0;
+
 /**
- * Genera un reporte de calificaciones en PDF para un estudiante.
- * @param {object} student - El objeto del estudiante con su información y la del negocio anidada.
- * @param {Array} grades - Un arreglo de objetos con las calificaciones del estudiante.
+ * Genera un boletín de calificaciones en PDF, con el mismo lenguaje visual
+ * institucional que el resto de documentos del portal del estudiante
+ * (constancia de paz y salvo): logo, tarjeta de datos, colores suaves.
+ * @param {object} student - Datos del estudiante, incluye `business` { name, profilePictureUrl }.
+ * @param {Array}  grades  - [{ materia, nota }]
  */
-export const generateGradeReportPDF = async (student, grades) => {
+export const generateGradeReportPDF = async (student, grades = []) => {
     if (!student) {
         throw new Error('Los datos del estudiante no están disponibles para generar el PDF.');
     }
 
-    try {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 15;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 18;
 
-        // --- 1. Obtenemos los Datos Dinámicos ---
-        const businessName = student?.business?.name || 'Institución Educativa';
-        const businessLogoUrl = student?.business?.profilePictureUrl;
-        
-        // La variable para el logo empieza como nula.
-        let logoForPdf = null; 
+    const businessName = student?.business?.name || 'Institución Educativa';
+    const logoUrl = student?.business?.profilePictureUrl;
+    const nombre = `${student.nombre || ''} ${student.apellido || ''}`.trim() || 'Estudiante';
+    const documento = student.documento || student.numero_documento || '—';
+    const programa = student.programa_nombre || '';
+    const coordinatorName = student.coordinador ? student.coordinador.nombre : null;
+    const hoy = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
 
-        // Si el estudiante tiene una URL de logo en su negocio, intentamos cargarla.
-        if (businessLogoUrl) {
-            logoForPdf = await getImageAsBase64(businessLogoUrl);
+    let logoBase64 = null;
+    if (logoUrl) logoBase64 = await getImageAsBase64(logoUrl);
+
+    const notasValidas = grades
+        .map((g) => Number(g.nota))
+        .filter((n) => !isNaN(n));
+    const promedio = notasValidas.length
+        ? notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length
+        : null;
+
+    // ===== Encabezado (logo + institución) — repetido en cada página =====
+    const addHeader = () => {
+        let y = margin;
+        if (logoBase64) {
+            try { doc.addImage(logoBase64, 'PNG', margin, y, 18, 18); } catch { /* formato no válido */ }
         }
 
-        // --- 2. Definimos Header y Footer Dinámicos ---
-        const addHeader = () => {
-            // CAMBIO: La imagen solo se añade al PDF si se cargó exitosamente.
-            if (logoForPdf) {
-                doc.addImage(logoForPdf, 'PNG', margin, 10, 25, 25);
-            }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(15);
+        doc.setTextColor(...NAVY);
+        doc.text(businessName, logoBase64 ? margin + 23 : margin, y + 7);
 
-            doc.setFont('times', 'bold');
-            doc.setFontSize(18);
-            doc.setTextColor(0, 51, 102);
-            doc.text(businessName, pageWidth / 2, 20, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9.5);
+        doc.setTextColor(130, 130, 130);
+        doc.text('Boletín de calificaciones', logoBase64 ? margin + 23 : margin, y + 13);
 
-            doc.setFontSize(12);
-            doc.setTextColor(80, 80, 80);
-            doc.text('Reporte Académico de Calificaciones', pageWidth / 2, 28, { align: 'center' });
-            
-            doc.setDrawColor(0, 51, 102);
-            doc.setLineWidth(0.5);
-            doc.line(margin, 40, pageWidth - margin, 40);
-        };
+        doc.setFontSize(9.5);
+        doc.setTextColor(130, 130, 130);
+        doc.text(hoy, pageWidth - margin, y + 7, { align: 'right' });
 
-        const addFooter = () => {
-            const pageCount = doc.internal.getNumberOfPages();
-            doc.setFont('times', 'italic');
-            doc.setFontSize(8);
-            doc.setTextColor(100, 100, 100);
-            const footerText = `${businessName} | Página ${doc.internal.getCurrentPageInfo().pageNumber} de ${pageCount}`;
-            doc.text(footerText, pageWidth / 2, pageHeight - 10, { align: 'center' });
-        };
-        
-        // --- 3. Construimos el Contenido del PDF ---
-        addHeader();
+        y += 24;
+        doc.setDrawColor(225, 228, 232);
+        doc.setLineWidth(0.4);
+        doc.line(margin, y, pageWidth - margin, y);
+        return y;
+    };
 
-        // Información del Estudiante
-        doc.setFont('times', 'bold').setFontSize(11).setTextColor(0, 51, 102);
-        doc.text('Información del Estudiante', margin, 50);
+    const addFooter = () => {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8.5);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+            'Documento generado desde el portal estudiantil. Refleja las calificaciones a la fecha de emisión.',
+            margin, pageHeight - 12, { maxWidth: pageWidth - margin * 2 }
+        );
+        const page = doc.internal.getCurrentPageInfo().pageNumber;
+        doc.text(`Página ${page}`, pageWidth - margin, pageHeight - 12, { align: 'right' });
+    };
 
-        doc.setFont('times', 'normal').setFontSize(10).setTextColor(50, 50, 50);
-        const studentName = `${student.nombre} ${student.apellido}`;
-        const coordinatorName = student.coordinador ? student.coordinador.nombre : 'N/A';
-        const currentDate = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+    let y = addHeader();
 
-        doc.text(`Estudiante: ${studentName}`, margin, 58);
-        doc.text(`Coordinador: ${coordinatorName}`, margin, 64);
-        doc.text(`Fecha de Emisión: ${currentDate}`, margin, 70);
+    // ===== Título =====
+    y += 16;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.setTextColor(30, 30, 30);
+    doc.text('Boletín de Notas', margin, y);
 
-        // Tabla de Calificaciones
-        autoTable(doc, {
-            startY: 80,
-            head: [['Materia', 'Calificación']],
-            body: grades.map(grade => [
-                grade.materia || 'N/A',
-                (grade.nota !== null && !isNaN(grade.nota)) ? Number(grade.nota).toFixed(1) : 'N/A'
-            ]),
-            theme: 'grid',
-            headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], font: 'times', fontStyle: 'bold' },
-            bodyStyles: { font: 'times' },
-            didDrawPage: () => {
-                addHeader();
-                addFooter();
-            }
-        });
-        
-        addFooter();
-        
-        // --- 4. Guardamos el PDF ---
-        doc.save(`calificaciones_${studentName.replace(/\s/g, '_')}.pdf`);
+    // ===== Tarjeta de datos del estudiante =====
+    y += 10;
+    const cardH = programa ? 36 : 29;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, pageWidth - margin * 2, cardH, 3, 3, 'FD');
 
-    } catch (err) {
-        console.error('Error al generar el PDF:', err);
-        throw err;
+    const px = margin + 8;
+    let py = y + 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(30, 30, 30);
+    doc.text(nombre, px, py);
+
+    py += 7;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    doc.setTextColor(90, 90, 90);
+    let linea2 = `Documento: ${documento}`;
+    if (coordinatorName) linea2 += `   ·   Coordinador: ${coordinatorName}`;
+    doc.text(linea2, px, py);
+
+    if (programa) {
+        py += 6;
+        const progLines = doc.splitTextToSize(`Programa(s): ${programa}`, pageWidth - margin * 2 - 16);
+        doc.text(progLines, px, py);
     }
+
+    // Promedio general, destacado a la derecha de la tarjeta
+    if (promedio !== null) {
+        const badgeColor = promedio >= NOTA_APROBACION ? GREEN : AMBER;
+        const badgeW = 34;
+        const badgeX = pageWidth - margin - badgeW - 6;
+        const badgeY = y + 6;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(...badgeColor);
+        doc.text(promedio.toFixed(1), badgeX + badgeW / 2, badgeY + 12, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(120, 120, 120);
+        doc.text('PROMEDIO', badgeX + badgeW / 2, badgeY + 18, { align: 'center' });
+    }
+
+    y += cardH + 12;
+
+    // ===== Tabla de calificaciones =====
+    autoTable(doc, {
+        startY: y,
+        margin: { left: margin, right: margin },
+        head: [['Materia', 'Calificación']],
+        body: grades.map((grade) => [
+            grade.materia || 'N/A',
+            (grade.nota !== null && grade.nota !== undefined && !isNaN(grade.nota))
+                ? Number(grade.nota).toFixed(1)
+                : 'N/A',
+        ]),
+        theme: 'grid',
+        styles: { font: 'helvetica', fontSize: 10.5, textColor: [50, 50, 50], lineColor: [226, 232, 240], lineWidth: 0.2 },
+        headStyles: { fillColor: NAVY, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: { 1: { halign: 'center', cellWidth: 40 } },
+        didParseCell: (data) => {
+            if (data.section === 'body' && data.column.index === 1) {
+                const n = Number(data.cell.raw);
+                if (!isNaN(n)) {
+                    data.cell.styles.fontStyle = 'bold';
+                    data.cell.styles.textColor = n >= NOTA_APROBACION ? GREEN : AMBER;
+                }
+            }
+        },
+        didDrawPage: () => {
+            addHeader();
+            addFooter();
+        },
+    });
+
+    addFooter();
+
+    doc.save(`boletin_${nombre.replace(/\s+/g, '_')}.pdf`);
 };

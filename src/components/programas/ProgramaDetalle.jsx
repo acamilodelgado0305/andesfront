@@ -1206,9 +1206,11 @@ export default function ProgramaDetalle() {
               <button
                 type="button"
                 onClick={() => navigate('/inicio/programas')}
-                className="flex items-center gap-1.5 mb-3 px-1 text-sm text-gray-500 dark:text-[#a8a59e] hover:text-gray-800 dark:hover:text-[#faf9f5] transition-colors"
+                className="flex items-center gap-1.5 mb-3 px-1 w-full text-sm text-gray-500 dark:text-[#a8a59e] hover:text-gray-800 dark:hover:text-[#faf9f5] transition-colors"
+                title={programa?.nombre || 'Programas'}
               >
-                <ArrowLeftOutlined /> Programas
+                <ArrowLeftOutlined className="flex-shrink-0" />
+                <span className="truncate min-w-0">{programa?.nombre || 'Programas'}</span>
               </button>
 
               {/* Apartados del programa */}
