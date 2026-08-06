@@ -71,6 +71,9 @@ function StudentPortal() {
   const [materiaId, setMateriaId] = useState(null);
   const [materias, setMaterias] = useState([]);
   const [loadingMaterias, setLoadingMaterias] = useState(true);
+  // Pendiente que el estudiante abrió desde "Mi avance": { claseId } | { examen }.
+  // Se pasa a la materia para entrar directo a esa clase/examen.
+  const [pendienteTarget, setPendienteTarget] = useState(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -121,6 +124,20 @@ function StudentPortal() {
     setActiveSection("programas");
     setProgramaId(id);
     setMateriaId(null);
+    setPendienteTarget(null);
+  };
+
+  // Elegir una materia desde las tarjetas limpia el "pendiente" abierto para que
+  // la materia se muestre en su dashboard y no en la última clase visitada.
+  const selectMateria = (id) => {
+    setPendienteTarget(null);
+    setMateriaId(id);
+  };
+
+  // "Mi avance" → entrar directo a la clase o evaluación pendiente.
+  const abrirPendiente = (matId, target) => {
+    setMateriaId(matId);
+    setPendienteTarget(target);
   };
 
   // Vista inmersiva: cuando el estudiante entra a una clase, ocultamos el sidebar
@@ -402,8 +419,10 @@ function StudentPortal() {
             materiaSel={materiaSel}
             materiasDelPrograma={materiasDelPrograma}
             loadingMaterias={loadingMaterias}
-            onSelectMateria={setMateriaId}
+            onSelectMateria={selectMateria}
             onImmersiveChange={handleImmersive}
+            pendienteTarget={pendienteTarget}
+            onAbrirPendiente={abrirPendiente}
             gradesInfo={gradesInfo}
             gradesByCierre={gradesByCierre}
             studentInfo={studentInfo}

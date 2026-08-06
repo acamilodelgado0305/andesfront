@@ -1,8 +1,11 @@
 import React, { useMemo } from 'react';
 import { Tag, Empty, Typography, Spin, Tabs } from 'antd';
-import { BookOutlined, ClockCircleOutlined, FileTextOutlined } from '@ant-design/icons';
+import {
+  BookOutlined, ClockCircleOutlined, FileTextOutlined, DashboardOutlined,
+} from '@ant-design/icons';
 import MateriaDetalle from '../materias/MateriaDetalle';
 import StudentGradesTab from './StudentGradesTab';
+import StudentAvanceTab from './StudentAvanceTab';
 
 const normalizaNombre = (s) => String(s || '').trim().toLowerCase();
 
@@ -25,6 +28,8 @@ export default function StudentProgramasSection({
   onImmersiveChange,
   gradesInfo = [], gradesByCierre = [], studentInfo, currentStudentId,
   downloadingReport = false, onDownloadReport,
+  // Pendiente que el estudiante abrió desde "Mi avance": { claseId } o { examen }.
+  pendienteTarget = null, onAbrirPendiente,
 }) {
   // Notas del programa actual: las tablas `grades` guardan la materia por
   // nombre, así que filtramos las notas del estudiante a las materias que
@@ -77,6 +82,7 @@ export default function StudentProgramasSection({
         programaId={programaSel?.id}
         embedded
         readOnly
+        openTarget={pendienteTarget}
         onBack={() => onSelectMateria?.(null)}
         onImmersiveChange={onImmersiveChange}
       />
@@ -109,6 +115,20 @@ export default function StudentProgramasSection({
         <Tabs
           className="mt-3"
           items={[
+            {
+              key: 'avance',
+              label: <span><DashboardOutlined /> Mi avance</span>,
+              children: (
+                <StudentAvanceTab
+                  studentId={currentStudentId}
+                  programaId={programaSel.programa_id ?? programaSel.id}
+                  onOpenClase={(materiaId, claseId) =>
+                    onAbrirPendiente?.(materiaId, { claseId })}
+                  onOpenExamen={(materiaId, examen) =>
+                    onAbrirPendiente?.(materiaId, { examen })}
+                />
+              ),
+            },
             {
               key: 'materias',
               label: <span><BookOutlined /> Materias</span>,

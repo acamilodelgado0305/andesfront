@@ -137,3 +137,13 @@ export const getModuloExamenEstudiante = async (moduloId) => {
   const { data } = await studentApi.get(`/api/modulos/${moduloId}/examen/estudiante`);
   return data;
 };
+
+/* ===================== MI AVANCE (portal del estudiante) ===================== */
+// Resumen de "en qué voy / qué me falta": por programa → materias → clases
+// pendientes/vistas y evaluaciones pendientes/resueltas, con los ids para poder
+// entrar a la clase o a responder la evaluación.
+// Devuelve { ok, programas: [...] }.
+export const getAvanceEstudiante = async (estudianteId) => {
+  const { data } = await studentApi.get(`/api/estudiantes/${estudianteId}/avance`);
+  return data;
+};

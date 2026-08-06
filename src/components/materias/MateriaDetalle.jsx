@@ -94,6 +94,12 @@ export default function MateriaDetalle({
   onBack,
   onChanged,
   onImmersiveChange,
+  // Solo readOnly: abrir la materia directamente en una clase o en un examen.
+  // Lo usa el panel "Mi avance" del portal para llevar al estudiante a lo que
+  // tiene pendiente sin que tenga que buscarlo dentro de los temas.
+  // Forma: { claseId } | { examen } | null. Cada click debe pasar un objeto
+  // nuevo (identidad distinta) para volver a abrirlo aunque sea el mismo id.
+  openTarget = null,
 } = {}) {
   const params = useParams();
   const navigate = useNavigate();
@@ -140,12 +146,29 @@ export default function MateriaDetalle({
   // En modo estudiante, abrir una clase NO navega a otra ruta: se muestra el
   // contenido de la clase embebido aquí mismo (dentro del área de contenido del
   // dashboard). null = mostrar la materia (temas/foro/evaluaciones).
-  const [studentClaseId, setStudentClaseId] = useState(null);
+  const [studentClaseId, setStudentClaseId] = useState(
+    readOnly ? (openTarget?.claseId ?? null) : null
+  );
 
   // Examen abierto por el estudiante (readOnly): igual que una clase, se muestra
   // embebido aquí mismo (sin navegar a /evaluaciones/asignacion/:id). null = no hay
   // examen abierto. Guarda { asignacion_id, titulo, descripcion, estado, calificacion, moduloId }.
-  const [studentExamen, setStudentExamen] = useState(null);
+  const [studentExamen, setStudentExamen] = useState(
+    readOnly ? (openTarget?.examen ?? null) : null
+  );
+
+  // Si el portal pide abrir otra clase/examen mientras la materia ya está
+  // montada (otro pendiente desde "Mi avance"), se refleja aquí.
+  useEffect(() => {
+    if (!readOnly || !openTarget) return;
+    if (openTarget.claseId) {
+      setStudentExamen(null);
+      setStudentClaseId(openTarget.claseId);
+    } else if (openTarget.examen) {
+      setStudentClaseId(null);
+      setStudentExamen(openTarget.examen);
+    }
+  }, [readOnly, openTarget]);
 
   // Progreso del estudiante en la materia (nivel clase) para el botón
   // "Iniciar materia" / "Continuar · Clase N" del dashboard. Solo readOnly.
