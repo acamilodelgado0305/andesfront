@@ -28,6 +28,34 @@ const gradeColumns = [
     { title: "Nota", dataIndex: "nota", key: "nota", width: 90, align: "center", render: notaTag },
 ];
 
+// Detalle de la materia: una línea por tema con la nota de sus evaluaciones.
+// La nota de la materia es el promedio de estas evaluaciones dentro del periodo.
+const TemasDetalle = ({ temas = [] }) => (
+    <div className="py-1.5 pl-2 pr-1">
+        <div className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-[#a8a59e] mb-1.5">
+            Detalle por tema
+        </div>
+        <div className="flex flex-col gap-0.5">
+            {temas.map((t, i) => (
+                <div
+                    key={`${t.tema}-${i}`}
+                    className="flex items-center justify-between gap-3 py-1 border-b border-dashed border-gray-200 dark:border-[#403e3a] last:border-b-0"
+                >
+                    <span className="text-xs text-gray-600 dark:text-[#faf9f5] truncate">
+                        {t.tema}
+                        {t.total_evaluaciones > 1 && (
+                            <span className="text-[10px] text-gray-400 dark:text-[#a8a59e] ml-1.5">
+                                ({t.total_evaluaciones} evaluaciones)
+                            </span>
+                        )}
+                    </span>
+                    <span className="flex-shrink-0">{notaTag(t.nota)}</span>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
 // Boletín del estudiante. Se enfoca en el PERIODO ACTUAL (el abierto de menor
 // orden, que marca el backend con `es_actual`); los periodos ya cerrados y el
 // histórico quedan detrás de "Ver periodos anteriores".
@@ -77,6 +105,12 @@ function StudentGradesTab({
         pagination: false,
         bordered: true,
         size: "small",
+        // Cada materia se despliega para ver la nota de cada tema.
+        expandable: {
+            expandedRowRender: (record) => <TemasDetalle temas={record.temas} />,
+            rowExpandable: (record) => (record.temas?.length || 0) > 0,
+            expandRowByClick: true,
+        },
     };
 
     const NotaGrande = ({ valor, etiqueta, tooltip }) => (
@@ -212,6 +246,14 @@ function StudentGradesTab({
                     padding: 0px 10px !important;
                     line-height: 15px !important;
                     font-size: 12px !important;
+                }
+                /* La fila desplegada (detalle por tema) sí necesita respirar */
+                .notas-tabla-compacta .ant-table-expanded-row > td {
+                    padding: 4px 10px !important;
+                    line-height: normal !important;
+                }
+                .notas-tabla-compacta .ant-table-row-expand-icon {
+                    transform: scale(0.8);
                 }
             `}</style>
 

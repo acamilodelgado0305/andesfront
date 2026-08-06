@@ -12,6 +12,9 @@ import dayjs from 'dayjs';
 
 const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
 
+// Nombre completo del contacto (nombre + apellido). Para empresas apellido va vacío.
+const nombreCompletoPersona = (p) => [p?.nombre, p?.apellido].filter(Boolean).join(' ').trim();
+
 // Vista previa del cronograma (interés sobre saldo, abono a capital fijo)
 const calcularResumenPrestamo = (capital, tasaEa, numCuotas) => {
   const cap = Number(capital) || 0;
@@ -41,7 +44,7 @@ import useCurrency from '../../hooks/useCurrency';
 const { Text } = Typography;
 const { TextArea } = Input;
 
-const ACCENT = '#262626'; // near-black neutro → botones, iconos, selección
+const ACCENT = '#1d4ed8'; // azul del tema → botones, iconos, selección (igual que Facturas)
 
 const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
   const formatCurrency = useCurrency();
@@ -125,7 +128,7 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
       const payload = {
         titulo:            values.titulo,
         persona_id:        selectedPersona?.id || null,
-        proveedor_nombre:  selectedPersona?.nombre || values.proveedor_nombre || null,
+        proveedor_nombre:  nombreCompletoPersona(selectedPersona) || values.proveedor_nombre || null,
         notas:             values.notas || null,
         fecha_emision:     values.fecha_emision ? values.fecha_emision.format('YYYY-MM-DD') : null,
         es_prestamo:       esPrestamo,

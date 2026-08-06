@@ -28,14 +28,18 @@ import CronogramaModal from './CronogramaModal';
 const { Content } = Layout;
 const { Title, Text } = Typography;
 
-const ACCENT = '#262626'; // near-black: botones, iconos, énfasis neutro
-const DANGER = '#dc2626'; // rojo: saldo/deuda, aumentos, vencidos
-const MUTED  = '#8c8c8c'; // gris: barras de progreso e iconos secundarios
+// Paleta alineada con el módulo de Facturas (colorida, coherente con el tema azul)
+const BLUE   = '#1d4ed8'; // acento principal / pendientes
+const GREEN  = '#16a34a'; // pagadas / abonos aplicados
+const ORANGE = '#f97316'; // abonos en curso / progreso
+const DANGER = '#dc2626'; // saldo / deuda / aumentos / vencidos
+const MUTED  = '#8c8c8c'; // texto e iconos secundarios
+const ACCENT = BLUE;      // usos genéricos de acento (botones, iconos, enlaces)
 
 const ESTADO_COLOR = {
-  PENDIENTE: 'default',
-  ABONO:     'default',
-  PAGADA:    'default',
+  PENDIENTE: 'blue',
+  ABONO:     'orange',
+  PAGADA:    'green',
   ANULADA:   'red',
 };
 
@@ -320,7 +324,7 @@ const CuentasPorPagarDashboard = () => {
         render: (m, r) => {
           const abona = r.tipo === 'abono' || r.tipo === 'cuota';
           return (
-            <Text strong style={{ fontSize: 12, color: abona ? '#595959' : DANGER }}>
+            <Text strong style={{ fontSize: 12, color: abona ? GREEN : DANGER }}>
               {abona ? '−' : '+'}{formatCurrency(Math.abs(m))}
             </Text>
           );
@@ -360,7 +364,7 @@ const CuentasPorPagarDashboard = () => {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 13 }}>
               <Text type="secondary">{rec.es_prestamo ? 'Pagado' : 'Abonado'}</Text>
-              <Text style={{ color: '#595959' }}>−{formatCurrency(abonado)}</Text>
+              <Text style={{ color: GREEN }}>−{formatCurrency(abonado)}</Text>
             </div>
             {rec.es_prestamo && (
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 13 }}>
@@ -373,7 +377,7 @@ const CuentasPorPagarDashboard = () => {
               <span>Saldo</span>
               <span style={{ color: DANGER }}>{formatCurrency(saldo)}</span>
             </div>
-            <Progress percent={pct} size="small" strokeColor={MUTED} showInfo={false} style={{ marginTop: 4, marginBottom: 0 }} />
+            <Progress percent={pct} size="small" strokeColor={ORANGE} showInfo={false} style={{ marginTop: 4, marginBottom: 0 }} />
             {rec.es_prestamo && (
               <div style={{ textAlign: 'right', marginTop: 10 }}>
                 <Button size="small" icon={<UnorderedListOutlined />} onClick={() => setCronogramaId(rec.id)}>
@@ -473,7 +477,7 @@ const CuentasPorPagarDashboard = () => {
             <AntTooltip title={`Total: ${formatCurrency(total)} · Abonado: ${formatCurrency(abonado)} · Saldo: ${formatCurrency(saldo)}`}>
               <div style={{ minWidth: 110 }}>
                 <Text strong style={{ fontSize: 13, color: DANGER }}>{formatCurrency(saldo)}</Text>
-                <Progress percent={pct} size="small" showInfo={false} strokeColor={MUTED} style={{ marginBottom: 0 }} />
+                <Progress percent={pct} size="small" showInfo={false} strokeColor={ORANGE} style={{ marginBottom: 0 }} />
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   de {formatCurrency(total)}
                   {cargos.length > 0 && (
@@ -594,7 +598,7 @@ const CuentasPorPagarDashboard = () => {
             title="Total a pagar"
             value={porPagar.saldo}
             formatter={(v) => formatCurrency(v)}
-            prefix={<DollarOutlined style={{ color: MUTED }} />}
+            prefix={<DollarOutlined style={{ color: DANGER }} />}
             valueStyle={{ color: DANGER, fontSize: 15 }}
           />
           <Text type="secondary" style={{ fontSize: 11 }}>{porPagar.qty} cuentas pendientes</Text>
@@ -604,8 +608,8 @@ const CuentasPorPagarDashboard = () => {
             title="Pendientes"
             value={pendientes.sum}
             formatter={(v) => formatCurrency(v)}
-            prefix={<ClockCircleOutlined style={{ color: MUTED }} />}
-            valueStyle={{ color: ACCENT, fontSize: 15 }}
+            prefix={<ClockCircleOutlined style={{ color: BLUE }} />}
+            valueStyle={{ color: BLUE, fontSize: 15 }}
           />
           <Text type="secondary" style={{ fontSize: 11 }}>{pendientes.qty} cuentas</Text>
         </Card>
@@ -614,8 +618,8 @@ const CuentasPorPagarDashboard = () => {
             title="Con abonos"
             value={abonadas.saldo}
             formatter={(v) => formatCurrency(v)}
-            prefix={<WalletOutlined style={{ color: MUTED }} />}
-            valueStyle={{ color: ACCENT, fontSize: 15 }}
+            prefix={<WalletOutlined style={{ color: ORANGE }} />}
+            valueStyle={{ color: ORANGE, fontSize: 15 }}
           />
           <Text type="secondary" style={{ fontSize: 11 }}>{abonadas.qty} · saldo restante</Text>
         </Card>
@@ -624,8 +628,8 @@ const CuentasPorPagarDashboard = () => {
             title="Pagadas"
             value={pagadas.sum}
             formatter={(v) => formatCurrency(v)}
-            prefix={<CheckCircleOutlined style={{ color: MUTED }} />}
-            valueStyle={{ color: ACCENT, fontSize: 15 }}
+            prefix={<CheckCircleOutlined style={{ color: GREEN }} />}
+            valueStyle={{ color: GREEN, fontSize: 15 }}
           />
           <Text type="secondary" style={{ fontSize: 11 }}>{pagadas.qty} cuentas</Text>
         </Card>
@@ -687,7 +691,7 @@ const CuentasPorPagarDashboard = () => {
         open={abonoModal.open}
         title={
           <Space>
-            <WalletOutlined style={{ color: ACCENT }} />
+            <WalletOutlined style={{ color: ORANGE }} />
             <span>Registrar abono</span>
           </Space>
         }
@@ -708,7 +712,7 @@ const CuentasPorPagarDashboard = () => {
             : (typeof abonoModal.doc.abonos === 'string' ? JSON.parse(abonoModal.doc.abonos || '[]') : []);
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px' }}>
+              <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                   <Text type="secondary">Cuenta</Text>
                   <Text strong>{abonoModal.doc.titulo}</Text>
@@ -720,17 +724,17 @@ const CuentasPorPagarDashboard = () => {
                 {abonado > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
                     <Text type="secondary">Ya abonado</Text>
-                    <Text style={{ color: '#595959' }}>{formatCurrency(abonado)}</Text>
+                    <Text style={{ color: GREEN }}>{formatCurrency(abonado)}</Text>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700 }}>
                   <span>Saldo pendiente</span>
-                  <span style={{ color: DANGER }}>{formatCurrency(saldo)}</span>
+                  <span style={{ color: ORANGE }}>{formatCurrency(saldo)}</span>
                 </div>
                 {abonado > 0 && (
                   <Progress
                     percent={Math.min(100, Math.round((abonado / total) * 100))}
-                    size="small" strokeColor={MUTED} style={{ marginTop: 8, marginBottom: 0 }}
+                    size="small" strokeColor={GREEN} style={{ marginTop: 8, marginBottom: 0 }}
                   />
                 )}
               </div>
@@ -748,7 +752,7 @@ const CuentasPorPagarDashboard = () => {
                   placeholder="Monto a abonar"
                   addonAfter={
                     <span
-                      style={{ cursor: 'pointer', color: ACCENT, fontSize: 11, fontWeight: 600 }}
+                      style={{ cursor: 'pointer', color: ORANGE, fontSize: 11, fontWeight: 600 }}
                       onClick={() => setAbonoMonto(saldo)}
                     >Pagar todo</span>
                   }
@@ -782,7 +786,7 @@ const CuentasPorPagarDashboard = () => {
                         background: '#f9fafb', borderRadius: 6, padding: '6px 10px', fontSize: 12,
                       }}>
                         <div>
-                          <span style={{ fontWeight: 600, color: '#595959' }}>{formatCurrency(a.monto)}</span>
+                          <span style={{ fontWeight: 600, color: GREEN }}>{formatCurrency(a.monto)}</span>
                           <span style={{ color: '#94a3b8', marginLeft: 6 }}>{a.cuenta}</span>
                           {a.nota && <span style={{ color: '#94a3b8', marginLeft: 6 }}>· {a.nota}</span>}
                         </div>
@@ -802,7 +806,7 @@ const CuentasPorPagarDashboard = () => {
         open={aumentarModal.open}
         title={
           <Space>
-            <PlusCircleOutlined style={{ color: ACCENT }} />
+            <PlusCircleOutlined style={{ color: DANGER }} />
             <span>Aumentar deuda</span>
           </Space>
         }

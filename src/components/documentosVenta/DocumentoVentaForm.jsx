@@ -22,6 +22,9 @@ import useCurrency from '../../hooks/useCurrency';
 const { Text } = Typography;
 const { TextArea } = Input;
 
+// Nombre completo del contacto (nombre + apellido). Para empresas apellido va vacío.
+const nombreCompletoPersona = (p) => [p?.nombre, p?.apellido].filter(Boolean).join(' ').trim();
+
 // ─── Ítem vacío ───────────────────────────────────────────────────────────────
 const itemVacio = () => ({
   key: Date.now() + Math.random(),
@@ -156,7 +159,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
       : (typeof doc.items === 'string' ? JSON.parse(doc.items) : []);
     setItems(parsed.length ? parsed.map((it, i) => ({ ...it, key: i })) : [itemVacio()]);
     if (doc.persona_id) {
-      setSelectedPersona({ id: doc.persona_id, nombre: doc.cliente_nombre || '', numero_documento: doc.cliente_identificacion || '' });
+      setSelectedPersona({ id: doc.persona_id, nombre: doc.persona_nombre || doc.cliente_nombre || '', numero_documento: doc.cliente_identificacion || '' });
     }
     form.setFieldsValue({
       fecha_emision:          doc.fecha_emision        ? dayjs(doc.fecha_emision)        : dayjs(),
@@ -219,7 +222,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
       tipo,
       estado:                 editingDoc?.estado || 'EMITIDA',
       persona_id:             selectedPersona?.id || null,
-      cliente_nombre:         selectedPersona?.nombre || values.cliente_nombre || null,
+      cliente_nombre:         nombreCompletoPersona(selectedPersona) || values.cliente_nombre || null,
       cliente_identificacion: selectedPersona?.numero_documento || values.cliente_identificacion || null,
       cliente_email:          values.cliente_email || null,
       cliente_telefono:       values.cliente_telefono || null,
@@ -249,7 +252,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
       const payload = {
         tipo,
         persona_id:             selectedPersona?.id    || null,
-        cliente_nombre:         selectedPersona?.nombre || values.cliente_nombre || null,
+        cliente_nombre:         nombreCompletoPersona(selectedPersona) || values.cliente_nombre || null,
         cliente_identificacion: selectedPersona?.numero_documento || values.cliente_identificacion || null,
         cliente_email:          values.cliente_email          || null,
         cliente_telefono:       values.cliente_telefono       || null,

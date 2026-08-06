@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Tabs, Card, Button, Tag, Table, Typography, Spin, Empty, Badge,
   Modal, Drawer, Form, Input, Switch, InputNumber, Space, Tooltip, Popconfirm,
-  message, Upload, Select, Divider, List, Collapse, Avatar, Progress, Radio
+  message, Upload, Select, Divider, List, Collapse, Avatar, Progress, Radio, Segmented
 } from 'antd';
 import {
   ArrowLeftOutlined, BookOutlined, TeamOutlined, EditOutlined,
@@ -12,7 +12,7 @@ import {
   ScheduleOutlined, SwapOutlined, CopyOutlined, AppstoreAddOutlined,
   SolutionOutlined, MailOutlined, ReloadOutlined, UserOutlined,
   ClockCircleOutlined, BarChartOutlined, UserDeleteOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined, CheckCircleFilled, HourglassOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -69,6 +69,8 @@ export default function ProgramaDetalle() {
   const [programa, setPrograma] = useState(null);
   const [estudiantes, setEstudiantes] = useState([]);
   const [busquedaEstudiante, setBusquedaEstudiante] = useState('');
+  // Filtro de graduación en la pestaña Estudiantes: 'todos' | 'graduados' | 'pendientes'
+  const [filtroGraduacion, setFiltroGraduacion] = useState('todos');
 
   // Acciones sobre estudiantes del programa (archivar / sacar del programa / graduar)
   const [removingEstudianteId, setRemovingEstudianteId] = useState(null);
@@ -835,6 +837,16 @@ export default function ProgramaDetalle() {
     { title: 'Estado matrícula', dataIndex: 'estado_matricula', width: 130,
       render: (v) => <Tag color={v === 'activo' ? 'green' : 'default'}>{v || '—'}</Tag> },
     {
+      title: 'Graduación', dataIndex: 'fecha_graduacion', width: 150,
+      render: (v) => (v ? (
+        <Tag color="success" icon={<CheckCircleFilled />}>
+          Graduado {new Date(v).toLocaleDateString('es-CO')}
+        </Tag>
+      ) : (
+        <Tag color="warning" icon={<HourglassOutlined />}>Pendiente</Tag>
+      )),
+    },
+    {
       title: 'Avance', width: 180,
       render: (_, r) => {
         const total = progreso.total_clases || 0;
@@ -863,10 +875,12 @@ export default function ProgramaDetalle() {
             <Button size="small" icon={<TrophyOutlined />} style={{ color: '#d97706', borderColor: '#d97706' }}
               onClick={() => openStudentEvals(r)} />
           </Tooltip>
+          {/* Ya graduado → check de graduación (no acción). Si no, botón para graduar. */}
           {r.fecha_graduacion ? (
             <Tooltip title={`Graduado el ${new Date(r.fecha_graduacion).toLocaleDateString('es-CO')}`}>
-              <Button size="small" icon={<FaUserGraduate />} disabled
-                style={{ color: '#16a34a', borderColor: '#16a34a' }} />
+              <span className="inline-flex items-center justify-center" style={{ width: 24, height: 24 }}>
+                <CheckCircleFilled style={{ color: '#16a34a', fontSize: 20 }} />
+              </span>
             </Tooltip>
           ) : (
             <Popconfirm
@@ -979,13 +993,21 @@ export default function ProgramaDetalle() {
   );
 
   const terminoEstudiante = busquedaEstudiante.trim().toLowerCase();
-  const estudiantesFiltrados = terminoEstudiante
-    ? estudiantes.filter((e) => {
-        const nombreCompleto = `${e.nombre ?? ''} ${e.apellido ?? ''}`.toLowerCase();
-        const documento = String(e.numero_documento ?? '').toLowerCase();
-        return nombreCompleto.includes(terminoEstudiante) || documento.includes(terminoEstudiante);
-      })
-    : estudiantes;
+  // Conteos de graduación de ESTE programa (fecha_graduacion viene de estudiante_programas).
+  const totalGraduados = estudiantes.filter((e) => e.fecha_graduacion).length;
+  const totalPendientes = estudiantes.length - totalGraduados;
+  const estudiantesFiltrados = estudiantes
+    .filter((e) => {
+      if (filtroGraduacion === 'graduados') return !!e.fecha_graduacion;
+      if (filtroGraduacion === 'pendientes') return !e.fecha_graduacion;
+      return true;
+    })
+    .filter((e) => {
+      if (!terminoEstudiante) return true;
+      const nombreCompleto = `${e.nombre ?? ''} ${e.apellido ?? ''}`.toLowerCase();
+      const documento = String(e.numero_documento ?? '').toLowerCase();
+      return nombreCompleto.includes(terminoEstudiante) || documento.includes(terminoEstudiante);
+    });
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
@@ -1177,21 +1199,51 @@ export default function ProgramaDetalle() {
           label: <span><TeamOutlined /> Estudiantes</span>,
           children: (
             <div className="space-y-3">
-              <Input
-                allowClear
-                prefix={<TeamOutlined style={{ color: '#9ca3af' }} />}
-                placeholder="Buscar por nombre o número de documento..."
-                value={busquedaEstudiante}
-                onChange={(e) => setBusquedaEstudiante(e.target.value)}
-                style={{ maxWidth: 380 }}
-              />
+              <div className="flex flex-wrap items-center gap-3">
+                <Input
+                  allowClear
+                  prefix={<TeamOutlined style={{ color: '#9ca3af' }} />}
+                  placeholder="Buscar por nombre o número de documento..."
+                  value={busquedaEstudiante}
+                  onChange={(e) => setBusquedaEstudiante(e.target.value)}
+                  style={{ maxWidth: 380 }}
+                />
+                {/* Filtro por estado de graduación en este programa */}
+                <Segmented
+                  value={filtroGraduacion}
+                  onChange={setFiltroGraduacion}
+                  options={[
+                    { label: `Todos (${estudiantes.length})`, value: 'todos' },
+                    {
+                      label: (
+                        <span className="inline-flex items-center gap-1">
+                          <CheckCircleFilled style={{ color: '#16a34a' }} /> Graduados ({totalGraduados})
+                        </span>
+                      ),
+                      value: 'graduados',
+                    },
+                    {
+                      label: (
+                        <span className="inline-flex items-center gap-1">
+                          <HourglassOutlined style={{ color: '#d97706' }} /> Faltan por graduar ({totalPendientes})
+                        </span>
+                      ),
+                      value: 'pendientes',
+                    },
+                  ]}
+                />
+              </div>
               <Card bodyStyle={{ padding: 0 }} className="rounded-xl overflow-hidden">
                 <Table columns={estudiantesCols} dataSource={estudiantesFiltrados} rowKey="id" size="middle"
                   scroll={{ x: 'max-content' }}
                   pagination={{ pageSize: 15 }}
                   locale={{ emptyText: terminoEstudiante
                     ? 'No se encontraron estudiantes que coincidan con la búsqueda'
-                    : 'No hay estudiantes inscritos en este programa' }} />
+                    : filtroGraduacion === 'graduados'
+                      ? 'Aún no hay estudiantes graduados en este programa'
+                      : filtroGraduacion === 'pendientes'
+                        ? 'Todos los estudiantes de este programa ya están graduados'
+                        : 'No hay estudiantes inscritos en este programa' }} />
               </Card>
             </div>
           ),

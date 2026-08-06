@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Table, Button, Space, Popconfirm, message, Typography, Input, Tag, Tooltip,
-  Spin, Drawer, Form, Select, Switch, Flex, Divider, Empty, Modal,
+  Spin, Drawer, Form, Select, Switch, Flex, Divider, Empty, Modal, Segmented,
 } from "antd";
 import {
   DeleteOutlined, EditOutlined, PlusOutlined, SearchOutlined,
   ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined,
   UnorderedListOutlined, SwapOutlined, CopyOutlined, ScheduleOutlined,
-  FolderOpenOutlined, TeamOutlined,
+  FolderOpenOutlined, TeamOutlined, InboxOutlined, UndoOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import { getPrograms, deleteProgram } from "../../services/programs/programService";
+import {
+  getPrograms, deleteProgram, archiveProgram, restoreProgram,
+} from "../../services/programs/programService";
 import { getMateriasByPrograma, createMateria, updateMateria, deleteMateria, duplicarMateria } from "../../services/materias/serviceMateria";
 import { getAllDocentes } from "../../services/docentes/serviceDocente";
 import CreateProgramModal from "./addProgram";
@@ -389,15 +391,23 @@ const ProgramsManagement = () => {
   const [searchText, setSearchText] = useState("");
   const [editingProgram, setEditingProgram] = useState(null);
   const [materiasPrograma, setMateriasPrograma] = useState(null); // programa selected for drawer
+  // Vista: 'activos' (lista principal) | 'archivados'
+  const [vista, setVista] = useState("activos");
+  // Modal de archivado: { programa } | null
+  const [archiveModal, setArchiveModal] = useState(null);
+  const [archiveReason, setArchiveReason] = useState("");
+  const [archiving, setArchiving] = useState(false);
+  const [restoringId, setRestoringId] = useState(null);
 
   useEffect(() => {
     fetchPrograms();
-  }, []);
+  }, [vista]);
 
   const fetchPrograms = async () => {
     setLoading(true);
     try {
-      const data = await getPrograms();
+      // El backend excluye los archivados por defecto; con archived=true trae solo esos.
+      const data = await getPrograms(vista === "archivados" ? { archived: true } : {});
       setProgramas(data);
     } catch {
       message.error("Error al cargar los programas");
@@ -437,6 +447,43 @@ const ProgramsManagement = () => {
       }
     } catch {
       message.error("Error de conexión");
+    }
+  };
+
+  // Archivar: saca el programa de la lista principal sin borrar su contenido.
+  const openArchive = (programa) => {
+    setArchiveReason("");
+    setArchiveModal({ programa });
+  };
+
+  const confirmArchive = async () => {
+    setArchiving(true);
+    try {
+      const res = await archiveProgram(archiveModal.programa.id, archiveReason.trim() || null);
+      if (res.ok) {
+        message.success(`"${archiveModal.programa.nombre}" fue archivado`);
+        setProgramas((prev) => prev.filter((p) => p.id !== archiveModal.programa.id));
+        setArchiveModal(null);
+      } else {
+        message.error(res.error || "Error al archivar el programa");
+      }
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const handleRestore = async (programa) => {
+    setRestoringId(programa.id);
+    try {
+      const res = await restoreProgram(programa.id);
+      if (res.ok) {
+        message.success(`"${programa.nombre}" volvió a la lista de programas`);
+        setProgramas((prev) => prev.filter((p) => p.id !== programa.id));
+      } else {
+        message.error(res.error || "Error al restaurar el programa");
+      }
+    } finally {
+      setRestoringId(null);
     }
   };
 
@@ -539,50 +586,92 @@ const ProgramsManagement = () => {
         </Tag>
       ),
     },
+    // Solo en la vista de archivados: cuándo y por qué se archivó.
+    ...(vista === "archivados"
+      ? [
+          {
+            title: "Archivado",
+            dataIndex: "archived_at",
+            key: "archived_at",
+            width: 200,
+            render: (fecha, record) => (
+              <div>
+                <div style={{ fontSize: 12 }}>
+                  {fecha ? new Date(fecha).toLocaleDateString("es-CO") : "—"}
+                </div>
+                {record.archived_reason && (
+                  <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                    {record.archived_reason}
+                  </div>
+                )}
+              </div>
+            ),
+          },
+        ]
+      : []),
     {
       title: "Acciones",
       key: "actions",
-      width: 160,
+      width: vista === "archivados" ? 120 : 200,
       align: "center",
-      render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="Ver detalle del programa">
+      render: (_, record) =>
+        vista === "archivados" ? (
+          <Tooltip title="Restaurar programa">
             <Button
               type="text"
-              icon={<FolderOpenOutlined />}
-              onClick={() => navigate(`/inicio/programas/${record.id}`)}
-              style={{ color: "#2563eb" }}
+              icon={<UndoOutlined />}
+              loading={restoringId === record.id}
+              onClick={() => handleRestore(record)}
+              style={{ color: "#16a34a" }}
             />
           </Tooltip>
-          <Tooltip title="Gestionar Materias">
-            <Button
-              type="text"
-              icon={<UnorderedListOutlined />}
-              onClick={() => setMateriasPrograma(record)}
-              style={{ color: PRIMARY_COLOR }}
-            />
-          </Tooltip>
-          <Tooltip title="Editar">
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              onClick={() => handleOpenEdit(record)}
-              style={{ color: PRIMARY_COLOR }}
-            />
-          </Tooltip>
-          <Popconfirm
-            title="¿Eliminar programa?"
-            description="Esta acción no se puede deshacer."
-            onConfirm={() => handleDeleteProgram(record.id)}
-            okText="Sí"
-            cancelText="No"
-          >
-            <Tooltip title="Eliminar">
-              <Button type="text" icon={<DeleteOutlined />} danger />
+        ) : (
+          <Space size="small">
+            <Tooltip title="Ver detalle del programa">
+              <Button
+                type="text"
+                icon={<FolderOpenOutlined />}
+                onClick={() => navigate(`/inicio/programas/${record.id}`)}
+                style={{ color: "#2563eb" }}
+              />
             </Tooltip>
-          </Popconfirm>
-        </Space>
-      ),
+            <Tooltip title="Gestionar Materias">
+              <Button
+                type="text"
+                icon={<UnorderedListOutlined />}
+                onClick={() => setMateriasPrograma(record)}
+                style={{ color: PRIMARY_COLOR }}
+              />
+            </Tooltip>
+            <Tooltip title="Editar">
+              <Button
+                type="text"
+                icon={<EditOutlined />}
+                onClick={() => handleOpenEdit(record)}
+                style={{ color: PRIMARY_COLOR }}
+              />
+            </Tooltip>
+            <Tooltip title="Archivar programa">
+              <Button
+                type="text"
+                icon={<InboxOutlined />}
+                onClick={() => openArchive(record)}
+                style={{ color: "#8c8c8c" }}
+              />
+            </Tooltip>
+            <Popconfirm
+              title="¿Eliminar programa?"
+              description="Esta acción no se puede deshacer."
+              onConfirm={() => handleDeleteProgram(record.id)}
+              okText="Sí"
+              cancelText="No"
+            >
+              <Tooltip title="Eliminar">
+                <Button type="text" icon={<DeleteOutlined />} danger />
+              </Tooltip>
+            </Popconfirm>
+          </Space>
+        ),
     },
   ];
 
@@ -611,6 +700,24 @@ const ProgramsManagement = () => {
           }}
           allowClear
           size="large"
+        />
+        {/* Vista: programas vigentes vs. archivados */}
+        <Segmented
+          size="large"
+          value={vista}
+          onChange={setVista}
+          style={{ borderRadius: 10 }}
+          options={[
+            { label: "Programas", value: "activos" },
+            {
+              label: (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <InboxOutlined /> Archivados
+                </span>
+              ),
+              value: "archivados",
+            },
+          ]}
         />
         <div style={{ display: "flex", gap: 10, marginLeft: "auto" }}>
           <Button
@@ -680,6 +787,12 @@ const ProgramsManagement = () => {
             }}
             scroll={{ x: 800 }}
             size="middle"
+            locale={{
+              emptyText:
+                vista === "archivados"
+                  ? "No hay programas archivados"
+                  : "No hay programas registrados",
+            }}
           />
         </Spin>
       </div>
@@ -691,6 +804,33 @@ const ProgramsManagement = () => {
         onSuccess={fetchPrograms}
         programToEdit={editingProgram}
       />
+
+      {/* Archivar programa */}
+      <Modal
+        open={!!archiveModal}
+        title="Archivar programa"
+        okText="Archivar"
+        cancelText="Cancelar"
+        onOk={confirmArchive}
+        onCancel={() => setArchiveModal(null)}
+        confirmLoading={archiving}
+        destroyOnClose
+      >
+        <p style={{ marginBottom: 12, color: "#555" }}>
+          <strong>{archiveModal?.programa?.nombre}</strong> saldrá de la lista de programas,
+          pero <strong>no se elimina nada</strong>: sus materias, clases, estudiantes e
+          historial se conservan. Puedes verlo y restaurarlo desde la pestaña
+          «Archivados».
+        </p>
+        <Input.TextArea
+          rows={3}
+          placeholder="Motivo del archivado (opcional)"
+          value={archiveReason}
+          onChange={(e) => setArchiveReason(e.target.value)}
+          maxLength={300}
+          showCount
+        />
+      </Modal>
 
       {/* Materias Drawer */}
       <MateriasDrawer

@@ -81,6 +81,33 @@ export const updateProgram = async (id, programData) => {
 };
 
 /**
+ * Archivar programa: desaparece de la lista principal pero no se borra nada
+ * (materias, clases, estudiantes e historial se conservan).
+ */
+export const archiveProgram = async (programId, motivo) => {
+  try {
+    const response = await backApi.patch(`/api/programas/${programId}/archive`, { motivo });
+    return { ok: true, data: response.data };
+  } catch (error) {
+    const msg = logApiError("Error al archivar el programa", error);
+    return { ok: false, error: msg };
+  }
+};
+
+/**
+ * Restaurar un programa archivado (vuelve a la lista principal)
+ */
+export const restoreProgram = async (programId) => {
+  try {
+    const response = await backApi.patch(`/api/programas/${programId}/restore`);
+    return { ok: true, data: response.data };
+  } catch (error) {
+    const msg = logApiError("Error al restaurar el programa", error);
+    return { ok: false, error: msg };
+  }
+};
+
+/**
  * Eliminar (Desactivar) programa
  */
 export const deleteProgram = async (programId) => {

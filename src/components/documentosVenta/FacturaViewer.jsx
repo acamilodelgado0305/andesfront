@@ -147,7 +147,7 @@ const AbonosBlock = ({ doc, formatCurrency, borderColor = '#e5e7eb', headerBg = 
 
 // ─── DISEÑO 1: CORPORATIVA ────────────────────────────────────────────────────
 const DisenoCorporativa = ({ doc, items, formatCurrency, biz }) => {
-  const cliente = doc.cliente_nombre || doc.persona_nombre || 'Sin especificar';
+  const cliente = doc.persona_nombre || doc.cliente_nombre || 'Sin especificar';
   const estadoBg    = doc.estado === 'PAGADA' ? '#dcfce7' : doc.estado === 'ANULADA' ? '#fee2e2' : doc.estado === 'ABONO' ? '#fff7ed' : '#dbeafe';
   const estadoColor = doc.estado === 'PAGADA' ? '#166534' : doc.estado === 'ANULADA' ? '#dc2626' : doc.estado === 'ABONO' ? '#ea580c' : '#1d4ed8';
 
@@ -231,7 +231,7 @@ const DisenoCorporativa = ({ doc, items, formatCurrency, biz }) => {
 
 // ─── DISEÑO 2: MODERNA ────────────────────────────────────────────────────────
 const DisenoModerna = ({ doc, items, formatCurrency, biz }) => {
-  const cliente = doc.cliente_nombre || doc.persona_nombre || 'Sin especificar';
+  const cliente = doc.persona_nombre || doc.cliente_nombre || 'Sin especificar';
   return (
     <div style={{ fontFamily: 'Inter, Arial, sans-serif', background: '#fff', minHeight: 900 }}>
       {/* Header degradado violeta-azul */}
@@ -313,7 +313,7 @@ const DisenoModerna = ({ doc, items, formatCurrency, biz }) => {
 
 // ─── DISEÑO 3: EJECUTIVA ──────────────────────────────────────────────────────
 const DisenoEjecutiva = ({ doc, items, formatCurrency, biz }) => {
-  const cliente = doc.cliente_nombre || doc.persona_nombre || 'Sin especificar';
+  const cliente = doc.persona_nombre || doc.cliente_nombre || 'Sin especificar';
   return (
     <div style={{ fontFamily: '"Segoe UI", Arial, sans-serif', background: '#fff', display: 'flex', minHeight: 900 }}>
       {/* Sidebar izquierdo oscuro */}

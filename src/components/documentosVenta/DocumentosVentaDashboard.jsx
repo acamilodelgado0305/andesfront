@@ -212,7 +212,7 @@ const DocumentosVentaDashboard = () => {
       title: 'Cliente',
       key: 'cliente',
       render: (_, rec) => (
-        <Text>{rec.cliente_nombre || rec.persona_nombre || <Text type="secondary">Sin cliente</Text>}</Text>
+        <Text>{rec.persona_nombre || rec.cliente_nombre || <Text type="secondary">Sin cliente</Text>}</Text>
       ),
     },
     {
