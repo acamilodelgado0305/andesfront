@@ -2,7 +2,7 @@ import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HelmetProvider, Helmet } from 'react-helmet-async';
-import { Check, X, Zap, Shield, Users, Star, CreditCard } from 'lucide-react';
+import { Check, X, Zap, Shield, Users, Star, CreditCard, GraduationCap } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { message } from 'antd';
 import { AuthContext } from '../../AuthContext';
@@ -325,6 +325,60 @@ const PreciosPage = () => {
               <div className="inline-flex items-center gap-2 text-gray-500 text-sm">
                 <Shield size={16} className="text-green-500" />
                 <span>Todos los planes incluyen <strong>14 días de prueba gratuita</strong> con acceso a los módulos de administración. Sin tarjeta de crédito.</span>
+              </div>
+            </motion.div>
+          </section>
+
+          {/* Demo educativo — el módulo académico solo viene en Empresarial, así
+              que una institución no puede evaluarlo desde el trial normal. Este
+              atajo la mete directo a un instituto ya montado. */}
+          <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-16">
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeIn}
+              className="rounded-2xl overflow-hidden shadow-lg"
+              style={{ background: 'linear-gradient(135deg, #0f172a 0%, #6d28d9 100%)' }}
+            >
+              <div className="p-8 md:p-10 flex flex-col md:flex-row md:items-center gap-8">
+                <div className="flex-1">
+                  <div className="inline-flex items-center gap-2 bg-white/15 text-purple-100 px-3 py-1 rounded-full text-xs font-semibold mb-4">
+                    <GraduationCap size={13} /> Para colegios, institutos y centros de formación
+                  </div>
+                  <h2 className="text-2xl md:text-3xl font-extrabold text-white mb-3">
+                    Entra a un instituto ya montado
+                  </h2>
+                  <p className="text-slate-300 text-sm md:text-base leading-relaxed mb-5">
+                    Sin registro y sin tarjeta. Te abrimos una institución de prueba con tres
+                    programas, sus materias, clases, exámenes, estudiantes matriculados y notas
+                    cargadas. Entras y la operas como si fuera tuya.
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-0">
+                    {[
+                      'Programas, materias y clases',
+                      'Estudiantes con notas por corte',
+                      'Exámenes y foro de la materia',
+                      'Certificados y paz y salvo',
+                    ].map((item) => (
+                      <li key={item} className="flex items-center gap-2 text-sm text-slate-200">
+                        <Check size={14} className="text-green-400 flex-shrink-0" /> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="md:w-64 flex-shrink-0">
+                  <button
+                    onClick={() => navigate('/demo')}
+                    className="w-full bg-white text-purple-800 font-bold py-3.5 px-6 rounded-xl text-sm hover:opacity-90 transition-opacity shadow-lg"
+                  >
+                    Ver el demo educativo
+                  </button>
+                  <p className="text-xs text-center text-slate-400 mt-3">
+                    Un clic · sin registro · el demo se borra solo
+                  </p>
+                </div>
               </div>
             </motion.div>
           </section>

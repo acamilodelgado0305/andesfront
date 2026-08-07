@@ -295,6 +295,75 @@ const TrialBanner = ({ user, navigate }) => {
   );
 };
 
+// =========================================================
+// 🎓 DEMO BANNER — sandbox educativo de un clic (sin registro)
+// =========================================================
+// Va antes que el TrialBanner y lo reemplaza: en un demo no hay "prueba
+// gratuita" que convertir, hay datos de ejemplo que el visitante debe saber
+// que son de ejemplo. El CTA lleva a precios, que es el paso siguiente real.
+const DemoBanner = ({ user, navigate }) => {
+  if (!user?.is_demo) return null;
+
+  const expira = user.demo_expires_at ? dayjs(user.demo_expires_at) : null;
+  const horasRestantes = expira ? expira.diff(dayjs(), 'hour') : null;
+  const restante =
+    horasRestantes === null
+      ? null
+      : horasRestantes >= 24
+        ? `${Math.floor(horasRestantes / 24)} día${Math.floor(horasRestantes / 24) !== 1 ? 's' : ''}`
+        : `${Math.max(0, horasRestantes)} hora${horasRestantes !== 1 ? 's' : ''}`;
+
+  return (
+    <div
+      style={{
+        background: 'linear-gradient(135deg, #0f172a 0%, #7c3aed 100%)',
+        color: 'white',
+        padding: '8px 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        flexWrap: 'wrap',
+        position: 'sticky',
+        top: 0,
+        zIndex: 997,
+        borderBottom: '1px solid rgba(255,255,255,0.15)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 16 }}>🎓</span>
+        <div style={{ lineHeight: 1.3 }}>
+          <span style={{ fontWeight: 600, fontSize: 13 }}>
+            Estás en el demo educativo
+          </span>
+          <span style={{ opacity: 0.85, fontSize: 12, marginLeft: 6 }}>
+            Los estudiantes, notas y clases son de ejemplo. Crea, edita y borra lo que quieras.
+            {restante ? ` Este demo se borra en ${restante}.` : ''}
+          </span>
+        </div>
+      </div>
+
+      <button
+        onClick={() => navigate('/precios')}
+        style={{
+          backgroundColor: 'white',
+          color: '#6d28d9',
+          border: 'none',
+          borderRadius: 6,
+          padding: '4px 14px',
+          fontSize: 12,
+          fontWeight: 700,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+        }}
+      >
+        Quiero mi cuenta real
+      </button>
+    </div>
+  );
+};
+
 const RootLayout = () => {
   // 1. OBTENER USUARIO DEL CONTEXTO
   const { user, login, logout, patchUser, loading: authLoading } = useContext(AuthContext);
@@ -423,10 +492,13 @@ const RootLayout = () => {
 
   // ── Determinar si el usuario puede acceder ──────────────────
   const trialActive = user?.is_trial && dayjs(user.trial_ends_at).isAfter(dayjs());
-  const paidActive  = !user?.is_trial && subscriptionData.active === true;
+  // El demo es su propio tipo de acceso: no es trial (no hay cuenta que
+  // convertir) ni suscripción pagada, y vence por hora, no por día.
+  const demoActive  = user?.is_demo && (!user.demo_expires_at || dayjs(user.demo_expires_at).isAfter(dayjs()));
+  const paidActive  = !user?.is_trial && !user?.is_demo && subscriptionData.active === true;
   // Mientras aún no llegó la respuesta del fetch (active === null) no bloqueamos
-  const canAccess   = trialActive || paidActive || subscriptionData.active === null;
-  const accessReason = user?.is_trial ? 'trial_expired' : 'subscription_expired';
+  const canAccess   = trialActive || demoActive || paidActive || subscriptionData.active === null;
+  const accessReason = user?.is_demo ? 'demo_expired' : user?.is_trial ? 'trial_expired' : 'subscription_expired';
 
   const showExpirationWarning = () => {
     if (!subscriptionData.endDate || !paidActive) return null;
@@ -829,11 +901,20 @@ const RootLayout = () => {
                   margin: '0 8px 8px',
                   padding: '8px 10px',
                   borderRadius: 8,
-                  background: trialActive ? 'linear-gradient(135deg,#030d1f,#1d4ed8)' : '#f0fdf4',
-                  border: trialActive ? 'none' : '1px solid #bbf7d0',
+                  background: demoActive
+                    ? 'linear-gradient(135deg,#0f172a,#7c3aed)'
+                    : trialActive ? 'linear-gradient(135deg,#030d1f,#1d4ed8)' : '#f0fdf4',
+                  border: (demoActive || trialActive) ? 'none' : '1px solid #bbf7d0',
                   flexShrink: 0,
                 }}>
-                  {trialActive ? (
+                  {demoActive ? (
+                    <>
+                      <p style={{ margin: 0, fontSize: 10, color: '#d8b4fe', fontWeight: 600, textTransform: 'uppercase' }}>Demo educativo</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#fff', fontWeight: 500 }}>
+                        Datos de ejemplo
+                      </p>
+                    </>
+                  ) : trialActive ? (
                     <>
                       <p style={{ margin: 0, fontSize: 10, color: '#93c5fd', fontWeight: 600, textTransform: 'uppercase' }}>Prueba gratuita</p>
                       <p style={{ margin: '2px 0 0', fontSize: 11, color: '#fff', fontWeight: 500 }}>
@@ -1045,7 +1126,8 @@ const RootLayout = () => {
             </Dropdown>
           </div>
 
-          <TrialBanner user={user} navigate={navigate} />
+          <DemoBanner user={user} navigate={navigate} />
+          {!user?.is_demo && <TrialBanner user={user} navigate={navigate} />}
 
           <div style={{ padding: isMobile ? '16px' : '24px' }}>
             {showExpirationWarning()}

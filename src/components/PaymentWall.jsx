@@ -51,6 +51,19 @@ const PaymentWall = ({ reason = 'trial_expired' }) => {
   );
 
   const isTrialExpired = reason === 'trial_expired';
+  const isDemoExpired = reason === 'demo_expired';
+
+  const titulo = isDemoExpired
+    ? 'Tu demo educativo terminó'
+    : isTrialExpired
+      ? 'Tu prueba gratuita ha terminado'
+      : 'Tu suscripción ha vencido';
+
+  const subtitulo = isDemoExpired
+    ? 'El instituto de ejemplo y sus datos ya se eliminaron. Elige un plan y arma tu institución real, esta vez con tus programas y tus estudiantes.'
+    : isTrialExpired
+      ? 'Esperamos que hayas disfrutado los 14 días de acceso completo. Para seguir usando la plataforma, elige un plan a continuación.'
+      : 'Tu plan venció. Renueva tu suscripción para recuperar el acceso a todos tus datos y funciones.';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -78,14 +91,8 @@ const PaymentWall = ({ reason = 'trial_expired' }) => {
           <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
             <Lock size={28} className="text-amber-500" />
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-2">
-            {isTrialExpired ? 'Tu prueba gratuita ha terminado' : 'Tu suscripción ha vencido'}
-          </h1>
-          <p className="text-gray-500 text-sm leading-relaxed">
-            {isTrialExpired
-              ? 'Esperamos que hayas disfrutado los 14 días de acceso completo. Para seguir usando la plataforma, elige un plan a continuación.'
-              : 'Tu plan venció. Renueva tu suscripción para recuperar el acceso a todos tus datos y funciones.'}
-          </p>
+          <h1 className="text-2xl font-extrabold text-gray-900 mb-2">{titulo}</h1>
+          <p className="text-gray-500 text-sm leading-relaxed">{subtitulo}</p>
         </motion.div>
 
         {/* Planes */}

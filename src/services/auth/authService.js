@@ -157,6 +157,20 @@ export const register = async (userData) => {
 };
 
 /**
+ * Arranca el demo educativo: el backend crea un negocio temporal ya sembrado
+ * con programas, materias, clases, estudiantes y notas de ejemplo, y devuelve
+ * una sesión lista para usar — igual que un login, pero sin registro.
+ *
+ * @returns {Promise<{token: string, refreshToken: string, user: object, demo: {seeded: boolean, expires_in_days: number}}>}
+ */
+export const startEducationDemo = async () => {
+  const { data } = await axios.post(`${AUTH_SERVICE_URL}/api/auth/demo`, {
+    referrer: typeof document !== 'undefined' ? document.referrer || null : null,
+  });
+  return data;
+};
+
+/**
  * Login con Google usando ID token (componente GoogleLogin).
  * @param {string} credential - ID token devuelto por @react-oauth/google
  */

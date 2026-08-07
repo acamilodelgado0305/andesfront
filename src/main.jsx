@@ -71,6 +71,7 @@ const Register = lazyWithRetry(() => import("./components/auth/register"));
 const Configuracion = lazyWithRetry(() => import("./components/Configuracion/Configuracion"));
 const MiPerfil = lazyWithRetry(() => import("./components/Perfil/MiPerfil"));
 const PreciosPage = lazyWithRetry(() => import("./components/auth/Precios"));
+const DemoLauncher = lazyWithRetry(() => import("./components/auth/DemoLauncher"));
 const Pago = lazyWithRetry(() => import("./components/auth/Pago"));
 const PagoResultado = lazyWithRetry(() => import("./components/auth/PagoResultado"));
 
@@ -174,6 +175,8 @@ const App = () => (
                 <Route path="/sales" element={<Sales />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/precios" element={<PreciosPage />} />
+                {/* Demo educativo de un clic: crea el sandbox y entra solo. */}
+                <Route path="/demo" element={<DemoLauncher />} />
                 <Route path="/pago" element={<Pago />} />
                 <Route path="/pago/resultado" element={<PagoResultado />} />
 
