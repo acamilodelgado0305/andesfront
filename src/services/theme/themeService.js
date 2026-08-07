@@ -12,9 +12,15 @@ export const THEME_STORAGE_KEY = 'qc-theme';
 // Modos válidos. 'system' sigue prefers-color-scheme del SO.
 export const THEME_MODES = ['light', 'dark', 'system'];
 
+// Tema por defecto de quien nunca eligió. CLARO a propósito, no 'system':
+// la app debe abrirse clara aunque el sistema operativo del visitante esté en
+// oscuro. Quien elige explícitamente queda guardado en `qc-theme` y manda.
+// Debe mantenerse en sintonía con el script de pre-paint de index.html.
+export const DEFAULT_THEME = 'light';
+
 export const getStoredTheme = () => {
   const v = localStorage.getItem(THEME_STORAGE_KEY);
-  return THEME_MODES.includes(v) ? v : 'system';
+  return THEME_MODES.includes(v) ? v : DEFAULT_THEME;
 };
 
 export const storeTheme = (mode) => {

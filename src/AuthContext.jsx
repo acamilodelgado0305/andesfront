@@ -32,6 +32,11 @@ const buildUserFromPayload = (payload, base = {}) => ({
     businesses: base.businesses ?? payload.businesses ?? [],
     is_trial: base.is_trial ?? payload.is_trial ?? false,
     trial_ends_at: base.trial_ends_at ?? payload.trial_ends_at ?? null,
+    // Demo educativo (sandbox de un clic). Sin estos dos campos el DemoBanner
+    // nunca se pinta y, al vencer, el usuario cae en el muro de "suscripción
+    // vencida" en vez del de "demo terminado".
+    is_demo: base.is_demo ?? payload.is_demo ?? false,
+    demo_expires_at: base.demo_expires_at ?? payload.demo_expires_at ?? null,
     onboarding_completed_at: base.onboarding_completed_at ?? payload.onboarding_completed_at ?? null,
     country: base.country ?? payload.country ?? 'CO',
     // Preferencia de tema (modo oscuro). Viene en el `user` de la respuesta de

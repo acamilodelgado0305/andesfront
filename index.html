@@ -12,7 +12,11 @@
     <script>
       (function () {
         try {
-          var mode = localStorage.getItem('qc-theme') || 'system';
+          // Por defecto CLARO (no 'system'): quien no ha elegido tema debe ver
+          // la app clara aunque su sistema operativo esté en oscuro. Quien sí
+          // eligió tiene su valor en `qc-theme` y manda. Mantener en sintonía
+          // con getStoredTheme() de src/services/theme/themeService.js.
+          var mode = localStorage.getItem('qc-theme') || 'light';
           var isDark = mode === 'dark' ||
             (mode === 'system' && window.matchMedia &&
              window.matchMedia('(prefers-color-scheme: dark)').matches);
