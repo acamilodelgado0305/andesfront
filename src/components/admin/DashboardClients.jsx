@@ -9,7 +9,7 @@ import {
     CheckCircleFilled, ClockCircleOutlined, CalendarOutlined, SettingOutlined,
     EditOutlined, DeleteOutlined, ShopOutlined, AppstoreOutlined, MoreOutlined,
     ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, DollarOutlined,
-    TeamOutlined, ToolOutlined
+    TeamOutlined, ToolOutlined, LockOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -37,6 +37,13 @@ const MODULE_COLORS = {
 };
 
 const MODULE_OPTIONS = ['POS', 'ACADEMICO', 'INVENTARIO', 'GENERACION', 'ADMIN'];
+
+// Módulos privados: NO se conceden por plan. Son lista blanca por negocio
+// (businesses.modulos_privados). Si no están activados aquí, no aparecen aunque
+// el plan del negocio los incluya.
+const PRIVATE_MODULES = [
+    { key: 'GENERACION', label: 'Generación de Documentos', hint: 'Certificados y carnets (Alianza Capacitarte, CertiTec)' },
+];
 
 const POS_SUBMODULES = [
     { key: 'movimientos', label: 'Movimientos' },
@@ -87,6 +94,8 @@ function DashboardClients() {
     // Módulos ocultos por negocio
     const [modulosOcultos, setModulosOcultos] = useState([]);
     const [savingModules, setSavingModules] = useState(false);
+    const [modulosPrivados, setModulosPrivados] = useState([]);
+    const [savingPrivateModules, setSavingPrivateModules] = useState(false);
 
     // Gestión de Planes
     const [isPlanDrawerVisible, setIsPlanDrawerVisible] = useState(false);
@@ -160,6 +169,7 @@ function DashboardClients() {
         setSelectedClient(client);
         setClientDetails(null);
         setModulosOcultos([]);
+        setModulosPrivados([]);
         setConfigDrawerOpen(true);
 
         setLoadingDetails(true);
@@ -167,6 +177,7 @@ function DashboardClients() {
             const data = await adminService.getClientDetails(client.id);
             setClientDetails(data);
             setModulosOcultos(data.modulos_ocultos || []);
+            setModulosPrivados(data.modulos_privados || []);
         } catch (err) {
             message.error("Error al cargar detalles del negocio.");
         } finally {
@@ -180,6 +191,7 @@ function DashboardClients() {
             const data = await adminService.getClientDetails(selectedClient.id);
             setClientDetails(data);
             setModulosOcultos(data.modulos_ocultos || []);
+            setModulosPrivados(data.modulos_privados || []);
         } catch (err) {
             console.error(err);
         }
@@ -190,6 +202,7 @@ function DashboardClients() {
         setSelectedClient(null);
         setClientDetails(null);
         setModulosOcultos([]);
+        setModulosPrivados([]);
     };
 
     const handleSaveModules = async () => {
@@ -203,6 +216,20 @@ function DashboardClients() {
             message.error('Error al guardar la configuración de módulos.');
         } finally {
             setSavingModules(false);
+        }
+    };
+
+    const handleSavePrivateModules = async () => {
+        if (!selectedClient) return;
+        setSavingPrivateModules(true);
+        try {
+            await adminService.updateBusinessPrivateModules(selectedClient.id, modulosPrivados);
+            message.success('Módulos privados guardados. Aplica cuando el usuario renueve su sesión.');
+        } catch (err) {
+            console.error(err);
+            message.error(err.response?.data?.error || 'Error al guardar los módulos privados.');
+        } finally {
+            setSavingPrivateModules(false);
         }
     };
 
@@ -771,6 +798,60 @@ function DashboardClients() {
                             </div>
                         </Card>
 
+                        {/* Módulos privados (lista blanca, no van por plan) */}
+                        <Card size="small" bordered={false} className="shadow-sm">
+                            <div className="flex justify-between items-center mb-2">
+                                <Title level={5} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <LockOutlined style={{ color: PRIMARY_COLOR }} /> Módulos privados
+                                </Title>
+                                <Button
+                                    type="primary"
+                                    size="small"
+                                    loading={savingPrivateModules}
+                                    onClick={handleSavePrivateModules}
+                                    icon={<SaveOutlined />}
+                                    style={{ backgroundColor: PRIMARY_COLOR }}
+                                >
+                                    Guardar
+                                </Button>
+                            </div>
+                            <p className="text-xs text-gray-400 dark:text-[#a8a59e] mt-0 mb-3">
+                                Estos módulos no se conceden por plan: solo los ve el negocio al que se le asignan
+                                aquí. Los cambios aplican cuando el usuario renueva su sesión.
+                            </p>
+                            <div className="grid grid-cols-1 gap-2">
+                                {PRIVATE_MODULES.map(mod => {
+                                    const isAssigned = modulosPrivados.includes(mod.key);
+                                    return (
+                                        <div
+                                            key={mod.key}
+                                            className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border ${isAssigned
+                                                ? 'bg-emerald-50 border-emerald-200 dark:bg-[#3a3a38] dark:border-[#4d6b56]'
+                                                : 'bg-gray-50 border-gray-200 dark:bg-[#30302e] dark:border-[#403e3a]'
+                                                }`}
+                                        >
+                                            <div className="min-w-0">
+                                                <div className="text-sm font-medium text-gray-700 dark:text-[#faf9f5]">{mod.label}</div>
+                                                <div className="text-xs text-gray-400 dark:text-[#a8a59e]">{mod.hint}</div>
+                                            </div>
+                                            <Switch
+                                                size="small"
+                                                checked={isAssigned}
+                                                checkedChildren="Asignado"
+                                                unCheckedChildren="Sin acceso"
+                                                onChange={(assigned) => {
+                                                    setModulosPrivados(prev => assigned
+                                                        ? [...new Set([...prev, mod.key])]
+                                                        : prev.filter(k => k !== mod.key)
+                                                    );
+                                                }}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Card>
+
                         {/* Historial de suscripciones */}
                         <Card size="small" bordered={false} className="shadow-sm">
                             <Title level={5} className="flex items-center gap-2" style={{ marginTop: 0 }}>
@@ -881,7 +962,12 @@ function DashboardClients() {
                             <Switch checkedChildren="Activo" unCheckedChildren="Inactivo" />
                         </Form.Item>
                     </div>
-                    <Form.Item name="modules" label="Módulos" rules={[{ required: true }]}>
+                    <Form.Item
+                        name="modules"
+                        label="Módulos"
+                        rules={[{ required: true }]}
+                        extra={<span className="text-xs">GENERACION es un módulo privado: marcarlo aquí no basta, hay que asignarlo negocio por negocio desde su configuración.</span>}
+                    >
                         <Checkbox.Group>
                             <div className="grid grid-cols-2 gap-2">
                                 {MODULE_OPTIONS.map(mod => (

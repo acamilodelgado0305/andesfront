@@ -76,6 +76,13 @@ export const adminService = {
     return data;
   },
 
+  updateBusinessPrivateModules: async (businessId, modulosPrivados) => {
+    // modulosPrivados: LISTA BLANCA de módulos privados habilitados, e.g. ['GENERACION'].
+    // Lo contrario de updateBusinessModules: aquí lo que no está listado NO se ve.
+    const { data } = await axios.patch(`${API_URL}/api/admin/businesses/${businessId}/private-modules`, { modulos_privados: modulosPrivados }, getAuthHeaders());
+    return data;
+  },
+
   deleteBusiness: async (businessId) => {
     const { data } = await axios.delete(`${API_URL}/api/admin/businesses/${businessId}`, getAuthHeaders());
     return data;
