@@ -57,7 +57,7 @@ const POS_SUBMODULES = [
 function DashboardClients() {
     const screens = useBreakpoint();
     const formatCurrency = useCurrency();
-    const { addonAfter: currSuffix } = useCurrencyInput();
+    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
 
     // ==========================================
     // 1. ESTADOS
@@ -1057,7 +1057,9 @@ function DashboardClients() {
                         </Select>
                     </Form.Item>
                     <Form.Item name="amountPaid" label="Monto Pagado">
-                        <InputNumber min={0} className="w-full" addonAfter={currSuffix} />
+                        <InputNumber min={0} className="w-full" addonAfter={currSuffix}
+                            formatter={currFormatter} parser={currParser}
+                            precision={currPrecision} step={currStep} />
                     </Form.Item>
 
                     <Divider orientation="left" orientationMargin={0} className="text-xs text-gray-500">

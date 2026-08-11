@@ -30,7 +30,7 @@ import {
   ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { useCurrencyInput } from "../../hooks/useCurrency";
+import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 import { generatePaymentReportPDF } from "../Utilidades/generatePaymentReportPDF";
 
 // SERVICIOS
@@ -50,7 +50,7 @@ const { Option } = Select;
 const StudentPayments = ({ studentId: studentIdProp }) => {
   const { id: routeId } = useParams();
   const studentId = studentIdProp || routeId;
-  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
 
   // ESTADOS DE DATOS
   const [student, setStudent] = useState(null);
@@ -80,15 +80,7 @@ const StudentPayments = ({ studentId: studentIdProp }) => {
   const [savingTotal, setSavingTotal] = useState(false);
 
   // --- UTILIDADES ---
-  const formatCurrency = useCallback((value) => {
-    const numericValue = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
-    return numericValue.toLocaleString("es-CO", {
-      style: "currency",
-      currency: "COP",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
-  }, []);
+  const formatCurrency = useCurrency();
 
   // --- CARGA DE DATOS ---
   const loadAllStudentPaymentData = useCallback(async () => {
@@ -281,7 +273,7 @@ const StudentPayments = ({ studentId: studentIdProp }) => {
   const handleDownloadStatement = async () => {
     setGeneratingPdf(true);
     try {
-      await generatePaymentReportPDF(student, payments, financialData);
+      await generatePaymentReportPDF(student, payments, financialData, { formatMoney: formatCurrency });
     } catch (error) {
       console.error("Error al generar el extracto:", error);
       message.error("No se pudo generar el extracto en PDF.");
@@ -596,6 +588,8 @@ const StudentPayments = ({ studentId: studentIdProp }) => {
               addonAfter={currSuffix}
               formatter={currFormatter}
               parser={currParser}
+              precision={currPrecision}
+              step={currStep}
               size="large"
             />
           </Form.Item>
@@ -662,6 +656,8 @@ const StudentPayments = ({ studentId: studentIdProp }) => {
               addonAfter={currSuffix}
               formatter={currFormatter}
               parser={currParser}
+              precision={currPrecision}
+              step={currStep}
               size="large"
               min={0}
             />
@@ -733,6 +729,8 @@ const StudentPayments = ({ studentId: studentIdProp }) => {
                 addonAfter={currSuffix}
                 formatter={currFormatter}
                 parser={currParser}
+                precision={currPrecision}
+                step={currStep}
                 size="large"
                 min={0}
                 value={editTotalValue}

@@ -152,7 +152,7 @@ function Certificados() {
 
   return (
     <div className="p-4 md:p-6">
-      
+
       {/* Header */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">

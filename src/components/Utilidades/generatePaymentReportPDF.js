@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatCurrency } from '../../utils/currency';
 
 const getImageAsBase64 = async (url) => {
   try {
@@ -18,15 +19,9 @@ const getImageAsBase64 = async (url) => {
   }
 };
 
-const money = (value) => {
-  const n = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
-  return n.toLocaleString('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
-};
+// Formato de moneda por defecto (Colombia) — el llamador puede inyectar el del
+// negocio activo vía `options.formatMoney` para respetar país y centavos.
+const defaultMoney = (value) => formatCurrency(value, 'CO');
 
 const formatDate = (value) => {
   if (!value) return 'N/A';
@@ -47,7 +42,9 @@ const formatDate = (value) => {
  * @param {Array}  payments - Historial de pagos del estudiante.
  * @param {Array}  financialData - Estado de cuenta por programa (monto_total, total_abonado, saldo_pendiente).
  */
-export const generatePaymentReportPDF = async (student, payments = [], financialData = []) => {
+export const generatePaymentReportPDF = async (student, payments = [], financialData = [], options = {}) => {
+  const money = options.formatMoney || defaultMoney;
+
   if (!student) {
     throw new Error('Los datos del estudiante no están disponibles para generar el PDF.');
   }

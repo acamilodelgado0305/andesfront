@@ -79,7 +79,7 @@ const FieldItem = ({ label, name, value, isEditing, children }) => (
 
 const StudentDetails = ({ studentId }) => {
     const fmt = useCurrency();
-    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
     const [student, setStudent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [form] = Form.useForm();
@@ -894,6 +894,8 @@ const StudentDetails = ({ studentId }) => {
                                         addonAfter={currSuffix}
                                         formatter={currFormatter}
                                         parser={currParser}
+                                        precision={currPrecision}
+                                        step={currStep}
                                     />
                                 </FieldItem>
 

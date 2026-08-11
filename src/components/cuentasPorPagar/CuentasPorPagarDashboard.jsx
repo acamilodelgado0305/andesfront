@@ -13,7 +13,7 @@ import {
   PlusCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import useCurrency from '../../hooks/useCurrency';
+import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
 import {
   getCuentasPorPagar,
   getEstadisticasCuentasPorPagar,
@@ -130,6 +130,7 @@ const buildMovimientos = (rec) => {
 
 const CuentasPorPagarDashboard = () => {
   const formatCurrency = useCurrency();
+  const { formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
 
   const [docs, setDocs]       = useState([]);
   const [stats, setStats]     = useState([]);
@@ -744,11 +745,13 @@ const CuentasPorPagarDashboard = () => {
                   Monto del abono <span style={{ color: '#ef4444' }}>*</span>
                 </Text>
                 <InputNumber
-                  style={{ width: '100%' }} size="large" min={1} max={saldo}
+                  style={{ width: '100%' }} size="large" min={currStep} max={saldo}
                   value={abonoMonto}
                   onChange={setAbonoMonto}
-                  formatter={(v) => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(v) => v.replace(/\$\s?|(,*)/g, '')}
+                  formatter={currFormatter}
+                  parser={currParser}
+                  precision={currPrecision}
+                  step={currStep}
                   placeholder="Monto a abonar"
                   addonAfter={
                     <span
@@ -865,11 +868,13 @@ const CuentasPorPagarDashboard = () => {
                   Monto a aumentar <span style={{ color: '#ef4444' }}>*</span>
                 </Text>
                 <InputNumber
-                  style={{ width: '100%' }} size="large" min={1}
+                  style={{ width: '100%' }} size="large" min={currStep}
                   value={aumentarMonto}
                   onChange={setAumentarMonto}
-                  formatter={(v) => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(v) => v.replace(/\$\s?|(,*)/g, '')}
+                  formatter={currFormatter}
+                  parser={currParser}
+                  precision={currPrecision}
+                  step={currStep}
                   placeholder="Monto a sumar"
                 />
               </div>

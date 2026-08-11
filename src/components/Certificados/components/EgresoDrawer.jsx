@@ -18,6 +18,7 @@ import { createEgreso, updateEgreso } from '../../../services/controlapos/posSer
 import { getPersonas } from '../../../services/person/personaService';
 import PersonaFormDrawer from '../../personas/PersonaFormDrawer';
 import useIsMobile from '../../../hooks/useIsMobile';
+import { CUERPO_FLEX, CONTENIDO_CENTRADO_VERTICAL } from './drawerLayout';
 
 const { Text } = Typography;
 
@@ -31,7 +32,7 @@ const FL = ({ label, required, children }) => (
 );
 
 const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
-    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
     const isMobile = useIsMobile();
     const [form] = Form.useForm();
     const [saving, setSaving] = useState(false);
@@ -136,12 +137,13 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                 extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} />}
                 rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
                 styles={{
-                    body: { background: 'var(--qc-bg)', padding: isMobile ? '16px' : '24px', overflowX: 'hidden' },
+                    body: { background: 'var(--qc-bg)', padding: isMobile ? '16px' : '24px', overflowX: 'hidden', ...CUERPO_FLEX },
                     wrapper: isMobile ? { height: '100%', width: '100%' } : {},
                 }}
+                /* Footer fijo: en móvil evita tener que bajar todo el formulario para guardar.
+                   Cerrar se hace con la X del encabezado, por eso ya no hay Cancelar. */
                 footer={
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
-                        <Button onClick={onClose} disabled={saving}>Cancelar</Button>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 0' }}>
                         <Button
                             type="primary"
                             danger
@@ -149,12 +151,12 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                             icon={<SaveOutlined />}
                             onClick={handleSave}
                         >
-                            {initialValues ? 'Actualizar' : 'Guardar Gasto'}
+                            Guardar
                         </Button>
                     </div>
                 }
             >
-                <Form form={form} layout="vertical" requiredMark={false}>
+                <Form form={form} layout="vertical" requiredMark={false} style={CONTENIDO_CENTRADO_VERTICAL}>
 
                     {/* ── CONTACTO PROVEEDOR ──────────────────── */}
                     <div style={{ background: 'var(--qc-surface)', border: '1px solid var(--qc-border)', borderRadius: 10, padding: '16px 18px', marginBottom: 16 }}>
@@ -307,6 +309,8 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                                             addonAfter={currSuffix}
                                             formatter={currFormatter}
                                             parser={currParser}
+                                            precision={currPrecision}
+                                            step={currStep}
                                         />
                                     </Form.Item>
                                 </FL>

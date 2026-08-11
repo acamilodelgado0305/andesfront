@@ -8,6 +8,7 @@ import {
 } from "@ant-design/icons";
 import { getAllPayments, getStudentsWithoutPayment } from "../../services/payment/paymentService";
 import moment from "moment";
+import { useAmount } from "../../hooks/useCurrency";
 import dayjs from "dayjs";
 import "moment/locale/es";
 
@@ -34,6 +35,7 @@ const QUICK_RANGES = [
 ];
 
 const PaymentsTab = () => {
+  const fmtMonto = useAmount();
   const [dateRange, setDateRange] = useState([
     moment().startOf("month"),
     moment().endOf("month"),
@@ -194,7 +196,7 @@ const PaymentsTab = () => {
       key: "monto",
       render: (val) => (
         <Text strong style={{ color: "#155153" }}>
-          ${parseFloat(val || 0).toLocaleString("es-CO")}
+          ${fmtMonto(val)}
         </Text>
       ),
       sorter: (a, b) => parseFloat(a.monto) - parseFloat(b.monto),
@@ -240,9 +242,9 @@ const PaymentsTab = () => {
         return (
           <Tooltip title={
             <div>
-              <div>Abonado: <b>${abonado.toLocaleString("es-CO")}</b></div>
-              <div>Total: <b>${total.toLocaleString("es-CO")}</b></div>
-              <div>Pendiente: <b>${Math.max(0, total - abonado).toLocaleString("es-CO")}</b></div>
+              <div>Abonado: <b>${fmtMonto(abonado)}</b></div>
+              <div>Total: <b>${fmtMonto(total)}</b></div>
+              <div>Pendiente: <b>${fmtMonto(Math.max(0, total - abonado))}</b></div>
             </div>
           }>
             <div style={{ minWidth: 140 }}>
@@ -312,9 +314,9 @@ const PaymentsTab = () => {
                 <Tooltip key={p.nombre} title={
                   <div>
                     <div style={{ fontWeight: 600, marginBottom: 2 }}>{p.nombre}</div>
-                    <div>Abonado: <b>${Number(p.total_abonado).toLocaleString("es-CO")}</b></div>
-                    <div>Total: <b>${Number(p.monto_total).toLocaleString("es-CO")}</b></div>
-                    <div>Pendiente: <b>${Math.max(0, p.monto_total - p.total_abonado).toLocaleString("es-CO")}</b></div>
+                    <div>Abonado: <b>${fmtMonto(p.total_abonado)}</b></div>
+                    <div>Total: <b>${fmtMonto(p.monto_total)}</b></div>
+                    <div>Pendiente: <b>${fmtMonto(Math.max(0, p.monto_total - p.total_abonado))}</b></div>
                   </div>
                 }>
                   <div style={{ minWidth: 160 }}>
@@ -376,7 +378,7 @@ const PaymentsTab = () => {
         <StatCard label="Total pagos" value={filtered.length} color="#155153" />
         <StatCard
           label="Monto total"
-          value={`$${totalMonto.toLocaleString("es-CO")}`}
+          value={`$${fmtMonto(totalMonto)}`}
           color="#0f9b0f"
           icon={<DollarOutlined />}
         />
@@ -384,7 +386,7 @@ const PaymentsTab = () => {
           <StatCard
             key={method}
             label={method}
-            value={`$${monto.toLocaleString("es-CO")}`}
+            value={`$${fmtMonto(monto)}`}
             color={METHOD_COLORS[method] ? undefined : "#595959"}
             tagColor={METHOD_COLORS[method]}
           />

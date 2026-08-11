@@ -10,7 +10,7 @@ import {
 import dayjs from 'dayjs';
 
 import { cuentaOptions } from '../Certificados/options';
-import { useCurrencyInput } from '../../hooks/useCurrency';
+import { useCurrencyInput, useAmount } from '../../hooks/useCurrency';
 import { restockInventario } from '../../services/inventario/inventarioService';
 import useIsMobile from '../../hooks/useIsMobile';
 
@@ -29,7 +29,8 @@ const FL = ({ label, required, hint, children }) => (
 const RestockDrawer = ({ open, onClose, onSuccess, producto }) => {
     const [form] = Form.useForm();
     const isMobile = useIsMobile();
-    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
+    const monto = useAmount();
 
     const cantidad   = Form.useWatch('cantidad_a_agregar', form) || 0;
     const precioUnit = Form.useWatch('precio_unitario_compra', form) || 0;
@@ -156,6 +157,8 @@ const RestockDrawer = ({ open, onClose, onSuccess, producto }) => {
                                 addonAfter={currSuffix}
                                 formatter={currFormatter}
                                 parser={currParser}
+                                precision={currPrecision}
+                                step={currStep}
                                 placeholder="0"
                             />
                         </Form.Item>
@@ -175,7 +178,7 @@ const RestockDrawer = ({ open, onClose, onSuccess, producto }) => {
                                     <Text style={{ fontSize: 13, color: '#166534' }}>Se registrará un egreso</Text>
                                 </Space>
                                 <Text strong style={{ fontSize: 15, color: '#166534' }}>
-                                    ${valorTotal.toLocaleString('es-CO')}
+                                    ${monto(valorTotal)}
                                 </Text>
                             </>
                         ) : (

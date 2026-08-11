@@ -14,9 +14,10 @@ import {
 import { cuentaOptions } from '../options';
 import { createIngreso, updateIngreso } from '../../../services/controlapos/posService';
 import { getInventario } from '../../../services/inventario/inventarioService';
-import { getPersonas } from '../../../services/person/personaService';
+import { getPersonas, getPersonaById } from '../../../services/person/personaService';
 import PersonaFormDrawer from '../../personas/PersonaFormDrawer';
-import { useCurrencyInput } from '../../../hooks/useCurrency';
+import { CUERPO_FLEX, CONTENIDO_CENTRADO_VERTICAL } from './drawerLayout';
+import { useCurrencyInput, useAmount } from '../../../hooks/useCurrency';
 import useIsMobile from '../../../hooks/useIsMobile';
 
 const { Title, Text } = Typography;
@@ -38,6 +39,7 @@ const emptyLine = () => ({ name: '', qty: 1 });
 
 const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, initialPersona }) => {
     const { prefix: currPrefix } = useCurrencyInput();
+    const monto = useAmount();
     const isMobile = useIsMobile();
     const [form] = Form.useForm();
     const [inventario, setInventario]               = useState([]);
@@ -52,11 +54,29 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
     const [selectedPersona, setSelectedPersona]     = useState(null);
     const [personaDrawerOpen, setPersonaDrawerOpen] = useState(false);
     const [editingPersona, setEditingPersona]       = useState(null);
+    const [cargandoPersona, setCargandoPersona]     = useState(false);
 
     // Abrir el sub-drawer en modo crear o editar
     const abrirCrearPersona = () => { setEditingPersona(null); setPersonaDrawerOpen(true); };
-    const abrirEditarPersona = () => { setEditingPersona(selectedPersona); setPersonaDrawerOpen(true); };
     const cerrarPersonaDrawer = () => { setPersonaDrawerOpen(false); setEditingPersona(null); };
+
+    // Al editar traemos el contacto completo: al abrir un ingreso existente
+    // solo tenemos un resumen (id/nombre/documento) y guardaríamos vacíos
+    // el correo, celular y dirección.
+    const abrirEditarPersona = async () => {
+        if (!selectedPersona?.id) return;
+        setCargandoPersona(true);
+        try {
+            const completo = await getPersonaById(selectedPersona.id);
+            if (completo?.id) setSelectedPersona(prev => ({ ...prev, ...completo }));
+            setEditingPersona(completo?.id ? completo : selectedPersona);
+        } catch {
+            setEditingPersona(selectedPersona);
+        } finally {
+            setCargandoPersona(false);
+            setPersonaDrawerOpen(true);
+        }
+    };
 
     // ── Envío de certificado por correo ───────────────────────
     const [enviarCorreo, setEnviarCorreo]           = useState(false);
@@ -83,11 +103,30 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
     // ── Cargar inventario ─────────────────────────────────────
     useEffect(() => {
         if (!open) return;
+
+        // `vigente` descarta la respuesta de una petición que ya quedó obsoleta
+        // (el drawer se cerró, o React volvió a montar el efecto). Sin esto, una
+        // petición superada mostraba el error aunque el inventario sí cargara.
+        let vigente = true;
         setLoadingInventario(true);
+
         getInventario()
-            .then(data => setInventario(Array.isArray(data) ? data : []))
-            .catch(() => message.error('No se pudo cargar el inventario.'))
-            .finally(() => setLoadingInventario(false));
+            .then(data => {
+                if (!vigente) return;
+                // El endpoint devuelve un arreglo, pero se acepta {data:[...]}
+                // igual que en Certificados, para no quedar con catálogo vacío.
+                setInventario(Array.isArray(data) ? data : (data?.data || []));
+            })
+            .catch(err => {
+                if (!vigente) return;
+                console.error('Error cargando inventario en IngresoDrawer:', err);
+                message.error('No se pudo cargar el inventario.');
+            })
+            .finally(() => {
+                if (vigente) setLoadingInventario(false);
+            });
+
+        return () => { vigente = false; };
     }, [open]);
 
     // ── Reset / poblar al abrir ───────────────────────────────
@@ -286,26 +325,29 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                 extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} />}
                 rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
                 styles={{
-                    body: { background: 'var(--qc-bg)', padding: isMobile ? '14px' : '18px', overflowX: 'hidden' },
+                    body: { background: 'var(--qc-bg)', padding: isMobile ? '14px' : '18px', overflowX: 'hidden', ...CUERPO_FLEX },
                     wrapper: isMobile ? { height: '100%', width: '100%' } : {},
                 }}
+                /* Footer fijo: en móvil evita tener que bajar todo el formulario para guardar.
+                   Cerrar se hace con la X del encabezado, por eso ya no hay Cancelar. */
                 footer={
-                    <div style={{ textAlign: 'right', padding: '10px 0' }}>
-                        <Button onClick={onClose} style={{ marginRight: 8 }} disabled={saving}>Cancelar</Button>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 0' }}>
                         <Dropdown.Button
                             type="primary"
                             loading={saving}
                             onClick={() => handleSave(false)}
                             overlay={menu}
                             icon={<DownOutlined />}
-                            style={{ '--ant-color-primary': '#155153' }}
+                            /* antd fuerza block:true en Dropdown.Button (ocupa todo el ancho);
+                               width:auto lo deja del tamaño de su contenido para que sí se alinee */
+                            style={{ '--ant-color-primary': '#155153', width: 'auto' }}
                         >
-                            <SaveOutlined /> {initialValues ? 'Actualizar' : 'Guardar Venta'}
+                            <SaveOutlined /> Guardar
                         </Dropdown.Button>
                     </div>
                 }
             >
-                <Form form={form} layout="vertical">
+                <Form form={form} layout="vertical" style={CONTENIDO_CENTRADO_VERTICAL}>
 
                     {/* ── CONTACTO ─────────────────────────────── */}
                     <SECTION icon={<UserOutlined />} title="Contacto (opcional)">
@@ -334,6 +376,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                                 <Button type="text" size="small"
                                     icon={<EditOutlined style={{ color: '#155153' }} />}
                                     onClick={abrirEditarPersona}
+                                    loading={cargandoPersona}
                                     title="Editar contacto"
                                 />
                                 <Button type="text" size="small"
@@ -465,7 +508,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.data.label}</span>
                                                         <span style={{ color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>
-                                                            ${opt.data.precio?.toLocaleString('es-CO')}
+                                                            ${monto(opt.data.precio)}
                                                         </span>
                                                     </div>
                                                 )}
@@ -478,8 +521,8 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                                                 color: bajo ? '#f59e0b' : '#94a3b8' }}>
                                                 {li.name
                                                     ? inv?.tipo === 'servicio'
-                                                        ? `$${parseFloat(inv.monto || 0).toLocaleString('es-CO')} c/u`
-                                                        : `$${parseFloat(inv?.monto || 0).toLocaleString('es-CO')} c/u${bajo ? ` · stock: ${inv.cantidad}` : ''}`
+                                                        ? `$${monto(inv.monto)} c/u`
+                                                        : `$${monto(inv?.monto)} c/u${bajo ? ` · stock: ${inv.cantidad}` : ''}`
                                                     : ' '}
                                             </div>
                                         </div>
@@ -500,7 +543,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                                             color: li.name ? '#155153' : '#d1d5db',
                                             marginTop: 4,
                                         }}>
-                                            {li.name ? `$${sub.toLocaleString('es-CO')}` : '—'}
+                                            {li.name ? `$${monto(sub)}` : '—'}
                                         </div>
 
                                         {/* Eliminar fila */}

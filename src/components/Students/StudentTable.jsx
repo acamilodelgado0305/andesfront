@@ -30,6 +30,7 @@ import moment from "moment";
 import { bulkMoveToPrograma } from "../../services/student/studentService";
 import { getProgramas } from "../../services/programas/programasService";
 import StudentDetailDrawer from "./StudentDetailDrawer";
+import { useAmount } from "../../hooks/useCurrency";
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -48,6 +49,7 @@ const ARCHIVE_REASONS = [
 ];
 
 const StudentTable = ({ onArchive, onRestore, showArchived = false, students = [], loading = false, onFilteredDataChange, onStudentsMoved, searchTerm = "", onSearchChange }) => {
+  const fmtMonto = useAmount();
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [archiveModal, setArchiveModal] = useState({ open: false, studentId: null, studentName: "" });
   const [archiveReason, setArchiveReason] = useState(null);
@@ -653,9 +655,9 @@ const StudentTable = ({ onArchive, onRestore, showArchived = false, students = [
         return (
           <Tooltip title={
             <div>
-              <div>Abonado: <b>${abonado.toLocaleString("es-CO")}</b></div>
-              <div>Total: <b>${total.toLocaleString("es-CO")}</b></div>
-              <div>Pendiente: <b>${Math.max(0, total - abonado).toLocaleString("es-CO")}</b></div>
+              <div>Abonado: <b>${fmtMonto(abonado)}</b></div>
+              <div>Total: <b>${fmtMonto(total)}</b></div>
+              <div>Pendiente: <b>${fmtMonto(Math.max(0, total - abonado))}</b></div>
             </div>
           }>
             <div style={{ minWidth: 140 }}>

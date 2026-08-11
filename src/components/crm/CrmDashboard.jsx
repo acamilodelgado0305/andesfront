@@ -80,7 +80,7 @@ const EstadoTag = ({ estado }) => {
 // ═══════════════════════════════════════════════════════════
 function CrmDashboard() {
   const fmt = useCurrency();
-  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
@@ -660,7 +660,8 @@ function CrmDashboard() {
           <Form.Item name="valor_estimado"
             label={<span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>Valor estimado del negocio</span>}>
             <InputNumber size="large" className="w-full" placeholder="0" min={0}
-              addonAfter={currSuffix} formatter={currFormatter} parser={currParser} />
+              addonAfter={currSuffix} formatter={currFormatter} parser={currParser}
+              precision={currPrecision} step={currStep} />
           </Form.Item>
 
           <Form.Item name="notas"

@@ -4,8 +4,11 @@
  *
  * Uso display:
  *   const fmt = useCurrency();
- *   fmt(150000)   →  "COP 150.000"  (Colombia)
- *   fmt(150000)   →  "MXN 150,000"  (México)
+ *   fmt(150000)   →  "COP 150.000,00"  (Colombia)
+ *   fmt(150000)   →  "MXN 150,000.00"  (México)
+ *
+ *   const monto = useAmount();
+ *   monto(150000) →  "150.000,00"      (sin código de moneda)
  *
  * Uso en InputNumber:
  *   const { prefix, formatter, parser } = useCurrencyInput();
@@ -15,32 +18,35 @@
  */
 import { useContext } from 'react';
 import { AuthContext } from '../AuthContext';
-import { formatCurrency, getInputCurrencyProps } from '../utils/currency';
+import { formatCurrency, formatAmount, getInputCurrencyProps } from '../utils/currency';
 
-/** Formateo de moneda para mostrar: "COP 150.000", "MXN 150,000" */
-const useCurrency = () => {
-  let country = 'CO';
+/** País del negocio activo; Colombia si no hay contexto disponible */
+const useCountry = () => {
   try {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const ctx = useContext(AuthContext);
-    country = ctx?.user?.country || 'CO';
+    return ctx?.user?.country || 'CO';
   } catch (_) {
-    // contexto no disponible — usa Colombia
+    return 'CO';
   }
+};
+
+/** Formateo de moneda para mostrar: "COP 25.000,00", "MXN 25,000.00" */
+const useCurrency = () => {
+  const country = useCountry();
   return (value) => formatCurrency(value, country);
 };
 
-/** Props listas para <InputNumber prefix formatter parser /> */
-export const useCurrencyInput = () => {
-  let country = 'CO';
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const ctx = useContext(AuthContext);
-    country = ctx?.user?.country || 'CO';
-  } catch (_) {
-    // contexto no disponible — usa Colombia
-  }
-  return getInputCurrencyProps(country);
+/**
+ * Solo el número, sin el código de moneda: "25.000,00".
+ * Para espacios angostos donde el `$` ya está en el diseño.
+ */
+export const useAmount = () => {
+  const country = useCountry();
+  return (value) => formatAmount(value, country);
 };
+
+/** Props listas para <InputNumber prefix formatter parser precision step /> */
+export const useCurrencyInput = () => getInputCurrencyProps(useCountry());
 
 export default useCurrency;

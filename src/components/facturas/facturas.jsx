@@ -47,7 +47,7 @@ const Payments = () => {
     const [montoEsperadoMensualidad, setMontoEsperadoMensualidad] = useState(null);
 
     const formatCurrency = useCurrency();
-    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+    const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
 
     // --- UTILITIES ---
     const formatDateToMonth = (dateString) => {
@@ -496,6 +496,8 @@ const Payments = () => {
                             addonAfter={currSuffix}
                             formatter={currFormatter}
                             parser={currParser}
+                            precision={currPrecision}
+                            step={currStep}
                             min={0}
                         />
                     </Form.Item>

@@ -17,7 +17,7 @@ import { getPersonas } from '../../services/person/personaService';
 import { getInventario } from '../../services/inventario/inventarioService';
 import PersonaFormDrawer from '../personas/PersonaFormDrawer';
 import FacturaViewer from './FacturaViewer';
-import useCurrency from '../../hooks/useCurrency';
+import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -105,6 +105,7 @@ const DescripcionInput = ({ item, inventario, onUpdate, formatCurrency }) => {
 // ─── Formulario principal ─────────────────────────────────────────────────────
 const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 'COTIZACION' }) => {
   const formatCurrency = useCurrency();
+  const { formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
   const [form] = Form.useForm();
 
   const [tipo, setTipo]       = useState(defaultTipo);
@@ -551,8 +552,10 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
 
                   <InputNumber min={0} style={{ width: '100%' }}
                     value={item.precio_unitario}
-                    formatter={(v) => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={(v) => v.replace(/\$\s?|(,*)/g, '')}
+                    formatter={currFormatter}
+                    parser={currParser}
+                    precision={currPrecision}
+                    step={currStep}
                     onChange={(v) => actualizarItem(item.key, 'precio_unitario', v)} />
 
                   <InputNumber min={0} max={100} style={{ width: '100%' }}

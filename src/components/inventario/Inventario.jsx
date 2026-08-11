@@ -270,7 +270,7 @@ const ProductoInformeModal = ({ item, onClose, onPhotoUpdated, fmt }) => {
 // ═══════════════════════════════════════════════════════════
 function Inventario() {
   const fmt = useCurrency();
-  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
   const isMobile = useIsMobile();
 
   const [items, setItems]               = useState([]);
@@ -903,6 +903,7 @@ function Inventario() {
                 style={{ marginBottom:14 }}>
                 <InputNumber size="large" className="w-full" placeholder="0" min={0}
                   addonAfter={currSuffix} formatter={currFormatter} parser={currParser}
+                  precision={currPrecision} step={currStep}
                   onChange={v=>setPrecioCompra(v||0)}/>
               </Form.Item>
             </Col>
@@ -913,6 +914,7 @@ function Inventario() {
                 style={{ marginBottom:14 }}>
                 <InputNumber size="large" className="w-full" placeholder="0" min={0}
                   addonAfter={currSuffix} formatter={currFormatter} parser={currParser}
+                  precision={currPrecision} step={currStep}
                   onChange={v=>setPrecioVenta(v||0)}/>
               </Form.Item>
             </Col>

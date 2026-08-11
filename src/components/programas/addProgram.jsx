@@ -9,7 +9,7 @@ const { Text } = Typography;
 
 const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
   const fmt = useCurrency();
-  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser } = useCurrencyInput();
+  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [totalCalculado, setTotalCalculado] = useState(0);
@@ -196,6 +196,8 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
                 style={{ width: '100%' }}
                 addonAfter={currSuffix} formatter={currFormatter}
                 parser={currParser}
+                precision={currPrecision}
+                step={currStep}
               />
             </Form.Item>
           </Col>
@@ -209,6 +211,8 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
                 style={{ width: '100%' }}
                 addonAfter={currSuffix} formatter={currFormatter}
                 parser={currParser}
+                precision={currPrecision}
+                step={currStep}
               />
             </Form.Item>
           </Col>
@@ -221,6 +225,8 @@ const CreateProgramModal = ({ isOpen, onClose, onSuccess, programToEdit }) => {
                 style={{ width: '100%' }}
                 addonAfter={currSuffix} formatter={currFormatter}
                 parser={currParser}
+                precision={currPrecision}
+                step={currStep}
               />
             </Form.Item>
           </Col>

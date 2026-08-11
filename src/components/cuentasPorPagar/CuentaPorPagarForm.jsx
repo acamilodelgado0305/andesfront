@@ -39,7 +39,7 @@ const calcularResumenPrestamo = (capital, tasaEa, numCuotas) => {
 import { createCuentaPorPagar, updateCuentaPorPagar } from '../../services/cuentaPorPagar/cuentaPorPagarService';
 import { getPersonas } from '../../services/person/personaService';
 import PersonaFormDrawer from '../personas/PersonaFormDrawer';
-import useCurrency from '../../hooks/useCurrency';
+import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -48,6 +48,7 @@ const ACCENT = '#1d4ed8'; // azul del tema → botones, iconos, selección (igua
 
 const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
   const formatCurrency = useCurrency();
+  const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
   const [form] = Form.useForm();
 
   const [total, setTotal]   = useState(0);
@@ -255,8 +256,11 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
                   style={{ width: '100%' }} size="large" min={0}
                   value={total}
                   onChange={(v) => setTotal(v || 0)}
-                  formatter={(v) => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(v) => v.replace(/\$\s?|(,*)/g, '')}
+                  addonAfter={currSuffix}
+                  formatter={currFormatter}
+                  parser={currParser}
+                  precision={currPrecision}
+                  step={currStep}
                   placeholder="0"
                 />
               </Form.Item>
@@ -289,8 +293,11 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
                 >
                   <InputNumber
                     style={{ width: '100%' }} min={0} disabled={loanLocked}
-                    formatter={(v) => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={(v) => v.replace(/\$\s?|(,*)/g, '')}
+                    addonAfter={currSuffix}
+                    formatter={currFormatter}
+                    parser={currParser}
+                    precision={currPrecision}
+                    step={currStep}
                     placeholder="0"
                   />
                 </Form.Item>
