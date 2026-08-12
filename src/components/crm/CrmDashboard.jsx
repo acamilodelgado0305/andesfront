@@ -334,6 +334,27 @@ function CrmDashboard() {
   // ── Columnas ──
   const columns = [
     {
+      title: 'Registro', dataIndex: 'created_at', key: 'created_at', width: 130,
+      defaultSortOrder: 'descend',
+      sorter: (a, b) => moment(a.created_at).valueOf() - moment(b.created_at).valueOf(),
+      render: (v) => {
+        if (!v) return <span className="text-gray-300 dark:text-[#5a5751]">—</span>;
+        const m = moment(v);
+        return (
+          <Tooltip title={m.format('dddd D [de] MMMM [de] YYYY, h:mm:ss a')}>
+            <div style={{ lineHeight: 1.3 }}>
+              <div className="text-xs font-semibold text-gray-700 dark:text-[#faf9f5] whitespace-nowrap">
+                {m.format('DD/MM/YYYY')}
+              </div>
+              <div className="text-[11px] text-gray-400 dark:text-[#a8a59e] whitespace-nowrap">
+                {m.format('hh:mm a')}
+              </div>
+            </div>
+          </Tooltip>
+        );
+      },
+    },
+    {
       title: 'Lead', key: 'nombre',
       render: (_, r) => (
         <div>
@@ -409,6 +430,11 @@ function CrmDashboard() {
             background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb',
             padding: 14, marginBottom: 10, cursor: 'pointer',
           }}>
+            {r.created_at && (
+              <div className="text-[11px] text-gray-400 dark:text-[#a8a59e]" style={{ marginBottom: 4 }}>
+                {moment(r.created_at).format('DD/MM/YYYY · hh:mm a')}
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontWeight: 700, color: '#1f2937', fontSize: 15, display: 'block' }}>{r.nombre}</span>
@@ -578,7 +604,7 @@ function CrmDashboard() {
                   </Empty>
                 )}}
                 pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t, r) => `${r[0]}-${r[1]} de ${t}` }}
-                scroll={{ x: 760 }}
+                scroll={{ x: 890 }}
               />
             </Spin>
           </div>
