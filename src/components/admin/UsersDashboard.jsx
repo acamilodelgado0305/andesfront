@@ -8,7 +8,7 @@ import {
   PlusOutlined, DeleteOutlined, KeyOutlined, UserOutlined, MailOutlined,
   SafetyCertificateOutlined, EditOutlined, SaveOutlined, CloseOutlined,
   WarningOutlined, ShopOutlined, EnvironmentOutlined, PhoneOutlined,
-  GlobalOutlined, BankOutlined, CameraOutlined, BuildOutlined,
+  GlobalOutlined, BankOutlined, CameraOutlined, BuildOutlined, IdcardOutlined,
   CheckCircleOutlined, LoadingOutlined, TeamOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
@@ -96,6 +96,7 @@ const TabInfoNegocio = ({ user, login, patchUser }) => {
         setBizData(data);
         infoForm.setFieldsValue({
           name:          data.name          || '',
+          nit:           data.nit           || '',
           country:       data.country       || user.country || 'CO',
           city:          data.city          || '',
           address:       data.address       || '',
@@ -116,6 +117,7 @@ const TabInfoNegocio = ({ user, login, patchUser }) => {
         `${API_AUTH_URL}/api/businesses/my`,
         {
           name:          values.name?.trim(),
+          nit:           values.nit?.trim()           || null,
           country:       values.country       || null,
           city:          values.city?.trim()          || null,
           address:       values.address?.trim()       || null,
@@ -218,16 +220,32 @@ const TabInfoNegocio = ({ user, login, patchUser }) => {
 
         <Form form={infoForm} layout="vertical" onFinish={handleSave} requiredMark={false}>
 
-          {/* Nombre */}
-          <Form.Item
-            name="name"
-            label={<FieldLabel required>Nombre del negocio</FieldLabel>}
-            rules={[{ required: true, message: 'El nombre es obligatorio' }]}
-            style={{ marginBottom: 16 }}
-          >
-            <Input size="large" prefix={<ShopOutlined style={{ color: '#94a3b8' }} />}
-              placeholder="Mi Empresa S.A.S." />
-          </Form.Item>
+          <Row gutter={14}>
+            {/* Nombre */}
+            <Col xs={24} sm={14}>
+              <Form.Item
+                name="name"
+                label={<FieldLabel required>Nombre del negocio</FieldLabel>}
+                rules={[{ required: true, message: 'El nombre es obligatorio' }]}
+                style={{ marginBottom: 16 }}
+              >
+                <Input size="large" prefix={<ShopOutlined style={{ color: '#94a3b8' }} />}
+                  placeholder="Mi Empresa S.A.S." />
+              </Form.Item>
+            </Col>
+            {/* NIT (opcional — no todos los negocios tienen) */}
+            <Col xs={24} sm={10}>
+              <Form.Item
+                name="nit"
+                label={<FieldLabel>NIT</FieldLabel>}
+                rules={[{ max: 30, message: 'Máximo 30 caracteres' }]}
+                style={{ marginBottom: 16 }}
+              >
+                <Input size="large" prefix={<IdcardOutlined style={{ color: '#94a3b8' }} />}
+                  placeholder="900.123.456-7 (opcional)" />
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Divider style={{ margin: '4px 0 18px' }}>
             <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>UBICACIÓN</span>
@@ -311,6 +329,7 @@ const TabInfoNegocio = ({ user, login, patchUser }) => {
               border: '1px solid #e5e7eb', marginBottom: 20,
               display: 'flex', flexWrap: 'wrap', gap: 8,
             }}>
+              {bizData.nit && <Tag icon={<IdcardOutlined />}>NIT: {bizData.nit}</Tag>}
               {bizData.industry && <Tag icon={<BankOutlined />} color="blue">{bizData.industry}</Tag>}
               {bizData.country && (
                 <Tag>

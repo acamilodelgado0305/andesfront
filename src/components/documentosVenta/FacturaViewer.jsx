@@ -11,6 +11,9 @@ import { AuthContext } from '../../AuthContext';
 const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
 const getAuthHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
 
+// Logo del negocio: el endpoint devuelve la columna snake_case, pero el público usa camelCase
+const getBizLogo = (biz) => biz?.profile_picture_url || biz?.profilePictureUrl || null;
+
 const parseItems = (raw) => {
   if (Array.isArray(raw)) return raw;
   try { return JSON.parse(raw); } catch { return []; }
@@ -155,14 +158,21 @@ const DisenoCorporativa = ({ doc, items, formatCurrency, biz }) => {
     <div style={{ fontFamily: 'Arial, sans-serif', background: '#fff', minHeight: 900 }}>
       {/* Barra superior azul oscuro */}
       <div style={{ background: '#0f172a', padding: '28px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ color: '#fff', fontSize: 26, fontWeight: 800, letterSpacing: 1 }}>FACTURA</div>
-          {biz?.name && <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>{biz.name}</div>}
-          {(biz?.address || biz?.city) && (
-            <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{[biz.address, biz.city].filter(Boolean).join(' · ')}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {getBizLogo(biz) && (
+            <img src={getBizLogo(biz)} alt="Logo"
+              style={{ width: 60, height: 60, objectFit: 'contain', background: '#fff', borderRadius: 10, padding: 5, flexShrink: 0 }} />
           )}
-          {biz?.phone && <div style={{ color: '#64748b', fontSize: 11 }}>{biz.phone}</div>}
-          {biz?.contact_email && <div style={{ color: '#64748b', fontSize: 11 }}>{biz.contact_email}</div>}
+          <div>
+            <div style={{ color: '#fff', fontSize: 26, fontWeight: 800, letterSpacing: 1 }}>FACTURA</div>
+            {biz?.name && <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>{biz.name}</div>}
+            {biz?.nit && <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>NIT: {biz.nit}</div>}
+            {(biz?.address || biz?.city) && (
+              <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{[biz.address, biz.city].filter(Boolean).join(' · ')}</div>
+            )}
+            {biz?.phone && <div style={{ color: '#64748b', fontSize: 11 }}>{biz.phone}</div>}
+            {biz?.contact_email && <div style={{ color: '#64748b', fontSize: 11 }}>{biz.contact_email}</div>}
+          </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ color: '#cbd5e1', fontSize: 22, fontWeight: 700 }}>{doc.numero || '—'}</div>
@@ -237,14 +247,21 @@ const DisenoModerna = ({ doc, items, formatCurrency, biz }) => {
       {/* Header degradado violeta-azul */}
       <div style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%)', padding: '36px 44px 32px', color: '#fff' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 11, letterSpacing: 3, fontWeight: 700, opacity: 0.7, marginBottom: 6 }}>FACTURA</div>
-            <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: -1 }}>{doc.numero || '—'}</div>
-            {biz?.name && <div style={{ fontSize: 13, opacity: 0.85, marginTop: 8, fontWeight: 600 }}>{biz.name}</div>}
-            {(biz?.address || biz?.city) && (
-              <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>{[biz.address, biz.city].filter(Boolean).join(', ')}</div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+            {getBizLogo(biz) && (
+              <img src={getBizLogo(biz)} alt="Logo"
+                style={{ width: 60, height: 60, objectFit: 'contain', background: '#fff', borderRadius: 12, padding: 5, flexShrink: 0 }} />
             )}
-            {biz?.phone && <div style={{ fontSize: 11, opacity: 0.65 }}>{biz.phone}</div>}
+            <div>
+              <div style={{ fontSize: 11, letterSpacing: 3, fontWeight: 700, opacity: 0.7, marginBottom: 6 }}>FACTURA</div>
+              <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: -1 }}>{doc.numero || '—'}</div>
+              {biz?.name && <div style={{ fontSize: 13, opacity: 0.85, marginTop: 8, fontWeight: 600 }}>{biz.name}</div>}
+              {biz?.nit && <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>NIT: {biz.nit}</div>}
+              {(biz?.address || biz?.city) && (
+                <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>{[biz.address, biz.city].filter(Boolean).join(', ')}</div>
+              )}
+              {biz?.phone && <div style={{ fontSize: 11, opacity: 0.65 }}>{biz.phone}</div>}
+            </div>
           </div>
           <div style={{ textAlign: 'right', fontSize: 13 }}>
             <div style={{ opacity: 0.7, fontSize: 10, letterSpacing: 2, fontWeight: 700, marginBottom: 6 }}>FECHA EMISIÓN</div>
@@ -320,11 +337,17 @@ const DisenoEjecutiva = ({ doc, items, formatCurrency, biz }) => {
       <div style={{ width: 210, background: '#111827', flexShrink: 0, padding: '36px 24px', display: 'flex', flexDirection: 'column', gap: 28 }}>
         {/* Logo/empresa */}
         <div>
-          <div style={{ width: 40, height: 4, background: '#10b981', borderRadius: 2, marginBottom: 14 }} />
+          {getBizLogo(biz) ? (
+            <img src={getBizLogo(biz)} alt="Logo"
+              style={{ width: 64, height: 64, objectFit: 'contain', background: '#fff', borderRadius: 10, padding: 5, marginBottom: 14, display: 'block' }} />
+          ) : (
+            <div style={{ width: 40, height: 4, background: '#10b981', borderRadius: 2, marginBottom: 14 }} />
+          )}
           {biz?.name
             ? <div style={{ color: '#f9fafb', fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{biz.name}</div>
             : <div style={{ color: '#6b7280', fontSize: 12, fontStyle: 'italic' }}>Mi Empresa</div>
           }
+          {biz?.nit && <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 4 }}>NIT: {biz.nit}</div>}
           {(biz?.address || biz?.city) && (
             <div style={{ color: '#6b7280', fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>{[biz.address, biz.city].filter(Boolean).join('\n')}</div>
           )}

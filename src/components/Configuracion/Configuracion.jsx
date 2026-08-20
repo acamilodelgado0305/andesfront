@@ -6,7 +6,7 @@ import {
 import {
   EditOutlined, SaveOutlined, DeleteOutlined, ShopOutlined,
   WarningOutlined, EnvironmentOutlined, PhoneOutlined,
-  MailOutlined, GlobalOutlined, BankOutlined, CameraOutlined,
+  MailOutlined, GlobalOutlined, BankOutlined, CameraOutlined, IdcardOutlined,
   CheckCircleOutlined, LoadingOutlined, BuildOutlined,
   SunOutlined, MoonOutlined, DesktopOutlined, BgColorsOutlined,
 } from '@ant-design/icons';
@@ -128,6 +128,7 @@ export default function Configuracion() {
         setBizData(data);
         infoForm.setFieldsValue({
           name:          data.name        || '',
+          nit:           data.nit         || '',
           country:       data.country     || user.country || 'CO',
           industry:      data.industry    || undefined,
           phone:         data.phone       || '',
@@ -149,6 +150,7 @@ export default function Configuracion() {
         `${API_AUTH_URL}/api/businesses/my`,
         {
           name:          values.name?.trim(),
+          nit:           values.nit?.trim()           || null,
           country:       values.country,
           industry:      values.industry   || null,
           phone:         values.phone?.trim()         || null,
@@ -321,16 +323,32 @@ export default function Configuracion() {
               onFinish={handleSaveInfo}
               requiredMark={false}
             >
-              {/* Nombre */}
-              <Form.Item
-                name="name"
-                label={<FieldLabel required>Nombre del negocio</FieldLabel>}
-                rules={[{ required: true, message: 'El nombre es obligatorio' }, { min: 2, message: 'Mínimo 2 caracteres' }]}
-                style={{ marginBottom: 16 }}
-              >
-                <Input size="large" prefix={<ShopOutlined style={{ color: '#94a3b8' }} />}
-                  placeholder="Mi Empresa S.A.S." />
-              </Form.Item>
+              <Row gutter={14}>
+                {/* Nombre */}
+                <Col xs={24} sm={14}>
+                  <Form.Item
+                    name="name"
+                    label={<FieldLabel required>Nombre del negocio</FieldLabel>}
+                    rules={[{ required: true, message: 'El nombre es obligatorio' }, { min: 2, message: 'Mínimo 2 caracteres' }]}
+                    style={{ marginBottom: 16 }}
+                  >
+                    <Input size="large" prefix={<ShopOutlined style={{ color: '#94a3b8' }} />}
+                      placeholder="Mi Empresa S.A.S." />
+                  </Form.Item>
+                </Col>
+                {/* NIT (opcional — no todos los negocios tienen) */}
+                <Col xs={24} sm={10}>
+                  <Form.Item
+                    name="nit"
+                    label={<FieldLabel>NIT</FieldLabel>}
+                    rules={[{ max: 30, message: 'Máximo 30 caracteres' }]}
+                    style={{ marginBottom: 16 }}
+                  >
+                    <Input size="large" prefix={<IdcardOutlined style={{ color: '#94a3b8' }} />}
+                      placeholder="900.123.456-7 (opcional)" />
+                  </Form.Item>
+                </Col>
+              </Row>
 
               <Divider style={{ margin: '4px 0 18px' }}>
                 <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>UBICACIÓN</span>
@@ -455,6 +473,9 @@ export default function Configuracion() {
                   border: '1px solid #e5e7eb', marginBottom: 20,
                   display: 'flex', flexWrap: 'wrap', gap: 8,
                 }}>
+                  {bizData.nit && (
+                    <Tag icon={<IdcardOutlined />}>NIT: {bizData.nit}</Tag>
+                  )}
                   {bizData.industry && (
                     <Tag icon={<BankOutlined />} color="blue">{bizData.industry}</Tag>
                   )}
