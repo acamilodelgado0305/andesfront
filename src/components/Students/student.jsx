@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Button, message, Spin } from "antd";
+import { Button, message, Spin, Dropdown } from "antd";
 import {
   PlusOutlined,
   TeamOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
   ReloadOutlined,
   InboxOutlined,
   RollbackOutlined,
   DollarOutlined,
+  MoreOutlined,
 } from "@ant-design/icons";
 
 // Componentes y Servicios
@@ -33,6 +32,7 @@ const Students = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [activeTab, setActiveTab] = useState("estudiantes");
 
   // --- 1. CARGAR ESTUDIANTES ---
   const fetchStudents = useCallback(async () => {
@@ -116,38 +116,62 @@ const Students = () => {
     return { total, candidates, pendingPayment };
   }, [filteredTableData, filteredStudents]);
 
+  // Menú kebab (⋮) de las cards, estilo Google
+  const cardMenu = {
+    items: [{ key: "reload", label: "Recargar", icon: <ReloadOutlined /> }],
+    onClick: ({ key }) => {
+      if (key === "reload") fetchStudents();
+    },
+  };
+
   const statCards = [
     {
       key: "total",
-      label: "Total Estudiantes",
+      label: showArchived ? "Estudiantes archivados" : "Estudiantes",
       value: stats.total,
-      icon: <TeamOutlined />,
-      gradient: "linear-gradient(135deg, #155153, #28a5a5)",
-      shadowColor: "rgba(21, 81, 83, 0.25)",
+      hint: showArchived
+        ? "salieron de la lista principal"
+        : "en la lista actual",
+      action: !showArchived && (
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="mt-2 text-[13px] font-medium text-[#1a73e8] dark:text-[#8ab4f8] hover:underline bg-transparent border-0 p-0 cursor-pointer text-left"
+        >
+          Agregar estudiante
+        </button>
+      ),
     },
     {
       key: "candidates",
-      label: "Candidatos a Grado",
+      label: "Candidatos a grado",
       value: stats.candidates,
-      icon: <CheckCircleOutlined />,
-      gradient: "linear-gradient(135deg, #2c3e50, #5390d9)",
-      shadowColor: "rgba(44, 62, 80, 0.25)",
+      hint: "marcados como posibles graduandos",
     },
     {
       key: "pending",
-      label: "Matrícula Pendiente",
+      label: "Matrícula pendiente",
       value: stats.pendingPayment,
-      icon: <ClockCircleOutlined />,
-      gradient: "linear-gradient(135deg, #d4380d, #fa8c16)",
-      shadowColor: "rgba(212, 56, 13, 0.25)",
+      hint: "aún no han pagado la matrícula",
+      action: (
+        <button
+          type="button"
+          onClick={() => setActiveTab("pagos")}
+          className="mt-2 text-[13px] font-medium text-[#1a73e8] dark:text-[#8ab4f8] hover:underline bg-transparent border-0 p-0 cursor-pointer text-left"
+        >
+          Ver pagos
+        </button>
+      ),
     },
   ];
 
   const estudiantesTab = (
     <div style={{ paddingTop: 16 }}>
-      {/* STAT CARDS */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 28 }}>
-        {statCards.map((card) => <StatCard key={card.key} card={card} loading={loading} />)}
+      {/* STAT CARDS (estilo Google) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 28 }}>
+        {statCards.map((card) => (
+          <StatCard key={card.key} card={card} loading={loading} menu={cardMenu} />
+        ))}
       </div>
 
       {/* BANNER ARCHIVADOS */}
@@ -178,8 +202,6 @@ const Students = () => {
       <CreateStudentModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onStudentAdded={handleStudentAdded} />
     </div>
   );
-
-  const [activeTab, setActiveTab] = useState("estudiantes");
 
   const tabs = [
     { key: "estudiantes", label: "Estudiantes", icon: <TeamOutlined /> },
@@ -254,90 +276,46 @@ const Students = () => {
   );
 };
 
-/* ===== Stat Card Component ===== */
-function StatCard({ card, loading }) {
-  const [hovered, setHovered] = useState(false);
-
+/* ===== Stat Card estilo Google (título + kebab, cifra grande, texto de apoyo, enlace azul) ===== */
+function StatCard({ card, loading, menu }) {
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        borderRadius: 16,
-        padding: "20px 22px",
-        background: "#fff",
-        border: "1px solid #e8ecf0",
-        transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        transform: hovered ? "translateY(-3px)" : "translateY(0)",
-        boxShadow: hovered
-          ? `0 12px 28px ${card.shadowColor}`
-          : "0 2px 8px rgba(0,0,0,0.05)",
-        cursor: "default",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Decorative gradient bar */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 4,
-          background: card.gradient,
-          borderRadius: "16px 16px 0 0",
-        }}
-      />
-
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 12,
-            background: card.gradient,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 20,
-            color: "#fff",
-            flexShrink: 0,
-            transition: "transform 0.3s ease",
-            transform: hovered ? "scale(1.08)" : "scale(1)",
-          }}
-        >
-          {card.icon}
-        </div>
-        <div>
-          <div
-            style={{
-              fontSize: 12,
-              color: "#9ca3af",
-              fontWeight: 500,
-              textTransform: "uppercase",
-              letterSpacing: "0.4px",
-              marginBottom: 2,
-            }}
-          >
-            {card.label}
-          </div>
-          {loading ? (
-            <Spin size="small" />
-          ) : (
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 700,
-                color: "#1a1a2e",
-                lineHeight: 1.1,
-              }}
-            >
-              {card.value}
-            </div>
-          )}
-        </div>
+    <div className="bg-white dark:bg-[#30302e] border border-slate-200 dark:border-[#403e3a] rounded-xl px-5 pt-4 pb-5 shadow-sm flex flex-col items-start">
+      <div className="w-full flex items-start justify-between gap-2">
+        <span className="text-sm font-medium text-slate-800 dark:text-[#faf9f5]">
+          {card.label}
+        </span>
+        {menu && (
+          <Dropdown menu={menu} trigger={["click"]} placement="bottomRight">
+            <Button
+              type="text"
+              shape="circle"
+              size="small"
+              className="!flex items-center justify-center -mr-2 -mt-1"
+              icon={
+                <MoreOutlined className="text-lg text-slate-500 dark:text-[#a8a59e]" />
+              }
+            />
+          </Dropdown>
+        )}
       </div>
+
+      <div className="mt-2 min-h-[36px] flex items-center">
+        {loading ? (
+          <Spin size="small" />
+        ) : (
+          <span className="text-[30px] leading-9 font-normal text-slate-900 dark:text-[#faf9f5]">
+            {card.value}
+          </span>
+        )}
+      </div>
+
+      {card.hint && (
+        <div className="mt-1 text-[13px] text-slate-500 dark:text-[#a8a59e]">
+          {card.hint}
+        </div>
+      )}
+
+      {card.action || null}
     </div>
   );
 }

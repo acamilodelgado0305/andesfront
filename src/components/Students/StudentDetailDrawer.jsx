@@ -17,7 +17,16 @@ function StudentDetailDrawer({ open, studentId, onClose }) {
       placement="right"
       title="Detalles del Estudiante"
       destroyOnClose
-      styles={{ body: { padding: 16 } }}
+      styles={{
+        // Header estilo Google: sin borde, con sombra que lo separa del contenido
+        header: {
+          borderBottom: 'none',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.18)',
+          position: 'relative',
+          zIndex: 1,
+        },
+        body: { padding: 16 },
+      }}
     >
       {studentId && <StudentDetailTabs studentId={studentId} />}
     </Drawer>

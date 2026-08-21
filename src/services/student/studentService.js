@@ -332,6 +332,27 @@ export const deleteStudentDocument = async (studentId, documentId) => {
   return response.data; // { message: "Documento eliminado correctamente" }
 };
 
+// ========================= FOTO DE PERFIL DEL ESTUDIANTE ========================= //
+// El admin sube/reemplaza la foto (JPG/PNG/WebP); se muestra en el perfil del estudiante.
+
+export const uploadStudentFoto = async (studentId, file) => {
+  const formData = new FormData();
+  // "foto" debe coincidir con .single("foto") en el backend
+  formData.append("foto", file);
+
+  const response = await backApi.post(
+    `/api/students/${studentId}/foto`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return response.data; // { message, foto_url }
+};
+
+export const deleteStudentFoto = async (studentId) => {
+  const response = await backApi.delete(`/api/students/${studentId}/foto`);
+  return response.data; // { message }
+};
+
 // ========================= CERTIFICADOS DEL ESTUDIANTE ========================= //
 // El admin sube certificados (PDF) al estudiante; el estudiante los ve en su
 // portal, en las secciones "Certificados" y "Paz y Salvo".

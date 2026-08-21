@@ -15,16 +15,20 @@ import {
     Tag,
     Switch,
     Upload,
+    Tabs,
+    Tooltip,
+    Radio,
+    Space,
 } from "antd";
 import {
-    FaUserEdit,
-    FaSave,
-    FaTrashAlt,
     FaWhatsapp,
     FaGraduationCap,
     FaFileInvoiceDollar,
     FaUserGraduate,
+    FaCamera,
+    FaTimes,
 } from "react-icons/fa";
+import { MdOutlineEdit, MdOutlineArchive } from "react-icons/md";
 import dayjs from "dayjs";
 import axios from "axios";
 import {
@@ -32,16 +36,21 @@ import {
     updateStudent,
     updateStudentPosibleGraduacion,
     updateStudentPazSalvo,
-    deleteStudent as deleteStudentService,
+    archiveStudent,
     uploadStudentDocument,
     getStudentDocuments,
     deleteStudentDocument,
     uploadStudentCertificado,
     getStudentCertificados,
     deleteStudentCertificado,
+    uploadStudentFoto,
+    deleteStudentFoto,
 } from "../../services/student/studentService";
 import { getProgramas } from "../../services/programas/programasService";
 import StudentHorario from "../Horarios/StudentHorario";
+import StudentInvoices from "./StudentInvoices";
+import StudentGrades from "./StudentGrades";
+import StudentComments from "./StudentComments";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 
 const API_URL = import.meta.env.VITE_API_BACKEND;
@@ -49,33 +58,54 @@ const API_URL = import.meta.env.VITE_API_BACKEND;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-/* ========== Bloque visual para agrupar info ========== */
-const InfoSection = ({ title, children }) => (
-    <div className="bg-white border border-slate-200 rounded-md shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800 bg-slate-50 px-4 py-2 border-b border-slate-200 rounded-t-md">
+/* ========== Bloque visual para agrupar info (estilo Google Ads) ==========
+   Título fuera de la tarjeta; tarjeta blanca redondeada con borde fino.
+   `flush`: los hijos son filas etiqueta/valor con divisores (sin padding propio). */
+const InfoSection = ({ title, children, flush = false }) => (
+    <section>
+        <h3 className="text-sm font-medium text-slate-800 dark:text-[#faf9f5] mb-2">
             {title}
         </h3>
-        <div className="p-4 space-y-4">{children}</div>
-    </div>
+        <div
+            className={`bg-white dark:bg-[#30302e] border border-slate-200 dark:border-[#403e3a] rounded-lg ${
+                flush
+                    ? "divide-y divide-slate-100 dark:divide-[#403e3a] overflow-hidden"
+                    : "p-4 space-y-4"
+            }`}
+        >
+            {children}
+        </div>
+    </section>
 );
 
-/* ========== Campo genérico reutilizable ========== */
+/* ========== Fila etiqueta/valor estilo Google ========== */
 const FieldItem = ({ label, name, value, isEditing, children }) => (
-    <div className="space-y-1">
-        <Text className="text-xs text-slate-500 font-semibold block">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-6 px-4 py-3 hover:bg-slate-50 dark:hover:bg-[#3a3a38] transition-colors">
+        <span className="text-[13px] font-medium text-slate-800 dark:text-[#faf9f5] sm:w-36 flex-shrink-0">
             {label}
-        </Text>
+        </span>
         {isEditing ? (
-            <Form.Item name={name} className="!mb-0">
+            <Form.Item name={name} className="!mb-0 flex-1 sm:max-w-sm">
                 {children}
             </Form.Item>
         ) : (
-            <Text className="text-sm text-slate-800">
+            <span className="text-[13px] text-slate-500 dark:text-[#a8a59e] min-w-0 break-words">
                 {value ?? "No especificado"}
-            </Text>
+            </span>
         )}
     </div>
 );
+
+// Mismos motivos de archivado que usa la tabla de estudiantes
+const ARCHIVE_REASONS = [
+    "Retiro voluntario",
+    "Problemas económicos",
+    "Traslado a otra institución",
+    "Inactividad prolongada",
+    "Culminó el programa",
+    "Incumplimiento de requisitos",
+    "Otro motivo",
+];
 
 const StudentDetails = ({ studentId }) => {
     const fmt = useCurrency();
@@ -97,6 +127,15 @@ const StudentDetails = ({ studentId }) => {
     const [certificados, setCertificados] = useState([]);
     const [certsLoading, setCertsLoading] = useState(false);
     const [uploadingCert, setUploadingCert] = useState(false);
+
+    // === Foto de perfil del estudiante ===
+    const [uploadingFoto, setUploadingFoto] = useState(false);
+
+    // === Archivado (mismo flujo que la tabla: modal con motivo) ===
+    const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+    const [archiveReason, setArchiveReason] = useState(null);
+    const [archiveCustomReason, setArchiveCustomReason] = useState("");
+    const [archiving, setArchiving] = useState(false);
 
     // formatear fecha solo para display
     const formatDate = useCallback((dateString) => {
@@ -372,22 +411,36 @@ const StudentDetails = ({ studentId }) => {
         });
     };
 
-    const handleDelete = async () => {
+    const handleArchive = () => {
         if (!student) return;
-        Modal.confirm({
-            title: "¿Está seguro de que desea eliminar este estudiante?",
-            content: "Esta acción no se puede deshacer.",
-            onOk: async () => {
-                try {
-                    await deleteStudentService(student.id);
-                    message.success("Estudiante eliminado con éxito");
-                    window.location.href = "/inicio/students";
-                } catch (error) {
-                    console.error("Error al eliminar el estudiante:", error);
-                    message.error("Error al eliminar el estudiante");
-                }
-            },
-        });
+        setArchiveReason(null);
+        setArchiveCustomReason("");
+        setArchiveModalOpen(true);
+    };
+
+    const confirmArchive = async () => {
+        const finalReason =
+            archiveReason === "Otro motivo"
+                ? archiveCustomReason.trim()
+                : archiveReason;
+
+        if (!finalReason) {
+            message.warning("Selecciona o escribe la razón del archivado.");
+            return;
+        }
+
+        setArchiving(true);
+        try {
+            await archiveStudent(student.id, finalReason);
+            message.success("Estudiante archivado correctamente");
+            setArchiveModalOpen(false);
+            window.location.href = "/inicio/students";
+        } catch (error) {
+            console.error("Error al archivar el estudiante:", error);
+            message.error("Error al archivar el estudiante");
+        } finally {
+            setArchiving(false);
+        }
     };
 
     /* ========== Subida de documentos ========== */
@@ -439,6 +492,60 @@ const StudentDetails = ({ studentId }) => {
         } finally {
             setUploadingCert(false);
         }
+    };
+
+    /* ========== Foto de perfil del estudiante ========== */
+    const handleUploadFoto = async (options) => {
+        const { file, onSuccess, onError } = options;
+        if (!studentId) return;
+
+        const allowed = ["image/jpeg", "image/png", "image/webp"];
+        if (!allowed.includes(file.type)) {
+            message.error("La foto debe ser una imagen JPG, PNG o WebP.");
+            onError && onError(new Error("Formato inválido"));
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            message.error("La foto no puede superar los 5 MB.");
+            onError && onError(new Error("Archivo muy grande"));
+            return;
+        }
+
+        try {
+            setUploadingFoto(true);
+            const data = await uploadStudentFoto(studentId, file);
+            setStudent((prev) => ({ ...prev, foto_url: data.foto_url }));
+            message.success("Foto de perfil actualizada");
+            onSuccess && onSuccess(data);
+        } catch (error) {
+            console.error("Error al subir la foto:", error);
+            const msg =
+                error.response?.data?.error || "Error al subir la foto de perfil";
+            message.error(msg);
+            onError && onError(error);
+        } finally {
+            setUploadingFoto(false);
+        }
+    };
+
+    const handleDeleteFoto = () => {
+        Modal.confirm({
+            title: "¿Quitar la foto de perfil?",
+            content: "El estudiante quedará sin fotografía en su perfil.",
+            okText: "Quitar",
+            cancelText: "Cancelar",
+            okButtonProps: { danger: true },
+            onOk: async () => {
+                try {
+                    await deleteStudentFoto(studentId);
+                    setStudent((prev) => ({ ...prev, foto_url: null }));
+                    message.success("Foto de perfil eliminada");
+                } catch (error) {
+                    console.error("Error al eliminar la foto:", error);
+                    message.error("Error al eliminar la foto de perfil");
+                }
+            },
+        });
     };
 
     const handleDeleteCertificado = (cert) => {
@@ -550,151 +657,191 @@ const StudentDetails = ({ studentId }) => {
         .map((p) => p.nombre)
         .join(", ");
 
-    const coordinadorNombre = student.coordinador?.nombre;
-
     return (
-        <div className="bg-slate-50 min-h-screen p-4 sm:p-6">
+        <div className="bg-white dark:bg-[#262624] min-h-screen p-4 sm:p-6">
             <Form form={form} layout="vertical">
+                {/* Columna centrada estilo Google: todo el contenido en un ancho fijo al centro */}
+                <div className="max-w-4xl mx-auto">
                 {/* ========== ENCABEZADO ========== */}
-                <header className="bg-white p-4 rounded-md border border-slate-200 mb-6 shadow-sm">
+                <header className="bg-white dark:bg-[#30302e] p-5 rounded-lg border border-slate-200 dark:border-[#403e3a] mb-8">
                     <div className="flex flex-wrap justify-between items-center gap-4">
                         <div className="flex items-center gap-4">
-                            <Avatar
-                                size={64}
-                                icon={<FaUserGraduate />}
-                                className="!bg-blue-500"
-                            />
+                            <div className="relative flex-shrink-0">
+                                <Avatar
+                                    size={96}
+                                    shape="square"
+                                    src={student.foto_url || undefined}
+                                    icon={<FaUserGraduate />}
+                                    className="!bg-blue-500 !rounded-lg"
+                                />
+                                <Upload
+                                    showUploadList={false}
+                                    customRequest={handleUploadFoto}
+                                    accept="image/jpeg,image/png,image/webp"
+                                    disabled={uploadingFoto}
+                                >
+                                    <button
+                                        type="button"
+                                        title={
+                                            student.foto_url
+                                                ? "Cambiar foto de perfil"
+                                                : "Subir foto de perfil"
+                                        }
+                                        disabled={uploadingFoto}
+                                        className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center border-2 border-white dark:border-[#30302e] shadow cursor-pointer disabled:opacity-60"
+                                    >
+                                        {uploadingFoto ? (
+                                            <Spin size="small" />
+                                        ) : (
+                                            <FaCamera className="text-[10px]" />
+                                        )}
+                                    </button>
+                                </Upload>
+                                {student.foto_url && !uploadingFoto && (
+                                    <button
+                                        type="button"
+                                        title="Quitar foto de perfil"
+                                        onClick={handleDeleteFoto}
+                                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white dark:bg-[#30302e] text-slate-500 dark:text-[#a8a59e] hover:text-red-500 flex items-center justify-center border border-slate-200 dark:border-[#403e3a] shadow cursor-pointer"
+                                    >
+                                        <FaTimes className="text-[9px]" />
+                                    </button>
+                                )}
+                            </div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-800 m-0">
-                                    {student.nombre} {student.apellido}
-                                </h1>
-                                <div className="flex flex-wrap items-center gap-2 mt-1">
-                                    <Tag color={student.activo ? "green" : "red"}>
+                                <h1 className="text-xl font-bold text-slate-800 dark:text-[#faf9f5] m-0 flex flex-wrap items-baseline gap-x-2">
+                                    <span>
+                                        {student.nombre} {student.apellido}
+                                    </span>
+                                    {student.numero_documento && (
+                                        <span className="text-sm font-normal text-slate-500 dark:text-[#a8a59e]">
+                                            {student.tipo_documento
+                                                ? `${student.tipo_documento} `
+                                                : ""}
+                                            {student.numero_documento}
+                                        </span>
+                                    )}
+                                    <Tag
+                                        color={student.activo ? "green" : "red"}
+                                        className="!m-0"
+                                    >
                                         {student.activo ? "Activo" : "Inactivo"}
                                     </Tag>
-                                    <Tag
-                                        color={
-                                            student.estado_matricula ? "cyan" : "orange"
-                                        }
-                                    >
-                                        {student.estado_matricula
-                                            ? "Matrícula Paga"
-                                            : "Matrícula Pendiente"}
-                                    </Tag>
-                                    {typeof student.posible_graduacion ===
-                                        "boolean" && (
-                                        <Tag
-                                            color={
-                                                student.posible_graduacion
-                                                    ? "geekblue"
-                                                    : "default"
-                                            }
-                                        >
-                                            {student.posible_graduacion
-                                                ? "Candidato a grado"
-                                                : "No candidato"}
-                                        </Tag>
-                                    )}
-                                    {student.fecha_graduacion && (
-                                        <Tag color="purple">
-                                            Graduado el{" "}
-                                            {formatDate(student.fecha_graduacion)}
-                                        </Tag>
-                                    )}
-                                    <Tag
-                                        color={
-                                            student.paz_salvo_academico
-                                                ? "green"
-                                                : "default"
-                                        }
-                                    >
-                                        {student.paz_salvo_academico
-                                            ? "Paz y salvo académico"
-                                            : "Pendiente académico"}
-                                    </Tag>
-                                    <Tag
-                                        color={
-                                            student.paz_salvo_financiero
-                                                ? "green"
-                                                : "default"
-                                        }
-                                    >
-                                        {student.paz_salvo_financiero
-                                            ? "Paz y salvo financiero"
-                                            : "Pendiente financiero"}
-                                    </Tag>
-                                </div>
-
-                                {/* 🔥 CAMBIO: mostrar programas en el encabezado */}
+                                </h1>
+                                {/* Programa(s) del estudiante, destacado bajo el nombre */}
                                 {programasAsociadosNombres && (
-                                    <div className="mt-1 text-xs text-slate-500">
-                                        Programas:{" "}
-                                        <span className="font-semibold">
-                                            {programasAsociadosNombres}
-                                        </span>
-                                    </div>
+                                    <h2 className="text-base font-semibold text-slate-700 dark:text-[#faf9f5] m-0 mt-1">
+                                        {programasAsociadosNombres}
+                                    </h2>
                                 )}
 
-                                {coordinadorNombre && (
-                                    <div className="mt-1 text-xs text-slate-500">
-                                        Coordinador:{" "}
-                                        <span className="font-semibold">
-                                            {coordinadorNombre}
-                                        </span>
+                                {/* Solo estados positivos; los pendientes no se muestran */}
+                                {(student.estado_matricula ||
+                                    student.posible_graduacion ||
+                                    student.fecha_graduacion ||
+                                    student.paz_salvo_academico ||
+                                    student.paz_salvo_financiero) && (
+                                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                                        {student.estado_matricula && (
+                                            <Tag color="cyan">Matrícula Paga</Tag>
+                                        )}
+                                        {student.posible_graduacion && (
+                                            <Tag color="geekblue">
+                                                Candidato a grado
+                                            </Tag>
+                                        )}
+                                        {student.fecha_graduacion && (
+                                            <Tag color="purple">
+                                                Graduado el{" "}
+                                                {formatDate(student.fecha_graduacion)}
+                                            </Tag>
+                                        )}
+                                        {student.paz_salvo_academico && (
+                                            <Tag color="green">
+                                                Paz y salvo académico
+                                            </Tag>
+                                        )}
+                                        {student.paz_salvo_financiero && (
+                                            <Tag color="green">
+                                                Paz y salvo financiero
+                                            </Tag>
+                                        )}
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
-                            {isEditing ? (
-                                <>
-                                    <Button onClick={() => setIsEditing(false)}>
-                                        Cancelar
-                                    </Button>
-                                    <Button
-                                        type="primary"
-                                        icon={<FaSave />}
-                                        onClick={handleSave}
-                                    >
-                                        Guardar
-                                    </Button>
-                                </>
-                            ) : (
-                                <>
-                                    <Button
-                                        type="primary"
-                                        icon={<FaUserEdit />}
-                                        onClick={handleStartEditing}
-                                    >
-                                        Editar
-                                    </Button>
-                                    <Button
-                                        icon={<FaWhatsapp />}
-                                        onClick={handleWhatsAppClick}
-                                        className="!bg-green-500 !border-green-500 hover:!bg-green-600 !text-white"
-                                    >
-                                        WhatsApp
-                                    </Button>
-                                    <Button
-                                        icon={<FaTrashAlt />}
-                                        danger
-                                        onClick={handleDelete}
-                                    >
-                                        Eliminar
-                                    </Button>
-                                </>
-                            )}
-                        </div>
                     </div>
                 </header>
 
                 {/* ========== CUERPO PRINCIPAL ========== */}
-                <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* --- COLUMNA 1 --- */}
-                    <div className="space-y-6">
-                        <InfoSection title="Información Personal">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Tabs
+                    defaultActiveKey="info"
+                    tabBarExtraContent={{
+                        right: isEditing ? (
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    size="small"
+                                    onClick={() => setIsEditing(false)}
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    size="small"
+                                    type="primary"
+                                    onClick={handleSave}
+                                >
+                                    Guardar
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-1">
+                                <Tooltip title="Editar">
+                                    <Button
+                                        type="text"
+                                        shape="circle"
+                                        onClick={handleStartEditing}
+                                        className="!flex items-center justify-center"
+                                        icon={
+                                            <MdOutlineEdit className="text-xl text-slate-600 dark:text-[#a8a59e]" />
+                                        }
+                                    />
+                                </Tooltip>
+                                <Tooltip title="WhatsApp">
+                                    <Button
+                                        type="text"
+                                        shape="circle"
+                                        onClick={handleWhatsAppClick}
+                                        className="!flex items-center justify-center"
+                                        icon={
+                                            <FaWhatsapp className="text-xl text-green-600 dark:text-green-500" />
+                                        }
+                                    />
+                                </Tooltip>
+                                <Tooltip title="Archivar">
+                                    <Button
+                                        type="text"
+                                        shape="circle"
+                                        onClick={handleArchive}
+                                        className="!flex items-center justify-center"
+                                        icon={
+                                            <MdOutlineArchive className="text-xl text-slate-600 dark:text-[#a8a59e]" />
+                                        }
+                                    />
+                                </Tooltip>
+                            </div>
+                        ),
+                    }}
+                    items={[
+                        {
+                            key: "info",
+                            label: "Información",
+                            children: (
+                    <div className="space-y-8">
+                        {/* Secciones de información en dos columnas */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        <div className="space-y-6">
+                        <InfoSection title="Información Personal" flush>
                                 <FieldItem
                                     label="Nombre"
                                     name="nombre"
@@ -786,11 +933,9 @@ const StudentDetails = ({ studentId }) => {
                                 >
                                     <Input allowClear />
                                 </FieldItem>
-                            </div>
                         </InfoSection>
 
-                        <InfoSection title="Información de Contacto">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <InfoSection title="Información de Contacto" flush>
                                 <FieldItem
                                     label="Email"
                                     name="email"
@@ -820,14 +965,11 @@ const StudentDetails = ({ studentId }) => {
                                 >
                                     <Input allowClear />
                                 </FieldItem>
-                            </div>
                         </InfoSection>
-                    </div>
+                        </div>
 
-                    {/* --- COLUMNA 2 --- */}
-                    <div className="space-y-6">
-                        <InfoSection title="Información Académica y Administrativa">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-6">
+                        <InfoSection title="Información Académica y Administrativa" flush>
                                 {/* 🔥 CAMBIO: Programas múltiples */}
                                 <FieldItem
                                     label="Programas"
@@ -948,11 +1090,9 @@ const StudentDetails = ({ studentId }) => {
                                         <Option value={false}>Inactivo</Option>
                                     </Select>
                                 </FieldItem>
-                            </div>
                         </InfoSection>
 
-                        <InfoSection title="Información de Acudiente">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <InfoSection title="Información de Acudiente" flush>
                                 <FieldItem
                                     label="Nombre acudiente"
                                     name="nombre_acudiente"
@@ -988,14 +1128,9 @@ const StudentDetails = ({ studentId }) => {
                                 >
                                     <Input allowClear />
                                 </FieldItem>
-                            </div>
                         </InfoSection>
-                    </div>
 
-                    {/* --- COLUMNA 3 --- */}
-                    <div className="space-y-6">
-                        <InfoSection title="Estado y Fechas Clave">
-                            <div className="space-y-4">
+                        <InfoSection title="Estado y Fechas Clave" flush>
                                 <FieldItem
                                     label="Fecha de inscripción"
                                     name="fecha_inscripcion"
@@ -1020,19 +1155,27 @@ const StudentDetails = ({ studentId }) => {
                                     />
                                 </FieldItem>
 
-                                <div className="flex items-center justify-between mt-2">
-                                    <Text className="text-xs text-slate-500 font-semibold">
+                                <div className="px-4 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-[#3a3a38] transition-colors">
+                                    <span className="text-[13px] font-medium text-slate-800 dark:text-[#faf9f5]">
                                         Candidato a grado
-                                    </Text>
+                                    </span>
                                     <Switch
                                         checked={!!student.posible_graduacion}
                                         onChange={handleToggleCandidate}
                                         disabled={isEditing}
                                     />
                                 </div>
-                            </div>
                         </InfoSection>
-
+                        </div>
+                        </div>
+                    </div>
+                            ),
+                        },
+                        {
+                            key: "gestion",
+                            label: "Estado y documentos",
+                            children: (
+                    <div className="space-y-8">
                         {/* ========== PAZ Y SALVO ========== */}
                         <InfoSection title="Paz y Salvo">
                             <div className="space-y-4">
@@ -1266,19 +1409,11 @@ const StudentDetails = ({ studentId }) => {
                             </div>
                         </InfoSection>
 
-                        <div className="bg-white border border-slate-200 rounded-md shadow-sm">
-                            <h3 className="text-sm font-semibold text-slate-800 bg-slate-50 px-4 py-2 border-b border-slate-200 rounded-t-md">
-                                Horario Semanal
-                            </h3>
-                            <div className="p-4">
-                                <StudentHorario studentId={studentId} compact={true} hideEmpty={true} />
-                            </div>
-                        </div>
+                        <InfoSection title="Horario Semanal">
+                            <StudentHorario studentId={studentId} compact={true} hideEmpty={true} />
+                        </InfoSection>
 
-                        <div className="bg-white p-4 rounded-md border border-slate-200 shadow-sm">
-                            <h3 className="text-sm font-semibold text-slate-800 mb-4">
-                                Acciones Rápidas
-                            </h3>
+                        <InfoSection title="Acciones Rápidas">
                             <div className="space-y-2">
                                 <Link
                                     to={`/inicio/payments/student/${student.id}`}
@@ -1304,10 +1439,88 @@ const StudentDetails = ({ studentId }) => {
                                     Marcar como Graduado
                                 </Button>
                             </div>
-                        </div>
+                        </InfoSection>
                     </div>
-                </main>
+                            ),
+                        },
+                        {
+                            key: "pagos",
+                            label: "Pagos",
+                            children: (
+                                <StudentInvoices studentId={studentId} />
+                            ),
+                        },
+                        {
+                            key: "calificaciones",
+                            label: "Calificaciones",
+                            children: (
+                                <StudentGrades studentId={studentId} />
+                            ),
+                        },
+                        {
+                            key: "comentarios",
+                            label: "Comentarios",
+                            children: (
+                                <StudentComments studentId={studentId} />
+                            ),
+                        },
+                    ]}
+                />
+                </div>
             </Form>
+
+            {/* MODAL DE ARCHIVADO (mismo flujo que la tabla) */}
+            <Modal
+                open={archiveModalOpen}
+                title="Archivar estudiante"
+                okText="Archivar"
+                cancelText="Cancelar"
+                okButtonProps={{
+                    style: { background: "#fa8c16", borderColor: "#fa8c16" },
+                    disabled:
+                        !archiveReason ||
+                        (archiveReason === "Otro motivo" &&
+                            !archiveCustomReason.trim()),
+                    loading: archiving,
+                }}
+                onOk={confirmArchive}
+                onCancel={() => setArchiveModalOpen(false)}
+            >
+                <p className="text-slate-600 dark:text-[#a8a59e] mb-4">
+                    ¿Por qué vas a archivar a{" "}
+                    <strong>
+                        {student?.nombre} {student?.apellido}
+                    </strong>
+                    ? El estudiante saldrá de la lista principal pero conservará
+                    todo su historial.
+                </p>
+                <Radio.Group
+                    value={archiveReason}
+                    onChange={(e) => {
+                        setArchiveReason(e.target.value);
+                        setArchiveCustomReason("");
+                    }}
+                    className="w-full"
+                >
+                    <Space direction="vertical" className="w-full">
+                        {ARCHIVE_REASONS.map((reason) => (
+                            <Radio key={reason} value={reason}>
+                                {reason}
+                            </Radio>
+                        ))}
+                    </Space>
+                </Radio.Group>
+                {archiveReason === "Otro motivo" && (
+                    <Input.TextArea
+                        className="mt-3"
+                        rows={2}
+                        maxLength={200}
+                        placeholder="Escribe la razón del archivado..."
+                        value={archiveCustomReason}
+                        onChange={(e) => setArchiveCustomReason(e.target.value)}
+                    />
+                )}
+            </Modal>
 
             {/* MODAL DE PREVISUALIZACIÓN DE DOCUMENTO */}
             <Modal
