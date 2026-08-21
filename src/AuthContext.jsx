@@ -43,8 +43,10 @@ const buildUserFromPayload = (payload, base = {}) => ({
     // login; no está en el JWT, por eso se toma de `base`. ThemeContext la usa
     // como fuente de verdad cross-device.
     theme_preference: base.theme_preference ?? payload.theme_preference ?? null,
-    // Foto de perfil del usuario. No está en el JWT; se carga vía GET /api/users/me
-    // (o al subirla en Configuración) y se propaga con patchUser.
+    // Foto de perfil del usuario. No está en el JWT: viene en el `user` de la
+    // respuesta de login/switch-business, o se carga vía GET /api/users/me. Es
+    // única por usuario (auth_service.users.avatar_url), así que NO depende del
+    // negocio activo — ver `login`, que la conserva al cambiar de negocio.
     avatar_url: base.avatar_url ?? payload.avatar_url ?? null,
 });
 
@@ -115,6 +117,10 @@ export const AuthProvider = ({ children }) => {
     const login = (newToken, userFromApi, newRefreshToken) => {
         const payload = decodeToken(newToken);
 
+        // Sesión previa en este navegador: sirve para conservar campos del
+        // perfil (la foto) que no todas las respuestas traen.
+        const previous = getUser();
+
         saveToken(newToken);
         // Guardar el refresh token solo si viene (algunos flujos no lo envían;
         // en ese caso conservamos el refresh token previo).
@@ -123,6 +129,14 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
 
         const finalUser = buildUserFromPayload(payload || {}, userFromApi || {});
+
+        // `login` también se usa al cambiar de negocio. La foto de perfil es del
+        // usuario, no del negocio: si la respuesta no la trae (backend viejo),
+        // conservamos la que ya teníamos para que el header no parpadee a
+        // iniciales. Solo si es el MISMO usuario, nunca al entrar con otra cuenta.
+        if (!finalUser.avatar_url && previous?.avatar_url && String(previous.id) === String(finalUser.id)) {
+            finalUser.avatar_url = previous.avatar_url;
+        }
 
         saveUser(finalUser);
         setUser(finalUser);

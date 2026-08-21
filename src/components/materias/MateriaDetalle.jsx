@@ -39,6 +39,9 @@ import {
   uploadClasePresentaciones, deleteClasePresentacion
 } from '../../services/clases/serviceClase';
 import { decodeJwt } from '../../utils/jwt.js';
+// Avatar del autor de una publicación: si tiene foto de perfil se muestra; si no,
+// iniciales del nombre (estilo Microsoft) en un círculo con color por persona.
+import { initialsFromName, colorFromName } from '../../utils/avatar';
 import StudentClaseDetalle from '../Clases/StudentClaseDetalle';
 import ClaseExamen from '../Clases/ClaseExamen';
 import EvaluationQuestionsDrawer from '../Evaluations/Admin/EvaluationQuestionsDrawer';
@@ -59,22 +62,6 @@ const AUTOR_META = {
   admin:      { color: '#155153', label: 'Admin' },
   docente:    { color: '#2563eb', label: 'Docente' },
   estudiante: { color: '#7c3aed', label: 'Estudiante' },
-};
-
-// Avatar del autor de una publicación: si tiene foto de perfil se muestra; si no,
-// iniciales del nombre (estilo Microsoft) en un círculo con color por persona.
-const initialsFromName = (name) => {
-  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-};
-const AVATAR_COLORS = ['#0d9488', '#2563eb', '#7c3aed', '#db2777', '#d97706', '#059669', '#dc2626', '#4f46e5', '#0891b2', '#ca8a04'];
-const colorFromName = (name) => {
-  const s = name || '?';
-  let h = 0;
-  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
 };
 
 // Presentaciones que ve el estudiante en el visor 16:9 (PDF/PPTX/SVG/HTML).

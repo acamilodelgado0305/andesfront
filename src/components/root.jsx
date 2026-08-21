@@ -42,6 +42,7 @@ import dayjs from 'dayjs';
 import OnboardingWizard from './Onboarding/OnboardingWizard';
 import PaymentWall from './PaymentWall';
 import DocentePerfilGate from './Perfil/DocentePerfilGate';
+import UserAvatar from './Perfil/UserAvatar';
 
 const { Title } = Typography;
 
@@ -370,8 +371,10 @@ const RootLayout = () => {
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  // Cargar la foto de perfil una vez (no viene en el JWT) para mostrarla en el
-  // sidebar. Si ya está en el contexto, no repetimos la llamada.
+  // Foto de perfil: es del USUARIO (auth_service.users.avatar_url), la misma en
+  // todos los negocios. Normalmente ya llega en la respuesta de login/switch y
+  // se conserva en el contexto; esta llamada es la red de seguridad para
+  // sesiones abiertas antes de ese cambio. Si ya está, no pedimos nada.
   useEffect(() => {
     if (!user || user.avatar_url) return;
     let cancel = false;
@@ -380,7 +383,7 @@ const RootLayout = () => {
       .then((p) => { if (!cancel && p?.avatar_url) patchUser({ avatar_url: p.avatar_url }); })
       .catch(() => { /* silencioso */ });
     return () => { cancel = true; };
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.avatar_url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Paleta del shell según el tema. Las superficies del layout (sidebar,
   // header, fondo) se pintan a mano porque usan estilos inline, no AntD.
@@ -810,20 +813,50 @@ const RootLayout = () => {
     return <div className="flex items-center justify-center h-screen"><Spin size="large" tip="Redirigiendo..." /></div>;
   }
 
-  // Menú de perfil para el avatar (modo colapsado)
+  // Menú de perfil del avatar (header y pie del sidebar). Encabeza con la
+  // identidad de la cuenta —foto, nombre y correo— para dejar claro que el
+  // perfil es del usuario y no cambia con el negocio activo.
   const collapsedProfileMenu = (
-    <Menu items={[
-      { key: 'perfil', icon: <UserOutlined />, label: <Link to="/inicio/perfil">Mi perfil</Link> },
-      { key: '1', icon: <SettingOutlined />, label: <Link to="/inicio/configuracion">Configuración</Link> },
-      {
-        key: 'theme',
-        icon: isDark ? <BulbFilled /> : <BulbOutlined />,
-        label: isDark ? 'Modo claro' : 'Modo oscuro',
-        onClick: toggleTheme,
-      },
-      { type: 'divider' },
-      { key: '2', icon: <LogoutOutlined />, label: 'Cerrar Sesión', onClick: logout, danger: true },
-    ]} />
+    <div style={{
+      backgroundColor: shell.surface,
+      border: `1px solid ${shell.border}`,
+      borderRadius: 10,
+      boxShadow: '0 6px 24px rgba(0,0,0,0.12)',
+      minWidth: 240,
+      overflow: 'hidden',
+    }}>
+      <Link
+        to="/inicio/perfil"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '12px 14px', textDecoration: 'none',
+          borderBottom: `1px solid ${shell.border}`,
+        }}
+        className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}
+      >
+        <UserAvatar user={user} size={38} />
+        <div style={{ minWidth: 0, lineHeight: 1.35 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: shell.textStrong, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {user.name || 'Usuario'}
+          </div>
+          <div style={{ fontSize: 11, color: shell.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {user.email || <span style={{ textTransform: 'capitalize' }}>{user.role}</span>}
+          </div>
+        </div>
+      </Link>
+      <Menu style={{ border: 'none', backgroundColor: 'transparent' }} items={[
+        { key: 'perfil', icon: <UserOutlined />, label: <Link to="/inicio/perfil">Mi perfil</Link> },
+        { key: '1', icon: <SettingOutlined />, label: <Link to="/inicio/configuracion">Configuración</Link> },
+        {
+          key: 'theme',
+          icon: isDark ? <BulbFilled /> : <BulbOutlined />,
+          label: isDark ? 'Modo claro' : 'Modo oscuro',
+          onClick: toggleTheme,
+        },
+        { type: 'divider' },
+        { key: '2', icon: <LogoutOutlined />, label: 'Cerrar Sesión', onClick: logout, danger: true },
+      ]} />
+    </div>
   );
 
   return (
@@ -1025,13 +1058,7 @@ const RootLayout = () => {
                   }}
                     className="hover:bg-gray-50"
                   >
-                    <Avatar
-                      size={30}
-                      src={user?.avatar_url || undefined}
-                      style={{ backgroundColor: '#e5e7eb', color: '#374151', fontSize: 13, fontWeight: 700, flexShrink: 0 }}
-                    >
-                      {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                    </Avatar>
+                    <UserAvatar user={user} size={30} />
                     {!collapsed && (
                       <>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1111,17 +1138,17 @@ const RootLayout = () => {
               }}
                 className={isDark ? 'hover:bg-white/10' : 'hover:bg-white/60'}
               >
-                <Avatar
+                <UserAvatar
+                  user={user}
                   size={28}
-                  src={user?.avatar_url || undefined}
-                  style={{ backgroundColor: isDark ? '#374151' : '#e5e7eb', color: isDark ? '#e5e7eb' : '#374151', fontSize: 12, fontWeight: 700, flexShrink: 0 }}
-                >
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                </Avatar>
-                <div style={{ lineHeight: 1.3 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: shell.textStrong, whiteSpace: 'nowrap' }}>{user.name || 'Usuario'}</div>
-                  <div style={{ fontSize: 10, color: shell.textMuted, textTransform: 'capitalize' }}>{user.role}</div>
-                </div>
+                  style={{ boxShadow: `0 0 0 2px ${isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)'}` }}
+                />
+                {!isMobile && (
+                  <div style={{ lineHeight: 1.3, minWidth: 0, maxWidth: 160 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: shell.textStrong, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name || 'Usuario'}</div>
+                    <div style={{ fontSize: 10, color: shell.textMuted, textTransform: 'capitalize' }}>{user.role}</div>
+                  </div>
+                )}
               </div>
             </Dropdown>
           </div>
