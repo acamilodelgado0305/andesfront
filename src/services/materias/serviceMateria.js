@@ -76,12 +76,19 @@ export const deleteMateria = async (materiaId) => {
   return response.data;
 };
 
-// Copia profunda de la materia en otro programa: clona temas, clases, PDFs,
-// presentaciones y evaluaciones (con preguntas/opciones), y copia físicamente los
-// archivos de GCS. Puede tardar unos segundos si hay videos/archivos grandes.
-export const duplicarMateria = async (materiaId, { programa_id_destino, nombre } = {}) => {
+// Copia profunda de la materia en uno o varios programas: clona temas, clases,
+// PDFs, presentaciones y evaluaciones (con preguntas/opciones), y copia físicamente
+// los archivos de GCS. Puede tardar unos segundos si hay videos/archivos grandes
+// (y se multiplica por cada programa destino).
+// Acepta `programa_ids_destino` (array) o `programa_id_destino` (uno solo).
+// Devuelve { ok, materia, materias: [...], fallidas: [...] }.
+export const duplicarMateria = async (
+  materiaId,
+  { programa_id_destino, programa_ids_destino, nombre } = {}
+) => {
+  const destinos = programa_ids_destino ?? (programa_id_destino != null ? [programa_id_destino] : []);
   const response = await backApi.post(`/api/materias/${materiaId}/duplicar`, {
-    programa_id_destino,
+    programa_ids_destino: destinos,
     nombre,
   });
   return response.data;

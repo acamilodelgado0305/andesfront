@@ -128,17 +128,22 @@ function MateriasDrawer({ programa, programas, onClose }) {
   };
 
   const openTransfer = (materia, mode) => {
-    setTransferProgramaId(null);
+    // "duplicar" admite varios destinos → el estado arranca como array vacío.
+    setTransferProgramaId(mode === "duplicar" ? [] : null);
     setTransferModal({ materia, mode });
   };
 
   const handleTransferConfirm = async () => {
-    if (!transferProgramaId) {
-      message.warning("Selecciona un programa destino.");
+    const { materia, mode } = transferModal;
+    // En "duplicar" el select es múltiple → transferProgramaId es un array.
+    const destinos = Array.isArray(transferProgramaId) ? transferProgramaId : [];
+    if (mode === "mover" ? !transferProgramaId : !destinos.length) {
+      message.warning(mode === "mover"
+        ? "Selecciona un programa destino."
+        : "Selecciona al menos un programa destino.");
       return;
     }
     setSavingTransfer(true);
-    const { materia, mode } = transferModal;
     try {
       if (mode === "mover") {
         await updateMateria(materia.id, {
@@ -149,9 +154,17 @@ function MateriasDrawer({ programa, programas, onClose }) {
         });
         message.success(`"${materia.nombre}" movida al programa seleccionado.`);
       } else {
-        // Copia profunda: temas, clases, videos, PDFs, presentaciones y evaluaciones.
-        await duplicarMateria(materia.id, { programa_id_destino: transferProgramaId });
-        message.success(`"${materia.nombre}" duplicada con todo su contenido.`);
+        // Copia profunda (una por programa): temas, clases, videos, PDFs,
+        // presentaciones y evaluaciones.
+        const res = await duplicarMateria(materia.id, { programa_ids_destino: destinos });
+        const creadas = res?.materias?.length ?? destinos.length;
+        const fallidas = res?.fallidas ?? [];
+        message.success(creadas === 1
+          ? `"${materia.nombre}" duplicada con todo su contenido.`
+          : `"${materia.nombre}" duplicada en ${creadas} programas.`);
+        if (fallidas.length) {
+          message.warning(`No se pudo duplicar en: ${fallidas.map((f) => f.programa_nombre || f.programa_id).join(", ")}`);
+        }
       }
       setTransferModal(null);
       fetchMaterias();
@@ -357,14 +370,21 @@ function MateriasDrawer({ programa, programas, onClose }) {
         <p style={{ marginBottom: 12, color: "#555" }}>
           {transferModal?.mode === "mover"
             ? "Selecciona el programa al que quieres mover esta materia. Dejará de pertenecer al programa actual."
-            : "Selecciona el programa donde quieres duplicar esta materia. Se creará una copia, el original se mantiene."}
+            : "Selecciona uno o varios programas donde quieres duplicar esta materia. Se creará una copia en cada uno, el original se mantiene."}
         </p>
         <Select
           style={{ width: "100%" }}
-          placeholder="Selecciona un programa destino"
+          mode={transferModal?.mode === "duplicar" ? "multiple" : undefined}
+          placeholder={
+            transferModal?.mode === "duplicar"
+              ? "Selecciona uno o varios programas destino"
+              : "Selecciona un programa destino"
+          }
           value={transferProgramaId}
           onChange={setTransferProgramaId}
           showSearch
+          allowClear
+          maxTagCount="responsive"
           filterOption={(input, option) =>
             (option?.children ?? "").toLowerCase().includes(input.toLowerCase())
           }

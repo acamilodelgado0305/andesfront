@@ -537,17 +537,30 @@ export default function ProgramaDetalle() {
   };
 
   const handleTransferConfirm = async () => {
-    if (!transferProgramaId) return message.warning('Selecciona un programa destino.');
-    setSavingTransfer(true);
     const { materia, mode } = transferModal;
+    // En "duplicar" el select es múltiple → transferProgramaId es un array.
+    const destinos = Array.isArray(transferProgramaId) ? transferProgramaId : [];
+    if (mode === 'mover' ? !transferProgramaId : !destinos.length) {
+      return message.warning(mode === 'mover'
+        ? 'Selecciona un programa destino.'
+        : 'Selecciona al menos un programa destino.');
+    }
+    setSavingTransfer(true);
     try {
       if (mode === 'mover') {
         await updateMateria(materia.id, { nombre: materia.nombre, programa_id: transferProgramaId, docente_id: materia.docente_id, activa: materia.activa });
         message.success(`"${materia.nombre}" movida`);
       } else {
-        // Copia profunda: temas, clases, PDFs, presentaciones y evaluaciones.
-        await duplicarMateria(materia.id, { programa_id_destino: transferProgramaId });
-        message.success(`"${materia.nombre}" duplicada con todo su contenido`);
+        // Copia profunda (una por programa): temas, clases, PDFs, presentaciones y evaluaciones.
+        const res = await duplicarMateria(materia.id, { programa_ids_destino: destinos });
+        const creadas = res?.materias?.length ?? destinos.length;
+        const fallidas = res?.fallidas ?? [];
+        message.success(creadas === 1
+          ? `"${materia.nombre}" duplicada con todo su contenido`
+          : `"${materia.nombre}" duplicada en ${creadas} programas`);
+        if (fallidas.length) {
+          message.warning(`No se pudo duplicar en: ${fallidas.map((f) => f.programa_nombre || f.programa_id).join(', ')}`);
+        }
       }
       setTransferModal(null);
       fetchMaterias();
@@ -1595,11 +1608,15 @@ export default function ProgramaDetalle() {
         <p className="text-sm text-gray-600 dark:text-[#a8a59e] mb-3">
           {transferModal?.mode === 'mover'
             ? 'Selecciona el programa destino. Dejará de pertenecer a este programa.'
-            : 'Selecciona el programa destino. Se copiará la materia con todo su contenido (temas, clases, PDFs, presentaciones y evaluaciones). El original se mantiene aquí. Puede tardar unos segundos.'}
+            : 'Selecciona uno o varios programas destino. Se creará una copia de la materia con todo su contenido (temas, clases, PDFs, presentaciones y evaluaciones) en cada uno. El original se mantiene aquí. Puede tardar unos segundos.'}
         </p>
-        <Select style={{ width: '100%' }} placeholder="Programa destino" value={transferProgramaId}
-          onChange={setTransferProgramaId} showSearch
-          filterOption={(i, o) => o.children.toLowerCase().includes(i.toLowerCase())}>
+        <Select style={{ width: '100%' }}
+          mode={transferModal?.mode === 'duplicar' ? 'multiple' : undefined}
+          placeholder={transferModal?.mode === 'duplicar' ? 'Programas destino' : 'Programa destino'}
+          value={transferProgramaId}
+          onChange={setTransferProgramaId} showSearch allowClear
+          maxTagCount="responsive"
+          filterOption={(i, o) => (o.children || '').toLowerCase().includes(i.toLowerCase())}>
           {otrosProgramas.map((p) => <Select.Option key={p.id} value={p.id}>{p.nombre}</Select.Option>)}
         </Select>
       </Modal>

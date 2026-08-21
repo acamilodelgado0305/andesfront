@@ -768,7 +768,13 @@ export default function MateriaDetalle({
   };
 
   const handleTransferConfirm = async () => {
-    if (!transferProgramaId) return message.warning('Selecciona un programa destino.');
+    // En "duplicar" el select es múltiple → transferProgramaId es un array.
+    const destinos = Array.isArray(transferProgramaId) ? transferProgramaId : [];
+    if (transferModal.mode === 'mover' ? !transferProgramaId : !destinos.length) {
+      return message.warning(transferModal.mode === 'mover'
+        ? 'Selecciona un programa destino.'
+        : 'Selecciona al menos un programa destino.');
+    }
     setSavingTransfer(true);
     try {
       if (transferModal.mode === 'mover') {
@@ -781,9 +787,17 @@ export default function MateriaDetalle({
         onChanged?.();
         if (embedded && onBack) onBack(); else navigate(`/inicio/programas/${transferProgramaId}`);
       } else {
-        // Copia profunda: temas, clases, videos, PDFs, presentaciones y evaluaciones.
-        await duplicarMateria(materia.id, { programa_id_destino: transferProgramaId });
-        message.success(`"${materia.nombre}" duplicada con todo su contenido`);
+        // Copia profunda (una por programa): temas, clases, videos, PDFs,
+        // presentaciones y evaluaciones.
+        const res = await duplicarMateria(materia.id, { programa_ids_destino: destinos });
+        const creadas = res?.materias?.length ?? destinos.length;
+        const fallidas = res?.fallidas ?? [];
+        message.success(creadas === 1
+          ? `"${materia.nombre}" duplicada con todo su contenido`
+          : `"${materia.nombre}" duplicada en ${creadas} programas`);
+        if (fallidas.length) {
+          message.warning(`No se pudo duplicar en: ${fallidas.map((f) => f.programa_nombre || f.programa_id).join(', ')}`);
+        }
         setTransferModal(null);
         onChanged?.();
       }
@@ -820,7 +834,8 @@ export default function MateriaDetalle({
     { key: 'mover', icon: <SwapOutlined />, label: 'Mover a otro programa',
       onClick: () => { setTransferProgramaId(null); setTransferModal({ mode: 'mover' }); } },
     { key: 'duplicar', icon: <CopyOutlined />, label: 'Duplicar',
-      onClick: () => { setTransferProgramaId(null); setTransferModal({ mode: 'duplicar' }); } },
+      // Selección múltiple de destinos → el estado arranca como array vacío.
+      onClick: () => { setTransferProgramaId([]); setTransferModal({ mode: 'duplicar' }); } },
     { type: 'divider' },
     { key: 'eliminar', icon: <DeleteOutlined />, label: 'Eliminar materia', danger: true, onClick: handleDeleteMateria },
   ];
@@ -1737,7 +1752,9 @@ export default function MateriaDetalle({
           <div className="flex flex-col items-center justify-center text-center py-6 px-2">
             <Spin indicator={<LoadingOutlined style={{ fontSize: 42, color: PURPLE }} spin />} />
             <div className="mt-5 text-base font-semibold text-gray-800 dark:text-[#faf9f5]">
-              Duplicando la materia…
+              {Array.isArray(transferProgramaId) && transferProgramaId.length > 1
+                ? `Duplicando la materia en ${transferProgramaId.length} programas…`
+                : 'Duplicando la materia…'}
             </div>
             <div className="mt-1 text-sm text-gray-500 dark:text-[#a8a59e]">
               Copiando temas, clases, evaluaciones y archivos.
@@ -1752,13 +1769,22 @@ export default function MateriaDetalle({
             <p className="text-sm text-gray-500 dark:text-[#a8a59e] mb-3">
               {transferModal?.mode === 'mover'
                 ? 'Selecciona el programa destino. La materia dejará de pertenecer a este programa.'
-                : 'Selecciona el programa destino. Se copiará la materia con todo su contenido (temas, clases, evaluaciones y archivos). El original se mantiene aquí.'}
+                : 'Selecciona uno o varios programas destino. Se creará una copia de la materia con todo su contenido (temas, clases, evaluaciones y archivos) en cada uno. El original se mantiene aquí.'}
             </p>
-            <Select style={{ width: '100%' }} placeholder="Programa destino" value={transferProgramaId}
-              onChange={setTransferProgramaId} showSearch
+            <Select style={{ width: '100%' }}
+              mode={transferModal?.mode === 'duplicar' ? 'multiple' : undefined}
+              placeholder={transferModal?.mode === 'duplicar' ? 'Programas destino' : 'Programa destino'}
+              value={transferProgramaId}
+              onChange={setTransferProgramaId} showSearch allowClear
+              maxTagCount="responsive"
               filterOption={(i, o) => (o.children || '').toLowerCase().includes(i.toLowerCase())}>
               {otrosProgramas.map((p) => <Select.Option key={p.id} value={p.id}>{p.nombre}</Select.Option>)}
             </Select>
+            {transferModal?.mode === 'duplicar' && Array.isArray(transferProgramaId) && transferProgramaId.length > 1 && (
+              <p className="mt-3 text-xs text-gray-400 dark:text-[#8a8780]">
+                Se harán {transferProgramaId.length} copias, una por programa. Puede tardar varios segundos.
+              </p>
+            )}
           </>
         )}
       </Modal>
