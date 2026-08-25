@@ -1,38 +1,17 @@
-import React, { useState, useContext, useEffect, useRef } from 'react';
+import React, { useState, useContext, useEffect, useRef, useMemo } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, Button, Avatar, Typography, Dropdown, ConfigProvider, Spin, Modal, message, Form, Input, Select, Tag, Divider, Switch } from 'antd';
 import {
-  HomeOutlined,
-  DashboardOutlined,
-  TeamOutlined,
-  ReadOutlined,
-  IdcardOutlined,
-  BookOutlined,
-  FileTextOutlined,
+  AppstoreOutlined,
+  BulbFilled,
+  BulbOutlined,
+  LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  LogoutOutlined,
-  SettingOutlined,
-  UserOutlined,
-  BankOutlined,
-  PaperClipOutlined,
-  BuildOutlined,
-  ShopOutlined,
-  AppstoreOutlined,
-  UsergroupAddOutlined,
   PlusOutlined,
-  SwapOutlined,
-  InboxOutlined,
-  ContactsOutlined,
-  ShoppingCartOutlined,
-  UserSwitchOutlined,
-  TrophyOutlined,
-  BarChartOutlined,
-  FileDoneOutlined,
-  ToolOutlined,
-  CrownOutlined,
-  BulbOutlined,
-  BulbFilled,
+  SettingOutlined,
+  ShopOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
 import { useTheme } from '../ThemeContext';
@@ -43,6 +22,18 @@ import OnboardingWizard from './Onboarding/OnboardingWizard';
 import PaymentWall from './PaymentWall';
 import DocentePerfilGate from './Perfil/DocentePerfilGate';
 import UserAvatar from './Perfil/UserAvatar';
+import CustomizeSidebarModal from './Sidebar/CustomizeSidebarModal';
+import { buildNavSections } from '../services/nav/navSections';
+import MobileBottomNav, { MOBILE_NAV_HEIGHT } from './Sidebar/MobileBottomNav';
+import {
+  resolvePrefs,
+  applySidebarPrefs,
+  storePrefs,
+  clearStoredPrefs,
+  persistPrefsToBackend,
+  resetPrefsInBackend,
+  isCustomized,
+} from '../services/sidebar/sidebarService';
 
 const { Title } = Typography;
 
@@ -50,154 +41,6 @@ const API_URL = import.meta.env.VITE_API_BACKEND;
 const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
 const PRIMARY_COLOR = '#1d4ed8';
 const PRIMARY_DARK  = '#0a1f3d';
-
-// =========================================================
-// 📋 MENÚ MAESTRO (Definición única de toda la app)
-// =========================================================
-// 'requiredModule': Debe coincidir con lo que envía tu Backend en user.modules
-// Si no tiene 'requiredModule', es público para cualquier usuario logueado.
-
-const MENU_MASTER = [
-  // --- 1. GENERAL (Todos lo ven) ---
-  {
-    key: '/inicio/dashboard',
-    icon: <HomeOutlined />,
-    label: 'Inicio',
-    path: '/inicio/dashboard'
-  },
-
-  // --- 2. GESTIÓN COMERCIAL (POS, Inventario, Caja) ---
-  {
-    key: '/gestion-comercial',
-    icon: <ShopOutlined />,
-    label: 'Gestión Comercial (POS)',
-    requiredModule: 'POS', // <--- Módulo requerido
-    children: [
-      { key: '/inicio/certificados', icon: <SwapOutlined />,      label: 'Movimientos',  path: '/inicio/certificados' },
-      { key: '/inicio/inventario',   icon: <InboxOutlined />,     label: 'Inventario',   path: '/inicio/inventario' },
-      { key: '/inicio/personas',     icon: <ContactsOutlined />,  label: 'Contactos',    path: '/inicio/personas' },
-      { key: '/inicio/crm',          icon: <UsergroupAddOutlined />, label: 'CRM',        path: '/inicio/crm' },
-      { key: '/inicio/pedidos',         icon: <ShoppingCartOutlined />, label: 'Pedidos',              path: '/inicio/pedidos' },
-      { key: '/inicio/documentos-venta', icon: <FileTextOutlined />,     label: 'Facturas / Cotizaciones', path: '/inicio/documentos-venta' },
-      { key: '/inicio/cuentas-por-pagar', icon: <BankOutlined />,        label: 'Cuentas por Pagar',    path: '/inicio/cuentas-por-pagar' },
-    ]
-  },
-
-  // --- 3. GESTIÓN ACADÉMICA ---
-  {
-    key: '/academic-management',
-    icon: <ReadOutlined />,
-    label: 'Gestión Académica',
-    requiredModule: 'ACADEMICO', // <--- Módulo requerido
-    children: [
-      { key: '/inicio/students', icon: <TeamOutlined />, label: 'Estudiantes', path: '/inicio/students' },
-      { key: '/inicio/docentes', icon: <UserSwitchOutlined />, label: 'Docentes', path: '/inicio/docentes' },
-      { key: '/inicio/programas', icon: <ReadOutlined />, label: 'Programas', path: '/inicio/programas' },
-      { key: '/inicio/calificaciones', icon: <BarChartOutlined />, label: 'Calificaciones', path: '/inicio/calificaciones' },
-    ],
-  },
-
-  // --- 4. UTILIDADES / GENERACIÓN ---
-  {
-    key: '/otros-utilidades',
-    icon: <AppstoreOutlined />,
-    label: 'Otros / Utilidades',
-    requiredModule: 'GENERACION', // <--- Módulo requerido
-    children: [
-      { key: '/inicio/generacion', icon: <FileDoneOutlined />, label: 'Generación Documentos', path: '/inicio/generacion' },
-    ]
-  },
-
-  // --- 5. ADMINISTRACIÓN DEL SISTEMA ---
-  {
-    key: '/admin-sistema',
-    icon: <SettingOutlined />,
-    label: 'Administración Global',
-    requiredRole: ['superadmin'], // <--- Solo superadmin
-    children: [
-      { key: '/inicio/adminclients', icon: <CrownOutlined />, label: 'Configurador General', path: '/inicio/adminclients' },
-    ]
-  },
-
-  // --- 6. CONFIGURACIÓN DEL NEGOCIO ---
-  {
-    key: '/configuracion-negocio',
-    icon: <SettingOutlined />,
-    label: 'Configuración',
-    requiredRole: ['admin', 'superadmin'], // <--- Solo admin del negocio
-    children: [
-      { key: '/inicio/usuarios-negocio', icon: <ToolOutlined />, label: 'Administración', path: '/inicio/usuarios-negocio' },
-    ]
-  }
-];
-
-// =========================================================
-// 🔒 RESTRICCIONES POR ROL para hijos de cada módulo
-// =========================================================
-// Define qué hijos puede ver cada rol dentro de un módulo.
-// Si un rol NO está listado aquí, verá TODOS los hijos (sin restricción).
-// Si un rol está listado, solo verá los paths indicados.
-const ROLE_CHILD_RESTRICTIONS = {
-  ACADEMICO: {
-    user: ['/inicio/students', '/inicio/calificaciones'],
-    // docente: ['/inicio/students', '/inicio/calificaciones', '/inicio/evaluaciones'],
-  },
-  // Puedes agregar restricciones para otros módulos:
-  // POS: {
-  //   user: ['/inicio/certificados'],
-  // },
-};
-
-const isEducationalPlanUser = (currentUser) => {
-  if (!currentUser || currentUser.role !== 'user') return false;
-  const planText = [
-    currentUser.plan_name,
-    currentUser.plan,
-    currentUser.plan_type,
-    currentUser.planType,
-    currentUser.app,
-    currentUser.scope,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-  return planText.includes('educa');
-};
-
-const buildEducationalMenu = () => {
-  const academicMenu = MENU_MASTER.find(m => m.key === '/academic-management');
-  if (!academicMenu) return [];
-  const allowedPaths = ROLE_CHILD_RESTRICTIONS.ACADEMICO?.user || [];
-  const filteredChildren = (academicMenu.children || []).filter(child =>
-    allowedPaths.includes(child.path)
-  );
-  if (!filteredChildren.length) return [];
-  return [{ ...academicMenu, children: filteredChildren }];
-};
-
-/**
- * Filtra los hijos de un item de menú según el rol del usuario
- * y las restricciones definidas en ROLE_CHILD_RESTRICTIONS.
- */
-const applyChildRestrictions = (menuItem, userRole) => {
-  if (!menuItem.children || !menuItem.requiredModule) return menuItem;
-
-  const moduleRestrictions = ROLE_CHILD_RESTRICTIONS[menuItem.requiredModule];
-  if (!moduleRestrictions) return menuItem; // No hay restricciones para este módulo
-
-  const allowedPaths = moduleRestrictions[userRole];
-  if (!allowedPaths) return menuItem; // Este rol no tiene restricciones, ve todo
-
-  // Filtrar los hijos según las rutas permitidas
-  const filteredChildren = menuItem.children.filter(child =>
-    allowedPaths.includes(child.path)
-  );
-
-  // Si no quedan hijos después del filtro, ocultar el grupo completo
-  if (!filteredChildren.length) return null;
-
-  return { ...menuItem, children: filteredChildren };
-};
 
 // =========================================================
 // 🎁 TRIAL BANNER — Se muestra cuando el usuario tiene prueba activa
@@ -528,130 +371,51 @@ const RootLayout = () => {
   // 🚀 3. MENÚ PLANO POR SECCIONES
   // =========================================================
   // Devuelve array de secciones: [{ sectionLabel, sectionColor, items: [{key, icon, label, path}] }]
-  const getNavSections = () => {
-    if (!user) return [];
 
-    const userModules = user.modules || [];
-    const hasPOS      = user.role === 'superadmin' || userModules.includes('POS');
-    const hasACAD     = user.role === 'superadmin' || userModules.includes('ACADEMICO') || isEducationalPlanUser(user);
-    const hasGEN      = user.role === 'superadmin' || userModules.includes('GENERACION');
-    const isSuperAdmin = user.role === 'superadmin';
-    const isAdmin      = ['admin', 'superadmin'].includes(user.role);
-    const isDocente    = user.role === 'docente';
-    const hasBoth      = hasPOS && hasACAD;
+  // Menú por defecto (lo que el plan, `modulos_ocultos` y el rol permiten).
+  // Se memoiza por `user` para que la lista no se reconstruya en cada render
+  // (el modal de personalización parte de ella y se reiniciaría al arrastrar).
+  const defaultNavSections = useMemo(() => buildNavSections(user), [user]);
 
-    // Docente: experiencia acotada — solo sus programas (el perfil se abre desde
-    // el dropdown del header). No hereda POS/Configuración aunque el negocio
-    // tenga esos módulos en la suscripción.
-    if (isDocente) {
-      return [
-        {
-          sectionLabel: null,
-          items: [
-            { key: '/inicio/mis-programas', icon: <ReadOutlined />, label: 'Mis Programas', path: '/inicio/mis-programas' },
-          ],
-        },
-      ];
+  // Preferencias de menú del usuario EN ESTE NEGOCIO (orden + ocultos).
+  const sidebarPrefs = useMemo(() => resolvePrefs(user), [user]);
+  const navSections = useMemo(
+    () => applySidebarPrefs(defaultNavSections, sidebarPrefs),
+    [defaultNavSections, sidebarPrefs]
+  );
+
+  // --- PERSONALIZACIÓN DEL MENÚ ---
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const activeBusinessId = user?.bid ?? user?.business_id ?? null;
+
+  // Guarda primero en local (respuesta inmediata) y luego sincroniza. Si el
+  // backend falla, el usuario conserva su menú en este dispositivo.
+  const handleSaveSidebar = async (nextPrefs) => {
+    if (activeBusinessId == null) return;
+    storePrefs(user.id, activeBusinessId, nextPrefs);
+    patchUser({ sidebar_prefs: { ...(user.sidebar_prefs || {}), [String(activeBusinessId)]: nextPrefs } });
+    try {
+      const guardado = await persistPrefsToBackend(activeBusinessId, nextPrefs);
+      if (guardado) patchUser({ sidebar_prefs: guardado });
+      message.success('Menú actualizado');
+    } catch (e) {
+      message.warning('Menú guardado en este dispositivo; no se pudo sincronizar con el servidor.');
     }
-
-    const sections = [];
-
-    // — General —
-    sections.push({
-      sectionLabel: null,
-      items: [{ key: '/inicio/dashboard', icon: <HomeOutlined />, label: 'Inicio', path: '/inicio/dashboard' }],
-    });
-
-    // — Gestión Empresarial —
-    if (hasPOS) {
-      // Los módulos ocultos se aplican solo a roles no-superadmin
-      const hiddenPOS = isSuperAdmin ? [] : (user.modulos_ocultos || []);
-
-      const allPosItems = [
-        { key: '/inicio/certificados',     navKey: 'movimientos', icon: <SwapOutlined />,         label: 'Movimientos',  path: '/inicio/certificados' },
-        { key: '/inicio/documentos-venta', navKey: 'facturas',    icon: <FileDoneOutlined />,     label: 'Facturas',     path: '/inicio/documentos-venta' },
-        { key: '/inicio/cuentas-por-pagar', navKey: 'cuentas-por-pagar', icon: <BankOutlined />,   label: 'Cuentas por Pagar', path: '/inicio/cuentas-por-pagar' },
-        { key: '/inicio/personas',         navKey: 'contactos',   icon: <ContactsOutlined />,     label: 'Contactos',    path: '/inicio/personas' },
-        { key: '/inicio/crm',              navKey: 'crm',         icon: <UsergroupAddOutlined />, label: 'CRM',          path: '/inicio/crm' },
-        { key: '/inicio/inventario',       navKey: 'inventario',  icon: <InboxOutlined />,        label: 'Inventario',   path: '/inicio/inventario' },
-        { key: '/inicio/pedidos',          navKey: 'pedidos',     icon: <ShoppingCartOutlined />, label: 'Pedidos',      path: '/inicio/pedidos' },
-      ];
-
-      const visiblePosItems = allPosItems.filter(item => !hiddenPOS.includes(item.navKey));
-
-      if (visiblePosItems.length > 0) {
-        sections.push({
-          sectionLabel: hasBoth ? 'Gestión Empresarial' : null,
-          sectionColor: '#1d4ed8',
-          items: visiblePosItems,
-        });
-      }
-    }
-
-    // — Gestión Académica —
-    if (hasACAD) {
-      let acadItems = [
-        { key: '/inicio/students',       icon: <TeamOutlined />,       label: 'Estudiantes',   path: '/inicio/students' },
-        { key: '/inicio/docentes',       icon: <UserSwitchOutlined />, label: 'Docentes',      path: '/inicio/docentes' },
-        { key: '/inicio/programas',      icon: <ReadOutlined />,       label: 'Programas',     path: '/inicio/programas' },
-        { key: '/inicio/calificaciones', icon: <BarChartOutlined />,   label: 'Calificaciones', path: '/inicio/calificaciones' },
-      ];
-
-      // Movimientos: visible solo para admin/superadmin en plan educativo (sin módulo POS separado)
-      if (isAdmin && !hasPOS) {
-        acadItems = [
-          { key: '/inicio/certificados', icon: <SwapOutlined />, label: 'Movimientos', path: '/inicio/certificados' },
-          ...acadItems,
-        ];
-      }
-
-      // Restricción para rol 'user' educativo (los docentes salen antes con su
-      // propia sección acotada).
-      if (user.role === 'user') {
-        const allowed = ROLE_CHILD_RESTRICTIONS.ACADEMICO?.user || [];
-        acadItems = acadItems.filter(i => allowed.includes(i.path));
-      }
-      sections.push({
-        sectionLabel: hasBoth ? 'Gestión Académica' : null,
-        sectionColor: '#7c3aed',
-        items: acadItems,
-      });
-    }
-
-    // — Utilidades —
-    if (hasGEN) {
-      sections.push({
-        sectionLabel: null,
-        items: [
-          { key: '/inicio/generacion', icon: <FileDoneOutlined />, label: 'Generación Documentos', path: '/inicio/generacion' },
-        ],
-      });
-    }
-
-    // — Configuración del negocio —
-    if (isAdmin) {
-      sections.push({
-        sectionLabel: null,
-        items: [
-          { key: '/inicio/usuarios-negocio', icon: <ToolOutlined />, label: 'Administración', path: '/inicio/usuarios-negocio' },
-        ],
-      });
-    }
-
-    // — Administración Global —
-    if (isSuperAdmin) {
-      sections.push({
-        sectionLabel: null,
-        items: [
-          { key: '/inicio/adminclients', icon: <CrownOutlined />, label: 'Configurador General', path: '/inicio/adminclients' },
-        ],
-      });
-    }
-
-    return sections;
   };
 
-  const navSections = getNavSections();
+  const handleResetSidebar = async () => {
+    if (activeBusinessId == null) return;
+    clearStoredPrefs(user.id, activeBusinessId);
+    const resto = { ...(user.sidebar_prefs || {}) };
+    delete resto[String(activeBusinessId)];
+    patchUser({ sidebar_prefs: resto });
+    try {
+      await resetPrefsInBackend(activeBusinessId);
+      message.success('Menú restaurado al orden por defecto');
+    } catch (e) {
+      message.warning('Menú restaurado en este dispositivo; no se pudo sincronizar con el servidor.');
+    }
+  };
 
   // --- 4. DROPDOWN DE NEGOCIOS ---
   const [switchingBusiness, setSwitchingBusiness] = useState(false);
@@ -847,6 +611,7 @@ const RootLayout = () => {
       <Menu style={{ border: 'none', backgroundColor: 'transparent' }} items={[
         { key: 'perfil', icon: <UserOutlined />, label: <Link to="/inicio/perfil">Mi perfil</Link> },
         { key: '1', icon: <SettingOutlined />, label: <Link to="/inicio/configuracion">Configuración</Link> },
+        { key: 'menu', icon: <AppstoreOutlined />, label: 'Personalizar menú', onClick: () => setCustomizeOpen(true) },
         {
           key: 'theme',
           icon: isDark ? <BulbFilled /> : <BulbOutlined />,
@@ -1045,6 +810,26 @@ const RootLayout = () => {
                     })}
                   </div>
                 ))}
+
+                {/* Personalizar: solo con el sidebar abierto y si hay algo que ordenar */}
+                {!collapsed && defaultNavSections.reduce((n, s) => n + s.items.length, 0) > 1 && (
+                  <button
+                    onClick={() => setCustomizeOpen(true)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: 'calc(100% - 12px)', margin: '8px 6px 0',
+                      padding: '7px 10px', borderRadius: 7,
+                      border: '1px dashed #d1d5db', background: 'transparent',
+                      color: '#6b7280', fontSize: 12, cursor: 'pointer',
+                    }}
+                    className="hover:bg-gray-100"
+                  >
+                    <AppstoreOutlined style={{ fontSize: 13 }} />
+                    <span style={{ whiteSpace: 'nowrap' }}>
+                      {isCustomized(sidebarPrefs) ? 'Editar menú' : 'Personalizar menú'}
+                    </span>
+                  </button>
+                )}
               </div>
 
               {/* ── Footer: usuario ── */}
@@ -1087,7 +872,14 @@ const RootLayout = () => {
         })()}
 
         {/* ===== ÁREA PRINCIPAL ===== */}
-        <div style={{ marginLeft: isMobile ? 0 : 56, minHeight: '100vh', transition: 'margin-left 0.22s ease' }}>
+        <div style={{
+          marginLeft: isMobile ? 0 : 56,
+          minHeight: '100vh',
+          transition: 'margin-left 0.22s ease',
+          // En móvil la barra inferior es fija: se reserva su alto para que
+          // no tape el último bloque de cada página.
+          paddingBottom: isMobile ? MOBILE_NAV_HEIGHT + 12 : 0,
+        }}>
 
           {/* ── HEADER TRANSPARENTE ── */}
           <div style={{
@@ -1257,6 +1049,28 @@ const RootLayout = () => {
       <OnboardingWizard
         open={showOnboarding}
         onClose={() => setShowOnboarding(false)}
+      />
+
+      {/* ── Barra inferior de navegación (solo móvil) ── */}
+      {isMobile && (
+        <MobileBottomNav
+          sections={navSections}
+          onMore={() => setMobileDrawerOpen(true)}
+          onNavigate={() => setMobileDrawerOpen(false)}
+          isDark={isDark}
+        />
+      )}
+
+      {/* ── Personalizar el menú lateral (orden y visibilidad) ── */}
+      <CustomizeSidebarModal
+        open={customizeOpen}
+        onClose={() => setCustomizeOpen(false)}
+        sections={defaultNavSections}
+        prefs={sidebarPrefs}
+        onSave={handleSaveSidebar}
+        onReset={handleResetSidebar}
+        businessName={user?.business_name}
+        isDark={isDark}
       />
 
       {/* ── Gate de perfil del docente (primer ingreso) ── */}

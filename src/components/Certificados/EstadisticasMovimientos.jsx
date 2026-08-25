@@ -56,12 +56,13 @@ const EstadisticasMovimientos = () => {
     let cancelado = false;
     const cargar = async () => {
       setLoading(true);
-      const inicio = mes.clone().startOf('month').startOf('day').toISOString();
-      const fin    = mes.clone().endOf('month').endOf('day').toISOString();
+      const inicio   = mes.clone().startOf('month').startOf('day').toISOString();
+      const fin      = mes.clone().endOf('month').endOf('day').toISOString();
+      const tzOffset = new Date().getTimezoneOffset();
       try {
         const [ing, egr] = await Promise.all([
-          getAllIngresos({ fecha_inicio: inicio, fecha_fin: fin, limit: 5000 }).catch(() => []),
-          getAllEgresos({ fecha_inicio: inicio, fecha_fin: fin }).catch(() => []),
+          getAllIngresos({ fecha_inicio: inicio, fecha_fin: fin, tz_offset: tzOffset, limit: 5000 }).catch(() => []),
+          getAllEgresos({ fecha_inicio: inicio, fecha_fin: fin, tz_offset: tzOffset }).catch(() => []),
         ]);
         if (cancelado) return;
         setIngresos(Array.isArray(ing) ? ing : (ing?.data || []));

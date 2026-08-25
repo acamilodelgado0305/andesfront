@@ -64,16 +64,15 @@ function Certificados() {
     if (!user) return;
     setLoading(true);
     try {
+      // Instantes exactos del rango en hora local; tz_offset viaja como respaldo.
+      const rango = {
+        fecha_inicio: range[0].clone().startOf('day').toISOString(),
+        fecha_fin:    range[1].clone().endOf('day').toISOString(),
+        tz_offset:    new Date().getTimezoneOffset(),
+      };
       const [ingresosData, egresosData] = await Promise.all([
-        getAllIngresos({
-          fecha_inicio: range[0].clone().startOf('day').toISOString(),
-          fecha_fin:    range[1].clone().endOf('day').toISOString(),
-          limit: 5000,
-        }),
-        getAllEgresos({
-          fecha_inicio: range[0].clone().startOf('day').toISOString(),
-          fecha_fin:    range[1].clone().endOf('day').toISOString(),
-        }),
+        getAllIngresos({ ...rango, limit: 5000 }),
+        getAllEgresos(rango),
       ]);
 
       const safeIngresos = Array.isArray(ingresosData) ? ingresosData : (ingresosData.data || []);

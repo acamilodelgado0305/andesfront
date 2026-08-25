@@ -139,9 +139,12 @@ function CrmDashboard() {
     const activeRange = Array.isArray(range) ? range : dateRange;
     setLoading(true); setError(null);
     try {
+      // Se mandan instantes exactos (con el offset del navegador ya aplicado).
+      // tz_offset viaja solo como respaldo si el backend recibiera fechas sin hora.
       const params = {
         fecha_inicio: activeRange[0].clone().startOf('day').toISOString(),
         fecha_fin:    activeRange[1].clone().endOf('day').toISOString(),
+        tz_offset:    new Date().getTimezoneOffset(),
       };
       const [leads, st] = await Promise.all([getLeads(params), getLeadStats(params)]);
       setItems(leads || []);

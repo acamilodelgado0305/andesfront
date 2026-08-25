@@ -24,7 +24,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/es';
 import {
   getMateriaDetalle, updateMateria, deleteMateria, createMateria, duplicarMateria, uploadMateriaBanner,
-  getMateriaProgresoEstudiante
+  getMateriaProgresoEstudiante, getAllMaterias
 } from '../../services/materias/serviceMateria';
 import { getAllDocentes } from '../../services/docentes/serviceDocente';
 import HorarioDrawer from '../Horarios/HorarioDrawer';
@@ -217,6 +217,15 @@ export default function MateriaDetalle({
   const [transferProgramaId, setTransferProgramaId] = useState(null);
   const [savingTransfer, setSavingTransfer] = useState(false);
   const [horarioOpen, setHorarioOpen] = useState(false);
+
+  // ─── Copiar un TEMA a otras materias (posiblemente de otros programas) ────
+  const [copiarTemaModal, setCopiarTemaModal] = useState(null); // { modulo }
+  const [copiarTemaDestinos, setCopiarTemaDestinos] = useState([]); // ids de materia
+  const [copiandoTema, setCopiandoTema] = useState(false);
+  // Catálogo de materias del negocio (para elegir destino). Se carga perezosamente
+  // la primera vez que se abre el modal: la mayoría de sesiones nunca copia temas.
+  const [allMaterias, setAllMaterias] = useState([]);
+  const [loadingAllMaterias, setLoadingAllMaterias] = useState(false);
 
   const token = localStorage.getItem('authToken');
   const headers = { Authorization: `Bearer ${token}` };
@@ -468,6 +477,61 @@ export default function MateriaDetalle({
       fetchModulos();
     } catch { message.error('Error al eliminar el tema'); }
   };
+
+  // ─── Copiar tema a otras materias ──────────────────────────────────────────
+  const openCopiarTema = async (modulo) => {
+    setCopiarTemaDestinos([]);
+    setCopiarTemaModal({ modulo });
+    if (allMaterias.length) return; // catálogo ya cargado en esta sesión
+    setLoadingAllMaterias(true);
+    try { setAllMaterias(await getAllMaterias()); }
+    catch { message.error('No se pudieron cargar las materias'); }
+    finally { setLoadingAllMaterias(false); }
+  };
+
+  const handleCopiarTema = async () => {
+    if (!copiarTemaDestinos.length) {
+      return message.warning('Selecciona al menos una materia destino.');
+    }
+    setCopiandoTema(true);
+    try {
+      // Copia profunda del tema (clases, videos, PDFs, presentaciones y exámenes)
+      // en cada materia destino; el tema queda al final de la materia.
+      const { data } = await axios.post(
+        `${API}/api/modulos/${copiarTemaModal.modulo.id}/duplicar`,
+        { materia_ids_destino: copiarTemaDestinos },
+        { headers }
+      );
+      const copiados = data?.modulos?.length ?? copiarTemaDestinos.length;
+      const fallidas = data?.fallidas ?? [];
+      message.success(copiados === 1
+        ? `"${copiarTemaModal.modulo.titulo}" copiado a 1 materia`
+        : `"${copiarTemaModal.modulo.titulo}" copiado a ${copiados} materias`);
+      if (fallidas.length) {
+        message.warning(`No se pudo copiar a: ${fallidas.map((f) => f.materia_nombre || f.materia_id).join(', ')}`);
+      }
+      setCopiarTemaModal(null);
+      // Si una de las copias cayó en ESTA misma materia, refrescar los temas.
+      if (copiarTemaDestinos.some((d) => Number(d) === Number(materiaId))) fetchModulos();
+    } catch (e) {
+      message.error(e?.response?.data?.error || 'Error al copiar el tema');
+    } finally { setCopiandoTema(false); }
+  };
+
+  // Materias destino agrupadas por programa, para que el select sea navegable
+  // cuando el negocio tiene muchos programas.
+  const materiasAgrupadas = useMemo(() => {
+    const grupos = new Map();
+    for (const m of allMaterias) {
+      const grupo = m.programa_nombre || 'Sin programa';
+      if (!grupos.has(grupo)) grupos.set(grupo, []);
+      grupos.get(grupo).push({
+        value: m.id,
+        label: Number(m.id) === Number(materiaId) ? `${m.nombre} (esta materia)` : m.nombre,
+      });
+    }
+    return [...grupos.entries()].map(([label, options]) => ({ label, options }));
+  }, [allMaterias, materiaId]);
 
   // ─── Clases (dentro de cada Tema) ──────────────────────────────────────────
   // En modo solo-lectura, un solo endpoint (*_estudiante) trae clases +
@@ -901,6 +965,7 @@ export default function MateriaDetalle({
                   { type: 'divider' },
                   { key: 'ver', icon: <EyeOutlined />, label: 'Ver detalle', onClick: () => navigate(`/inicio/modulos/${m.id}`) },
                   { key: 'editar', icon: <EditOutlined />, label: 'Editar tema', onClick: () => openEditModulo(m) },
+                  { key: 'copiar', icon: <CopyOutlined />, label: 'Copiar a otra materia', onClick: () => openCopiarTema(m) },
                   { key: 'eliminar', icon: <DeleteOutlined />, danger: true, label: 'Eliminar tema', onClick: () => handleDeleteModulo(m.id) },
                 ],
               }}
@@ -924,6 +989,7 @@ export default function MateriaDetalle({
             </Dropdown>
             <Tooltip title="Ver detalle"><Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/inicio/modulos/${m.id}`)} /></Tooltip>
             <Tooltip title="Editar tema"><Button size="small" icon={<EditOutlined />} onClick={() => openEditModulo(m)} /></Tooltip>
+            <Tooltip title="Copiar tema a otra materia"><Button size="small" icon={<CopyOutlined />} onClick={() => openCopiarTema(m)} /></Tooltip>
             <Popconfirm title="¿Eliminar tema?" onConfirm={() => handleDeleteModulo(m.id)} okText="Sí" cancelText="No">
               <Button size="small" danger icon={<DeleteOutlined />} />
             </Popconfirm>
@@ -1783,6 +1849,69 @@ export default function MateriaDetalle({
             {transferModal?.mode === 'duplicar' && Array.isArray(transferProgramaId) && transferProgramaId.length > 1 && (
               <p className="mt-3 text-xs text-gray-400 dark:text-[#8a8780]">
                 Se harán {transferProgramaId.length} copias, una por programa. Puede tardar varios segundos.
+              </p>
+            )}
+          </>
+        )}
+      </Modal>
+
+      {/* ── Modal copiar TEMA a otras materias ─────────────────────────────── */}
+      <Modal
+        open={!!copiarTemaModal}
+        title={copiandoTema ? null : `Copiar "${copiarTemaModal?.modulo?.titulo}"`}
+        okText="Copiar tema"
+        cancelText="Cancelar"
+        onOk={handleCopiarTema}
+        onCancel={() => setCopiarTemaModal(null)}
+        confirmLoading={copiandoTema}
+        // Igual que al duplicar una materia: mientras copia ocultamos el footer y
+        // bloqueamos el cierre para no cancelar a media copia.
+        footer={copiandoTema ? null : undefined}
+        closable={!copiandoTema}
+        maskClosable={!copiandoTema}
+        keyboard={!copiandoTema}
+        okButtonProps={{ style: { backgroundColor: PURPLE } }}
+      >
+        {copiandoTema ? (
+          <div className="flex flex-col items-center justify-center text-center py-6 px-2">
+            <Spin indicator={<LoadingOutlined style={{ fontSize: 42, color: PURPLE }} spin />} />
+            <div className="mt-5 text-base font-semibold text-gray-800 dark:text-[#faf9f5]">
+              {copiarTemaDestinos.length > 1
+                ? `Copiando el tema a ${copiarTemaDestinos.length} materias…`
+                : 'Copiando el tema…'}
+            </div>
+            <div className="mt-1 text-sm text-gray-500 dark:text-[#a8a59e]">
+              Copiando clases, exámenes y archivos.
+            </div>
+            <div className="mt-6 max-w-xs text-xs leading-relaxed text-gray-400 dark:text-[#8a8780]">
+              Este proceso puede demorar unos segundos si el tema tiene videos o
+              archivos pesados. Por favor no cierres esta ventana.
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500 dark:text-[#a8a59e] mb-3">
+              Selecciona una o varias materias destino (pueden ser de otros programas).
+              El tema se copiará completo — clases, videos, PDFs, presentaciones y
+              exámenes — al final de cada materia. El original se mantiene aquí.
+            </p>
+            <Select
+              style={{ width: '100%' }}
+              mode="multiple"
+              placeholder="Materias destino"
+              value={copiarTemaDestinos}
+              onChange={setCopiarTemaDestinos}
+              loading={loadingAllMaterias}
+              options={materiasAgrupadas}
+              optionFilterProp="label"
+              showSearch
+              allowClear
+              maxTagCount="responsive"
+              notFoundContent={loadingAllMaterias ? <Spin size="small" /> : 'Sin materias'}
+            />
+            {copiarTemaDestinos.length > 1 && (
+              <p className="mt-3 text-xs text-gray-400 dark:text-[#8a8780]">
+                Se harán {copiarTemaDestinos.length} copias, una por materia.
               </p>
             )}
           </>

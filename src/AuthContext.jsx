@@ -48,6 +48,11 @@ const buildUserFromPayload = (payload, base = {}) => ({
     // única por usuario (auth_service.users.avatar_url), así que NO depende del
     // negocio activo — ver `login`, que la conserva al cambiar de negocio.
     avatar_url: base.avatar_url ?? payload.avatar_url ?? null,
+    // Menú lateral personalizado por el usuario, con una entrada por negocio
+    // ({ "<business_id>": { order, hidden } }). Tampoco está en el JWT: viene
+    // en el `user` de login/switch-business y se conserva aquí para que el
+    // sidebar pinte el orden elegido desde el primer render tras un F5.
+    sidebar_prefs: base.sidebar_prefs ?? payload.sidebar_prefs ?? {},
 });
 
 export const AuthProvider = ({ children }) => {

@@ -5,110 +5,42 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  ArrowUpOutlined,
   ArrowDownOutlined,
-  WalletOutlined,
+  ArrowUpOutlined,
   EllipsisOutlined,
   ReloadOutlined,
-  HomeOutlined,
-  SwapOutlined,
-  InboxOutlined,
-  ContactsOutlined,
-  ShoppingCartOutlined,
-  TeamOutlined,
-  UserSwitchOutlined,
-  ReadOutlined,
-  TrophyOutlined,
-  BarChartOutlined,
-  FileDoneOutlined,
-  ToolOutlined,
-  CrownOutlined,
   RightOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import { AuthContext } from '../AuthContext';
 import { useTheme } from '../ThemeContext';
 import { getAllIngresos, getAllEgresos, getIngresosDiarios, getIngresosMensuales } from '../services/controlapos/posService';
 import { formatCurrency } from '../utils/currency';
 import useIsMobile from '../hooks/useIsMobile';
+import { resolvePrefs, applySidebarPrefs } from '../services/sidebar/sidebarService';
+import { buildNavSections, NAV_META, HOME_EXCLUDED_PATHS } from '../services/nav/navSections';
 
 const { Title } = Typography;
 
 // formatCOP se mantiene como alias local que usa el país del usuario
 // Se reemplaza inline más abajo usando user.country
 
+// Bordes exactos del periodo en hora local del navegador. El ultimo segundo
+// incluye sus milisegundos (999) para no dejar afuera registros de las 23:59:59.
 const getRangeFor = (period) => {
   const now = new Date();
+  const tzOffset = now.getTimezoneOffset();
   if (period === 'today') {
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    return { start: start.toISOString(), end: end.toISOString() };
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    return { start: start.toISOString(), end: end.toISOString(), tzOffset };
   }
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-  return { start: start.toISOString(), end: end.toISOString() };
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  return { start: start.toISOString(), end: end.toISOString(), tzOffset };
 };
 
 const PERIOD_LABELS = { today: 'Hoy', month: 'Este mes' };
-
-// Detecta planes educativos (replicado de root.jsx para mantener consistencia
-// sin forzar un import cruzado; si cambia allá, hay que tocar ambos).
-const isEducationalPlanUser = (u) => {
-  if (!u || u.role !== 'user') return false;
-  const text = [u.plan_name, u.plan, u.plan_type, u.planType, u.app, u.scope]
-    .filter(Boolean).join(' ').toLowerCase();
-  return text.includes('educa');
-};
-
-// Lista plana de accesos según módulos y rol. Se usa para las cards de "Accesos rápidos".
-const buildQuickAccess = (user) => {
-  if (!user) return [];
-  const mods = user.modules || [];
-  const hasPOS  = user.role === 'superadmin' || mods.includes('POS');
-  const hasACAD = user.role === 'superadmin' || mods.includes('ACADEMICO') || isEducationalPlanUser(user);
-  const hasGEN  = user.role === 'superadmin' || mods.includes('GENERACION');
-  const isSuperAdmin = user.role === 'superadmin';
-  const isAdmin      = ['admin', 'superadmin'].includes(user.role);
-  const isDocente    = user.role === 'docente';
-
-  const items = [];
-
-  if (hasPOS) {
-    items.push(
-      { key: '/inicio/certificados', icon: <SwapOutlined />,         label: 'Movimientos', hint: 'Ingresos y gastos',       tone: 'blue' },
-      { key: '/inicio/inventario',   icon: <InboxOutlined />,        label: 'Inventario',  hint: 'Productos y existencias', tone: 'cyan' },
-      { key: '/inicio/personas',     icon: <ContactsOutlined />,     label: 'Contactos',   hint: 'Clientes y proveedores',  tone: 'amber' },
-      { key: '/inicio/pedidos',      icon: <ShoppingCartOutlined />, label: 'Pedidos',     hint: 'Ventas y pedidos',        tone: 'green' },
-    );
-  }
-
-  if (hasACAD) {
-    const userAllowed = ['/inicio/students', '/inicio/calificaciones'];
-    let acad = [
-      { key: '/inicio/students',       icon: <TeamOutlined />,       label: 'Estudiantes',   hint: 'Matrícula y fichas',      tone: 'purple' },
-      { key: '/inicio/docentes',       icon: <UserSwitchOutlined />, label: 'Docentes',      hint: 'Equipo académico',        tone: 'purple' },
-      { key: '/inicio/programas',      icon: <ReadOutlined />,       label: 'Programas',     hint: 'Cursos y planes',         tone: 'purple' },
-      { key: '/inicio/calificaciones', icon: <BarChartOutlined />,   label: 'Calificaciones', hint: 'Notas y reportes',       tone: 'purple' },
-    ];
-    if (user.role === 'user' || isDocente) {
-      acad = acad.filter(i => userAllowed.includes(i.key));
-    }
-    items.push(...acad);
-  }
-
-  if (hasGEN) {
-    items.push({ key: '/inicio/generacion', icon: <FileDoneOutlined />, label: 'Generación', hint: 'Documentos', tone: 'rose' });
-  }
-
-  if (isAdmin) {
-    items.push({ key: '/inicio/usuarios-negocio', icon: <ToolOutlined />, label: 'Administración', hint: 'Usuarios del negocio', tone: 'slate' });
-  }
-
-  if (isSuperAdmin) {
-    items.push({ key: '/inicio/adminclients', icon: <CrownOutlined />, label: 'Configurador', hint: 'Clientes y planes', tone: 'slate' });
-  }
-
-  return items;
-};
 
 // Paleta para los iconos según `tone`
 const TONE_STYLES = {
@@ -146,7 +78,16 @@ const Home = () => {
   const [chartYear, setChartYear] = useState(new Date().getFullYear());
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const quickAccess = useMemo(() => buildQuickAccess(user), [user]);
+  // Los accesos del inicio son EL MISMO menú del sidebar: mismas opciones y
+  // mismo orden (incluido lo que el usuario reordenó u ocultó). Salen de la
+  // misma función, así que no pueden volver a desincronizarse.
+  const quickAccess = useMemo(() => {
+    const secciones = applySidebarPrefs(buildNavSections(user), resolvePrefs(user));
+    return secciones
+      .flatMap(sec => sec.items || [])
+      .filter(item => !HOME_EXCLUDED_PATHS.includes(item.path))
+      .map(item => ({ ...item, ...(NAV_META[item.path] || {}) }));
+  }, [user]);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -171,11 +112,11 @@ const Home = () => {
 
   useEffect(() => {
     if (!user) return;
-    const { start, end } = getRangeFor(period);
+    const { start, end, tzOffset } = getRangeFor(period);
     setFinancials(f => ({ ...f, loading: true }));
     Promise.all([
-      getAllIngresos({ fecha_inicio: start, fecha_fin: end, limit: 5000 }).catch(() => []),
-      getAllEgresos({ fecha_inicio: start, fecha_fin: end }).catch(() => []),
+      getAllIngresos({ fecha_inicio: start, fecha_fin: end, tz_offset: tzOffset, limit: 5000 }).catch(() => []),
+      getAllEgresos({ fecha_inicio: start, fecha_fin: end, tz_offset: tzOffset }).catch(() => []),
     ]).then(([ingData, egData]) => {
       const ingresos = (Array.isArray(ingData) ? ingData : (ingData?.data || []))
         .reduce((s, i) => s + (parseFloat(i.valor) || 0), 0);
@@ -212,9 +153,85 @@ const Home = () => {
     return v;
   };
 
+  // Accesos a los módulos. Se declara aparte porque su POSICIÓN cambia según
+  // el dispositivo: en escritorio el sidebar siempre está a la vista, así que
+  // pueden ir al final; en móvil el menú vive detrás de un botón y estas
+  // tarjetas son la forma real de entrar a las herramientas → van primero.
+  const seccionAccesosRapidos = quickAccess.length > 0 && (
+          <section>
+            <div style={{ marginBottom: 14 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 4px' }}>
+                Accesos rápidos
+              </p>
+              <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+                Las opciones de tu plan.
+              </p>
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: isMobile ? 10 : 12,
+            }}>
+              {quickAccess.map((item) => {
+                const tone = TONE_STYLES[item.tone] || TONE_STYLES.slate;
+                return (
+                  <Link
+                    key={item.key}
+                    to={item.path}
+                    style={{
+                      background: card.bg,
+                      border: `1px solid ${card.border}`,
+                      borderRadius: 14,
+                      padding: isMobile ? '12px 10px' : 16,
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexDirection: isMobile ? 'column' : 'row',
+                      gap: isMobile ? 8 : 12,
+                      textDecoration: 'none',
+                      transition: 'all 0.15s',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                      textAlign: isMobile ? 'center' : 'left',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = card.borderHover;
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.06)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = card.border;
+                      e.currentTarget.style.transform = 'none';
+                      e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.03)';
+                    }}
+                  >
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10,
+                      background: tone.bg, color: tone.fg,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 18, flexShrink: 0,
+                    }}>
+                      {item.icon}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: card.title, marginBottom: 2 }}>
+                        {item.label}
+                      </div>
+                      {item.hint && (
+                        <div style={{ fontSize: 12, color: card.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.hint}
+                        </div>
+                      )}
+                    </div>
+                    {!isMobile && <RightOutlined style={{ color: '#cbd5e1', fontSize: 11 }} />}
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+  );
+
   return (
     <main className="px-4 py-6 md:px-8 md:py-10">
-      <div className="mx-auto max-w-6xl space-y-8">
+      <div className="mx-auto max-w-6xl space-y-5 md:space-y-8">
 
         {/* SALUDO */}
         <section className="rounded-2xl border border-slate-200 dark:border-[#403e3a] bg-white/60 dark:bg-[#30302e]/70 p-6 shadow-sm">
@@ -225,6 +242,11 @@ const Home = () => {
             Aquí tienes un resumen de tu negocio.
           </p>
         </section>
+
+        {/* En móvil, las herramientas antes que las cifras: al entrar se veía
+            solo el resumen del día y había que bajar toda la gráfica para
+            encontrar un acceso a los módulos. */}
+        {isMobile && seccionAccesosRapidos}
 
         {/* RESUMEN FINANCIERO */}
         <section className="rounded-2xl border border-slate-200 dark:border-[#403e3a] bg-white/70 dark:bg-[#30302e]/70 shadow-sm overflow-hidden">
@@ -409,76 +431,8 @@ const Home = () => {
           </div>
         </section>
 
-        {/* ACCESOS RÁPIDOS */}
-        {quickAccess.length > 0 && (
-          <section>
-            <div style={{ marginBottom: 14 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 4px' }}>
-                Accesos rápidos
-              </p>
-              <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
-                Las opciones de tu plan.
-              </p>
-            </div>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: isMobile ? 10 : 12,
-            }}>
-              {quickAccess.map((item) => {
-                const tone = TONE_STYLES[item.tone] || TONE_STYLES.slate;
-                return (
-                  <Link
-                    key={item.key}
-                    to={item.key}
-                    style={{
-                      background: card.bg,
-                      border: `1px solid ${card.border}`,
-                      borderRadius: 14,
-                      padding: isMobile ? '12px 10px' : 16,
-                      display: 'flex',
-                      alignItems: 'center',
-                      flexDirection: isMobile ? 'column' : 'row',
-                      gap: isMobile ? 8 : 12,
-                      textDecoration: 'none',
-                      transition: 'all 0.15s',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                      textAlign: isMobile ? 'center' : 'left',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = card.borderHover;
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.06)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = card.border;
-                      e.currentTarget.style.transform = 'none';
-                      e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.03)';
-                    }}
-                  >
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 10,
-                      background: tone.bg, color: tone.fg,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 18, flexShrink: 0,
-                    }}>
-                      {item.icon}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: card.title, marginBottom: 2 }}>
-                        {item.label}
-                      </div>
-                      <div style={{ fontSize: 12, color: card.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.hint}
-                      </div>
-                    </div>
-                    {!isMobile && <RightOutlined style={{ color: '#cbd5e1', fontSize: 11 }} />}
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        )}
+        {/* ACCESOS RÁPIDOS — en escritorio, tras la gráfica; en móvil van arriba */}
+        {!isMobile && seccionAccesosRapidos}
 
         {/* BANNER PERIODO DE PRUEBA */}
         {user?.is_trial && (() => {
