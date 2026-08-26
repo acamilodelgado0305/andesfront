@@ -36,11 +36,48 @@ const iconFor = (tipo) => {
   return <FilePptOutlined style={{ color: '#ea580c' }} />; // pptx / ppt
 };
 
+// EN MÓVIL ESTO ES OBLIGATORIO: un documento sin <meta viewport> recibe un
+// viewport por defecto de ~980px. Dentro del iframe eso hace que
+// window.innerWidth valga 980 aunque el iframe mida 360, así que la diapositiva
+// se escala como si hubiera sitio de sobra y se ve gigante y recortada. Un
+// iframe no aplica el zoom-out de página que salva a la web normal.
+// Además quitamos el viewport propio del archivo, que suele traer ancho fijo.
+const VIEWPORT_META =
+  '<meta name="viewport" content="width=device-width, initial-scale=1">';
+
+const withViewportMeta = (html) => {
+  const limpio = html.replace(/<meta[^>]+name=["']viewport["'][^>]*>/gi, '');
+  return /<head[^>]*>/i.test(limpio)
+    ? limpio.replace(/<head[^>]*>/i, (m) => m + VIEWPORT_META)
+    : VIEWPORT_META + limpio;
+};
+
+// Red de seguridad para los HTML que NO son diapositivas fijas: esos se
+// reflujan al ancho del iframe, y muchos traen filas horizontales (barras de
+// navegación del propio archivo) que en 375px se salen y obligan a hacer scroll
+// lateral. Va con `:where()` (especificidad 0) y solo bajo 640px, así cualquier
+// regla del archivo original le gana y en escritorio no cambia nada.
+// NO se aplica a los decks con .slide-container: esos son lienzos fijos de
+// 1280x720 que se escalan, y dejarlos reflujar rompería su diseño.
+const RESPONSIVE_NET = `
+<style id="__qc_pres_mobile">
+  @media (max-width: 640px){
+    body:where(body){ padding: 12px !important; }
+    body :where(div,section,header,footer,nav,ul,ol){ flex-wrap: wrap; }
+    body :where(img,svg,video,canvas){ max-width: 100%; height: auto; }
+  }
+</style>`;
+
 // Script + estilos que inyectamos en el HTML subido para convertirlo en diapositivas:
 // muestra una .slide-container a la vez, la centra y la escala al viewport, y escucha
 // mensajes del padre para cambiar de diapositiva. Corre en un iframe aislado.
 const buildSrcdoc = (rawHtml, hasSlides) => {
-  if (!hasSlides) return rawHtml;
+  const html = withViewportMeta(rawHtml);
+  if (!hasSlides) {
+    return /<\/body>/i.test(html)
+      ? html.replace(/<\/body>/i, () => `${RESPONSIVE_NET}</body>`)
+      : html + RESPONSIVE_NET;
+  }
   const inject = `
 <style id="__qc_pres">
   html,body{margin:0!important;padding:0!important;width:100%!important;height:100%!important;overflow:hidden!important;background:#000!important;}
@@ -54,9 +91,11 @@ const buildSrcdoc = (rawHtml, hasSlides) => {
   var cur=0;
   function fit(){
     var el=slides[cur]; if(!el) return;
-    var vw=window.innerWidth||W, vh=window.innerHeight||H;
+    var de=document.documentElement;
+    var vw=(de&&de.clientWidth)||window.innerWidth||W;
+    var vh=(de&&de.clientHeight)||window.innerHeight||H;
     var s=Math.min(vw/W, vh/H)||1;
-    el.style.transform='translate(-50%,-50%) scale('+s+')';
+    el.style.setProperty('transform','translate(-50%,-50%) scale('+s+')','important');
   }
   function show(i){
     if(!slides.length) return;
@@ -70,9 +109,9 @@ const buildSrcdoc = (rawHtml, hasSlides) => {
   try{ window.parent.postMessage({__qc:'ready',count:slides.length},'*'); }catch(_){}
 })();
 </script>`;
-  return /<\/body>/i.test(rawHtml)
-    ? rawHtml.replace(/<\/body>/i, () => `${inject}</body>`)
-    : rawHtml + inject;
+  return /<\/body>/i.test(html)
+    ? html.replace(/<\/body>/i, () => `${inject}</body>`)
+    : html + inject;
 };
 
 export default function PresentacionViewer({ presentaciones = [] }) {
@@ -265,9 +304,12 @@ export default function PresentacionViewer({ presentaciones = [] }) {
         </div>
       </div>
 
-      {/* Marco 16:9 (o flexible al ocupar toda la pantalla) */}
+      {/* Marco 16:9 (o flexible al ocupar toda la pantalla).
+          En móvil 16:9 deja un escenario de ~210px de alto: la diapositiva se
+          ve como un sello y no hay forma de leerla. Ahí le damos altura real;
+          desde `sm` vuelve al 16:9 puro, donde ya es suficientemente grande. */}
       <div
-        className={`relative bg-black w-full ${isFs ? 'flex-1' : ''}`}
+        className={`relative bg-black w-full ${isFs ? 'flex-1' : 'min-h-[min(70vh,520px)] sm:min-h-0'}`}
         style={isFs ? undefined : { aspectRatio: '16 / 9' }}
       >
         {loadingDocs && !total ? (
