@@ -7,6 +7,9 @@ import {
 
 import { getAvanceEstudiante } from '../../services/clases/serviceClase';
 
+// "evaluación" pierde la tilde en plural, así que el sufijo -es no sirve.
+const plural = (n, singular, plural_) => (n === 1 ? singular : plural_);
+
 const PURPLE = '#7c3aed';
 const GREEN = '#16a34a';
 const AMBER = '#d97706';
@@ -79,7 +82,7 @@ export default function StudentAvanceTab({
   // y solo le falta una evaluación, no tiene sentido decirle "te faltan 0 clases".
   const partesPendientes = [
     clasesFaltan > 0 && `${clasesFaltan} clase${clasesFaltan === 1 ? '' : 's'} por ver`,
-    evalsFaltan > 0 && `${evalsFaltan} evaluación${evalsFaltan === 1 ? '' : 'es'} por responder`,
+    evalsFaltan > 0 && `${evalsFaltan} ${plural(evalsFaltan, 'evaluación', 'evaluaciones')} por responder`,
   ].filter(Boolean);
 
   // Materias a listar según el filtro: solo las que tienen algo pendiente, o todas.
@@ -206,7 +209,7 @@ export default function StudentAvanceTab({
                           <Tag color="purple">{pendientesClases.length} clase{pendientesClases.length === 1 ? '' : 's'}</Tag>
                         )}
                         {evalsPend.length > 0 && (
-                          <Tag color="orange">{evalsPend.length} evaluación{evalsPend.length === 1 ? '' : 'es'}</Tag>
+                          <Tag color="orange">{evalsPend.length} {plural(evalsPend.length, 'evaluación', 'evaluaciones')}</Tag>
                         )}
                       </>
                     )}

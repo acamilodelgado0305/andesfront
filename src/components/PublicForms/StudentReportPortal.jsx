@@ -78,16 +78,30 @@ function StudentPortal() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Id del estudiante que se usa para TODO lo académico (materias, avance,
+  // foro, certificados). `currentStudentId` solo se llena si los datos
+  // académicos cargaron bien; el perfil de la sesión siempre trae el id, así
+  // que sirve de respaldo. Sin este respaldo, si las notas fallan el estudiante
+  // entra al programa y no ve ninguna materia.
+  const effectiveStudentId = currentStudentId || studentInfo?.id || null;
+
   // Carga las materias del estudiante (para el sub-listado por programa) una vez
   // que sabemos quién es.
   useEffect(() => {
-    if (!currentStudentId) return;
+    // Sin studentId no hay a quién pedirle las materias. Hay que APAGAR el
+    // loading igual: si se queda encendido (arranca en true), la pestaña
+    // "Materias" gira para siempre y el estudiante nunca ve sus materias,
+    // aunque el backend las tenga.
+    if (!effectiveStudentId) {
+      setLoadingMaterias(false);
+      return;
+    }
     setLoadingMaterias(true);
-    getStudentMaterias(currentStudentId)
+    getStudentMaterias(effectiveStudentId)
       .then((data) => setMaterias(data.materias || []))
       .catch(() => setMaterias([]))
       .finally(() => setLoadingMaterias(false));
-  }, [currentStudentId]);
+  }, [effectiveStudentId]);
 
   // Logo del negocio (para los PDFs: boletín, paz y salvo). El portal del
   // estudiante no tiene JWT de auth-service, así que se pide por el endpoint
@@ -237,6 +251,11 @@ function StudentPortal() {
           console.warn("Could not load academic data on restore:", e);
           // Still keep logged in with basic profile
           setStudentInfo(profile);
+          // El perfil ya nos dice quién es: fijamos el studentId aunque las
+          // notas hayan fallado, para que las materias y "Mi avance" sí carguen.
+          // Si no, el estudiante entra al programa y no ve ninguna materia.
+          if (profile?.id) setCurrentStudentId(profile.id);
+          setDocumentNumber(doc);
         }
 
         setIsLoggedIn(true);
@@ -426,7 +445,7 @@ function StudentPortal() {
             gradesInfo={gradesInfo}
             gradesByCierre={gradesByCierre}
             studentInfo={studentInfo}
-            currentStudentId={currentStudentId}
+            currentStudentId={effectiveStudentId}
             downloadingReport={downloadingReport}
             onDownloadReport={handleDownloadReport}
           />
@@ -436,7 +455,7 @@ function StudentPortal() {
           <StudentInfoTab
             studentInfo={studentInfo}
             documentNumber={documentNumber}
-            currentStudentId={currentStudentId}
+            currentStudentId={effectiveStudentId}
           />
         );
       case "certificados":
