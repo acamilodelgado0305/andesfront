@@ -112,23 +112,12 @@ export default function StudentProgramasSection({
           </div>
         </div>
 
+        {/* "Materias" va primero y es la pestaña por defecto: al entrar a un
+            programa el estudiante debe ver de una sus materias, no el resumen. */}
         <Tabs
           className="mt-3"
+          defaultActiveKey="materias"
           items={[
-            {
-              key: 'avance',
-              label: <span><DashboardOutlined /> Mi avance</span>,
-              children: (
-                <StudentAvanceTab
-                  studentId={currentStudentId}
-                  programaId={programaSel.programa_id ?? programaSel.id}
-                  onOpenClase={(materiaId, claseId) =>
-                    onAbrirPendiente?.(materiaId, { claseId })}
-                  onOpenExamen={(materiaId, examen) =>
-                    onAbrirPendiente?.(materiaId, { examen })}
-                />
-              ),
-            },
             {
               key: 'materias',
               label: <span><BookOutlined /> Materias</span>,
@@ -175,6 +164,20 @@ export default function StudentProgramasSection({
                     </div>
                   )}
                 </>
+              ),
+            },
+            {
+              key: 'avance',
+              label: <span><DashboardOutlined /> Mi avance</span>,
+              children: (
+                <StudentAvanceTab
+                  studentId={currentStudentId}
+                  programaId={programaSel.programa_id ?? programaSel.id}
+                  onOpenClase={(materiaId, claseId) =>
+                    onAbrirPendiente?.(materiaId, { claseId })}
+                  onOpenExamen={(materiaId, examen) =>
+                    onAbrirPendiente?.(materiaId, { examen })}
+                />
               ),
             },
             {

@@ -75,6 +75,13 @@ export default function StudentAvanceTab({
 
   const todoListo = clasesFaltan === 0 && evalsFaltan === 0 && (totalClases + totalEvals) > 0;
 
+  // Solo se nombra lo que realmente está pendiente: si ya vio todas las clases
+  // y solo le falta una evaluación, no tiene sentido decirle "te faltan 0 clases".
+  const partesPendientes = [
+    clasesFaltan > 0 && `${clasesFaltan} clase${clasesFaltan === 1 ? '' : 's'} por ver`,
+    evalsFaltan > 0 && `${evalsFaltan} evaluación${evalsFaltan === 1 ? '' : 'es'} por responder`,
+  ].filter(Boolean);
+
   // Materias a listar según el filtro: solo las que tienen algo pendiente, o todas.
   const materiasVisibles = filtro === 'pendiente'
     ? materias.filter((m) => m.clases_pendientes?.length || m.evaluaciones?.some((e) => !e.resuelta))
@@ -101,7 +108,9 @@ export default function StudentAvanceTab({
             <div className="text-sm text-gray-500 dark:text-[#a8a59e] mt-0.5">
               {todoListo
                 ? 'No tienes clases ni evaluaciones pendientes en este programa.'
-                : `Te faltan ${clasesFaltan} clase${clasesFaltan === 1 ? '' : 's'} y ${evalsFaltan} evaluación${evalsFaltan === 1 ? '' : 'es'} por responder.`}
+                : partesPendientes.length
+                  ? `Te falta${partesPendientes.length === 1 && clasesFaltan + evalsFaltan === 1 ? '' : 'n'}: ${partesPendientes.join(' y ')}.`
+                  : 'Este programa aún no tiene contenido asignado.'}
             </div>
 
             {/* CTA principal: continuar donde se quedó */}
