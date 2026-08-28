@@ -3,15 +3,18 @@ import {
   Layout, Typography, Button, Table, Tag, Modal,
   message, Input, Space, Card, Statistic,
   Dropdown, Select, InputNumber, Progress, Tooltip as AntTooltip,
+  DatePicker,
 } from 'antd';
 import {
   PlusOutlined, FileDoneOutlined,
   EditOutlined, DeleteOutlined, EyeOutlined,
   SearchOutlined, ReloadOutlined, MoreOutlined,
   CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined,
-  DollarOutlined, WalletOutlined, CopyOutlined,
+  DollarOutlined, WalletOutlined, CopyOutlined, CalendarOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import 'dayjs/locale/es';
+import localeEsDatePicker from 'antd/es/date-picker/locale/es_ES';
 import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
 import {
   getDocumentosVenta,
@@ -23,6 +26,7 @@ import {
 } from '../../services/documentoVenta/documentoVentaService';
 import DocumentoVentaForm from './DocumentoVentaForm';
 import FacturaViewer from './FacturaViewer';
+import { parseFechaDia, formatFechaDia, toFechaDiaPayload } from '../../utils/fechas';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -41,9 +45,87 @@ const ESTADO_ICON = {
   ANULADA: <CloseCircleOutlined />,
 };
 
+const ACCENT = '#1d4ed8';
+const MUTED  = '#8c8c8c';
+
+// ─── Celda «Vencimiento» editable en línea ────────────────────────────────────
+// Un clic abre el calendario sobre la misma celda y guarda al elegir la fecha.
+// Los documentos anulados no se tocan.
+const VencimientoCell = ({ record, onSaved }) => {
+  const [editando, setEditando]   = useState(false);
+  const [guardando, setGuardando] = useState(false);
+
+  const fecha     = parseFechaDia(record.fecha_vencimiento);
+  const vencido   = fecha?.isBefore(dayjs(), 'day') && !['PAGADA', 'ANULADA'].includes(record.estado);
+  const bloqueado = record.estado === 'ANULADA';
+
+  const guardar = async (nueva) => {
+    const antes = fecha ? fecha.format('YYYY-MM-DD') : null;
+    if ((nueva ? nueva.format('YYYY-MM-DD') : null) === antes) { setEditando(false); return; }
+    setGuardando(true);
+    try {
+      await updateDocumentoVenta(record.id, { fecha_vencimiento: toFechaDiaPayload(nueva) });
+      message.success(nueva ? `Vencimiento: ${nueva.format('DD/MM/YYYY')}` : 'Vencimiento quitado');
+      setEditando(false);
+      await onSaved();
+    } catch (e) {
+      message.error(e?.response?.data?.message || 'Error al actualizar el vencimiento');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  if (editando) {
+    return (
+      <DatePicker
+        autoFocus
+        open
+        allowClear
+        disabled={guardando}
+        size="small"
+        style={{ width: 138 }}
+        format="DD/MM/YYYY"
+        value={fecha}
+        placeholder="Sin fecha"
+        onChange={guardar}
+        onOpenChange={(abierto) => { if (!abierto && !guardando) setEditando(false); }}
+      />
+    );
+  }
+
+  const contenido = (
+    <Text type={vencido ? 'danger' : (fecha ? undefined : 'secondary')}>
+      {fecha ? formatFechaDia(record.fecha_vencimiento) : '—'}
+    </Text>
+  );
+
+  if (bloqueado) return <span>{contenido}</span>;
+
+  return (
+    <AntTooltip title="Clic para cambiar el vencimiento">
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={() => setEditando(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditando(true); } }}
+        className="dv-vencimiento-editable"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          cursor: 'pointer', padding: '2px 6px', margin: '-2px -6px',
+          borderRadius: 6, borderBottom: '1px dashed #d9d9d9',
+        }}
+      >
+        {contenido}
+        <CalendarOutlined style={{ fontSize: 11, color: MUTED, opacity: 0.65 }} />
+      </span>
+    </AntTooltip>
+  );
+};
+
 const ESTADOS_FACTURA = ['EMITIDA', 'PAGADA', 'ANULADA'];
 const CUENTAS = ['Efectivo', 'Nequi', 'Daviplata', 'Bancolombia', 'Transferencia', 'Otra'];
 
+export const __probe = true;
 const DocumentosVentaDashboard = () => {
   const formatCurrency = useCurrency();
   const { formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
@@ -52,6 +134,8 @@ const DocumentosVentaDashboard = () => {
   const [stats, setStats]     = useState([]);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState('');
+  // null = todos los meses; por defecto se abre en el mes en curso.
+  const [mes, setMes] = useState(dayjs());
 
   const [formOpen, setFormOpen]     = useState(false);
   const [editingDoc, setEditingDoc] = useState(null);
@@ -75,9 +159,10 @@ const DocumentosVentaDashboard = () => {
     try {
       const params = { tipo: 'FACTURA' };
       if (busqueda) params.q = busqueda;
+      if (mes) params.mes = mes.format('YYYY-MM');
       const [docsData, statsData] = await Promise.all([
         getDocumentosVenta(params),
-        getEstadisticasDocumentos(),
+        getEstadisticasDocumentos(mes ? { mes: mes.format('YYYY-MM') } : {}),
       ]);
       setDocs(docsData);
       setStats(statsData);
@@ -86,7 +171,7 @@ const DocumentosVentaDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [busqueda]);
+  }, [busqueda, mes]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
@@ -220,17 +305,13 @@ const DocumentosVentaDashboard = () => {
       title: 'Fecha',
       dataIndex: 'fecha_emision',
       key: 'fecha_emision',
-      render: (d) => d ? dayjs(d).format('DD/MM/YYYY') : '—',
+      render: (d) => formatFechaDia(d),
     },
     {
       title: 'Vencimiento',
       dataIndex: 'fecha_vencimiento',
       key: 'fecha_vencimiento',
-      render: (d) => {
-        if (!d) return <Text type="secondary">—</Text>;
-        const vencido = dayjs(d).isBefore(dayjs(), 'day');
-        return <Text type={vencido ? 'danger' : undefined}>{dayjs(d).format('DD/MM/YYYY')}</Text>;
-      },
+      render: (_, rec) => <VencimientoCell record={rec} onSaved={cargarDatos} />,
     },
     {
       title: 'Total',
@@ -334,6 +415,10 @@ const DocumentosVentaDashboard = () => {
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <Content style={{ padding: '16px 20px' }}>
+      <style>{`
+        .dv-vencimiento-editable:hover { background: #f1f5f9; border-bottom-color: ${ACCENT}; }
+        .dv-vencimiento-editable:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 1px; }
+      `}</style>
 
       {/* Encabezado */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -403,6 +488,28 @@ const DocumentosVentaDashboard = () => {
           allowClear
           style={{ width: 280 }}
         />
+        <DatePicker
+          picker="month"
+          locale={localeEsDatePicker}
+          value={mes}
+          onChange={setMes}
+          format={(v) => v.locale('es').format('MMMM YYYY')}
+          allowClear={false}
+          suffixIcon={<CalendarOutlined />}
+          style={{ width: 190 }}
+        />
+        <Space.Compact>
+          <Button size="middle" onClick={() => setMes((m) => (m || dayjs()).subtract(1, 'month'))}>‹</Button>
+          <Button size="middle" onClick={() => setMes(dayjs())}>Este mes</Button>
+          <Button size="middle" onClick={() => setMes((m) => (m || dayjs()).add(1, 'month'))}>›</Button>
+        </Space.Compact>
+        <Button
+          type={mes ? 'default' : 'primary'}
+          onClick={() => setMes(mes ? null : dayjs())}
+          style={mes ? undefined : { background: ACCENT, borderColor: ACCENT }}
+        >
+          {mes ? 'Ver todos' : 'Viendo todos'}
+        </Button>
         <Button icon={<ReloadOutlined />} onClick={cargarDatos} loading={loading} />
       </div>
 

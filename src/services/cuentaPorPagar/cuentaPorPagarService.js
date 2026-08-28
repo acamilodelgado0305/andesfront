@@ -31,11 +31,8 @@ export const registrarAbono = (id, data) =>
 export const aumentarDeuda = (id, data) =>
   api.post(`/cuentas-por-pagar/${id}/aumentar`, data).then((r) => r.data);
 
-export const pagarCuota = (id, numero, data) =>
-  api.post(`/cuentas-por-pagar/${id}/cuotas/${numero}/pagar`, data).then((r) => r.data);
-
-export const revertirCuota = (id, numero) =>
-  api.post(`/cuentas-por-pagar/${id}/cuotas/${numero}/revertir`).then((r) => r.data);
+export const editarMontoMovimiento = (id, movId, data) =>
+  api.put(`/cuentas-por-pagar/${id}/movimientos/${movId}`, data).then((r) => r.data);
 
 export const getEstadisticasCuentasPorPagar = () =>
   api.get('/cuentas-por-pagar/stats').then((r) => r.data);

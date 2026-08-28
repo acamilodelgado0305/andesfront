@@ -34,7 +34,7 @@ export const registrarAbono = (id, data) =>
 export const duplicarDocumento = (id) =>
   api.post(`/documentos-venta/${id}/duplicar`).then((r) => r.data);
 
-export const getEstadisticasDocumentos = () =>
-  api.get('/documentos-venta/stats').then((r) => r.data);
+export const getEstadisticasDocumentos = (params = {}) =>
+  api.get('/documentos-venta/stats', { params }).then((r) => r.data);
 
 export default api;

@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Drawer, Form, Input, InputNumber, Button, DatePicker,
-  Space, Typography, message, Tag, Avatar, Spin, Empty, Switch,
+  Space, Typography, message, Tag, Avatar, Spin, Empty,
 } from 'antd';
 import {
   UserOutlined, CalendarOutlined, SearchOutlined,
   UserAddOutlined, CloseCircleOutlined, FileProtectOutlined,
-  BankOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -15,28 +14,8 @@ const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
 // Nombre completo del contacto (nombre + apellido). Para empresas apellido va vacío.
 const nombreCompletoPersona = (p) => [p?.nombre, p?.apellido].filter(Boolean).join(' ').trim();
 
-// Vista previa del cronograma (interés sobre saldo, abono a capital fijo)
-const calcularResumenPrestamo = (capital, tasaEa, numCuotas) => {
-  const cap = Number(capital) || 0;
-  const n   = Number(numCuotas) || 0;
-  const ea  = Number(tasaEa) || 0;
-  if (cap <= 0 || n <= 0) return { total: cap, interesTotal: 0, primera: 0, ultima: 0, tasaMensual: 0 };
-  const tasaMensual = Math.pow(1 + ea / 100, 1 / 12) - 1;
-  const capCuota = cap / n;
-  let totalInteres = 0, primera = 0, ultima = 0;
-  for (let i = 1; i <= n; i++) {
-    const saldoIni = cap - capCuota * (i - 1);
-    const interes  = round2(saldoIni * tasaMensual);
-    const c        = i === n ? round2(saldoIni) : round2(capCuota);
-    const valor    = round2(c + interes);
-    totalInteres += interes;
-    if (i === 1) primera = valor;
-    if (i === n) ultima = valor;
-  }
-  return { total: round2(cap + totalInteres), interesTotal: round2(totalInteres), primera, ultima, tasaMensual };
-};
-
 import { createCuentaPorPagar, updateCuentaPorPagar } from '../../services/cuentaPorPagar/cuentaPorPagarService';
+import { parseFechaDia, toFechaDiaPayload } from '../../utils/fechas';
 import { getPersonas } from '../../services/person/personaService';
 import PersonaFormDrawer from '../personas/PersonaFormDrawer';
 import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
@@ -54,13 +33,29 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
   const [total, setTotal]   = useState(0);
   const [saving, setSaving] = useState(false);
 
-  // ── Préstamo ────────────────────────────────────────────────────────────────
-  const [esPrestamo, setEsPrestamo] = useState(false);
-  const [loanLocked, setLoanLocked] = useState(false); // bloqueado si ya tiene cuotas pagadas
-  const capital   = Form.useWatch('capital', form);
-  const tasaEa    = Form.useWatch('tasa_ea', form);
-  const numCuotas = Form.useWatch('num_cuotas', form);
-  const resumen   = calcularResumenPrestamo(capital, tasaEa, numCuotas);
+  // ── Cuotas ──────────────────────────────────────────────────────────────────
+  // Toda cuenta se paga en N cuotas de un valor fijo; lo normal es 1.
+  const numCuotas  = Form.useWatch('num_cuotas', form);
+  const valorCuota = Form.useWatch('valor_cuota', form);
+  const fechaEmision = Form.useWatch('fecha_emision', form);
+  const cuotasNum  = Math.max(1, Math.trunc(Number(numCuotas) || 1));
+  const totalCuotas = round2(cuotasNum * (Number(valorCuota) || 0));
+
+  // El vencimiento cae N meses después de la emisión. Se recalcula al cambiar
+  // cuotas o emisión; si el usuario lo ajusta a mano, ese valor se respeta hasta
+  // que vuelva a tocar alguno de los dos.
+  const cuotasPrev = useRef(null);
+  useEffect(() => { if (!open) cuotasPrev.current = null; }, [open]);
+  useEffect(() => {
+    if (!open || !fechaEmision) return;
+    const clave = `${cuotasNum}|${dayjs(fechaEmision).format('YYYY-MM-DD')}`;
+    const primeraVez = cuotasPrev.current === null;
+    if (!primeraVez && cuotasPrev.current === clave) return;
+    cuotasPrev.current = clave;
+    // Al abrir una cuenta existente se respeta el vencimiento que ya tiene.
+    if (primeraVez && editingDoc) return;
+    form.setFieldsValue({ fecha_vencimiento: dayjs(fechaEmision).add(cuotasNum, 'month') });
+  }, [open, cuotasNum, fechaEmision, form, editingDoc]);
 
   // ── Contacto (proveedor) ──────────────────────────────────────────────────
   const [personaSearch, setPersonaSearch]         = useState('');
@@ -74,8 +69,6 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
     if (!open) return;
     if (editingDoc) {
       setTotal(Number(editingDoc.total) || 0);
-      setEsPrestamo(!!editingDoc.es_prestamo);
-      setLoanLocked(!!editingDoc.es_prestamo && Number(editingDoc.total_abonado || 0) > 0);
       if (editingDoc.persona_id) {
         setSelectedPersona({
           id: editingDoc.persona_id,
@@ -89,18 +82,16 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
         proveedor_nombre:    editingDoc.proveedor_nombre || '',
         total:               Number(editingDoc.total) || 0,
         notas:               editingDoc.notas || '',
-        fecha_emision:       editingDoc.fecha_emision     ? dayjs(editingDoc.fecha_emision)     : dayjs(),
-        fecha_vencimiento:   editingDoc.fecha_vencimiento ? dayjs(editingDoc.fecha_vencimiento) : null,
-        capital:             editingDoc.capital != null ? Number(editingDoc.capital) : null,
-        tasa_ea:             editingDoc.tasa_ea != null ? Number(editingDoc.tasa_ea) : null,
-        num_cuotas:          editingDoc.num_cuotas || null,
-        fecha_primera_cuota: editingDoc.fecha_primera_cuota ? dayjs(editingDoc.fecha_primera_cuota) : null,
+        fecha_emision:       parseFechaDia(editingDoc.fecha_emision) || dayjs(),
+        fecha_vencimiento:   parseFechaDia(editingDoc.fecha_vencimiento),
+        num_cuotas:          editingDoc.num_cuotas || 1,
+        valor_cuota:         editingDoc.valor_cuota != null
+          ? Number(editingDoc.valor_cuota)
+          : round2((Number(editingDoc.total) || 0) / Math.max(1, Number(editingDoc.num_cuotas) || 1)),
       });
     } else {
       form.resetFields();
       setTotal(0);
-      setEsPrestamo(false);
-      setLoanLocked(false);
       setSelectedPersona(null);
       setPersonaSearch('');
       setPersonasResult([]);
@@ -131,21 +122,11 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
         persona_id:        selectedPersona?.id || null,
         proveedor_nombre:  nombreCompletoPersona(selectedPersona) || values.proveedor_nombre || null,
         notas:             values.notas || null,
-        fecha_emision:     values.fecha_emision ? values.fecha_emision.format('YYYY-MM-DD') : null,
-        es_prestamo:       esPrestamo,
+        fecha_emision:     toFechaDiaPayload(values.fecha_emision),
+        num_cuotas:        Math.max(1, Math.trunc(Number(values.num_cuotas) || 1)),
+        valor_cuota:       Number(values.valor_cuota) || 0,
+        fecha_vencimiento: toFechaDiaPayload(values.fecha_vencimiento),
       };
-      if (esPrestamo) {
-        payload.capital             = Number(values.capital) || 0;
-        payload.tasa_ea             = values.tasa_ea != null ? Number(values.tasa_ea) : null;
-        payload.num_cuotas          = Number(values.num_cuotas) || 0;
-        payload.periodicidad        = 'MENSUAL';
-        payload.fecha_primera_cuota = values.fecha_primera_cuota
-          ? values.fecha_primera_cuota.format('YYYY-MM-DD')
-          : dayjs().format('YYYY-MM-DD');
-      } else {
-        payload.total             = Number(values.total) || 0;
-        payload.fecha_vencimiento = values.fecha_vencimiento ? values.fecha_vencimiento.format('YYYY-MM-DD') : null;
-      }
       if (editingDoc) {
         await updateCuentaPorPagar(editingDoc.id, payload);
         message.success('Cuenta por pagar actualizada');
@@ -196,7 +177,7 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
               Total:{' '}
-              <strong style={{ color: ACCENT, fontSize: 15 }}>{formatCurrency(esPrestamo ? resumen.total : total)}</strong>
+              <strong style={{ color: ACCENT, fontSize: 15 }}>{formatCurrency(totalCuotas || total)}</strong>
             </Text>
             <Space>
               <Button onClick={onClose}>Cancelar</Button>
@@ -223,39 +204,24 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
               <Input placeholder="Ej: Arriendo local, Préstamo Bancolombia..." />
             </Form.Item>
 
-            {/* Toggle préstamo */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: esPrestamo ? '#fafafa' : '#f9fafb',
-              border: `1px solid ${esPrestamo ? '#e5e7eb' : '#e5e7eb'}`,
-              borderRadius: 10, padding: '10px 14px', marginBottom: esPrestamo ? 0 : 14,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <BankOutlined style={{ color: ACCENT }} />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>Es un préstamo bancario</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>Con intereses y cuotas mensuales</div>
-                </div>
-              </div>
-              <Switch
-                checked={esPrestamo}
-                disabled={loanLocked}
-                onChange={setEsPrestamo}
-                style={esPrestamo ? { background: ACCENT } : undefined}
-              />
-            </div>
-
-            {!esPrestamo && (
+            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 12, marginBottom: 12 }}>
               <Form.Item
-                label="Monto total a pagar"
-                name="total"
-                rules={[{ required: true, message: 'Ingresa el total' }]}
-                style={{ marginBottom: 0, marginTop: 14 }}
+                label="N° de cuotas"
+                name="num_cuotas"
+                initialValue={1}
+                rules={[{ required: true, message: 'Cuotas' }]}
+                style={{ marginBottom: 0 }}
+              >
+                <InputNumber style={{ width: '100%' }} size="large" min={1} max={600} precision={0} placeholder="1" />
+              </Form.Item>
+              <Form.Item
+                label="Valor de cada cuota"
+                name="valor_cuota"
+                rules={[{ required: true, message: 'Ingresa el valor de la cuota' }]}
+                style={{ marginBottom: 0 }}
               >
                 <InputNumber
                   style={{ width: '100%' }} size="large" min={0}
-                  value={total}
-                  onChange={(v) => setTotal(v || 0)}
                   addonAfter={currSuffix}
                   formatter={currFormatter}
                   parser={currParser}
@@ -264,95 +230,19 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
                   placeholder="0"
                 />
               </Form.Item>
-            )}
-          </div>
-
-          {/* ── PRÉSTAMO ── */}
-          {esPrestamo && (
-            <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #e5e7eb' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-                <BankOutlined style={{ color: ACCENT }} />
-                <Text strong style={{ fontSize: 13 }}>Datos del préstamo</Text>
-              </div>
-
-              {loanLocked && (
-                <div style={{
-                  background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 8,
-                  padding: '8px 12px', marginBottom: 14, fontSize: 12, color: '#595959',
-                }}>
-                  Este préstamo ya tiene cuotas pagadas; sus parámetros no se pueden modificar.
-                </div>
-              )}
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                <Form.Item
-                  label="Capital (monto prestado)"
-                  name="capital"
-                  rules={[{ required: true, message: 'Ingresa el capital' }]}
-                  style={{ marginBottom: 0 }}
-                >
-                  <InputNumber
-                    style={{ width: '100%' }} min={0} disabled={loanLocked}
-                    addonAfter={currSuffix}
-                    formatter={currFormatter}
-                    parser={currParser}
-                    precision={currPrecision}
-                    step={currStep}
-                    placeholder="0"
-                  />
-                </Form.Item>
-                <Form.Item
-                  label="Tasa de interés (% E.A.)"
-                  name="tasa_ea"
-                  rules={[{ required: true, message: 'Ingresa la tasa' }]}
-                  style={{ marginBottom: 0 }}
-                >
-                  <InputNumber
-                    style={{ width: '100%' }} min={0} max={1000} step={0.1} disabled={loanLocked}
-                    suffix="%" placeholder="Ej: 19.56"
-                  />
-                </Form.Item>
-                <Form.Item
-                  label="Número de cuotas"
-                  name="num_cuotas"
-                  rules={[{ required: true, message: 'Ingresa las cuotas' }]}
-                  style={{ marginBottom: 0 }}
-                >
-                  <InputNumber style={{ width: '100%' }} min={1} max={600} disabled={loanLocked} placeholder="Ej: 12" />
-                </Form.Item>
-                <Form.Item
-                  label="Fecha primera cuota"
-                  name="fecha_primera_cuota"
-                  initialValue={dayjs().add(1, 'month')}
-                  style={{ marginBottom: 0 }}
-                >
-                  <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" disabled={loanLocked} />
-                </Form.Item>
-              </div>
-
-              {/* Vista previa */}
-              {resumen.total > 0 && (
-                <div style={{ background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
-                    <Text type="secondary">Tasa mensual equivalente</Text>
-                    <Text>{(resumen.tasaMensual * 100).toFixed(3)}%</Text>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
-                    <Text type="secondary">Interés total estimado</Text>
-                    <Text>{formatCurrency(resumen.interesTotal)}</Text>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 5 }}>
-                    <Text type="secondary">Primera cuota → última</Text>
-                    <Text>{formatCurrency(resumen.primera)} → {formatCurrency(resumen.ultima)}</Text>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, marginTop: 4 }}>
-                    <span>Total a pagar</span>
-                    <span style={{ color: ACCENT }}>{formatCurrency(resumen.total)}</span>
-                  </div>
-                </div>
-              )}
             </div>
-          )}
+
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+              background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
+              padding: '10px 14px',
+            }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {cuotasNum > 1 ? `${cuotasNum} cuotas de ${formatCurrency(Number(valorCuota) || 0)}` : 'Pago único'}
+              </Text>
+              <Text strong style={{ fontSize: 15, color: ACCENT }}>{formatCurrency(totalCuotas)}</Text>
+            </div>
+          </div>
 
           {/* ── FECHAS ── */}
           <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #e5e7eb' }}>
@@ -364,17 +254,13 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
               <Form.Item label="Fecha emisión" name="fecha_emision" initialValue={dayjs()} style={{ marginBottom: 0 }}>
                 <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
               </Form.Item>
-              {!esPrestamo && (
-                <Form.Item label="Fecha vencimiento" name="fecha_vencimiento" style={{ marginBottom: 0 }}>
-                  <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-                </Form.Item>
-              )}
+              <Form.Item label="Fecha vencimiento" name="fecha_vencimiento" style={{ marginBottom: 0 }}>
+                <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+              </Form.Item>
             </div>
-            {esPrestamo && (
-              <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 8 }}>
-                El vencimiento se calcula automáticamente con la fecha de la última cuota.
-              </Text>
-            )}
+            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 8 }}>
+              Se recalcula solo al cambiar las cuotas o la emisión ({cuotasNum} {cuotasNum === 1 ? 'mes' : 'meses'} después de la emisión). Puedes ajustarla a mano.
+            </Text>
           </div>
 
           {/* ── CONTACTO / PROVEEDOR ── */}

@@ -3,10 +3,11 @@ import { Modal, Button, Space, Tooltip, message } from 'antd';
 import { DownloadOutlined, PrinterOutlined } from '@ant-design/icons';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import dayjs from 'dayjs';
 import axios from 'axios';
-import useCurrency from '../../hooks/useCurrency';
+import useCurrency, { useAmount } from '../../hooks/useCurrency';
+import { formatFechaDia } from '../../utils/fechas';
 import { AuthContext } from '../../AuthContext';
+import { useTheme } from '../../ThemeContext';
 
 const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
 const getAuthHeaders = () => ({ headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
@@ -24,430 +25,524 @@ const parseAbonos = (raw) => {
   try { return JSON.parse(raw) || []; } catch { return []; }
 };
 
-const DESIGNS = [
-  { id: 'corporativa',  label: 'Corporativa'  },
-  { id: 'moderna',      label: 'Moderna'      },
-  { id: 'ejecutiva',    label: 'Ejecutiva'    },
-];
+// A4 a 96dpi = 794 x 1123 px. Se deja un pelo por debajo para no desbordar a 2ª página.
+const SHEET_W = 794;
+const SHEET_H = 1120;
 
-// ─── Tabla de ítems compartida ────────────────────────────────────────────────
-const ItemsTable = ({ items, formatCurrency, headerBg, headerColor = '#fff', borderColor = '#e5e7eb', altRowBg = '#f9fafb' }) => (
-  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-    <thead>
-      <tr style={{ background: headerBg }}>
-        {['Descripción', 'Cant.', 'Precio unit.', 'Dto. %', 'IVA %', 'Total'].map((h, i) => (
-          <th key={i} style={{
-            padding: '10px 12px', color: headerColor, fontWeight: 600, fontSize: 11,
-            textAlign: i === 0 ? 'left' : 'right',
-          }}>{h}</th>
-        ))}
-      </tr>
-    </thead>
-    <tbody>
-      {items.map((it, i) => (
-        <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : altRowBg, borderBottom: `1px solid ${borderColor}` }}>
-          <td style={{ padding: '10px 12px', fontWeight: 500 }}>{it.descripcion}</td>
-          <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6b7280' }}>{it.cantidad}</td>
-          <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6b7280' }}>{formatCurrency(it.precio_unitario)}</td>
-          <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6b7280' }}>{it.descuento || 0}%</td>
-          <td style={{ padding: '10px 12px', textAlign: 'right', color: '#6b7280' }}>{it.impuesto || 0}%</td>
-          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>{formatCurrency(it.total)}</td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Los tres diseños comparten la misma maqueta (plantilla "Factura" estilo
+ * Microsoft Invoicing): cenefa superior con arte geométrico + tarjeta blanca del
+ * negocio, bandera con el tipo de documento, bloques PARA / EMITIDO POR,
+ * INSTRUCCIONES, tabla con cabecera sólida y renglones reglados, totales
+ * escalonados a la derecha y pie con dirección / teléfono / correo.
+ * Lo que cambia entre diseños es la paleta, la tipografía y los remates.
+ * ────────────────────────────────────────────────────────────────────────────*/
+const THEMES = {
+  corporativa: {
+    label: 'Corporativa',
+    font: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
+    titleFont: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
+    band: 'linear-gradient(115deg, #142c54 0%, #1f4e88 55%, #2e75b6 100%)',
+    ink: '#1f3864',
+    accent: '#2e75b6',
+    tint: '#eaf1f9',
+    rule: '#b9cde4',
+    hair: '#e3ebf4',
+    radius: 0,
+    flag: 'notch',
+    zebra: false,
+  },
+  moderna: {
+    label: 'Moderna',
+    font: '"Segoe UI", Inter, Arial, sans-serif',
+    titleFont: '"Segoe UI", Inter, Arial, sans-serif',
+    band: 'linear-gradient(115deg, #4338ca 0%, #4f46e5 45%, #0ea5e9 100%)',
+    ink: '#312e81',
+    accent: '#4f46e5',
+    tint: '#eef2ff',
+    rule: '#c7d2fe',
+    hair: '#e8ebff',
+    radius: 12,
+    flag: 'pill',
+    zebra: true,
+  },
+  ejecutiva: {
+    label: 'Ejecutiva',
+    font: '"Segoe UI", Arial, sans-serif',
+    titleFont: 'Georgia, "Times New Roman", serif',
+    band: 'linear-gradient(115deg, #0b0f19 0%, #1f2937 55%, #374151 100%)',
+    ink: '#111827',
+    accent: '#b08d57',
+    tint: '#faf6ef',
+    rule: '#e0d5c2',
+    hair: '#ece6dc',
+    radius: 2,
+    flag: 'plate',
+    zebra: false,
+  },
+};
+
+const DESIGNS = Object.entries(THEMES).map(([id, t]) => ({ id, label: t.label }));
+
+const ESTADO_STYLE = {
+  PAGADA:  { bg: '#dcfce7', fg: '#166534' },
+  ABONO:   { bg: '#ffedd5', fg: '#c2410c' },
+  ANULADA: { bg: '#fee2e2', fg: '#b91c1c' },
+  EMITIDA: { bg: '#dbeafe', fg: '#1d4ed8' },
+};
+const estadoStyle = (e) => ESTADO_STYLE[e] || { bg: '#f1f5f9', fg: '#475569' };
+
+// ─── Piezas comunes ───────────────────────────────────────────────────────────
+const Rule = ({ t, strong, style }) => (
+  <div style={{ height: strong ? 2 : 1, background: strong ? t.accent : t.rule, ...style }} />
 );
 
-// ─── Bloque de totales compartido ─────────────────────────────────────────────
-const TotalesBlock = ({ doc, formatCurrency, totalColor = '#111', totalBg, borderColor = '#e5e7eb' }) => (
-  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-    <div style={{ minWidth: 260, background: totalBg, borderRadius: totalBg ? 10 : 0, padding: totalBg ? '14px 20px' : 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: totalBg ? 'rgba(255,255,255,0.8)' : '#6b7280', padding: '4px 0' }}>
-        <span>Subtotal</span><span>{formatCurrency(doc.subtotal)}</span>
+const Label = ({ t, children, style }) => (
+  <div style={{
+    fontSize: 9, fontWeight: 700, letterSpacing: 1.4, color: t.accent,
+    textTransform: 'uppercase', ...style,
+  }}>{children}</div>
+);
+
+const Line = ({ children, muted = true, size = 10.5 }) => (
+  <div style={{ fontSize: size, color: muted ? '#5b6470' : '#1f2937', lineHeight: 1.65 }}>{children}</div>
+);
+
+// Iconos del pie (SVG inline: html2canvas los serializa sin pedir red)
+const IconPin = ({ c }) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 21.5s7-6.6 7-11.5a7 7 0 1 0-14 0c0 4.9 7 11.5 7 11.5z" />
+    <circle cx="12" cy="10" r="2.6" />
+  </svg>
+);
+const IconPhone = ({ c }) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 16.9v2.6a1.4 1.4 0 0 1-1.5 1.4A17.5 17.5 0 0 1 3.1 4.5 1.4 1.4 0 0 1 4.5 3h2.6a1.4 1.4 0 0 1 1.4 1.2c.1 1 .35 2 .7 2.9a1.4 1.4 0 0 1-.3 1.5L7.7 9.7a14 14 0 0 0 6.6 6.6l1.1-1.2a1.4 1.4 0 0 1 1.5-.3c.9.35 1.9.6 2.9.7A1.4 1.4 0 0 1 21 16.9z" />
+  </svg>
+);
+const IconMail = ({ c }) => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2.5" y="4.5" width="19" height="15" rx="2" />
+    <path d="M3 6l9 6.5L21 6" />
+  </svg>
+);
+
+// ─── Cenefa superior + tarjeta del negocio ────────────────────────────────────
+const Masthead = ({ biz, t }) => {
+  const logo = getBizLogo(biz);
+  // Una sola linea: el telefono y el correo ya salen en el cuerpo y en el pie.
+  const ribbon = biz?.website || biz?.contact_email || '';
+
+  return (
+    <div style={{ position: 'relative', height: 152, background: t.band, overflow: 'hidden' }}>
+      {/* arte geométrico */}
+      <div style={{ position: 'absolute', top: -110, right: -60, width: 300, height: 300, background: 'rgba(255,255,255,0.09)', transform: 'rotate(38deg)' }} />
+      <div style={{ position: 'absolute', top: 10, right: 90, width: 220, height: 220, background: 'rgba(255,255,255,0.07)', transform: 'rotate(20deg)' }} />
+      <div style={{ position: 'absolute', bottom: -140, right: 180, width: 260, height: 260, background: 'rgba(255,255,255,0.05)', transform: 'rotate(48deg)' }} />
+      <div style={{ position: 'absolute', top: 0, right: 0, width: 120, height: 152, background: 'rgba(0,0,0,0.10)', transform: 'skewX(-16deg) translateX(40px)' }} />
+
+      {/* tarjeta blanca del negocio */}
+      <div style={{
+        position: 'absolute', top: 20, left: 36, maxWidth: 430,
+        background: '#fff', borderRadius: t.radius ? t.radius : 3,
+        padding: '14px 26px 14px 18px', display: 'flex', alignItems: 'center', gap: 14,
+        boxShadow: '0 6px 18px rgba(0,0,0,0.18)',
+      }}>
+        {logo ? (
+          <img src={logo} alt="Logo" style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }} />
+        ) : (
+          <div style={{
+            width: 46, height: 46, flexShrink: 0, borderRadius: t.radius ? 10 : 4,
+            background: t.tint, color: t.accent, fontFamily: t.titleFont,
+            fontSize: 20, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>{(biz?.name || 'Q').trim().charAt(0).toUpperCase()}</div>
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: t.titleFont, fontSize: 17, fontWeight: 700, color: t.accent, lineHeight: 1.2 }}>
+            {biz?.name || 'Mi Empresa'}
+          </div>
+          <div style={{ fontSize: 9.5, color: '#6b7280', marginTop: 3, lineHeight: 1.5 }}>
+            {biz?.nit ? `NIT ${biz.nit}` : 'Documento de venta'}
+            {biz?.industry ? `  ·  ${biz.industry}` : ''}
+          </div>
+        </div>
       </div>
-      {Number(doc.descuento_global) > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: totalBg ? 'rgba(255,255,255,0.8)' : '#dc2626', padding: '4px 0' }}>
-          <span>Descuento</span><span>-{formatCurrency(doc.descuento_global)}</span>
-        </div>
+
+      {/* franja de contacto */}
+      {ribbon && (
+        <div style={{
+          position: 'absolute', right: 40, bottom: 18, textAlign: 'right',
+          fontSize: 9, color: 'rgba(255,255,255,0.82)', letterSpacing: 0.4,
+        }}>{ribbon}</div>
       )}
-      {Number(doc.impuesto_total) > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: totalBg ? 'rgba(255,255,255,0.8)' : '#6b7280', padding: '4px 0' }}>
-          <span>IVA</span><span>{formatCurrency(doc.impuesto_total)}</span>
+    </div>
+  );
+};
+
+// ─── Bandera con el tipo de documento ─────────────────────────────────────────
+const Flag = ({ t, texto }) => {
+  const base = {
+    background: t.flag === 'plate' ? '#fff' : t.ink,
+    color: t.flag === 'plate' ? t.ink : '#fff',
+    fontFamily: t.titleFont,
+    fontSize: 19, fontWeight: 700, letterSpacing: 3,
+    padding: '11px 30px', lineHeight: '22px',
+  };
+
+  if (t.flag === 'pill') {
+    return (
+      <div style={{ ...base, borderRadius: 999, boxShadow: '0 8px 18px rgba(79,70,229,0.30)' }}>
+        {texto}
+      </div>
+    );
+  }
+  if (t.flag === 'plate') {
+    return (
+      <div style={{
+        ...base, border: `1px solid ${t.rule}`, borderLeft: `5px solid ${t.accent}`,
+        boxShadow: '0 8px 18px rgba(0,0,0,0.10)',
+      }}>
+        {texto}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex' }}>
+      <div style={base}>{texto}</div>
+      <div style={{
+        width: 0, height: 0,
+        borderTop: '22px solid transparent', borderBottom: '22px solid transparent',
+        borderLeft: `17px solid ${t.ink}`,
+      }} />
+    </div>
+  );
+};
+
+// ─── Tabla de ítems ───────────────────────────────────────────────────────────
+const ItemsTable = ({ items, amt, t, minRows = 4 }) => {
+  const showDto = items.some((i) => Number(i.descuento) > 0);
+  const showIva = items.some((i) => Number(i.impuesto) > 0);
+
+  const cols = [
+    { k: 'cant',  h: 'Cantidad',          w: 74,   align: 'center' },
+    { k: 'desc',  h: 'Descripción',       w: null, align: 'left' },
+    { k: 'pu',    h: 'Precio por unidad', w: 118,  align: 'right' },
+    ...(showDto ? [{ k: 'dto', h: 'Dto.', w: 58, align: 'right' }] : []),
+    ...(showIva ? [{ k: 'iva', h: 'IVA',  w: 58, align: 'right' }] : []),
+    { k: 'total', h: 'Total',             w: 122,  align: 'right' },
+  ];
+
+  const filler = Math.max(0, minRows - items.length);
+
+  const cell = (align, extra = {}) => ({
+    padding: '9px 12px', textAlign: align, fontSize: 11,
+    borderBottom: `1px solid ${t.hair}`, ...extra,
+  });
+
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+      <colgroup>
+        {cols.map((c) => <col key={c.k} style={c.w ? { width: c.w } : undefined} />)}
+      </colgroup>
+      <thead>
+        <tr style={{ background: t.ink }}>
+          {cols.map((c) => (
+            <th key={c.k} style={{
+              padding: '10px 12px', color: '#fff', fontSize: 9, fontWeight: 700,
+              letterSpacing: 1.2, textTransform: 'uppercase', textAlign: c.align,
+            }}>{c.h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((it, i) => (
+          <tr key={i} style={{ background: t.zebra && i % 2 === 1 ? t.tint : '#fff' }}>
+            <td style={cell('center', { color: '#374151' })}>{it.cantidad}</td>
+            <td style={cell('left', { color: '#1f2937', fontWeight: 500 })}>{it.descripcion}</td>
+            <td style={cell('right', { color: '#4b5563' })}>{amt(it.precio_unitario)}</td>
+            {showDto && <td style={cell('right', { color: '#4b5563' })}>{Number(it.descuento) > 0 ? `${it.descuento}%` : '—'}</td>}
+            {showIva && <td style={cell('right', { color: '#4b5563' })}>{Number(it.impuesto) > 0 ? `${it.impuesto}%` : '—'}</td>}
+            <td style={cell('right', { color: '#111827', fontWeight: 700 })}>{amt(it.total)}</td>
+          </tr>
+        ))}
+        {/* renglones vacíos: la plantilla mantiene la retícula aunque falten ítems */}
+        {Array.from({ length: filler }).map((_, i) => (
+          <tr key={`f${i}`}>
+            {cols.map((c) => (
+              <td key={c.k} style={{ padding: '9px 12px', borderBottom: `1px solid ${t.hair}`, fontSize: 11 }}>&nbsp;</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+};
+
+// ─── Totales escalonados a la derecha ─────────────────────────────────────────
+const TotalesBlock = ({ doc, amt, fmt, t, esFactura }) => {
+  const row = (label, value, opts = {}) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+      borderTop: `1px solid ${opts.strong ? t.accent : t.hair}`,
+      padding: '8px 12px 8px 0',
+    }}>
+      <div style={{
+        fontSize: 9.5, fontWeight: 700, letterSpacing: 1.1, textTransform: 'uppercase',
+        color: opts.danger ? '#b91c1c' : '#4b5563', textAlign: 'right', paddingRight: 16,
+      }}>{label}</div>
+      <div style={{
+        width: 130, textAlign: 'right', fontSize: 12, fontWeight: 600,
+        color: opts.danger ? '#b91c1c' : '#111827',
+      }}>{value}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ width: 400 }}>
+        {row('Subtotal', amt(doc.subtotal))}
+        {Number(doc.descuento_global) > 0 && row('Descuento', `-${amt(doc.descuento_global)}`, { danger: true })}
+        {row('Impuesto sobre las ventas', amt(doc.impuesto_total || 0))}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+          background: t.ink, color: '#fff', marginTop: 6,
+          borderRadius: t.radius ? t.radius - 4 : 0, padding: '12px 12px 12px 0',
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', paddingRight: 16 }}>
+            {esFactura ? 'Total a pagar' : 'Total cotizado'}
+          </div>
+          <div style={{ width: 130, textAlign: 'right', fontSize: 15, fontWeight: 800 }}>{fmt(doc.total)}</div>
         </div>
-      )}
-      <div style={{ height: 1, background: totalBg ? 'rgba(255,255,255,0.25)' : borderColor, margin: '8px 0' }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 17, color: totalBg ? '#fff' : totalColor }}>
-        <span>TOTAL</span><span>{formatCurrency(doc.total)}</span>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
-// ─── Bloque de abonos compartido ──────────────────────────────────────────────
-const AbonosBlock = ({ doc, formatCurrency, borderColor = '#e5e7eb', headerBg = '#f8fafc', accentColor = '#16a34a' }) => {
+// ─── Historial de abonos ──────────────────────────────────────────────────────
+const AbonosBlock = ({ doc, amt, fmt, t }) => {
   const abonos = parseAbonos(doc.abonos);
   if (!abonos.length) return null;
 
-  const total    = Number(doc.total || 0);
-  const abonado  = Number(doc.total_abonado || 0);
-  const saldo    = Math.max(0, total - abonado);
-  const pct      = total > 0 ? Math.min(100, Math.round((abonado / total) * 100)) : 0;
-  const parcial  = doc.estado === 'ABONO';
+  const total   = Number(doc.total || 0);
+  const abonado = Number(doc.total_abonado || 0);
+  const saldo   = Math.max(0, total - abonado);
+  const pct     = total > 0 ? Math.min(100, Math.round((abonado / total) * 100)) : 0;
+  const parcial = doc.estado === 'ABONO';
 
   return (
-    <div style={{ marginTop: 24, border: `1px solid ${borderColor}`, borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ background: headerBg, padding: '10px 16px', borderBottom: `1px solid ${borderColor}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: '#94a3b8' }}>HISTORIAL DE PAGOS</div>
+    <div style={{ marginTop: 26 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+        <Label t={t}>Historial de pagos</Label>
         {parcial && (
-          <div style={{ fontSize: 11, color: '#f97316', fontWeight: 700 }}>
-            Saldo pendiente: {formatCurrency(saldo)}
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#c2410c' }}>
+            Saldo pendiente: {fmt(saldo)}
           </div>
         )}
       </div>
-      <div style={{ padding: '12px 16px' }}>
-        {parcial && (
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#6b7280', marginBottom: 5 }}>
-              <span>Abonado: <strong style={{ color: '#16a34a' }}>{formatCurrency(abonado)}</strong></span>
-              <span>{pct}%</span>
-            </div>
-            <div style={{ height: 6, background: '#e5e7eb', borderRadius: 3 }}>
-              <div style={{ width: `${pct}%`, height: '100%', background: '#16a34a', borderRadius: 3 }} />
-            </div>
+      <Rule t={t} />
+      {parcial && (
+        <div style={{ margin: '10px 0 12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#5b6470', marginBottom: 4 }}>
+            <span>Abonado: <strong style={{ color: '#15803d' }}>{fmt(abonado)}</strong></span>
+            <span>{pct}%</span>
           </div>
-        )}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-          <thead>
-            <tr style={{ borderBottom: `1px solid ${borderColor}` }}>
-              {['Fecha', 'Monto', 'Medio de pago', 'Nota'].map((h, i) => (
-                <th key={i} style={{
-                  padding: '5px 8px', textAlign: i === 1 ? 'right' : 'left',
-                  fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#94a3b8',
-                }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {abonos.map((a, i) => (
-              <tr key={i} style={{ borderBottom: i < abonos.length - 1 ? `1px solid ${borderColor}` : 'none' }}>
-                <td style={{ padding: '8px', color: '#6b7280' }}>{dayjs(a.fecha).format('DD/MM/YYYY')}</td>
-                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>{formatCurrency(a.monto)}</td>
-                <td style={{ padding: '8px', color: '#6b7280' }}>{a.cuenta}</td>
-                <td style={{ padding: '8px', color: '#94a3b8', fontSize: 11 }}>{a.nota || '—'}</td>
-              </tr>
+          <div style={{ height: 5, background: t.hair }}>
+            <div style={{ width: `${pct}%`, height: '100%', background: t.accent }} />
+          </div>
+        </div>
+      )}
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8 }}>
+        <thead>
+          <tr>
+            {['Fecha', 'Monto', 'Medio de pago', 'Nota'].map((h, i) => (
+              <th key={h} style={{
+                padding: '5px 10px 7px', textAlign: i === 1 ? 'right' : 'left',
+                fontSize: 8.5, fontWeight: 700, letterSpacing: 1.1, textTransform: 'uppercase',
+                color: '#94a3b8', borderBottom: `1px solid ${t.rule}`,
+              }}>{h}</th>
             ))}
-          </tbody>
-        </table>
-        {!parcial && (
-          <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: '#16a34a', textAlign: 'right' }}>
-            ✓ Pagado completamente el {doc.fecha_pago ? dayjs(doc.fecha_pago).format('DD/MM/YYYY') : ''}
+          </tr>
+        </thead>
+        <tbody>
+          {abonos.map((a, i) => (
+            <tr key={i}>
+              <td style={{ padding: '7px 10px', fontSize: 10.5, color: '#5b6470', borderBottom: `1px solid ${t.hair}` }}>{formatFechaDia(a.fecha)}</td>
+              <td style={{ padding: '7px 10px', fontSize: 10.5, textAlign: 'right', fontWeight: 700, color: '#15803d', borderBottom: `1px solid ${t.hair}` }}>{amt(a.monto)}</td>
+              <td style={{ padding: '7px 10px', fontSize: 10.5, color: '#5b6470', borderBottom: `1px solid ${t.hair}` }}>{a.cuenta}</td>
+              <td style={{ padding: '7px 10px', fontSize: 10, color: '#94a3b8', borderBottom: `1px solid ${t.hair}` }}>{a.nota || '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!parcial && (
+        <div style={{ marginTop: 8, fontSize: 10.5, fontWeight: 700, color: '#15803d', textAlign: 'right' }}>
+          ✓ Pagado completamente el {formatFechaDia(doc.fecha_pago, 'DD/MM/YYYY', '')}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Pie con dirección / teléfono / correo ────────────────────────────────────
+const Footer = ({ biz, t }) => {
+  const dir = [biz?.address, biz?.city].filter(Boolean).join(', ');
+  const cols = [
+    { icon: <IconPin c={t.accent} />,   label: 'Dirección de oficina', value: dir },
+    { icon: <IconPhone c={t.accent} />, label: 'Número de teléfono',   value: biz?.phone },
+    { icon: <IconMail c={t.accent} />,  label: 'Correo electrónico',   value: biz?.contact_email },
+  ].filter((c) => c.value);
+
+  if (!cols.length) return null;
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <Rule t={t} strong />
+      <div style={{ height: 2 }} />
+      <Rule t={t} />
+      <div style={{ display: 'flex', justifyContent: 'space-around', gap: 16, padding: '16px 0 4px', textAlign: 'center' }}>
+        {cols.map((c) => (
+          <div key={c.label} style={{ flex: 1 }}>
+            <div style={{
+              width: 30, height: 30, margin: '0 auto 8px', borderRadius: '50%',
+              background: t.tint, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>{c.icon}</div>
+            <div style={{ fontSize: 10.5, color: '#1f2937', fontWeight: 600, lineHeight: 1.4 }}>{c.value}</div>
+            <div style={{
+              fontSize: 8, letterSpacing: 1.2, textTransform: 'uppercase',
+              color: t.accent, marginTop: 3, fontWeight: 700,
+            }}>[{c.label}]</div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
 };
 
-// ─── DISEÑO 1: CORPORATIVA ────────────────────────────────────────────────────
-const DisenoCorporativa = ({ doc, items, formatCurrency, biz }) => {
-  const cliente = doc.persona_nombre || doc.cliente_nombre || 'Sin especificar';
-  const estadoBg    = doc.estado === 'PAGADA' ? '#dcfce7' : doc.estado === 'ANULADA' ? '#fee2e2' : doc.estado === 'ABONO' ? '#fff7ed' : '#dbeafe';
-  const estadoColor = doc.estado === 'PAGADA' ? '#166534' : doc.estado === 'ANULADA' ? '#dc2626' : doc.estado === 'ABONO' ? '#ea580c' : '#1d4ed8';
+// ─── Hoja completa ────────────────────────────────────────────────────────────
+const Sheet = ({ doc, items, biz, amt, fmt, t }) => {
+  const esFactura = (doc.tipo || 'FACTURA') === 'FACTURA';
+  const titulo    = esFactura ? 'FACTURA' : 'COTIZACIÓN';
+  const cliente   = doc.persona_nombre || doc.cliente_nombre || 'Sin especificar';
+  const est       = estadoStyle(doc.estado);
+  const instrucciones = [doc.notas, doc.condiciones].filter(Boolean);
+
+  const metaRow = (label, value) => (
+    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 4 }}>
+      <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1.1, textTransform: 'uppercase', color: t.accent }}>{label}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#1f2937', minWidth: 96, textAlign: 'right' }}>{value}</span>
+    </div>
+  );
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', background: '#fff', minHeight: 900 }}>
-      {/* Barra superior azul oscuro */}
-      <div style={{ background: '#0f172a', padding: '28px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {getBizLogo(biz) && (
-            <img src={getBizLogo(biz)} alt="Logo"
-              style={{ width: 60, height: 60, objectFit: 'contain', background: '#fff', borderRadius: 10, padding: 5, flexShrink: 0 }} />
-          )}
-          <div>
-            <div style={{ color: '#fff', fontSize: 26, fontWeight: 800, letterSpacing: 1 }}>FACTURA</div>
-            {biz?.name && <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>{biz.name}</div>}
-            {biz?.nit && <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>NIT: {biz.nit}</div>}
-            {(biz?.address || biz?.city) && (
-              <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{[biz.address, biz.city].filter(Boolean).join(' · ')}</div>
-            )}
-            {biz?.phone && <div style={{ color: '#64748b', fontSize: 11 }}>{biz.phone}</div>}
-            {biz?.contact_email && <div style={{ color: '#64748b', fontSize: 11 }}>{biz.contact_email}</div>}
-          </div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ color: '#cbd5e1', fontSize: 22, fontWeight: 700 }}>{doc.numero || '—'}</div>
-          <div style={{ color: '#64748b', fontSize: 12, marginTop: 6 }}>
-            Emisión: <span style={{ color: '#94a3b8' }}>{doc.fecha_emision ? dayjs(doc.fecha_emision).format('DD / MM / YYYY') : '—'}</span>
-          </div>
-          {doc.fecha_vencimiento && (
-            <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
-              Vence: <span style={{ color: '#94a3b8' }}>{dayjs(doc.fecha_vencimiento).format('DD / MM / YYYY')}</span>
-            </div>
-          )}
-          <div style={{ marginTop: 10, display: 'inline-block', background: estadoBg, color: estadoColor, borderRadius: 20, padding: '3px 14px', fontSize: 12, fontWeight: 700 }}>
-            {doc.estado}
-          </div>
-        </div>
-      </div>
+    <div style={{
+      position: 'relative', fontFamily: t.font, background: '#fff',
+      minHeight: SHEET_H, display: 'flex', flexDirection: 'column',
+    }}>
+      {doc.estado === 'ANULADA' && (
+        <div style={{
+          position: 'absolute', top: 420, left: 0, right: 0, textAlign: 'center',
+          fontSize: 92, fontWeight: 800, letterSpacing: 12, color: 'rgba(185,28,28,0.10)',
+          transform: 'rotate(-18deg)', pointerEvents: 'none',
+        }}>ANULADA</div>
+      )}
 
-      {/* Acento azul */}
-      <div style={{ height: 4, background: 'linear-gradient(90deg, #1d4ed8, #38bdf8)' }} />
+      <Masthead biz={biz} t={t} />
 
-      <div style={{ padding: '32px 40px' }}>
-        {/* Cliente */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
-          <div style={{ background: '#f8fafc', borderRadius: 8, padding: '18px 20px', borderLeft: '4px solid #1d4ed8' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: '#94a3b8', marginBottom: 10 }}>FACTURAR A</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{cliente}</div>
-            {doc.cliente_identificacion && <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>NIT / CC: {doc.cliente_identificacion}</div>}
-            {doc.cliente_email && <div style={{ fontSize: 12, color: '#64748b' }}>{doc.cliente_email}</div>}
-            {doc.cliente_telefono && <div style={{ fontSize: 12, color: '#64748b' }}>{doc.cliente_telefono}</div>}
-            {doc.cliente_direccion && <div style={{ fontSize: 12, color: '#64748b' }}>{doc.cliente_direccion}</div>}
+      <div style={{ padding: '0 40px 28px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* position+zIndex: la cenefa es `position:relative`, asi que sin esto se
+            pintaria encima de la bandera y la cortaria por la mitad. */}
+        <div style={{ marginTop: -22, marginBottom: 26, display: 'flex', position: 'relative', zIndex: 2 }}>
+          <Flag t={t} texto={titulo} />
+        </div>
+
+        {/* Datos del emisor + número y fechas */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 30, marginBottom: 12 }}>
+          <div style={{ maxWidth: 300 }}>
+            {/* Direccion postal del emisor (el telefono y el correo van en «Emitido por» y el pie) */}
+            {biz?.address && <Line>{biz.address}</Line>}
+            {(biz?.city || biz?.country) && <Line>{[biz.city, biz.country].filter(Boolean).join(', ')}</Line>}
+            {biz?.website && <Line>{biz.website}</Line>}
           </div>
-          <div style={{ background: '#f8fafc', borderRadius: 8, padding: '18px 20px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: '#94a3b8', marginBottom: 10 }}>DETALLE</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#1d4ed8' }}>{formatCurrency(doc.total)}</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-              {items.length} {items.length === 1 ? 'ítem' : 'ítems'}
-              {Number(doc.impuesto_total) > 0 && ` · IVA: ${formatCurrency(doc.impuesto_total)}`}
-            </div>
-            {doc.fecha_pago && (
-              <div style={{ fontSize: 12, color: '#16a34a', marginTop: 8, fontWeight: 600 }}>
-                ✓ Pagado el {dayjs(doc.fecha_pago).format('DD/MM/YYYY')}
-              </div>
-            )}
+          <div style={{ textAlign: 'right' }}>
+            {metaRow(`${titulo} N.º`, doc.numero || '—')}
+            {metaRow('Fecha', formatFechaDia(doc.fecha_emision))}
+            {doc.fecha_vencimiento && metaRow(esFactura ? 'Vence' : 'Válida hasta', formatFechaDia(doc.fecha_vencimiento))}
+            <div style={{
+              display: 'inline-block', marginTop: 6, padding: '3px 14px',
+              borderRadius: t.radius ? 999 : 2, background: est.bg, color: est.fg,
+              fontSize: 10, fontWeight: 700, letterSpacing: 1.2,
+            }}>{doc.estado}</div>
           </div>
         </div>
+
+        <Rule t={t} strong />
+
+        {/* PARA / EMITIDO POR */}
+        <div style={{ display: 'flex', gap: 40, padding: '14px 0 14px' }}>
+          <div style={{ flex: 1 }}>
+            <Label t={t} style={{ marginBottom: 7 }}>Para:</Label>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{cliente}</div>
+            {doc.cliente_identificacion && <Line>NIT / CC {doc.cliente_identificacion}</Line>}
+            {doc.cliente_direccion && <Line>{doc.cliente_direccion}</Line>}
+            {doc.cliente_telefono && <Line>Teléfono {doc.cliente_telefono}</Line>}
+            {doc.cliente_email && <Line>{doc.cliente_email}</Line>}
+          </div>
+          <div style={{ flex: 1 }}>
+            <Label t={t} style={{ marginBottom: 7 }}>Emitido por:</Label>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: '#111827', marginBottom: 3 }}>{biz?.name || 'Mi Empresa'}</div>
+            {biz?.nit && <Line>NIT {biz.nit}</Line>}
+            {biz?.phone && <Line>Teléfono {biz.phone}</Line>}
+            {biz?.contact_email && <Line>{biz.contact_email}</Line>}
+          </div>
+        </div>
+
+        <Rule t={t} />
+
+        {/* Instrucciones */}
+        {instrucciones.length > 0 && (
+          <>
+            <div style={{ padding: '12px 0 12px' }}>
+              <Label t={t} style={{ marginBottom: 6 }}>Instrucciones</Label>
+              {instrucciones.map((txt, i) => (
+                <div key={i} style={{ fontSize: 10.5, color: '#374151', lineHeight: 1.75, whiteSpace: 'pre-line' }}>{txt}</div>
+              ))}
+            </div>
+            <Rule t={t} />
+          </>
+        )}
 
         {/* Tabla */}
-        <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0', marginBottom: 24 }}>
-          <ItemsTable items={items} formatCurrency={formatCurrency} headerBg="#0f172a" altRowBg="#f8fafc" borderColor="#e2e8f0" />
+        <div style={{ marginTop: 18, borderRadius: t.radius ? t.radius - 4 : 0, overflow: 'hidden' }}>
+          <ItemsTable items={items} amt={amt} t={t} />
         </div>
 
-        <TotalesBlock doc={doc} formatCurrency={formatCurrency} totalColor="#1d4ed8" borderColor="#e2e8f0" />
-
-        <AbonosBlock doc={doc} formatCurrency={formatCurrency} borderColor="#e2e8f0" headerBg="#f8fafc" />
-
-        {doc.notas && (
-          <div style={{ marginTop: 28, padding: '14px 18px', background: '#f8fafc', borderRadius: 8, borderLeft: '3px solid #1d4ed8' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: '#94a3b8', marginBottom: 6 }}>NOTAS</div>
-            <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.7 }}>{doc.notas}</div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ─── DISEÑO 2: MODERNA ────────────────────────────────────────────────────────
-const DisenoModerna = ({ doc, items, formatCurrency, biz }) => {
-  const cliente = doc.persona_nombre || doc.cliente_nombre || 'Sin especificar';
-  return (
-    <div style={{ fontFamily: 'Inter, Arial, sans-serif', background: '#fff', minHeight: 900 }}>
-      {/* Header degradado violeta-azul */}
-      <div style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%)', padding: '36px 44px 32px', color: '#fff' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-            {getBizLogo(biz) && (
-              <img src={getBizLogo(biz)} alt="Logo"
-                style={{ width: 60, height: 60, objectFit: 'contain', background: '#fff', borderRadius: 12, padding: 5, flexShrink: 0 }} />
-            )}
-            <div>
-              <div style={{ fontSize: 11, letterSpacing: 3, fontWeight: 700, opacity: 0.7, marginBottom: 6 }}>FACTURA</div>
-              <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: -1 }}>{doc.numero || '—'}</div>
-              {biz?.name && <div style={{ fontSize: 13, opacity: 0.85, marginTop: 8, fontWeight: 600 }}>{biz.name}</div>}
-              {biz?.nit && <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>NIT: {biz.nit}</div>}
-              {(biz?.address || biz?.city) && (
-                <div style={{ fontSize: 11, opacity: 0.65, marginTop: 2 }}>{[biz.address, biz.city].filter(Boolean).join(', ')}</div>
-              )}
-              {biz?.phone && <div style={{ fontSize: 11, opacity: 0.65 }}>{biz.phone}</div>}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right', fontSize: 13 }}>
-            <div style={{ opacity: 0.7, fontSize: 10, letterSpacing: 2, fontWeight: 700, marginBottom: 6 }}>FECHA EMISIÓN</div>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>{doc.fecha_emision ? dayjs(doc.fecha_emision).format('DD / MM / YYYY') : '—'}</div>
-            {doc.fecha_vencimiento && (
-              <>
-                <div style={{ opacity: 0.7, fontSize: 10, letterSpacing: 2, fontWeight: 700, marginTop: 12, marginBottom: 6 }}>VENCIMIENTO</div>
-                <div style={{ fontWeight: 600 }}>{dayjs(doc.fecha_vencimiento).format('DD / MM / YYYY')}</div>
-              </>
-            )}
-            {biz?.contact_email && <div style={{ fontSize: 11, opacity: 0.65, marginTop: 10 }}>{biz.contact_email}</div>}
-          </div>
+        <div style={{ marginTop: 10 }}>
+          <TotalesBlock doc={doc} amt={amt} fmt={fmt} t={t} esFactura={esFactura} />
         </div>
 
-        {/* Badge estado */}
-        <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <AbonosBlock doc={doc} amt={amt} fmt={fmt} t={t} />
+
+        {/* Cierre + pie */}
+        <div style={{ marginTop: 'auto' }}>
           <div style={{
-            background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(4px)',
-            borderRadius: 20, padding: '4px 16px', fontSize: 12, fontWeight: 700,
-          }}>{doc.estado}</div>
-          {doc.fecha_pago && (
-            <div style={{ fontSize: 11, opacity: 0.8 }}>· Pagado el {dayjs(doc.fecha_pago).format('DD/MM/YYYY')}</div>
-          )}
-        </div>
-      </div>
-
-      <div style={{ padding: '32px 44px' }}>
-        {/* Cliente + resumen */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 28 }}>
-          <div style={{ border: '1.5px solid #e0e7ff', borderRadius: 12, padding: '18px 20px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: '#6366f1', marginBottom: 10 }}>CLIENTE</div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: '#1e1b4b' }}>{cliente}</div>
-            {doc.cliente_identificacion && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>NIT/CC: {doc.cliente_identificacion}</div>}
-            {doc.cliente_email && <div style={{ fontSize: 12, color: '#6b7280' }}>{doc.cliente_email}</div>}
-            {doc.cliente_telefono && <div style={{ fontSize: 12, color: '#6b7280' }}>{doc.cliente_telefono}</div>}
+            textAlign: 'center', marginTop: 22, fontSize: 11, fontWeight: 600,
+            letterSpacing: 0.6, color: t.accent, fontFamily: t.titleFont,
+          }}>
+            {esFactura ? 'Gracias por su confianza' : 'Quedamos atentos a su respuesta'}
           </div>
-          <div style={{ border: '1.5px solid #e0e7ff', borderRadius: 12, padding: '18px 20px', background: '#fafbff' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: '#6366f1', marginBottom: 10 }}>RESUMEN</div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: '#4f46e5' }}>{formatCurrency(doc.total)}</div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
-              {items.length} {items.length === 1 ? 'ítem' : 'ítems'}
-              {Number(doc.impuesto_total) > 0 && ` · IVA ${formatCurrency(doc.impuesto_total)}`}
-            </div>
-          </div>
+          <Footer biz={biz} t={t} />
         </div>
-
-        {/* Tabla */}
-        <div style={{ borderRadius: 12, overflow: 'hidden', border: '1.5px solid #e0e7ff', marginBottom: 24 }}>
-          <ItemsTable items={items} formatCurrency={formatCurrency} headerBg="#4f46e5" altRowBg="#f5f3ff" borderColor="#e0e7ff" />
-        </div>
-
-        <TotalesBlock doc={doc} formatCurrency={formatCurrency} totalBg="linear-gradient(135deg,#4f46e5,#0ea5e9)" />
-
-        <AbonosBlock doc={doc} formatCurrency={formatCurrency} borderColor="#e0e7ff" headerBg="#fafbff" />
-
-        {doc.notas && (
-          <div style={{ marginTop: 24, padding: '14px 18px', background: '#fafbff', borderRadius: 10, borderLeft: '3px solid #6366f1' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: '#6366f1', marginBottom: 6 }}>NOTAS</div>
-            <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.7 }}>{doc.notas}</div>
-          </div>
-        )}
       </div>
     </div>
   );
-};
-
-// ─── DISEÑO 3: EJECUTIVA ──────────────────────────────────────────────────────
-const DisenoEjecutiva = ({ doc, items, formatCurrency, biz }) => {
-  const cliente = doc.persona_nombre || doc.cliente_nombre || 'Sin especificar';
-  return (
-    <div style={{ fontFamily: '"Segoe UI", Arial, sans-serif', background: '#fff', display: 'flex', minHeight: 900 }}>
-      {/* Sidebar izquierdo oscuro */}
-      <div style={{ width: 210, background: '#111827', flexShrink: 0, padding: '36px 24px', display: 'flex', flexDirection: 'column', gap: 28 }}>
-        {/* Logo/empresa */}
-        <div>
-          {getBizLogo(biz) ? (
-            <img src={getBizLogo(biz)} alt="Logo"
-              style={{ width: 64, height: 64, objectFit: 'contain', background: '#fff', borderRadius: 10, padding: 5, marginBottom: 14, display: 'block' }} />
-          ) : (
-            <div style={{ width: 40, height: 4, background: '#10b981', borderRadius: 2, marginBottom: 14 }} />
-          )}
-          {biz?.name
-            ? <div style={{ color: '#f9fafb', fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>{biz.name}</div>
-            : <div style={{ color: '#6b7280', fontSize: 12, fontStyle: 'italic' }}>Mi Empresa</div>
-          }
-          {biz?.nit && <div style={{ color: '#9ca3af', fontSize: 11, marginTop: 4 }}>NIT: {biz.nit}</div>}
-          {(biz?.address || biz?.city) && (
-            <div style={{ color: '#6b7280', fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>{[biz.address, biz.city].filter(Boolean).join('\n')}</div>
-          )}
-          {biz?.phone && <div style={{ color: '#6b7280', fontSize: 11, marginTop: 4 }}>{biz.phone}</div>}
-          {biz?.contact_email && <div style={{ color: '#6b7280', fontSize: 11, marginTop: 2 }}>{biz.contact_email}</div>}
-        </div>
-
-        {/* Número */}
-        <div>
-          <div style={{ color: '#4b5563', fontSize: 10, letterSpacing: 2, fontWeight: 600, marginBottom: 6 }}>FACTURA</div>
-          <div style={{ color: '#10b981', fontSize: 18, fontWeight: 800 }}>{doc.numero || '—'}</div>
-        </div>
-
-        {/* Fechas */}
-        <div>
-          <div style={{ color: '#4b5563', fontSize: 10, letterSpacing: 2, fontWeight: 600, marginBottom: 8 }}>FECHAS</div>
-          <div style={{ color: '#9ca3af', fontSize: 11, marginBottom: 4 }}>Emisión</div>
-          <div style={{ color: '#e5e7eb', fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
-            {doc.fecha_emision ? dayjs(doc.fecha_emision).format('DD / MM / YYYY') : '—'}
-          </div>
-          {doc.fecha_vencimiento && (
-            <>
-              <div style={{ color: '#9ca3af', fontSize: 11, marginBottom: 4 }}>Vencimiento</div>
-              <div style={{ color: '#e5e7eb', fontSize: 12, fontWeight: 600 }}>
-                {dayjs(doc.fecha_vencimiento).format('DD / MM / YYYY')}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Estado */}
-        <div>
-          <div style={{ color: '#4b5563', fontSize: 10, letterSpacing: 2, fontWeight: 600, marginBottom: 8 }}>ESTADO</div>
-          <div style={{
-            display: 'inline-block', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 700,
-            background: doc.estado === 'PAGADA' ? '#064e3b' : doc.estado === 'ANULADA' ? '#7f1d1d' : doc.estado === 'ABONO' ? '#431407' : '#1e3a5f',
-            color:      doc.estado === 'PAGADA' ? '#6ee7b7' : doc.estado === 'ANULADA' ? '#fca5a5' : doc.estado === 'ABONO' ? '#fb923c' : '#93c5fd',
-          }}>{doc.estado}</div>
-          {doc.fecha_pago && (
-            <div style={{ color: '#6b7280', fontSize: 11, marginTop: 6 }}>
-              Cobrado el<br />{dayjs(doc.fecha_pago).format('DD/MM/YYYY')}
-            </div>
-          )}
-        </div>
-
-        {/* Total en sidebar */}
-        <div style={{ marginTop: 'auto', paddingTop: 20, borderTop: '1px solid #1f2937' }}>
-          <div style={{ color: '#4b5563', fontSize: 10, letterSpacing: 2, fontWeight: 600, marginBottom: 6 }}>TOTAL</div>
-          <div style={{ color: '#10b981', fontSize: 20, fontWeight: 900 }}>{formatCurrency(doc.total)}</div>
-        </div>
-      </div>
-
-      {/* Contenido principal */}
-      <div style={{ flex: 1, padding: '36px 36px 36px 32px' }}>
-        {/* Cliente */}
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 10, letterSpacing: 2, color: '#9ca3af', fontWeight: 700, marginBottom: 10 }}>FACTURAR A</div>
-          <div style={{ fontSize: 17, fontWeight: 700, color: '#111827' }}>{cliente}</div>
-          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 1.8 }}>
-            {doc.cliente_identificacion && <div>NIT / CC: {doc.cliente_identificacion}</div>}
-            {doc.cliente_email && <div>{doc.cliente_email}</div>}
-            {doc.cliente_telefono && <div>{doc.cliente_telefono}</div>}
-            {doc.cliente_direccion && <div>{doc.cliente_direccion}</div>}
-          </div>
-        </div>
-
-        {/* Línea */}
-        <div style={{ height: 2, background: '#111827', marginBottom: 24 }} />
-
-        {/* Tabla */}
-        <div style={{ marginBottom: 24 }}>
-          <ItemsTable items={items} formatCurrency={formatCurrency} headerBg="#111827" altRowBg="#f9fafb" borderColor="#f3f4f6" />
-        </div>
-
-        {/* Totales */}
-        <TotalesBlock doc={doc} formatCurrency={formatCurrency} totalColor="#10b981" borderColor="#e5e7eb" />
-
-        <AbonosBlock doc={doc} formatCurrency={formatCurrency} borderColor="#374151" headerBg="#f9fafb" />
-
-        {doc.notas && (
-          <div style={{ marginTop: 28, padding: '14px 18px', background: '#f9fafb', borderRadius: 8, borderLeft: '3px solid #10b981' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: '#9ca3af', marginBottom: 6 }}>NOTAS</div>
-            <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.7 }}>{doc.notas}</div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const DESIGN_COMPONENTS = {
-  corporativa: DisenoCorporativa,
-  moderna:     DisenoModerna,
-  ejecutiva:   DisenoEjecutiva,
 };
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 const FacturaViewer = ({ open, onClose, doc }) => {
-  const formatCurrency = useCurrency();
-  const { user }       = useContext(AuthContext);
+  const fmt        = useCurrency();
+  const amt        = useAmount();
+  const { user }   = useContext(AuthContext);
+  const { isDark } = useTheme();
   const [design, setDesign]           = useState('corporativa');
   const [downloading, setDownloading] = useState(false);
   const [bizInfo, setBizInfo]         = useState(null);
@@ -463,8 +558,8 @@ const FacturaViewer = ({ open, onClose, doc }) => {
 
   if (!doc) return null;
 
-  const items    = parseItems(doc.items);
-  const DesignComp = DESIGN_COMPONENTS[design];
+  const items = parseItems(doc.items);
+  const t     = THEMES[design] || THEMES.corporativa;
 
   const handleDownload = async () => {
     if (!previewRef.current) return;
@@ -476,8 +571,8 @@ const FacturaViewer = ({ open, onClose, doc }) => {
       // alto/ancho sea consistente independientemente del dispositivo.
       const prevWidth    = el.style.width;
       const prevMinWidth = el.style.minWidth;
-      el.style.width    = '794px';
-      el.style.minWidth = '794px';
+      el.style.width    = `${SHEET_W}px`;
+      el.style.minWidth = `${SHEET_W}px`;
       el.getBoundingClientRect(); // fuerza reflow antes de capturar
 
       const canvas = await html2canvas(el, {
@@ -496,6 +591,11 @@ const FacturaViewer = ({ open, onClose, doc }) => {
 
       if (pdfH <= pageH) {
         pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
+      } else if (pdfH <= pageH * 1.2) {
+        // Se pasa por poco: se ajusta a una sola página en vez de dejar una
+        // segunda hoja casi vacía con el pie.
+        const w = (pageH * pdfW) / pdfH;
+        pdf.addImage(imgData, 'PNG', (pdfW - w) / 2, 0, w, pageH);
       } else {
         let y = 0;
         while (y < pdfH) {
@@ -520,7 +620,7 @@ const FacturaViewer = ({ open, onClose, doc }) => {
     if (!content) return;
     const win = window.open('', '_blank');
     win.document.write(`<html><head><title>${doc.numero}</title>
-      <style>body{margin:0;padding:0}@media print{body{-webkit-print-color-adjust:exact}}</style>
+      <style>body{margin:0;padding:0}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>
       </head><body>${content.outerHTML}</body></html>`);
     win.document.close();
     win.focus();
@@ -536,29 +636,32 @@ const FacturaViewer = ({ open, onClose, doc }) => {
       onCancel={onClose}
       width={modalWidth}
       footer={null}
-      styles={{ body: { padding: 0, background: '#f1f5f9' } }}
-      title={<span style={{ fontWeight: 700, color: '#0f172a' }}>{doc.numero}</span>}
+      styles={{ body: { padding: 0, background: isDark ? '#262624' : '#f1f5f9' } }}
+      title={<span style={{ fontWeight: 700 }}>{doc.numero}</span>}
     >
       {/* Barra de controles — hace wrap en móvil */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', alignItems: 'center',
-        gap: 8, padding: '12px 20px 0',
-        borderBottom: '1px solid #e5e7eb', paddingBottom: 12,
+        gap: 8, padding: '12px 20px',
+        borderBottom: `1px solid ${isDark ? '#403e3a' : '#e5e7eb'}`,
       }}>
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', flex: 1 }}>
-          {DESIGNS.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => setDesign(d.id)}
-              style={{
-                padding: '4px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: design === d.id ? '2px solid #1d4ed8' : '2px solid #e2e8f0',
-                background: design === d.id ? '#eff6ff' : '#fff',
-                color: design === d.id ? '#1d4ed8' : '#64748b',
-                transition: 'all 0.15s',
-              }}
-            >{d.label}</button>
-          ))}
+          {DESIGNS.map((d) => {
+            const activo = design === d.id;
+            return (
+              <button
+                key={d.id}
+                onClick={() => setDesign(d.id)}
+                style={{
+                  padding: '4px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  border: `2px solid ${activo ? THEMES[d.id].accent : (isDark ? '#403e3a' : '#e2e8f0')}`,
+                  background: activo ? THEMES[d.id].tint : (isDark ? '#30302e' : '#fff'),
+                  color: activo ? THEMES[d.id].ink : (isDark ? '#a8a59e' : '#64748b'),
+                  transition: 'all 0.15s',
+                }}
+              >{d.label}</button>
+            );
+          })}
         </div>
         <Space>
           <Tooltip title="Imprimir">
@@ -573,9 +676,12 @@ const FacturaViewer = ({ open, onClose, doc }) => {
       <div style={{ padding: 20, maxHeight: '75vh', overflowY: 'auto', overflowX: 'auto' }}>
         <div
           ref={previewRef}
-          style={{ background: '#fff', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.10)', minWidth: 600 }}
+          style={{
+            background: '#fff', width: SHEET_W, minWidth: SHEET_W,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.14)', margin: '0 auto',
+          }}
         >
-          <DesignComp doc={doc} items={items} formatCurrency={formatCurrency} biz={bizInfo} />
+          <Sheet doc={doc} items={items} biz={bizInfo} amt={amt} fmt={fmt} t={t} />
         </div>
       </div>
     </Modal>

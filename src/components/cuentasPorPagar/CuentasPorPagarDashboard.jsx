@@ -1,18 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Layout, Typography, Button, Table, Tag, Modal,
   message, Input, Space, Card, Statistic,
   Dropdown, Select, InputNumber, Progress, Switch, Tooltip as AntTooltip,
+  DatePicker,
 } from 'antd';
 import {
   PlusOutlined, FileProtectOutlined,
   EditOutlined, DeleteOutlined,
   SearchOutlined, ReloadOutlined, MoreOutlined,
   CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined,
-  DollarOutlined, WalletOutlined, BankOutlined, UnorderedListOutlined,
+  CalendarOutlined, DownOutlined,
+  DollarOutlined, WalletOutlined,
   PlusCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import 'dayjs/locale/es';
 import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
 import {
   getCuentasPorPagar,
@@ -21,9 +24,10 @@ import {
   updateCuentaPorPagar,
   registrarAbono,
   aumentarDeuda,
+  editarMontoMovimiento,
 } from '../../services/cuentaPorPagar/cuentaPorPagarService';
 import CuentaPorPagarForm from './CuentaPorPagarForm';
-import CronogramaModal from './CronogramaModal';
+import { parseFechaDia, formatFechaDia, toFechaDiaPayload } from '../../utils/fechas';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -35,6 +39,181 @@ const ORANGE = '#f97316'; // abonos en curso / progreso
 const DANGER = '#dc2626'; // saldo / deuda / aumentos / vencidos
 const MUTED  = '#8c8c8c'; // texto e iconos secundarios
 const ACCENT = BLUE;      // usos genéricos de acento (botones, iconos, enlaces)
+
+// ─── Celda «Movimiento» (monto) editable en línea ─────────────────────────────
+// Corrige el valor de una línea del estado de cuenta.
+const MontoMovimientoCell = ({ cuentaId, mov, onSaved }) => {
+  const formatCurrency = useCurrency();
+  const { formatter: fmt, parser: prs, precision, step } = useCurrencyInput();
+
+  const [editando, setEditando]   = useState(false);
+  const [valor, setValor]         = useState(Math.abs(Number(mov.monto) || 0));
+  const [guardando, setGuardando] = useState(false);
+  // Enter dispara onPressEnter y además el onBlur al desmontarse: evita el doble PUT.
+  const enCurso = useRef(false);
+
+  const abona    = mov.tipo === 'abono';
+  const original = Math.abs(Number(mov.monto) || 0);
+
+  // Abonos/aumentos viejos sin uuid no se pueden identificar en el backend.
+  const sinId = (mov.tipo === 'abono' || mov.tipo === 'aumento')
+    && /^(abono|cargo)-\d+$/.test(String(mov.key));
+
+  const bloqueado = sinId;
+
+  const abrir = () => { setValor(original); setEditando(true); };
+
+  const guardar = async () => {
+    if (enCurso.current) return;
+    const nuevo = Number(valor);
+    if (!Number.isFinite(nuevo) || nuevo <= 0) {
+      message.error('El monto debe ser mayor a 0');
+      return;
+    }
+    if (nuevo === original) { setEditando(false); return; }
+
+    enCurso.current = true;
+    setGuardando(true);
+    try {
+      await editarMontoMovimiento(cuentaId, mov.key, { monto: nuevo });
+      message.success(`Movimiento actualizado a ${formatCurrency(nuevo)}`);
+      setEditando(false);
+      await onSaved();
+    } catch (e) {
+      message.error(e?.response?.data?.message || 'Error al editar el movimiento');
+    } finally {
+      enCurso.current = false;
+      setGuardando(false);
+    }
+  };
+
+  if (editando) {
+    return (
+      <InputNumber
+        autoFocus
+        size="small"
+        style={{ width: 130 }}
+        min={step}
+        value={valor}
+        onChange={setValor}
+        formatter={fmt}
+        parser={prs}
+        precision={precision}
+        step={step}
+        disabled={guardando}
+        onPressEnter={guardar}
+        onBlur={guardar}
+        onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditando(false); } }}
+      />
+    );
+  }
+
+  const texto = (
+    <Text strong style={{ fontSize: 12, color: abona ? GREEN : DANGER }}>
+      {abona ? '−' : '+'}{formatCurrency(original)}
+    </Text>
+  );
+
+  if (bloqueado) {
+    return (
+      <AntTooltip title="Movimiento antiguo sin identificador: no se puede editar">
+        <span>{texto}</span>
+      </AntTooltip>
+    );
+  }
+
+  return (
+    <AntTooltip title="Clic para corregir el monto">
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={abrir}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(); } }}
+        className="cpp-monto-editable"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          cursor: 'pointer', padding: '2px 6px', margin: '-2px -6px',
+          borderRadius: 6, borderBottom: '1px dashed #d9d9d9',
+        }}
+      >
+        {texto}
+        <EditOutlined style={{ fontSize: 10, color: MUTED, opacity: 0.65 }} />
+      </span>
+    </AntTooltip>
+  );
+};
+
+// ─── Celda «Vencimiento» editable en línea ────────────────────────────────────
+// Un clic abre el calendario sobre la misma celda y guarda al elegir la fecha.
+const VencimientoCell = ({ record, onSaved }) => {
+  const [editando, setEditando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+
+  const fecha    = parseFechaDia(record.fecha_vencimiento);
+  const vencido  = fecha?.isBefore(dayjs(), 'day') && !['PAGADA', 'ANULADA'].includes(record.estado);
+  const guardar = async (nueva) => {
+    // Mismo día: no vale la pena ir al servidor
+    if ((nueva ? nueva.format('YYYY-MM-DD') : null) === (fecha ? fecha.format('YYYY-MM-DD') : null)) {
+      setEditando(false);
+      return;
+    }
+    setGuardando(true);
+    try {
+      await updateCuentaPorPagar(record.id, { fecha_vencimiento: toFechaDiaPayload(nueva) });
+      message.success(nueva ? `Vencimiento: ${nueva.format('DD/MM/YYYY')}` : 'Vencimiento quitado');
+      setEditando(false);
+      await onSaved();
+    } catch {
+      message.error('Error al actualizar el vencimiento');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  if (editando) {
+    return (
+      <DatePicker
+        autoFocus
+        open
+        allowClear
+        disabled={guardando}
+        size="small"
+        style={{ width: 138 }}
+        format="DD/MM/YYYY"
+        value={fecha}
+        placeholder="Sin fecha"
+        onChange={guardar}
+        onOpenChange={(abierto) => { if (!abierto && !guardando) setEditando(false); }}
+      />
+    );
+  }
+
+  const contenido = (
+    <Text type={vencido ? 'danger' : (fecha ? undefined : 'secondary')}>
+      {fecha ? formatFechaDia(record.fecha_vencimiento) : '—'}
+    </Text>
+  );
+
+  return (
+    <AntTooltip title="Clic para cambiar el vencimiento">
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={() => setEditando(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditando(true); } }}
+        className="cpp-vencimiento-editable"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          cursor: 'pointer', padding: '2px 6px', margin: '-2px -6px',
+          borderRadius: 6, borderBottom: '1px dashed #d9d9d9',
+        }}
+      >
+        {contenido}
+        <CalendarOutlined style={{ fontSize: 11, color: MUTED, opacity: 0.65 }} />
+      </span>
+    </AntTooltip>
+  );
+};
 
 const ESTADO_COLOR = {
   PENDIENTE: 'blue',
@@ -58,14 +237,20 @@ const parseArr = (raw) =>
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
+// Valor de cada cuota. Las cuentas anteriores a la migración aún no lo tienen
+// guardado, así que se deduce del total.
+const valorCuotaDe = (rec) => {
+  if (rec.valor_cuota != null) return Number(rec.valor_cuota) || 0;
+  const cuotas = Math.max(1, Number(rec.num_cuotas) || 1);
+  return round2((Number(rec.total) || 0) / cuotas);
+};
+
 // Reconstruye el estado de cuenta (movimientos con saldo corrido) de una cuenta.
 // El saldo final coincide con total − total_abonado.
 const buildMovimientos = (rec) => {
   const total      = Number(rec.total || 0);
   const abonos     = parseArr(rec.abonos);
   const cargos     = parseArr(rec.cargos);
-  const cuotas     = parseArr(rec.cuotas);
-  const esPrestamo = !!rec.es_prestamo;
   const sumCargos  = cargos.reduce((s, c) => s + Number(c.monto || 0), 0);
 
   const eventos = [];
@@ -73,11 +258,11 @@ const buildMovimientos = (rec) => {
   // Deuda / préstamo inicial (base antes de aumentos)
   eventos.push({
     key:      'inicial',
-    fecha:    rec.fecha_emision || rec.created_at,
+    fecha:    rec.fecha_emision ? parseFechaDia(rec.fecha_emision) : rec.created_at,
     tipo:     'inicial',
-    concepto: esPrestamo ? 'Préstamo inicial' : 'Deuda inicial',
+    concepto: 'Deuda inicial',
     detalle:  null,
-    monto:    esPrestamo ? total : round2(total - sumCargos),
+    monto:    round2(total - sumCargos),
   });
 
   // Aumentos de deuda
@@ -90,29 +275,15 @@ const buildMovimientos = (rec) => {
     monto:    Number(c.monto || 0),
   }));
 
-  if (esPrestamo) {
-    // Cuotas pagadas del préstamo
-    cuotas
-      .filter((c) => c.estado === 'PAGADA')
-      .forEach((c) => eventos.push({
-        key:      `cuota-${c.numero}`,
-        fecha:    c.fecha_pago,
-        tipo:     'cuota',
-        concepto: `Cuota #${c.numero}`,
-        detalle:  c.cuenta || null,
-        monto:    -Number(c.valor || 0),
-      }));
-  } else {
-    // Abonos
-    abonos.forEach((a, i) => eventos.push({
-      key:      a.id || `abono-${i}`,
-      fecha:    a.fecha,
-      tipo:     'abono',
-      concepto: 'Abono',
-      detalle:  [a.cuenta, a.nota].filter(Boolean).join(' · ') || null,
-      monto:    -Number(a.monto || 0),
-    }));
-  }
+  // Abonos
+  abonos.forEach((a, i) => eventos.push({
+    key:      a.id || `abono-${i}`,
+    fecha:    a.fecha,
+    tipo:     'abono',
+    concepto: 'Abono',
+    detalle:  [a.cuenta, a.nota].filter(Boolean).join(' · ') || null,
+    monto:    -Number(a.monto || 0),
+  }));
 
   // Orden cronológico (el inicial siempre primero)
   eventos.sort((a, b) => {
@@ -134,6 +305,8 @@ const CuentasPorPagarDashboard = () => {
 
   const [docs, setDocs]       = useState([]);
   const [stats, setStats]     = useState([]);
+  const [statsMes, setStatsMes] = useState(null);
+  const [statsMesSig, setStatsMesSig] = useState(null);
   const [loading, setLoading] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [verPagadas, setVerPagadas] = useState(false); // las pagadas se archivan (ocultas por defecto)
@@ -141,13 +314,11 @@ const CuentasPorPagarDashboard = () => {
   const [formOpen, setFormOpen]     = useState(false);
   const [editingDoc, setEditingDoc] = useState(null);
 
-  const [cronogramaId, setCronogramaId] = useState(null);
-  const cronogramaDoc = docs.find((d) => d.id === cronogramaId) || null;
-
   const [abonoModal, setAbonoModal]         = useState({ open: false, doc: null });
   const [abonoMonto, setAbonoMonto]         = useState(null);
   const [abonoCuenta, setAbonoCuenta]       = useState('Efectivo');
   const [abonoNota, setAbonoNota]           = useState('');
+  const [abonoCuotas, setAbonoCuotas]       = useState(1);
   const [guardandoAbono, setGuardandoAbono] = useState(false);
 
   const [aumentarModal, setAumentarModal]       = useState({ open: false, doc: null });
@@ -166,7 +337,9 @@ const CuentasPorPagarDashboard = () => {
         getEstadisticasCuentasPorPagar(),
       ]);
       setDocs(docsData);
-      setStats(statsData);
+      setStats(Array.isArray(statsData) ? statsData : (statsData?.porEstado || []));
+      setStatsMes(Array.isArray(statsData) ? null : (statsData?.mes || null));
+      setStatsMesSig(Array.isArray(statsData) ? null : (statsData?.mesSiguiente || null));
     } catch {
       message.error('Error al cargar cuentas por pagar');
     } finally {
@@ -191,12 +364,59 @@ const CuentasPorPagarDashboard = () => {
 
   const pendientes = calcStat('PENDIENTE');
   const abonadas   = calcStat('ABONO');
-  const pagadas    = calcStat('PAGADA');
   // Total a pagar = saldo pendiente de las cuentas no pagadas/no anuladas
   const porPagar   = {
     qty:   pendientes.qty + abonadas.qty,
     saldo: pendientes.saldo + abonadas.saldo,
   };
+
+  // ── Lo que se paga cada mes ──
+  // Una cuenta de N cuotas se paga una cuota por mes, así que el mes vale una
+  // cuota de cada cuenta que aún deba algo. (Agrupar por fecha_vencimiento no
+  // sirve: esa fecha es la de la ÚLTIMA cuota.)
+  // Normalmente llega del backend, sin filtrar por la búsqueda; si aún no lo
+  // manda, se calcula con lo que hay cargado.
+  const cuotasDelMes = (() => {
+    const iniMes = dayjs().startOf('month');
+    const finMes = dayjs().endOf('month');
+    let total = 0, qty = 0, totalSig = 0, qtySig = 0, pagado = 0;
+
+    docs.forEach((d) => {
+      if (['PAGADA', 'ANULADA'].includes(d.estado)) return;
+      const saldo = round2((Number(d.total) || 0) - (Number(d.total_abonado) || 0));
+      if (saldo <= 0) return;
+      const cuota = Math.min(valorCuotaDe(d), saldo);
+      total += cuota; qty += 1;
+      const restante = round2(saldo - cuota);
+      if (restante > 0) { totalSig += Math.min(valorCuotaDe(d), restante); qtySig += 1; }
+    });
+
+    // Abonado durante el mes en curso (por la fecha del abono).
+    docs.forEach((d) => {
+      if (d.estado === 'ANULADA') return;
+      parseArr(d.abonos).forEach((a) => {
+        const f = a?.fecha ? dayjs(a.fecha) : null;
+        if (!f || !f.isValid() || f.isBefore(iniMes) || f.isAfter(finMes)) return;
+        pagado += Number(a.monto) || 0;
+      });
+    });
+
+    return {
+      mes:    { total: round2(total),    pagado: round2(pagado), saldo: Math.max(0, round2(total - pagado)), qty },
+      mesSig: { total: round2(totalSig), pagado: 0,              saldo: round2(totalSig),                    qty: qtySig },
+    };
+  })();
+
+  const conPct = (m) => ({
+    ...m,
+    pct: m.total > 0 ? Math.min(100, Math.round((m.pagado / m.total) * 100)) : 0,
+  });
+
+  const mes    = conPct(statsMes    ? { ...statsMes,    qty: statsMes.cantidad }    : cuotasDelMes.mes);
+  const mesSig = conPct(statsMesSig ? { ...statsMesSig, qty: statsMesSig.cantidad } : cuotasDelMes.mesSig);
+
+  const nombreMes    = dayjs().locale('es').format('MMMM');
+  const nombreMesSig = dayjs().add(1, 'month').locale('es').format('MMMM');
 
   // Las cuentas pagadas se archivan: no se muestran salvo que se active "Ver pagadas"
   const docsVisibles = verPagadas ? docs : docs.filter((d) => d.estado !== 'PAGADA');
@@ -245,6 +465,7 @@ const CuentasPorPagarDashboard = () => {
       message.success('Abono registrado correctamente');
       setAbonoModal({ open: false, doc: null });
       setAbonoMonto(null);
+      setAbonoCuotas(1);
       setAbonoCuenta('Efectivo');
       setAbonoNota('');
       cargarDatos();
@@ -281,13 +502,7 @@ const CuentasPorPagarDashboard = () => {
 
   // ─── Fila expandible: estado de cuenta / movimientos ──────────────────────────
   const expandedRowRender = (rec) => {
-    const total   = Number(rec.total || 0);
-    const abonado = Number(rec.total_abonado || 0);
-    const saldo   = Math.max(0, total - abonado);
-    const pct     = total > 0 ? Math.min(100, Math.round((abonado / total) * 100)) : 0;
-    const cuotas        = parseArr(rec.cuotas);
-    const cuotasPagadas = cuotas.filter((c) => c.estado === 'PAGADA').length;
-    const movimientos   = buildMovimientos(rec);
+    const movimientos = buildMovimientos(rec);
 
     const movColumns = [
       {
@@ -308,7 +523,7 @@ const CuentasPorPagarDashboard = () => {
                 color={r.tipo === 'aumento' ? 'red' : 'default'}
                 style={{ fontSize: 10, marginInlineEnd: 0 }}
               >
-                {r.tipo === 'inicial' ? 'Inicial' : (r.tipo === 'aumento' ? 'Aumento' : (r.tipo === 'cuota' ? 'Cuota' : 'Abono'))}
+                {r.tipo === 'inicial' ? 'Inicial' : (r.tipo === 'aumento' ? 'Aumento' : 'Abono')}
               </Tag>
               <Text style={{ fontSize: 12, fontWeight: 600 }}>{c}</Text>
             </Space>
@@ -322,14 +537,13 @@ const CuentasPorPagarDashboard = () => {
         key: 'monto',
         align: 'right',
         width: 130,
-        render: (m, r) => {
-          const abona = r.tipo === 'abono' || r.tipo === 'cuota';
-          return (
-            <Text strong style={{ fontSize: 12, color: abona ? GREEN : DANGER }}>
-              {abona ? '−' : '+'}{formatCurrency(Math.abs(m))}
-            </Text>
-          );
-        },
+        render: (_, r) => (
+          <MontoMovimientoCell
+            cuentaId={rec.id}
+            mov={r}
+            onSaved={cargarDatos}
+          />
+        ),
       },
       {
         title: 'Saldo',
@@ -356,39 +570,6 @@ const CuentasPorPagarDashboard = () => {
           scroll={{ x: 460 }}
         />
 
-        {/* Totales alineados a la derecha, estilo factura */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-          <div style={{ width: 260, maxWidth: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 13 }}>
-              <Text type="secondary">Total</Text>
-              <Text strong>{formatCurrency(total)}</Text>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 13 }}>
-              <Text type="secondary">{rec.es_prestamo ? 'Pagado' : 'Abonado'}</Text>
-              <Text style={{ color: GREEN }}>−{formatCurrency(abonado)}</Text>
-            </div>
-            {rec.es_prestamo && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 13 }}>
-                <Text type="secondary">Cuotas pagadas</Text>
-                <Text>{cuotasPagadas} / {cuotas.length}</Text>
-              </div>
-            )}
-            <div style={{ borderTop: '1px solid #e5e7eb', margin: '6px 0' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '2px 0', fontSize: 15, fontWeight: 700 }}>
-              <span>Saldo</span>
-              <span style={{ color: DANGER }}>{formatCurrency(saldo)}</span>
-            </div>
-            <Progress percent={pct} size="small" strokeColor={ORANGE} showInfo={false} style={{ marginTop: 4, marginBottom: 0 }} />
-            {rec.es_prestamo && (
-              <div style={{ textAlign: 'right', marginTop: 10 }}>
-                <Button size="small" icon={<UnorderedListOutlined />} onClick={() => setCronogramaId(rec.id)}>
-                  Ver cronograma
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
         {rec.notas && (
           <div style={{ marginTop: 10, fontSize: 12 }}>
             <Text type="secondary">Notas: </Text>
@@ -408,15 +589,8 @@ const CuentasPorPagarDashboard = () => {
       sorter: (a, b) => (a.titulo || '').localeCompare(b.titulo || ''),
       render: (titulo, rec) => (
         <Space>
-          {rec.es_prestamo
-            ? <BankOutlined style={{ color: ACCENT }} />
-            : <FileProtectOutlined style={{ color: ACCENT }} />}
+          <FileProtectOutlined style={{ color: ACCENT }} />
           <Text strong style={{ fontSize: 13 }}>{titulo || '—'}</Text>
-          {rec.es_prestamo && (
-            <Tag style={{ fontSize: 10, marginInlineStart: 2 }}>
-              Préstamo{rec.num_cuotas ? ` · ${rec.num_cuotas} cuotas` : ''}
-            </Tag>
-          )}
         </Space>
       ),
     },
@@ -430,19 +604,38 @@ const CuentasPorPagarDashboard = () => {
       ),
     },
     {
+      title: 'Cuotas',
+      dataIndex: 'num_cuotas',
+      key: 'num_cuotas',
+      align: 'center',
+      width: 80,
+      sorter: (a, b) => (Number(a.num_cuotas) || 1) - (Number(b.num_cuotas) || 1),
+      render: (n) => {
+        const cuotas = Math.max(1, Number(n) || 1);
+        return cuotas > 1
+          ? <Tag style={{ fontSize: 11, marginInlineEnd: 0 }}>{cuotas}</Tag>
+          : <Text type="secondary" style={{ fontSize: 12 }}>1</Text>;
+      },
+    },
+    {
+      title: 'Valor cuota',
+      dataIndex: 'valor_cuota',
+      key: 'valor_cuota',
+      align: 'right',
+      width: 130,
+      sorter: (a, b) => valorCuotaDe(a) - valorCuotaDe(b),
+      render: (_, rec) => <Text style={{ fontSize: 12 }}>{formatCurrency(valorCuotaDe(rec))}</Text>,
+    },
+    {
       title: 'Vencimiento',
       dataIndex: 'fecha_vencimiento',
       key: 'fecha_vencimiento',
       sorter: (a, b) => {
-        const va = a.fecha_vencimiento ? dayjs(a.fecha_vencimiento).valueOf() : 0;
-        const vb = b.fecha_vencimiento ? dayjs(b.fecha_vencimiento).valueOf() : 0;
+        const va = parseFechaDia(a.fecha_vencimiento)?.valueOf() || 0;
+        const vb = parseFechaDia(b.fecha_vencimiento)?.valueOf() || 0;
         return va - vb;
       },
-      render: (d, rec) => {
-        if (!d) return <Text type="secondary">—</Text>;
-        const vencido = dayjs(d).isBefore(dayjs(), 'day') && !['PAGADA', 'ANULADA'].includes(rec.estado);
-        return <Text type={vencido ? 'danger' : undefined}>{dayjs(d).format('DD/MM/YYYY')}</Text>;
-      },
+      render: (_, rec) => <VencimientoCell record={rec} onSaved={cargarDatos} />,
     },
     {
       title: 'Saldo',
@@ -524,14 +717,6 @@ const CuentasPorPagarDashboard = () => {
       width: 48,
       render: (_, rec) => {
         const items = [];
-        if (rec.es_prestamo) {
-          items.push({
-            key: 'cronograma',
-            icon: <UnorderedListOutlined />,
-            label: 'Ver cuotas / cronograma',
-            onClick: () => setCronogramaId(rec.id),
-          });
-        }
         items.push({
           key: 'editar',
           icon: <EditOutlined />,
@@ -539,13 +724,21 @@ const CuentasPorPagarDashboard = () => {
           disabled: ['PAGADA', 'ANULADA'].includes(rec.estado),
           onClick: () => { setEditingDoc(rec); setFormOpen(true); },
         });
-        if (!rec.es_prestamo) {
+        {
           items.push({
             key: 'abono',
             icon: <WalletOutlined />,
             label: 'Registrar abono',
             disabled: ['PAGADA', 'ANULADA'].includes(rec.estado),
-            onClick: () => { setAbonoMonto(null); setAbonoCuenta('Efectivo'); setAbonoNota(''); setAbonoModal({ open: true, doc: rec }); },
+            onClick: () => {
+              // Arranca proponiendo una cuota: es el caso normal.
+              const vc    = valorCuotaDe(rec);
+              const saldo = Math.max(0, (Number(rec.total) || 0) - (Number(rec.total_abonado) || 0));
+              setAbonoCuotas(1);
+              setAbonoMonto(vc > 0 ? Math.min(round2(vc), round2(saldo)) : null);
+              setAbonoCuenta('Efectivo'); setAbonoNota('');
+              setAbonoModal({ open: true, doc: rec });
+            },
           });
           items.push({
             key: 'aumentar',
@@ -575,6 +768,19 @@ const CuentasPorPagarDashboard = () => {
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <Content style={{ padding: '16px 20px' }}>
+      <style>{`
+        .cpp-vencimiento-editable:hover { background: #f1f5f9; border-bottom-color: ${ACCENT}; }
+        .cpp-vencimiento-editable:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 1px; }
+        .cpp-expand-icon {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 22px; height: 22px; border-radius: 6px; cursor: pointer;
+          color: ${MUTED}; transition: background .2s, color .2s;
+        }
+        .cpp-expand-icon:hover { background: #f1f5f9; color: ${ACCENT}; }
+        .cpp-expand-icon:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 1px; }
+        .cpp-monto-editable:hover { background: #f1f5f9; border-bottom-color: ${ACCENT}; }
+        .cpp-monto-editable:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 1px; }
+      `}</style>
 
       {/* Encabezado */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -626,13 +832,39 @@ const CuentasPorPagarDashboard = () => {
         </Card>
         <Card size="small" bordered={false} className="shadow-sm">
           <Statistic
-            title="Pagadas"
-            value={pagadas.sum}
+            title={`Cuota de ${nombreMes}`}
+            value={mes.total}
             formatter={(v) => formatCurrency(v)}
-            prefix={<CheckCircleOutlined style={{ color: GREEN }} />}
-            valueStyle={{ color: GREEN, fontSize: 15 }}
+            prefix={<CalendarOutlined style={{ color: BLUE }} />}
+            valueStyle={{ color: BLUE, fontSize: 15 }}
           />
-          <Text type="secondary" style={{ fontSize: 11 }}>{pagadas.qty} cuentas</Text>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 2 }}>
+            <Text type="secondary">
+              Pagado en el mes <span style={{ color: GREEN, fontWeight: 600 }}>{formatCurrency(mes.pagado)}</span>
+            </Text>
+            <Text type="secondary">
+              Falta <span style={{ color: DANGER, fontWeight: 600 }}>{formatCurrency(mes.saldo)}</span>
+            </Text>
+          </div>
+          <Progress
+            percent={mes.pct}
+            size="small"
+            strokeColor={GREEN}
+            showInfo={false}
+            style={{ marginTop: 4, marginBottom: 2 }}
+          />
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+            borderTop: '1px dashed #e5e7eb', marginTop: 6, paddingTop: 5, fontSize: 11,
+          }}>
+            <Text type="secondary">Próximo · {nombreMesSig}</Text>
+            <Text strong style={{ fontSize: 12 }}>
+              {formatCurrency(mesSig.total)}
+              {mesSig.qty > 0 && (
+                <span style={{ color: MUTED, fontWeight: 400 }}> · {mesSig.qty}</span>
+              )}
+            </Text>
+          </div>
         </Card>
       </div>
 
@@ -666,9 +898,30 @@ const CuentasPorPagarDashboard = () => {
           expandedRowRender,
           rowExpandable: () => true,
           columnWidth: 40,
+          expandIcon: ({ expanded, onExpand, record }) => (
+            <AntTooltip title={expanded ? 'Ocultar movimientos' : 'Ver movimientos'}>
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={expanded ? 'Ocultar movimientos' : 'Ver movimientos'}
+                aria-expanded={expanded}
+                onClick={(e) => onExpand(record, e)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onExpand(record, e); } }}
+                className="cpp-expand-icon"
+              >
+                <DownOutlined
+                  style={{
+                    fontSize: 11,
+                    transition: 'transform .2s',
+                    transform: `rotate(${expanded ? 180 : 0}deg)`,
+                  }}
+                />
+              </span>
+            </AntTooltip>
+          ),
         }}
         pagination={{ pageSize: 20, showSizeChanger: false, showTotal: (t) => `${t} cuentas` }}
-        scroll={{ x: 720 }}
+        scroll={{ x: 930 }}
       />
 
       {/* Drawer creación/edición */}
@@ -677,14 +930,6 @@ const CuentasPorPagarDashboard = () => {
         editingDoc={editingDoc}
         onClose={() => { setFormOpen(false); setEditingDoc(null); }}
         onSaved={cargarDatos}
-      />
-
-      {/* Modal cronograma de cuotas (préstamos) */}
-      <CronogramaModal
-        open={!!cronogramaId}
-        doc={cronogramaDoc}
-        onClose={() => setCronogramaId(null)}
-        onChanged={cargarDatos}
       />
 
       {/* Modal abono */}
@@ -711,6 +956,23 @@ const CuentasPorPagarDashboard = () => {
           const abonos  = Array.isArray(abonoModal.doc.abonos)
             ? abonoModal.doc.abonos
             : (typeof abonoModal.doc.abonos === 'string' ? JSON.parse(abonoModal.doc.abonos || '[]') : []);
+
+          // El abono se propone por cuotas: N × valor de cuota, sin pasarse del saldo.
+          const numCuotas     = Math.max(1, Number(abonoModal.doc.num_cuotas) || 1);
+          const valorCuota    = valorCuotaDe(abonoModal.doc);
+          const cuotasPagadas = valorCuota > 0 ? Math.floor(round2(abonado) / valorCuota) : 0;
+          const cuotasFaltan  = Math.max(1, numCuotas - cuotasPagadas);
+          const porCuotas     = numCuotas > 1 && valorCuota > 0;
+          const montoDeCuotas = (n) => Math.min(round2(n * valorCuota), round2(saldo));
+          const montoEsDeCuotas = (n) => Math.abs(round2(abonoMonto || 0) - montoDeCuotas(n)) < 0.005;
+          // Cuántas cuotas representa el monto escrito a mano (para avisar si no cuadra).
+          const cuotasDelMonto = valorCuota > 0 ? round2((Number(abonoMonto) || 0) / valorCuota) : 0;
+          const elegirCuotas  = (n) => {
+            const c = Math.max(1, Math.min(Math.trunc(Number(n) || 1), cuotasFaltan));
+            setAbonoCuotas(c);
+            setAbonoMonto(montoDeCuotas(c));
+          };
+
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '12px 14px' }}>
@@ -728,6 +990,15 @@ const CuentasPorPagarDashboard = () => {
                     <Text style={{ color: GREEN }}>{formatCurrency(abonado)}</Text>
                   </div>
                 )}
+                {porCuotas && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                    <Text type="secondary">Cuotas</Text>
+                    <Text>
+                      {cuotasPagadas} de {numCuotas} pagadas
+                      <span style={{ color: '#94a3b8' }}> · {formatCurrency(valorCuota)} c/u</span>
+                    </Text>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700 }}>
                   <span>Saldo pendiente</span>
                   <span style={{ color: ORANGE }}>{formatCurrency(saldo)}</span>
@@ -739,6 +1010,43 @@ const CuentasPorPagarDashboard = () => {
                   />
                 )}
               </div>
+
+              {porCuotas && (
+                <div>
+                  <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>
+                    ¿Cuántas cuotas abonas?
+                  </Text>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <InputNumber
+                      size="large" min={1} max={cuotasFaltan} precision={0}
+                      value={abonoCuotas}
+                      onChange={elegirCuotas}
+                      style={{ width: 90 }}
+                    />
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      de {cuotasFaltan} pendiente{cuotasFaltan === 1 ? '' : 's'} ={' '}
+                      <strong style={{ color: ORANGE }}>{formatCurrency(montoDeCuotas(abonoCuotas))}</strong>
+                    </Text>
+                  </div>
+                  {cuotasFaltan > 1 && (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                      {[...new Set([1, 2, 3, cuotasFaltan])]
+                        .filter((n) => n >= 1 && n <= cuotasFaltan)
+                        .map((n) => (
+                          <Button
+                            key={n}
+                            size="small"
+                            type={montoEsDeCuotas(n) ? 'primary' : 'default'}
+                            onClick={() => elegirCuotas(n)}
+                            style={montoEsDeCuotas(n) ? { background: ORANGE, borderColor: ORANGE } : undefined}
+                          >
+                            {n === cuotasFaltan && n > 3 ? `Todas (${n})` : `${n} cuota${n === 1 ? '' : 's'}`}
+                          </Button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <Text style={{ fontSize: 12, color: '#6b7280', display: 'block', marginBottom: 4 }}>
@@ -760,6 +1068,11 @@ const CuentasPorPagarDashboard = () => {
                     >Pagar todo</span>
                   }
                 />
+                {porCuotas && cuotasDelMonto > 0 && !Number.isInteger(cuotasDelMonto) && (
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                    Equivale a {cuotasDelMonto.toLocaleString('es-CO')} cuotas (no es un número exacto).
+                  </Text>
+                )}
               </div>
 
               <div>

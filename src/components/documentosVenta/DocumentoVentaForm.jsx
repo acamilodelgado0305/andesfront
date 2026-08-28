@@ -18,6 +18,7 @@ import { getInventario } from '../../services/inventario/inventarioService';
 import PersonaFormDrawer from '../personas/PersonaFormDrawer';
 import FacturaViewer from './FacturaViewer';
 import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
+import { parseFechaDia, toFechaDiaPayload } from '../../utils/fechas';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -163,8 +164,8 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
       setSelectedPersona({ id: doc.persona_id, nombre: doc.persona_nombre || doc.cliente_nombre || '', numero_documento: doc.cliente_identificacion || '' });
     }
     form.setFieldsValue({
-      fecha_emision:          doc.fecha_emision        ? dayjs(doc.fecha_emision)        : dayjs(),
-      fecha_vencimiento:      doc.fecha_vencimiento    ? dayjs(doc.fecha_vencimiento)    : null,
+      fecha_emision:          parseFechaDia(doc.fecha_emision) || dayjs(),
+      fecha_vencimiento:      parseFechaDia(doc.fecha_vencimiento),
       cliente_nombre:         doc.cliente_nombre        || '',
       cliente_identificacion: doc.cliente_identificacion || '',
       cliente_email:          doc.cliente_email         || '',
@@ -231,8 +232,8 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
       ...totales,
       notas:             values.notas || null,
       condiciones:       values.condiciones || null,
-      fecha_emision:     values.fecha_emision     ? values.fecha_emision.format('YYYY-MM-DD')     : dayjs().format('YYYY-MM-DD'),
-      fecha_vencimiento: values.fecha_vencimiento ? values.fecha_vencimiento.format('YYYY-MM-DD') : null,
+      fecha_emision:     toFechaDiaPayload(values.fecha_emision) || dayjs().format('YYYY-MM-DD'),
+      fecha_vencimiento: toFechaDiaPayload(values.fecha_vencimiento),
     });
     setPreviewOpen(true);
   };
@@ -261,8 +262,8 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
         ...calcularTotales(itemsLimpios),
         notas:             values.notas             || null,
         condiciones:       values.condiciones       || null,
-        fecha_emision:     values.fecha_emision     ? values.fecha_emision.format('YYYY-MM-DD')     : null,
-        fecha_vencimiento: values.fecha_vencimiento ? values.fecha_vencimiento.format('YYYY-MM-DD') : null,
+        fecha_emision:     toFechaDiaPayload(values.fecha_emision),
+        fecha_vencimiento: toFechaDiaPayload(values.fecha_vencimiento),
       };
       if (editingDoc) {
         await updateDocumentoVenta(editingDoc.id, payload);
