@@ -15,19 +15,23 @@
 //   - onClose      : () => void
 //   - onChanged    : () => void  (se llama tras cualquier cambio para que el
 //                    componente padre refresque contadores de preguntas)
+//   - materia      : { nombre, programa_nombre } opcional, solo para el
+//                    encabezado del PDF exportado
 import React, { useEffect, useState } from 'react';
 import {
   Drawer, Button, Space, Tag, Input, Select, InputNumber,
-  Switch, message, Empty, Spin, Popconfirm,
+  Switch, message, Empty, Spin, Popconfirm, Dropdown,
 } from 'antd';
 import {
   PlusOutlined, DeleteOutlined, EditOutlined, CheckOutlined, CloseOutlined,
   QuestionCircleOutlined, OrderedListOutlined, FileTextOutlined, SaveOutlined,
+  FilePdfOutlined,
 } from '@ant-design/icons';
 import {
   getEvaluationById, addQuestionWithOptions, deleteQuestion, deleteOption,
   updateQuestion,
 } from '../../../services/evaluation/evaluationService';
+import { generateEvaluationPDF } from '../../Utilidades/generateEvaluationPDF';
 
 const { TextArea } = Input;
 
@@ -189,7 +193,7 @@ function QuestionEditor({ index, initial, saving, onSave, onCancel }) {
   );
 }
 
-export default function EvaluationQuestionsDrawer({ evaluationId, open, onClose, onChanged }) {
+export default function EvaluationQuestionsDrawer({ evaluationId, open, onClose, onChanged, materia = null }) {
   const [evaluation, setEvaluation] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -197,6 +201,7 @@ export default function EvaluationQuestionsDrawer({ evaluationId, open, onClose,
   const [editingId, setEditingId] = useState(null); // id de la pregunta en edición inline
   const [creating, setCreating] = useState(false);   // borrador de pregunta nueva visible
   const [savingId, setSavingId] = useState(null);     // id | 'new' — cuál se está guardando
+  const [exporting, setExporting] = useState(false);  // descarga del PDF en curso
 
   const fetchEvaluation = async () => {
     if (!evaluationId) return;
@@ -289,6 +294,28 @@ export default function EvaluationQuestionsDrawer({ evaluationId, open, onClose,
     } catch (err) {
       console.error(err);
       message.error('Error al eliminar la opción');
+    }
+  };
+
+  // Descarga la evaluación completa (enunciados y opciones) en PDF. Con
+  // `conRespuestas` sale la clave del docente; sin él, el cuestionario en
+  // blanco listo para imprimir.
+  const handleExportPDF = async (conRespuestas) => {
+    if (!evaluation) return;
+    setExporting(true);
+    try {
+      await generateEvaluationPDF({
+        evaluacion: evaluation,
+        preguntas: questions,
+        materia,
+        incluirRespuestas: conRespuestas,
+      });
+      message.success('PDF generado');
+    } catch (err) {
+      console.error(err);
+      message.error('No se pudo generar el PDF de la evaluación');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -408,12 +435,28 @@ export default function EvaluationQuestionsDrawer({ evaluationId, open, onClose,
         </div>
       }
       extra={
-        <Button
-          type="primary" icon={<PlusOutlined />} onClick={startCreate} disabled={creating}
-          style={{ background: 'linear-gradient(135deg, #4338ca, #6366f1)', border: 'none' }}
-        >
-          Agregar pregunta
-        </Button>
+        <Space>
+          <Dropdown
+            trigger={['click']}
+            disabled={!evaluation}
+            menu={{
+              items: [
+                { key: 'blanco', icon: <FilePdfOutlined />, label: 'Cuestionario (sin respuestas)',
+                  onClick: () => handleExportPDF(false) },
+                { key: 'clave', icon: <FilePdfOutlined />, label: 'Clave de respuestas',
+                  onClick: () => handleExportPDF(true) },
+              ],
+            }}
+          >
+            <Button icon={<FilePdfOutlined />} loading={exporting}>Exportar PDF</Button>
+          </Dropdown>
+          <Button
+            type="primary" icon={<PlusOutlined />} onClick={startCreate} disabled={creating}
+            style={{ background: 'linear-gradient(135deg, #4338ca, #6366f1)', border: 'none' }}
+          >
+            Agregar pregunta
+          </Button>
+        </Space>
       }
     >
       <Spin spinning={loading}>

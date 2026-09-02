@@ -31,8 +31,9 @@ import HorarioDrawer from '../Horarios/HorarioDrawer';
 import { getForoPosts, createForoPost, deleteForoPost } from '../../services/foro/serviceForo';
 import {
   getEvaluations, createEvaluation, updateEvaluation, deleteEvaluation,
-  assignByStudentPrograms, getStudentAssignments
+  assignByStudentPrograms, getStudentAssignments, getEvaluationById
 } from '../../services/evaluation/evaluationService';
+import { generateEvaluationPDF } from '../Utilidades/generateEvaluationPDF';
 import {
   getClasesByModulo, getClaseById, createClase, updateClase, deleteClase,
   uploadClaseVideo, uploadClasePdfs, deleteClasePdf,
@@ -200,6 +201,9 @@ export default function MateriaDetalle({
   const [editingEval, setEditingEval] = useState(null);
   const [savingEval, setSavingEval] = useState(false);
   const [assigningEvalId, setAssigningEvalId] = useState(null);
+  // Exportación a PDF: la fila solo trae contadores, así que al exportar se
+  // vuelve a pedir la evaluación completa (preguntas + opciones) al backend.
+  const [exportingEvalId, setExportingEvalId] = useState(null);
   const [evalForm] = Form.useForm();
 
   // Drawer de preguntas: se abre desde la tabla de evaluaciones y desde los
@@ -794,6 +798,28 @@ export default function MateriaDetalle({
     }
   };
 
+  // Descarga la evaluación en PDF con todo su contenido (enunciados y
+  // opciones). `incluirRespuestas` decide entre el cuestionario en blanco
+  // (para imprimir y contestar) y la clave de respuestas del docente.
+  const handleExportEvalPDF = async (ev, incluirRespuestas = false) => {
+    setExportingEvalId(ev.id);
+    try {
+      const data = await getEvaluationById(ev.id);
+      await generateEvaluationPDF({
+        evaluacion: data?.evaluacion || ev,
+        preguntas: data?.preguntas || [],
+        materia: { nombre: materia?.nombre, programa_nombre: materia?.programa_nombre },
+        incluirRespuestas,
+      });
+      message.success('PDF generado');
+    } catch (e) {
+      console.error(e);
+      message.error('No se pudo generar el PDF de la evaluación');
+    } finally {
+      setExportingEvalId(null);
+    }
+  };
+
   // ─── Gestión de la materia (acciones del menú ⋯) ──────────────────────────
   const openEditMateria = () => {
     materiaEditForm.setFieldsValue({ nombre: materia.nombre, docente_id: materia.docente_id || undefined });
@@ -1010,6 +1036,23 @@ export default function MateriaDetalle({
                     <Tooltip title="Preguntas" key="preguntas">
                       <Button size="small" icon={<BuildOutlined />} onClick={() => setQuestionsDrawerEval({ id: it.id, moduloId: m.id })} />
                     </Tooltip>,
+                    <Dropdown
+                      key="pdf"
+                      trigger={['click']}
+                      menu={{
+                        items: [
+                          { key: 'blanco', icon: <FilePdfOutlined />, label: 'Cuestionario (sin respuestas)',
+                            onClick: () => handleExportEvalPDF(it, false) },
+                          { key: 'clave', icon: <FilePdfOutlined />, label: 'Clave de respuestas',
+                            onClick: () => handleExportEvalPDF(it, true) },
+                        ],
+                      }}
+                    >
+                      <Tooltip title="Exportar a PDF">
+                        <Button size="small" icon={<FilePdfOutlined />} loading={exportingEvalId === it.id}
+                          style={{ color: '#dc2626', borderColor: '#fca5a5' }} />
+                      </Tooltip>
+                    </Dropdown>,
                     <Popconfirm key="del" title="¿Quitar el examen de este tema?" onConfirm={() => handleRemoveExamenDeModulo(m.id, it.id)} okText="Sí" cancelText="No">
                       <Button size="small" danger icon={<DeleteOutlined />} />
                     </Popconfirm>,
@@ -1127,12 +1170,28 @@ export default function MateriaDetalle({
     { title: 'Estado', dataIndex: 'activa', width: 90,
       render: (v) => <Tag color={v ? 'green' : 'default'}>{v ? 'Activa' : 'Inactiva'}</Tag> },
     {
-      title: '', width: 230,
+      title: '', width: 270,
       render: (_, r) => (
         <Space size={2} wrap>
           <Tooltip title="Preguntas">
             <Button size="small" icon={<BuildOutlined />} onClick={() => setQuestionsDrawerEval({ id: r.id })}>Preguntas</Button>
           </Tooltip>
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: [
+                { key: 'blanco', icon: <FilePdfOutlined />, label: 'Cuestionario (sin respuestas)',
+                  onClick: () => handleExportEvalPDF(r, false) },
+                { key: 'clave', icon: <FilePdfOutlined />, label: 'Clave de respuestas',
+                  onClick: () => handleExportEvalPDF(r, true) },
+              ],
+            }}
+          >
+            <Tooltip title="Exportar a PDF">
+              <Button size="small" icon={<FilePdfOutlined />} loading={exportingEvalId === r.id}
+                style={{ color: '#dc2626', borderColor: '#fca5a5' }} />
+            </Tooltip>
+          </Dropdown>
           <Tooltip title="Asignar a estudiantes del programa">
             <Button size="small" icon={<SendOutlined />} loading={assigningEvalId === r.id}
               style={{ color: AMBER, borderColor: AMBER }} onClick={() => handleAssignEval(r)} />
@@ -1952,6 +2011,7 @@ export default function MateriaDetalle({
       <EvaluationQuestionsDrawer
         evaluationId={questionsDrawerEval?.id}
         open={!!questionsDrawerEval}
+        materia={{ nombre: materia?.nombre, programa_nombre: materia?.programa_nombre }}
         onClose={() => setQuestionsDrawerEval(null)}
         onChanged={() => {
           fetchEvaluaciones();

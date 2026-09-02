@@ -125,7 +125,6 @@ const VencimientoCell = ({ record, onSaved }) => {
 const ESTADOS_FACTURA = ['EMITIDA', 'PAGADA', 'ANULADA'];
 const CUENTAS = ['Efectivo', 'Nequi', 'Daviplata', 'Bancolombia', 'Transferencia', 'Otra'];
 
-export const __probe = true;
 const DocumentosVentaDashboard = () => {
   const formatCurrency = useCurrency();
   const { formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
@@ -508,7 +507,7 @@ const DocumentosVentaDashboard = () => {
           onClick={() => setMes(mes ? null : dayjs())}
           style={mes ? undefined : { background: ACCENT, borderColor: ACCENT }}
         >
-          {mes ? 'Ver todos' : 'Viendo todos'}
+          {mes ? 'Ver todos' : 'Volver al mes'}
         </Button>
         <Button icon={<ReloadOutlined />} onClick={cargarDatos} loading={loading} />
       </div>

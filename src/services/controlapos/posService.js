@@ -79,6 +79,27 @@ export const deleteEgreso = async (id) => {
 };
 
 
+// ===================== SALDO ACUMULADO ===================== //
+// El saldo que viene arrastrado de los meses anteriores. Se calcula en el
+// backend porque necesita barrer TODO el histórico previo al rango, no solo
+// los movimientos que se descargan para la tabla.
+
+export const getSaldo = async (params = {}) => {
+  const response = await coalianzaApi.get("/finanzas/saldo", { params });
+  return response.data;
+};
+
+// Saldo inicial + fecha de corte del negocio (el punto cero del acumulado)
+export const getFinanzasConfig = async () => {
+  const response = await coalianzaApi.get("/finanzas/config");
+  return response.data;
+};
+
+export const updateFinanzasConfig = async (data) => {
+  const response = await coalianzaApi.put("/finanzas/config", data);
+  return response.data;
+};
+
 export const getClientByCedula = async (cedula) => {
   // Axios se encarga de lanzar error si es 404 o 500, el frontend debe usar try/catch
   const response = await coalianzaApi.get(`/clients/${cedula}`);

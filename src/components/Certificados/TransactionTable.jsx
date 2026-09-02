@@ -6,6 +6,7 @@ import {
 import {
   SearchOutlined, ClearOutlined, FilePdfOutlined,
   EditOutlined, DeleteOutlined, MailOutlined,
+  LeftOutlined, RightOutlined,
 } from '@ant-design/icons';
 import moment from 'moment';
 import dayjs from 'dayjs';
@@ -395,6 +396,55 @@ const TransactionTable = ({
     return dateRange[0].isSame(s, 'day') && dateRange[1].isSame(e, 'day');
   });
 
+  /* ── Navegación mes a mes ──────────────────────────────────────────────────
+     Las flechas siempre dejan el rango en un mes COMPLETO, tomando como
+     referencia el mes en que arranca el rango activo. Así, si venías de "Hoy"
+     y das ‹, quedas en el mes anterior entero (no en el día anterior).
+     El botón › se bloquea en el mes actual: hacia adelante no hay movimientos.
+  */
+  const mesActivo   = dateRange[0].clone().startOf('month');
+  const esMesActual = mesActivo.isSame(moment(), 'month');
+
+  // ¿El rango activo es exactamente ese mes completo? Si lo es, el rótulo se
+  // resalta; si no (p. ej. "Hoy"), se muestra apagado para no mentir.
+  const rangoEsMesCompleto =
+    dateRange[0].isSame(mesActivo, 'day') &&
+    dateRange[1].isSame(mesActivo.clone().endOf('month'), 'day');
+
+  // El nombre del mes sale de Intl y no de moment: en dev, Vite pre-empaqueta
+  // `moment/locale/es` como módulo aparte y el locale nunca llega a la
+  // instancia que usa la app, así que `format('MMMM')` devolvía "September".
+  // Intl no depende de archivos de locale y da lo mismo en dev que en build.
+  // Solo la primera letra en mayúscula: `text-transform: capitalize` de CSS
+  // capitalizaría también el "de" ("Septiembre De 2026").
+  const nombreMes = (() => {
+    const s = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' })
+      .format(mesActivo.toDate());
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })();
+
+  const irAMes = (delta) => {
+    const destino = mesActivo.clone().add(delta, 'month');
+    onDateRangeChange([destino.clone().startOf('month'), destino.clone().endOf('month')]);
+  };
+
+  const navBtnStyle = (disabled) => ({
+    width: 26,
+    height: 26,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
+    border: '1px solid var(--qc-border)',
+    background: 'var(--qc-surface)',
+    color: 'var(--qc-text-muted)',
+    fontSize: 11,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.35 : 1,
+    transition: 'all 0.15s',
+    flexShrink: 0,
+  });
+
   const pickerValue =
     dateRange?.length === 2
       ? [dayjs(dateRange[0].toDate()), dayjs(dateRange[1].toDate())]
@@ -538,6 +588,41 @@ const TransactionTable = ({
           flexWrap: 'wrap',
         }}
       >
+        {/* Navegador de meses: ‹ septiembre 2026 › */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <Tooltip title="Mes anterior">
+            <button onClick={() => irAMes(-1)} style={navBtnStyle(false)} aria-label="Mes anterior">
+              <LeftOutlined />
+            </button>
+          </Tooltip>
+
+          <Tooltip title={rangoEsMesCompleto ? null : 'El rango activo no es el mes completo. Usa las flechas para verlo entero.'}>
+            <button
+              onClick={() => irAMes(0)}
+              style={{
+                ...quickBtnStyle(rangoEsMesCompleto),
+                minWidth: isMobile ? 118 : 150,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {nombreMes}
+            </button>
+          </Tooltip>
+
+          <Tooltip title={esMesActual ? 'Ya estás en el mes actual' : 'Mes siguiente'}>
+            <button
+              onClick={() => !esMesActual && irAMes(1)}
+              disabled={esMesActual}
+              style={navBtnStyle(esMesActual)}
+              aria-label="Mes siguiente"
+            >
+              <RightOutlined />
+            </button>
+          </Tooltip>
+        </div>
+
+        <span style={{ width: 1, height: 20, background: 'var(--qc-border)', flexShrink: 0 }} />
+
         {QUICK_RANGES.map(({ label, range }, i) => (
           <button
             key={label}

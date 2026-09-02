@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext,useMemo } from 'react';
-import { Card, Tabs, Typography, Button, message, Spin } from 'antd';
-import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined, BarChartOutlined } from '@ant-design/icons';
+import { Card, Tabs, Typography, Button, message, Spin, Tooltip } from 'antd';
+import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined, BarChartOutlined, BankOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import 'moment/locale/es';
 import axios from 'axios';
@@ -9,7 +9,7 @@ import { AuthContext } from '../../AuthContext';
 import useIsMobile from '../../hooks/useIsMobile';
 
 // Importamos SOLO las funciones de lectura para la tabla principal
-import { getAllIngresos, getAllEgresos } from '../../services/controlapos/posService';
+import { getAllIngresos, getAllEgresos, getSaldo } from '../../services/controlapos/posService';
 import { getInventario } from '../../services/inventario/inventarioService';
 
 const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
@@ -21,6 +21,7 @@ const getAuthHeaders = () => {
 // Importamos los Drawers "Inteligentes"
 import IngresoDrawer from './components/IngresoDrawer';
 import EgresoDrawer from './components/EgresoDrawer';
+import SaldoInicialModal from './components/SaldoInicialModal';
 
 import DashboardStats from './DashboardStats';
 import TransactionTable from './TransactionTable';
@@ -52,6 +53,11 @@ function Certificados() {
 
   const [cotizacionOpen, setCotizacionOpen] = useState(false);
 
+  // Saldo que viene arrastrado de periodos anteriores. Se pide al backend
+  // porque hay que barrer TODO el histórico previo, no solo lo que baja la tabla.
+  const [saldo, setSaldo] = useState(null);
+  const [saldoModalOpen, setSaldoModalOpen] = useState(false);
+
   const [filteredIngresos, setFilteredIngresos] = useState([]);
   const [filteredEgresos,  setFilteredEgresos]  = useState([]);
 
@@ -70,9 +76,15 @@ function Certificados() {
         fecha_fin:    range[1].clone().endOf('day').toISOString(),
         tz_offset:    new Date().getTimezoneOffset(),
       };
-      const [ingresosData, egresosData] = await Promise.all([
+      // El saldo va aparte y tolera fallo: si el endpoint no responde, la tabla
+      // igual se muestra — solo se ocultan las tarjetas de saldo acumulado.
+      const [ingresosData, egresosData, saldoData] = await Promise.all([
         getAllIngresos({ ...rango, limit: 5000 }),
         getAllEgresos(rango),
+        getSaldo(rango).catch((e) => {
+          console.error('Error cargando el saldo acumulado', e);
+          return null;
+        }),
       ]);
 
       const safeIngresos = Array.isArray(ingresosData) ? ingresosData : (ingresosData.data || []);
@@ -82,6 +94,7 @@ function Certificados() {
       setRawDataEgresos(safeEgresos);
       setFilteredIngresos(safeIngresos);
       setFilteredEgresos(safeEgresos);
+      setSaldo(saldoData);
     } catch (error) {
       console.error(error);
       message.error("Error actualizando la tabla de transacciones.");
@@ -206,6 +219,13 @@ function Certificados() {
               Gasto
             </button>
 
+            {/* Saldo inicial: entrada SIEMPRE visible. No puede depender de que
+                la tarjeta de saldo se haya pintado, porque si el endpoint aún no
+                responde no habría forma de llegar a configurarlo. */}
+            <Tooltip title="Saldo inicial del negocio">
+              <Button icon={<BankOutlined />} onClick={() => setSaldoModalOpen(true)} shape="circle" />
+            </Tooltip>
+
             <Button icon={<ReloadOutlined />} onClick={() => fetchTransactions(dateRange)} loading={loading} shape="circle" />
           </div>
         </div>
@@ -218,7 +238,14 @@ function Certificados() {
           <TabPane tab={<span style={{ fontWeight: 600 }}><ArrowUpOutlined style={{ color: '#16a34a' }} /> Ingresos</span>} key="ingresos">
             <div className="p-4">
               <div className="mb-4">
-                <DashboardStats ingresos={filteredIngresos} egresos={filteredEgresos} />
+                <DashboardStats
+                  ingresos={filteredIngresos}
+                  egresos={filteredEgresos}
+                  saldoAnterior={saldo ? Number(saldo.saldo_anterior) : null}
+                  fechaCorte={saldo?.fecha_corte || null}
+                  ocultas={saldo?.tarjetas_ocultas || []}
+                  onConfigurarSaldo={() => setSaldoModalOpen(true)}
+                />
               </div>
               <TransactionTable
                 type="ingresos"
@@ -240,7 +267,14 @@ function Certificados() {
           <TabPane tab={<span style={{ fontWeight: 600 }}><ArrowDownOutlined style={{ color: '#dc2626' }} /> Gastos</span>} key="egresos">
             <div className="p-4">
               <div className="mb-4">
-                <DashboardStats ingresos={filteredIngresos} egresos={filteredEgresos} />
+                <DashboardStats
+                  ingresos={filteredIngresos}
+                  egresos={filteredEgresos}
+                  saldoAnterior={saldo ? Number(saldo.saldo_anterior) : null}
+                  fechaCorte={saldo?.fecha_corte || null}
+                  ocultas={saldo?.tarjetas_ocultas || []}
+                  onConfigurarSaldo={() => setSaldoModalOpen(true)}
+                />
               </div>
               <TransactionTable
                 type="egresos"
@@ -290,6 +324,12 @@ function Certificados() {
         editingDoc={null}
         onClose={() => setCotizacionOpen(false)}
         onSaved={() => setCotizacionOpen(false)}
+      />
+
+      <SaldoInicialModal
+        open={saldoModalOpen}
+        onClose={() => setSaldoModalOpen(false)}
+        onSaved={() => fetchTransactions(dateRange)}
       />
     </div>
   );
