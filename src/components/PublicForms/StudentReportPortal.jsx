@@ -15,6 +15,7 @@ import {
   BankOutlined,
   SwapOutlined,
   ArrowRightOutlined,
+  FolderOpenOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -27,6 +28,7 @@ import {
   getStudentProfile,
   canRestoreSession,
   getSavedStudentData,
+  saveStudentData,
 } from "../../services/auth/studentAuthService";
 import { getStudentGradesAndInfoByDocument } from "../../services/gardes/gradesService";
 import { getBusinessPublicInfo } from "../../services/business/businessService";
@@ -34,6 +36,7 @@ import { generateGradeReportPDF } from "../Utilidades/generateGradeReportPDF";
 
 import StudentLoginForm from "./StudentLoginForm";
 import StudentInfoTab from "./StudentInfoTab";
+import StudentDocumentosTab from "./StudentDocumentosTab";
 import StudentCertificationsTab from "./StudentCertificationsTab";
 import StudentProgramasSection from "./StudentProgramasSection";
 
@@ -154,6 +157,18 @@ function StudentPortal() {
     setPendienteTarget(target);
   };
 
+  // El estudiante cambió su foto desde "Mi Información": la reflejamos en el
+  // avatar del encabezado y en la caché de sesión, para que no vuelva a la
+  // inicial hasta el siguiente login.
+  const handleFotoChange = useCallback((fotoUrl) => {
+    setStudentInfo((prev) => {
+      if (!prev) return prev;
+      const actualizado = { ...prev, foto_url: fotoUrl || null };
+      saveStudentData(actualizado);
+      return actualizado;
+    });
+  }, []);
+
   // Vista inmersiva: cuando el estudiante entra a una clase, ocultamos el sidebar
   // para darle todo el ancho al contenido; al salir de la clase se restaura.
   const handleImmersive = useCallback((on) => setSidebarOpen(!on), []);
@@ -212,6 +227,9 @@ function StudentPortal() {
         instituciones: authStudentData?.instituciones || undefined,
         business_id: authStudentData?.business_id,
         business_name: authStudentData?.business_name,
+        // La foto viene del perfil de la sesión; el endpoint de notas no la
+        // trae y, si la dejáramos pisar, el avatar volvería a la inicial.
+        foto_url: student?.foto_url || authStudentData?.foto_url || null,
       };
 
       setStudentInfo(finalStudentInfo);
@@ -420,6 +438,13 @@ function StudentPortal() {
       gradient: "linear-gradient(135deg, #6366f1, #818cf8)",
     },
     {
+      key: "documentos",
+      label: "Mis Documentos",
+      description: "Sube tus documentos en PDF",
+      icon: <FolderOpenOutlined />,
+      gradient: "linear-gradient(135deg, #f59e0b, #fbbf24)",
+    },
+    {
       key: "certificados",
       label: "Certificados",
       description: "Certificaciones y vencimientos",
@@ -456,8 +481,11 @@ function StudentPortal() {
             studentInfo={studentInfo}
             documentNumber={documentNumber}
             currentStudentId={effectiveStudentId}
+            onFotoChange={handleFotoChange}
           />
         );
+      case "documentos":
+        return <StudentDocumentosTab />;
       case "certificados":
         return (
           <StudentCertificationsTab
@@ -567,9 +595,17 @@ function StudentPortal() {
                   title={sidebarOpen ? "Ocultar menú" : "Mostrar menú"}
                   className="dark:text-[#a8a59e]"
                 />
-                <div className="w-9 h-9 rounded-full bg-[#155153] text-white flex items-center justify-center font-bold flex-shrink-0">
-                  {(studentInfo?.nombre || "E").charAt(0).toUpperCase()}
-                </div>
+                {studentInfo?.foto_url ? (
+                  <img
+                    src={studentInfo.foto_url}
+                    alt={studentInfo?.nombre || "Estudiante"}
+                    className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-[#155153] text-white flex items-center justify-center font-bold flex-shrink-0">
+                    {(studentInfo?.nombre || "E").charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <h2 className="m-0 text-base font-semibold text-gray-800 dark:text-[#faf9f5] truncate">
                     {studentInfo?.nombre_completo ||
@@ -707,7 +743,9 @@ function StudentPortal() {
 const styles = {
   page: {
     minHeight: "100vh",
-    background: "#f5f6f8",
+    // Estilo inline: no lo alcanza `dark:` de Tailwind, así que el color sale de
+    // la variable de tema para que el fondo del portal también se oscurezca.
+    background: "var(--qc-bg)",
     fontFamily:
       "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
@@ -717,7 +755,7 @@ const styles = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    background: "#f5f6f8",
+    background: "var(--qc-bg)",
   },
   portalContainer: {
     width: "100%",

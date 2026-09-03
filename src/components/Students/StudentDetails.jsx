@@ -39,6 +39,7 @@ import {
     archiveStudent,
     uploadStudentDocument,
     getStudentDocuments,
+    getStudentDocumentosSubidos,
     deleteStudentDocument,
     uploadStudentCertificado,
     getStudentCertificados,
@@ -122,6 +123,10 @@ const StudentDetails = ({ studentId }) => {
     const [uploadingDoc, setUploadingDoc] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [previewDoc, setPreviewDoc] = useState(null);
+
+    // === Documentos que el propio estudiante cargó desde su portal (solo lectura) ===
+    const [documentosEstudiante, setDocumentosEstudiante] = useState([]);
+    const [docsEstudianteLoading, setDocsEstudianteLoading] = useState(false);
 
     // === Certificados del estudiante (PDF que verá en su portal) ===
     const [certificados, setCertificados] = useState([]);
@@ -222,6 +227,22 @@ const StudentDetails = ({ studentId }) => {
         }
     }, [studentId]);
 
+    /* ========== Cargar los documentos que cargó el propio estudiante ========== */
+    const fetchDocumentosEstudiante = useCallback(async () => {
+        if (!studentId) return;
+        setDocsEstudianteLoading(true);
+        try {
+            const data = await getStudentDocumentosSubidos(studentId);
+            setDocumentosEstudiante(Array.isArray(data) ? data : []);
+        } catch (error) {
+            // No es crítico: si falla, la sección simplemente aparece vacía.
+            console.warn("No se pudieron cargar los documentos del estudiante:", error);
+            setDocumentosEstudiante([]);
+        } finally {
+            setDocsEstudianteLoading(false);
+        }
+    }, [studentId]);
+
     /* ========== Cargar certificados del estudiante ========== */
     const fetchStudentCertificados = useCallback(async () => {
         if (!studentId) return;
@@ -240,8 +261,9 @@ const StudentDetails = ({ studentId }) => {
     useEffect(() => {
         fetchStudentData();
         fetchStudentDocuments();
+        fetchDocumentosEstudiante();
         fetchStudentCertificados();
-    }, [fetchStudentData, fetchStudentDocuments, fetchStudentCertificados]);
+    }, [fetchStudentData, fetchStudentDocuments, fetchDocumentosEstudiante, fetchStudentCertificados]);
 
     /* ========== Programas asignables ========== */
     const fetchUserAssignablePrograms = async () => {
@@ -1406,6 +1428,54 @@ const StudentDetails = ({ studentId }) => {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        </InfoSection>
+
+                        {/* ===== DOCUMENTOS CARGADOS POR EL ESTUDIANTE ===== */}
+                        <InfoSection title="Documentos cargados por el estudiante">
+                            <div className="space-y-2">
+                                <Text type="secondary" className="text-[11px] block">
+                                    PDFs que el estudiante subió desde su portal
+                                    ("Mis Documentos"). Solo él puede eliminarlos.
+                                </Text>
+                                {docsEstudianteLoading ? (
+                                    <div className="flex items-center gap-2">
+                                        <Spin size="small" />
+                                        <Text>Cargando...</Text>
+                                    </div>
+                                ) : documentosEstudiante.length === 0 ? (
+                                    <Text type="secondary" className="text-sm">
+                                        El estudiante aún no ha cargado documentos.
+                                    </Text>
+                                ) : (
+                                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                                        {documentosEstudiante.map((doc) => (
+                                            <div
+                                                key={doc.id}
+                                                className="flex items-center justify-between gap-2 px-3 py-2 border border-slate-200 dark:border-[#403e3a] rounded-md bg-slate-50 dark:bg-[#262624]"
+                                            >
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="text-sm font-medium text-slate-800 dark:text-[#faf9f5] truncate">
+                                                        {doc.nombre}
+                                                    </span>
+                                                    <span className="text-[11px] text-slate-500 dark:text-[#a8a59e]">
+                                                        {doc.tipo || "Documento"}
+                                                        {doc.created_at
+                                                            ? ` · ${formatDate(doc.created_at)}`
+                                                            : ""}
+                                                    </span>
+                                                </div>
+                                                <a
+                                                    href={doc.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    <Button size="small">Ver</Button>
+                                                </a>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </InfoSection>
 

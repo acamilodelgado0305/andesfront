@@ -325,6 +325,14 @@ export const getStudentDocuments = async (studentId) => {
 };
 
 
+// Documentos en PDF que el propio ESTUDIANTE cargó desde su portal
+// ("Mis Documentos"). Solo lectura para el admin: los administra el estudiante.
+export const getStudentDocumentosSubidos = async (studentId) => {
+  const response = await backApi.get(`/api/students/${studentId}/documentos`);
+  return response.data; // array de { id, nombre, tipo, url, subido_por, created_at }
+};
+
+
 export const deleteStudentDocument = async (studentId, documentId) => {
   const response = await backApi.delete(
     `/api/students/${studentId}/documents/${documentId}`
