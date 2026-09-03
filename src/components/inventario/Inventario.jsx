@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Typography, Row, Col, Spin, Alert, Empty,
   Button, Drawer, Form, Input, InputNumber,
@@ -18,7 +18,8 @@ import {
 
 import {
   getInventario, createInventario, updateInventario, deleteInventario,
-  getInventarioStats, uploadInventarioPhoto,
+  getInventarioStats, uploadInventarioPhoto, ajustarStockInventario,
+  ajustarCategoriaInventario,
 } from "../../services/inventario/inventarioService";
 import RestockDrawer from "./RestockDrawer";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
@@ -52,6 +53,203 @@ const CATEGORIAS = [
   'Automotriz','Mascotas','Servicios profesionales','Consultoría',
   'Diseño','Transporte','Educación','Construcción','Agropecuario','Otro',
 ];
+
+// ─── Color de cada categoría (presets de Ant Design) ───────
+const CATEGORIA_COLORS = {
+  'Alimentos y bebidas':        'orange',
+  'Tecnología y electrónica':   'geekblue',
+  'Ropa y calzado':             'magenta',
+  'Salud y belleza':            'pink',
+  'Hogar y decoración':         'cyan',
+  'Papelería y oficina':        'blue',
+  'Herramientas y ferretería':  'volcano',
+  'Juguetes y entretenimiento': 'purple',
+  'Deportes':                   'lime',
+  'Automotriz':                 'red',
+  'Mascotas':                   'gold',
+  'Servicios profesionales':    'blue',
+  'Consultoría':                'geekblue',
+  'Diseño':                     'purple',
+  'Transporte':                 'volcano',
+  'Educación':                  'cyan',
+  'Construcción':               'gold',
+  'Agropecuario':               'green',
+  'Otro':                       'default',
+};
+
+// Paleta de reserva para categorías antiguas que ya no están en la lista:
+// mismo nombre → siempre el mismo color.
+const FALLBACK_COLORS = ['magenta','red','volcano','orange','gold','lime','green','cyan','blue','geekblue','purple'];
+const colorCategoria = (cat) => {
+  if (!cat) return 'default';
+  if (CATEGORIA_COLORS[cat]) return CATEGORIA_COLORS[cat];
+  let h = 0;
+  for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) % 997;
+  return FALLBACK_COLORS[h % FALLBACK_COLORS.length];
+};
+
+// ─── Celda «Categoría» editable en línea ────────────────────
+// Clic sobre la categoría → se abre el desplegable ahí mismo y guarda al elegir.
+const CategoriaCell = ({ item, onSaved, compact = false }) => {
+  const [editando, setEditando]   = useState(false);
+  const [guardando, setGuardando] = useState(false);
+
+  const original = item.categoria || null;
+
+  const abrir = (e) => { e?.stopPropagation?.(); setEditando(true); };
+
+  const guardar = async (valor) => {
+    const nueva = valor || null;
+    if (nueva === original) { setEditando(false); return; }
+
+    setGuardando(true);
+    try {
+      const res = await ajustarCategoriaInventario(item.id, nueva);
+      notification.success({ message: res.message || 'Categoría actualizada' });
+      setEditando(false);
+      await onSaved?.();
+    } catch (err) {
+      notification.error({
+        message: 'No se pudo cambiar la categoría',
+        description: err.response?.data?.message || 'Hubo un problema.',
+      });
+    } finally { setGuardando(false); }
+  };
+
+  if (editando) {
+    return (
+      <div onClick={e => e.stopPropagation()}>
+        <Select
+          autoFocus
+          defaultOpen
+          showSearch
+          allowClear
+          size="small"
+          style={{ width: compact ? 170 : '100%', minWidth: 130 }}
+          placeholder="Sin categoría"
+          value={original || undefined}
+          loading={guardando}
+          disabled={guardando}
+          options={CATEGORIAS.map(c => ({ label: c, value: c }))}
+          optionRender={opt => (
+            <Tag color={colorCategoria(opt.value)} className="text-[11px]" style={{ margin: 0 }}>
+              {opt.label}
+            </Tag>
+          )}
+          filterOption={(input, opt) => opt.label.toLowerCase().includes(input.toLowerCase())}
+          onChange={guardar}
+          onClear={() => guardar(null)}
+          onBlur={() => setEditando(false)}
+          onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setEditando(false); } }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <Tooltip title="Clic para cambiar la categoría">
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={abrir}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(e); } }}
+        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+      >
+        {original
+          ? <Tag icon={<TagOutlined/>} color={colorCategoria(original)} className="text-[10px]" style={{ margin: 0 }}>{original}</Tag>
+          : <span style={{ color: '#9ca3af', borderBottom: '1px dashed #d9d9d9' }}>— sin categoría</span>}
+        <EditOutlined style={{ fontSize: 10, opacity: 0.55 }}/>
+      </span>
+    </Tooltip>
+  );
+};
+
+// ─── Celda «Stock» editable en línea ────────────────────────
+// Clic sobre la cantidad → se edita ahí mismo. Enter/salir guarda, Esc cancela.
+// Escribe 0 para reiniciar el stock.
+const StockCell = ({ item, bajo, onSaved, compact = false }) => {
+  const [editando, setEditando]   = useState(false);
+  const [valor, setValor]         = useState(item.cantidad ?? 0);
+  const [guardando, setGuardando] = useState(false);
+  // Enter dispara onPressEnter y además el onBlur al desmontarse: evita el doble PUT.
+  const enCurso = useRef(false);
+
+  const original = Number(item.cantidad ?? 0);
+
+  const abrir = (e) => {
+    e?.stopPropagation?.();
+    setValor(original);
+    setEditando(true);
+  };
+
+  const guardar = async () => {
+    if (enCurso.current) return;
+    const nuevo = Number(valor);
+    if (!Number.isFinite(nuevo) || nuevo < 0) {
+      notification.error({ message: 'El stock no puede ser negativo' });
+      return;
+    }
+    if (nuevo === original) { setEditando(false); return; }
+
+    enCurso.current = true;
+    setGuardando(true);
+    try {
+      const res = await ajustarStockInventario(item.id, nuevo);
+      notification.success({ message: res.message || 'Stock actualizado' });
+      setEditando(false);
+      await onSaved?.();
+    } catch (err) {
+      notification.error({
+        message: 'No se pudo ajustar el stock',
+        description: err.response?.data?.message || 'Hubo un problema.',
+      });
+    } finally {
+      enCurso.current = false;
+      setGuardando(false);
+    }
+  };
+
+  if (editando) {
+    return (
+      <InputNumber
+        autoFocus
+        size="small"
+        min={0}
+        precision={0}
+        style={{ width: 90 }}
+        value={valor}
+        onChange={v => setValor(v ?? 0)}
+        disabled={guardando}
+        onClick={e => e.stopPropagation()}
+        onPressEnter={guardar}
+        onBlur={guardar}
+        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setEditando(false); } }}
+      />
+    );
+  }
+
+  return (
+    <Tooltip title={`Clic para ajustar el stock (escribe 0 para reiniciarlo)${item.stock_minimo > 0 ? ` · alerta en ${item.stock_minimo} und` : ''}`}>
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={abrir}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(e); } }}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          cursor: 'pointer', padding: '2px 6px', margin: '-2px -6px',
+          borderRadius: 6, borderBottom: '1px dashed #d9d9d9',
+          color: bajo ? '#ef4444' : (compact ? undefined : 'var(--qc-text)'),
+          fontWeight: 600,
+        }}
+      >
+        {bajo && <WarningFilled style={{ fontSize: compact ? 12 : undefined }}/>}
+        {original}
+        <EditOutlined style={{ fontSize: 10, opacity: 0.55 }}/>
+      </span>
+    </Tooltip>
+  );
+};
 
 // ─── Toggle button ──────────────────────────────────────────
 const ToggleBtn = ({ active, onClick, icon, label, color = '#155153' }) => (
@@ -180,7 +378,7 @@ const ProductoInformeModal = ({ item, onClose, onPhotoUpdated, fmt }) => {
             <Tag color={esServicio?'purple':'blue'} icon={esServicio?<ToolOutlined/>:<ShoppingOutlined/>}>
               {esServicio?'Servicio':'Producto'}
             </Tag>
-            {item.categoria && <Tag icon={<TagOutlined/>}>{item.categoria}</Tag>}
+            {item.categoria && <Tag icon={<TagOutlined/>} color={colorCategoria(item.categoria)}>{item.categoria}</Tag>}
             {item.impuesto > 0 && <Tag color="gold" icon={<PercentageOutlined/>}>IVA {item.impuesto}%</Tag>}
           </div>
           {item.sku && <p style={{ margin:'0 0 4px', fontSize:12, color:'#94a3b8' }}>SKU: {item.sku}</p>}
@@ -464,19 +662,15 @@ function Inventario() {
       ),
     },
     {
-      title: 'Categoría', dataIndex:'categoria', key:'categoria', width:140,
-      render: v => v ? <Tag icon={<TagOutlined/>} color="default" className="text-[10px]">{v}</Tag> : <span className="text-gray-300">—</span>,
+      title: 'Categoría', dataIndex:'categoria', key:'categoria', width:170,
+      render: (_,r) => <CategoriaCell item={r} onSaved={fetchInventario}/>,
     },
     {
       title: 'Stock', key:'stock', width:110, align:'center',
       render: (_,r) => r.tipo_item==='servicio'
         ? <span className="text-gray-300 text-xs">N/A</span>
         : (
-          <span style={{ color: esStockBajo(r)?'#ef4444':'#374151', fontWeight:600 }}>
-            {esStockBajo(r) && <WarningFilled style={{ marginRight:4 }}/>}
-            {r.cantidad ?? 0}
-            {r.stock_minimo>0 && <span className="text-gray-400 font-normal"> / {r.stock_minimo}</span>}
-          </span>
+          <StockCell item={r} bajo={esStockBajo(r)} onSaved={fetchInventario}/>
         ),
     },
     {
@@ -595,23 +789,17 @@ function Inventario() {
             </div>
 
             {/* Category */}
-            {r.categoria && (
-              <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
-                <TagOutlined style={{ marginRight: 4 }}/>{r.categoria}
-              </div>
-            )}
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+              <CategoriaCell item={r} onSaved={fetchInventario} compact/>
+            </div>
 
             <div style={{ height: 1, background: '#e5e7eb', margin: '8px 0' }}/>
 
             {/* Stock + Precio */}
             <div style={{ display:'flex', alignItems:'center', gap: 16 }}>
               {r.tipo_item !== 'servicio' && (
-                <div style={{ fontSize: 13, color: esStockBajo(r) ? '#ef4444' : '#374151', fontWeight: 600 }}>
-                  {esStockBajo(r) && <WarningFilled style={{ marginRight: 4, color: '#ef4444' }}/>}
-                  Stock: {r.cantidad ?? 0}
-                  {r.stock_minimo > 0 && (
-                    <span style={{ fontWeight: 400, color: '#9ca3af' }}> / {r.stock_minimo}</span>
-                  )}
+                <div style={{ fontSize: 13, color: esStockBajo(r) ? '#ef4444' : '#374151', fontWeight: 600, display:'flex', alignItems:'center', gap: 6 }}>
+                  Stock: <StockCell item={r} bajo={esStockBajo(r)} onSaved={fetchInventario} compact/>
                 </div>
               )}
               <div style={{ fontWeight: 700, color: '#155153', fontSize: 14 }}>
@@ -888,6 +1076,9 @@ function Inventario() {
             style={{ marginBottom:14 }}>
             <Select showSearch allowClear placeholder="Selecciona o escribe..." size="large"
               options={CATEGORIAS.map(c=>({label:c,value:c}))}
+              optionRender={o => (
+                <Tag color={colorCategoria(o.value)} className="text-[11px]" style={{ margin:0 }}>{o.label}</Tag>
+              )}
               filterOption={(i,o)=>o.label.toLowerCase().includes(i.toLowerCase())}/>
           </Form.Item>
 

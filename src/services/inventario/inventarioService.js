@@ -116,6 +116,22 @@ export const restockInventario = async (id, payload) => {
   return response.data;
 };
 
+/**
+ * Ajustar el stock de un producto a un valor exacto (incluye reiniciar a 0)
+ */
+export const ajustarStockInventario = async (id, cantidad) => {
+  const response = await inventarioApi.put(`/inventario/${id}/stock`, { cantidad });
+  return response.data;
+};
+
+/**
+ * Cambiar la categoria de un item (edicion en linea desde la tabla)
+ */
+export const ajustarCategoriaInventario = async (id, categoria) => {
+  const response = await inventarioApi.put(`/inventario/${id}/categoria`, { categoria });
+  return response.data;
+};
+
 // Alias para mantener compatibilidad si otros componentes lo usan
 export const getInventarioProgramas = getInventario;
 
