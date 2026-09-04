@@ -59,6 +59,17 @@ const ORIGENES = [
 ];
 const ORIGEN_MAP = ORIGENES.reduce((a, o) => { a[o.value] = o; return a; }, {});
 
+// ─── Servicios / cursos ─────────────────────────────────────
+// Los slugs deben coincidir EXACTAMENTE con el catálogo SERVICIOS de
+// BACKEND/src/services/metaConversions.js (fuente de verdad): son los mismos
+// que viajan a Meta como content_ids y los que separan las conversiones
+// personalizadas de cada curso. Al añadir un curso, actualizar ambos lados.
+const SERVICIOS = [
+  { value: 'manipulacion-alimentos', label: 'Manipulación de Alimentos' },
+  { value: 'auxiliar-bodega',        label: 'Auxiliar de Bodega' },
+];
+const SERVICIO_MAP = SERVICIOS.reduce((a, s) => { a[s.value] = s; return a; }, {});
+
 // ─── Tipos de documento (igual que en Contactos) ────────────
 const TIPOS_DOC = ['CC', 'CE', 'TI', 'PAS', 'NIT', 'PPT'];
 
@@ -189,6 +200,7 @@ function CrmDashboard() {
         estado:           editingItem.estado || 'NUEVO',
         valor_estimado:   Number(editingItem.valor_estimado) || 0,
         notas:            editingItem.notas || '',
+        servicio:         editingItem.servicio || undefined,
       });
     } else {
       form.resetFields();
@@ -214,6 +226,7 @@ function CrmDashboard() {
         estado:           values.estado || 'NUEVO',
         valor_estimado:   values.valor_estimado || 0,
         notas:            values.notas || '',
+        servicio:         values.servicio || null,
       };
       // ¿Pasó a "Ganado" en este guardado?
       const becameGanado = values.estado === 'GANADO' && (!editingItem || editingItem.estado !== 'GANADO');
@@ -374,6 +387,20 @@ function CrmDashboard() {
     {
       title: 'Origen', dataIndex: 'origen', key: 'origen', width: 120,
       render: v => <Tag className="text-[10px]">{ORIGEN_MAP[v]?.label || v}</Tag>,
+    },
+    {
+      // Curso por el que entró el lead. Lo llena sola la landing; queda vacío en
+      // los leads creados a mano y en los anteriores a esta función.
+      title: 'Servicio', dataIndex: 'servicio', key: 'servicio', width: 180,
+      render: v => v
+        ? <Tag className="text-[10px]" color="blue">{SERVICIO_MAP[v]?.label || v}</Tag>
+        : <span className="text-gray-300 dark:text-[#5a5751]">—</span>,
+      filters: [
+        ...SERVICIOS.map(s => ({ text: s.label, value: s.value })),
+        { text: 'Sin servicio', value: '__NULL__' },
+      ],
+      onFilter: (value, record) =>
+        value === '__NULL__' ? !record.servicio : record.servicio === value,
     },
     {
       title: 'Valor estimado', dataIndex: 'valor_estimado', key: 'valor', width: 140, align: 'right',
@@ -679,6 +706,11 @@ function CrmDashboard() {
           <Form.Item name="origen"
             label={<span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>¿De dónde viene?</span>}>
             <Select size="large" options={ORIGENES} placeholder="Origen del lead" />
+          </Form.Item>
+
+          <Form.Item name="servicio"
+            label={<span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>Servicio / curso</span>}>
+            <Select size="large" options={SERVICIOS} placeholder="¿Por cuál curso entró?" allowClear />
           </Form.Item>
 
           <Form.Item name="estado"
