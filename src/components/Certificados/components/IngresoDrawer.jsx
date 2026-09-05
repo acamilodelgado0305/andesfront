@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     Drawer, Form, Button, Input, Select, Typography, message,
     Row, Col, Statistic, Space, Dropdown, Menu,
-    Avatar, Tag, Spin, Empty, InputNumber, Checkbox,
+    Avatar, Tag, Spin, Empty, InputNumber, Checkbox, DatePicker,
 } from 'antd';
 import {
     FileDoneOutlined, UserOutlined, ShoppingOutlined, WalletOutlined,
@@ -12,6 +12,17 @@ import {
 } from '@ant-design/icons';
 
 import { cuentaOptions } from '../options';
+import {
+    PLANTILLA_ACREDITACION,
+    PLANTILLAS,
+    construirEnvio,
+    enviarDocumentosPorCorreo,
+    fechaExpedicionPorDefecto,
+    intensidadDeItem,
+    itemEnviaCorreo,
+    periodoPorDefecto,
+    plantillaDeItem,
+} from '../envioDocumentos';
 import { createIngreso, updateIngreso } from '../../../services/controlapos/posService';
 import { getInventario } from '../../../services/inventario/inventarioService';
 import { getPersonas, getPersonaById } from '../../../services/person/personaService';
@@ -22,9 +33,8 @@ import useIsMobile from '../../../hooks/useIsMobile';
 
 const { Title, Text } = Typography;
 
-// Backend académico (andesback) — donde viven los endpoints de certificados/carnets
+// Backend académico (andesback) — donde viven los endpoints de documentos
 const API_CERT_URL = import.meta.env.VITE_API_BACKEND;
-const INTENSIDAD_HORARIA_DEFAULT = '10';
 
 const SECTION = ({ icon, title, children }) => (
     <div style={{ background: 'var(--qc-surface)', padding: 20, borderRadius: 8, border: '1px solid var(--qc-border)', marginBottom: 14 }}>
@@ -78,14 +88,23 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
         }
     };
 
-    // ── Envío de certificado por correo ───────────────────────
+    // ── Envío de documentos por correo ────────────────────────
     const [enviarCorreo, setEnviarCorreo]           = useState(false);
+    // El diploma imprime periodo y horas del curso; la plantilla de alimentos no.
+    // Se sugieren valores y quien registra la venta los puede corregir.
+    const [periodoCurso, setPeriodoCurso]           = useState(() => periodoPorDefecto());
+    const [horasCurso, setHorasCurso]               = useState('');
 
     // Ítems seleccionados marcados con send_mail en el inventario
-    const itemsConCorreo = lineItems.filter(li => {
-        const inv = inventario.find(i => i.nombre === li.name);
-        return li.name && inv?.send_mail === true;
-    });
+    const itemsConCorreo = lineItems
+        .map(li => (li.name ? inventario.find(i => i.nombre === li.name) : null))
+        .filter(itemEnviaCorreo);
+
+    // El envío se arma con el PRIMER ítem certificable de la venta: de él salen
+    // la plantilla de documentos, el curso y las horas.
+    const itemCertificable     = itemsConCorreo[0] || null;
+    const plantillaCorreo      = plantillaDeItem(itemCertificable);
+    const configCorreo         = PLANTILLAS[plantillaCorreo];
     const algunItemEnviaCorreo = itemsConCorreo.length > 0;
     const clienteTieneCorreo   = !!selectedPersona?.email;
 
@@ -195,27 +214,28 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
     const addLine = () =>
         setLineItems(prev => [...prev, emptyLine()]);
 
-    // ── Envío de certificado + carnet por correo ──────────────
-    const enviarDocumentosPorCorreo = async () => {
-        const body = {
-            nombre: `${selectedPersona.nombre} ${selectedPersona.apellido || ''}`.trim(),
-            numeroDocumento: selectedPersona.numero_documento || '0',
-            tipoDocumento: selectedPersona.tipo_documento || 'C.C.',
-            intensidadHoraria: INTENSIDAD_HORARIA_DEFAULT,
-            email: selectedPersona.email,
-        };
-
-        const res = await fetch(`${API_CERT_URL}/api/enviar-documentos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+    // ── Envío de los documentos del curso por correo ──────────
+    // Qué se manda (certificado + carnet, o diploma + certificado) lo decide el
+    // ítem vendido, no el código: ver `plantilla_correo` en el inventario.
+    const enviarDocumentosDelCurso = async () => {
+        const envio = construirEnvio({
+            plantilla: plantillaCorreo,
+            cliente: {
+                nombre: `${selectedPersona.nombre} ${selectedPersona.apellido || ''}`.trim(),
+                numeroDocumento: selectedPersona.numero_documento || '0',
+                tipoDocumento: selectedPersona.tipo_documento || 'C.C.',
+                email: selectedPersona.email,
+            },
+            curso: itemCertificable?.nombre,
+            intensidadHoraria: horasCurso || intensidadDeItem(itemCertificable),
+            periodo: periodoCurso,
+            // La venta se registra hoy, así que el documento se expide hoy; el
+            // periodo del curso ya cerró la víspera.
+            fechaExpedicion: fechaExpedicionPorDefecto(),
         });
 
-        if (res.ok) {
-            message.success(`Certificado y carnet enviados a ${selectedPersona.email}`);
-        } else {
-            message.warning('La venta se guardó, pero falló el envío de los documentos por correo.');
-        }
+        await enviarDocumentosPorCorreo(API_CERT_URL, envio);
+        message.success(`Se enviaron ${envio.documentos} a ${selectedPersona.email}`);
     };
 
     // ── Guardar ───────────────────────────────────────────────
@@ -273,10 +293,10 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
             // Envío de certificado + carnet por correo (si aplica y se marcó la opción)
             if (enviarCorreo && algunItemEnviaCorreo && clienteTieneCorreo) {
                 try {
-                    await enviarDocumentosPorCorreo();
+                    await enviarDocumentosDelCurso();
                 } catch (mailErr) {
                     console.error('Error enviando documentos por correo:', mailErr);
-                    message.warning('La venta se guardó, pero no se pudieron enviar los documentos por correo.');
+                    message.warning(`La venta se guardó, pero no se pudieron enviar los documentos: ${mailErr.message}`);
                 }
             }
 
@@ -600,7 +620,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                         </div>
                     </SECTION>
 
-                    {/* ── ENVÍO DE CERTIFICADO POR CORREO ──────── */}
+                    {/* ── ENVÍO DE LOS DOCUMENTOS POR CORREO ───── */}
                     {algunItemEnviaCorreo && (
                         <SECTION icon={<MailOutlined />} title="Certificación">
                             <Checkbox
@@ -608,7 +628,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                                 disabled={!clienteTieneCorreo}
                                 onChange={e => setEnviarCorreo(e.target.checked)}
                             >
-                                Enviar certificado y carnet al correo del cliente
+                                Enviar {configCorreo.documentos} al correo del cliente
                             </Checkbox>
                             <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
                                 {clienteTieneCorreo ? (
@@ -619,6 +639,33 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                                     </span>
                                 )}
                             </div>
+
+                            {/* El diploma imprime el periodo y las horas del curso; la
+                                plantilla de alimentos los trae impresos y no los pide. */}
+                            {enviarCorreo && configCorreo.pidePeriodo && (
+                                <Row gutter={12} style={{ marginTop: 14 }}>
+                                    <Col xs={24} sm={14}>
+                                        <div style={HDR}>Periodo del curso</div>
+                                        <DatePicker.RangePicker
+                                            style={{ width: '100%', marginTop: 4 }}
+                                            format="DD/MM/YYYY"
+                                            value={periodoCurso}
+                                            onChange={setPeriodoCurso}
+                                            allowClear={false}
+                                        />
+                                    </Col>
+                                    <Col xs={24} sm={10}>
+                                        <div style={HDR}>Intensidad horaria</div>
+                                        <Input
+                                            style={{ marginTop: 4 }}
+                                            placeholder={intensidadDeItem(itemCertificable)}
+                                            value={horasCurso}
+                                            onChange={e => setHorasCurso(e.target.value)}
+                                            suffix="horas"
+                                        />
+                                    </Col>
+                                </Row>
+                            )}
                         </SECTION>
                     )}
 

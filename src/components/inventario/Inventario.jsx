@@ -22,6 +22,7 @@ import {
   ajustarCategoriaInventario,
 } from "../../services/inventario/inventarioService";
 import RestockDrawer from "./RestockDrawer";
+import { PLANTILLAS, PLANTILLA_ALIMENTOS } from "../Certificados/envioDocumentos";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 import useIsMobile from "../../hooks/useIsMobile";
 
@@ -541,11 +542,16 @@ function Inventario() {
         categoria:              editingItem.categoria || undefined,
         impuesto:               Number(editingItem.impuesto) || 0,
         send_mail:              editingItem.send_mail === true,
+        plantilla_correo:       editingItem.plantilla_correo || PLANTILLA_ALIMENTOS,
+        intensidad_horaria:     editingItem.intensidad_horaria || '',
       });
     } else {
       setTipoItem('producto'); setPrecioCompra(0); setPrecioVenta(0); setBarcodeValue('');
       form.resetFields();
-      form.setFieldsValue({ unidades_por_caja:1, stock_inicial_empaques:0, stock_minimo:5, impuesto:19, send_mail:false });
+      form.setFieldsValue({
+        unidades_por_caja:1, stock_inicial_empaques:0, stock_minimo:5, impuesto:19,
+        send_mail:false, plantilla_correo: PLANTILLA_ALIMENTOS, intensidad_horaria:'',
+      });
     }
   }, [isDrawerOpen, editingItem, form]);
 
@@ -568,6 +574,8 @@ function Inventario() {
         stock_minimo: values.stock_minimo || 0,
         impuesto: values.impuesto ?? 0,
         send_mail: values.send_mail ? 'true' : 'false',
+        plantilla_correo: values.plantilla_correo || PLANTILLA_ALIMENTOS,
+        intensidad_horaria: values.intensidad_horaria || '',
       }).forEach(([k,v]) => fd.append(k, v));
 
       if (tipoItem === 'producto') {
@@ -1156,10 +1164,36 @@ function Inventario() {
             <Input.TextArea rows={3} placeholder="Detalles adicionales..."/>
           </Form.Item>
 
-          {/* 9. ENVÍO DE CERTIFICADO POR CORREO — oculto en el formulario (crear y editar).
-              El valor send_mail se conserva oculto para no perderlo al guardar. */}
-          <Form.Item name="send_mail" valuePropName="checked" hidden>
+          {/* 9. DOCUMENTOS POR CORREO
+              Al vender este ítem se le pueden mandar al cliente los documentos del
+              curso. QUÉ documentos depende de la plantilla: la de alimentos trae el
+              curso impreso; la de acreditación sirve para cualquier curso (Auxiliar
+              de Bodega, Aseo Hospitalario…) y lo imprime a partir del nombre del ítem. */}
+          <Divider orientation="left" style={{ fontSize:12, fontWeight:700, color:'#155153', margin:'20px 0 16px' }}>
+            Documentos por correo
+          </Divider>
+
+          <Form.Item name="send_mail" valuePropName="checked" style={{ marginBottom:14 }}
+            label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Enviar documentos al vender 📧</span>}
+            tooltip="Aparecerá la opción de mandarle los documentos al correo del cliente">
             <Switch />
+          </Form.Item>
+
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.send_mail !== cur.send_mail}>
+            {({ getFieldValue }) => getFieldValue('send_mail') ? (
+              <>
+                <Form.Item name="plantilla_correo" style={{ marginBottom:14 }}
+                  label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>¿Qué documentos?</span>}>
+                  <Select size="large" options={Object.entries(PLANTILLAS).map(([value, p]) => ({ value, label: p.label }))} />
+                </Form.Item>
+
+                <Form.Item name="intensidad_horaria" style={{ marginBottom:14 }}
+                  label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Intensidad horaria</span>}
+                  tooltip="Horas que se imprimen en el documento. Solo el número.">
+                  <Input size="large" placeholder="Ej: 40" suffix="horas"/>
+                </Form.Item>
+              </>
+            ) : null}
           </Form.Item>
 
         </Form>

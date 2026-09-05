@@ -15,6 +15,18 @@ import 'jspdf-autotable';
 import 'moment/locale/es';
 
 import { deleteIngreso, deleteEgreso } from '../../services/controlapos/posService';
+import {
+  PLANTILLA_ACREDITACION,
+  PLANTILLAS,
+  construirEnvio,
+  enviarDocumentosPorCorreo,
+  fechaExpedicionPorDefecto,
+  intensidadDeItem,
+  itemEnviaCorreo,
+  periodoPorDefecto,
+  plantillaDeItem,
+} from './envioDocumentos';
+import EnvioAcreditacionModal from './components/EnvioAcreditacionModal';
 import useCurrency from '../../hooks/useCurrency';
 import useIsMobile from '../../hooks/useIsMobile';
 import { useTheme } from '../../ThemeContext';
@@ -27,9 +39,8 @@ moment.locale('es');
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
-// Microservicio académico (andesback) que genera/envía certificado y carnet
+// Microservicio académico (andesback) que genera/envía los documentos del curso
 const API_CERT_URL = import.meta.env.VITE_API_BACKEND;
-const INTENSIDAD_HORARIA_DEFAULT = '10';
 
 // Atajos de fecha
 const QUICK_RANGES = [
@@ -213,6 +224,8 @@ const TransactionTable = ({
   const [conceptFilter, setConceptFilter] = useState(null);
   const [vendedorFilter,setVendedorFilter]= useState(null);
   const [sendingId,     setSendingId]     = useState(null);
+  // Venta pendiente de confirmar antes de mandar el diploma (null = modal cerrado)
+  const [envioAcreditacion, setEnvioAcreditacion] = useState(null);
 
   const getConcept = (r = {}) => {
     if (r.items_detalle) {
@@ -229,71 +242,113 @@ const TransactionTable = ({
     onFiltersChange((prev) => ({ ...prev, ...partial }));
   };
 
-  // Inventario que tiene habilitado el envío de correo (certificado + carnet)
+  // Ítems del inventario con el envío de correo activo, indexados por id y por
+  // nombre. Se guarda el ítem COMPLETO (no un booleano) porque de él salen la
+  // plantilla de documentos y la intensidad horaria del envío.
   const sendMailLookup = useMemo(() => {
     const byId = {};
     const byName = {};
     (inventario || []).forEach(i => {
-      if (i.send_mail === true) {
-        if (i.id != null) byId[String(i.id)] = true;
+      if (itemEnviaCorreo(i)) {
+        if (i.id != null) byId[String(i.id)] = i;
         const nm = (i.nombre || i.name || '').trim().toLowerCase();
-        if (nm) byName[nm] = true;
+        if (nm) byName[nm] = i;
       }
     });
     return { byId, byName };
   }, [inventario]);
 
-  // ¿Algún producto del registro tiene activado el envío de correo?
-  const recordSendsMail = (r = {}) => {
-    if (type !== 'ingresos') return false;
+  // Ítem del registro que dispara el envío de documentos (el primero que lo
+  // tenga activo), o null si la venta no certifica nada.
+  const itemCertificable = (r = {}) => {
+    if (type !== 'ingresos') return null;
     let items = r.items_detalle;
     if (typeof items === 'string') {
       try { items = JSON.parse(items); } catch { items = []; }
     }
     if (Array.isArray(items) && items.length > 0) {
-      return items.some(it =>
-        (it.inventario_id != null && sendMailLookup.byId[String(it.inventario_id)]) ||
-        sendMailLookup.byName[(it.descripcion || it.nombre_producto || '').trim().toLowerCase()] === true
-      );
+      for (const it of items) {
+        const porId = it.inventario_id != null ? sendMailLookup.byId[String(it.inventario_id)] : null;
+        const porNombre = sendMailLookup.byName[(it.descripcion || it.nombre_producto || '').trim().toLowerCase()];
+        if (porId || porNombre) return porId || porNombre;
+      }
+      return null;
     }
-    return sendMailLookup.byName[(r.producto || '').trim().toLowerCase()] === true;
+    return sendMailLookup.byName[(r.producto || '').trim().toLowerCase()] || null;
   };
 
-  // Enviar certificado + carnet al correo del cliente del registro
-  const handleEnviarCorreo = async (r) => {
-    const email = r.customer_email || r.cliente_email;
-    if (!email) {
-      message.warning('El cliente de esta venta no tiene correo registrado.');
-      return;
-    }
-    const nombre = `${r.cliente_nombre || r.nombre || ''} ${r.persona_id != null ? (r.cliente_apellido ?? '') : (r.apellido || '')}`.trim();
-    const body = {
-      nombre: nombre || 'Cliente',
-      numeroDocumento: r.cliente_documento || r.numeroDeDocumento || '0',
-      tipoDocumento: r.cliente_tipo_doc || r.tipoDocumento || 'C.C.',
-      intensidadHoraria: INTENSIDAD_HORARIA_DEFAULT,
-      email,
-    };
+  const recordSendsMail = (r = {}) => !!itemCertificable(r);
 
-    setSendingId(r._id);
-    const hide = message.loading(`Enviando certificado y carnet a ${email}...`, 0);
+  // Datos del cliente de la venta, en el formato que esperan los endpoints de
+  // documentos de andesback.
+  const clienteDeRegistro = (r = {}) => ({
+    nombre: `${r.cliente_nombre || r.nombre || ''} ${r.persona_id != null ? (r.cliente_apellido ?? '') : (r.apellido || '')}`.trim(),
+    numeroDocumento: r.cliente_documento || r.numeroDeDocumento || '0',
+    tipoDocumento: r.cliente_tipo_doc || r.tipoDocumento || 'C.C.',
+    email: r.customer_email || r.cliente_email,
+  });
+
+  // Dispara un envío ya resuelto (plantilla, curso, fechas) y avisa del resultado.
+  const despacharEnvio = async (registro, envio, email) => {
+    setSendingId(registro._id);
+    const hide = message.loading(`Enviando ${envio.documentos} a ${email}...`, 0);
     try {
-      const res = await fetch(`${API_CERT_URL}/api/enviar-documentos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        message.success(`Certificado y carnet enviados a ${email}`);
-      } else {
-        message.warning('Falló el envío de los documentos por correo.');
-      }
-    } catch {
-      message.error('Error al enviar el correo.');
+      await enviarDocumentosPorCorreo(API_CERT_URL, envio);
+      message.success(`Se enviaron ${envio.documentos} a ${email}`);
+    } catch (err) {
+      message.error(`No se pudo enviar el correo: ${err.message}`);
     } finally {
       hide();
       setSendingId(null);
     }
+  };
+
+  // Enviar al correo del cliente los documentos que le corresponden a la venta.
+  // La plantilla de alimentos sale de una: trae el curso impreso y no necesita
+  // fechas. La de acreditación (diploma + certificado) sirve para cualquier
+  // curso, así que antes de enviar se confirman curso, horas y periodo.
+  const handleEnviarCorreo = async (r) => {
+    const cliente = clienteDeRegistro(r);
+    if (!cliente.email) {
+      message.warning('El cliente de esta venta no tiene correo registrado.');
+      return;
+    }
+
+    const item = itemCertificable(r);
+    const plantilla = plantillaDeItem(item);
+
+    if (plantilla === PLANTILLA_ACREDITACION) {
+      setEnvioAcreditacion({
+        registro: r,
+        cliente,
+        curso: item?.nombre || item?.name || getConcept(r),
+        intensidadHoraria: intensidadDeItem(item),
+        periodo: periodoPorDefecto(r.createdAt),
+        fechaExpedicion: fechaExpedicionPorDefecto(r.createdAt),
+      });
+      return;
+    }
+
+    await despacharEnvio(
+      r,
+      construirEnvio({ plantilla, cliente, intensidadHoraria: intensidadDeItem(item) }),
+      cliente.email,
+    );
+  };
+
+  // Confirmación del modal de acreditación.
+  const confirmarEnvioAcreditacion = async (valores) => {
+    const { registro, cliente } = envioAcreditacion;
+    const envio = construirEnvio({
+      plantilla: PLANTILLA_ACREDITACION,
+      cliente,
+      curso: valores.curso,
+      intensidadHoraria: valores.intensidadHoraria,
+      periodo: valores.periodo,
+      fechaExpedicion: valores.fechaExpedicion,
+    });
+    setEnvioAcreditacion(null);
+    await despacharEnvio(registro, envio, cliente.email);
   };
 
   // Opciones de producto desde el inventario real
@@ -815,7 +870,7 @@ const TransactionTable = ({
               render: (_, r) => (
                 <Space>
                   {recordSendsMail(r) && (
-                    <Tooltip title="Enviar certificado y carnet por correo">
+                    <Tooltip title={`Enviar ${PLANTILLAS[plantillaDeItem(itemCertificable(r))].documentos} por correo`}>
                       <Button
                         size="small"
                         type="text"
@@ -841,6 +896,13 @@ const TransactionTable = ({
           scroll={{ x: 770 }}
         />
       )}
+
+      {/* Confirmación de curso, horas y periodo antes de mandar el diploma */}
+      <EnvioAcreditacionModal
+        envio={envioAcreditacion}
+        onCancel={() => setEnvioAcreditacion(null)}
+        onConfirm={confirmarEnvioAcreditacion}
+      />
     </div>
   );
 };

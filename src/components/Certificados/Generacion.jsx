@@ -6,6 +6,12 @@ import ImgCrop from 'antd-img-crop';
 import dayjs from 'dayjs';
 import { AuthContext } from '../../AuthContext';
 import { getInventario } from '../../services/inventario/inventarioService';
+import {
+    PLANTILLA_ACREDITACION,
+    PLANTILLA_ALIMENTOS,
+    construirEnvio,
+    enviarDocumentosPorCorreo,
+} from './envioDocumentos';
 
 const { Option } = Select;
 
@@ -37,6 +43,8 @@ const PLANTILLAS = {
         documentos: ['Certificado', 'Carnet'],
         // Plantilla de un solo curso: no se pregunta, se aplica este valor.
         cursoFijo: 'Manipulación Higiénica de Alimentos',
+        // Con qué endpoint se manda por correo (ver Certificados/envioDocumentos.js)
+        plantillaCorreo: PLANTILLA_ALIMENTOS,
         pideCurso: false,
         pideFoto: true,
         pidePeriodo: false,
@@ -46,6 +54,7 @@ const PLANTILLAS = {
         descripcion: 'Un solo PDF con las dos piezas de la acreditación: página 1 el diploma, página 2 el certificado. El folio se asigna automáticamente.',
         documentos: ['Diploma', 'Certificado'],
         cursoFijo: null,
+        plantillaCorreo: PLANTILLA_ACREDITACION,
         pideCurso: true,
         pideFoto: false,
         pidePeriodo: true,
@@ -216,6 +225,38 @@ function Generacion() {
             });
         }
 
+        // Envío opcional por correo. Va DESPUÉS de las descargas para que, si el
+        // correo falla, el usuario ya tenga los PDF en la mano.
+        if (values.email && fallidos.length === 0) {
+            try {
+                const envio = construirEnvio({
+                    plantilla: config.plantillaCorreo,
+                    cliente: {
+                        nombre,
+                        numeroDocumento,
+                        tipoDocumento,
+                        email: values.email,
+                    },
+                    curso: base.curso,
+                    intensidadHoraria,
+                    periodo,
+                    fechaExpedicion,
+                });
+                await enviarDocumentosPorCorreo(API_BACKEND_URL, envio);
+                notification.success({
+                    message: 'Documentos enviados por correo',
+                    description: `Se enviaron ${envio.documentos} a ${values.email}.`,
+                });
+            } catch (err) {
+                console.error('Error enviando los documentos por correo:', err);
+                notification.error({
+                    message: 'No se pudo enviar el correo',
+                    description: `${err.message} Los PDF sí se descargaron.`,
+                    duration: 0,
+                });
+            }
+        }
+
         if (generados.length > 0) {
             notification.success({
                 message: 'Documentos generados',
@@ -341,6 +382,15 @@ function Generacion() {
                             </Col>
                         </Row>
                     )}
+
+                    <Form.Item
+                        label="Correo del estudiante (opcional)"
+                        name="email"
+                        rules={[{ type: 'email', message: 'Escribe un correo válido.' }]}
+                        extra={`Si lo llenas, además de descargarlos se le envían ${config.documentos.join(' y ').toLowerCase()} por correo.`}
+                    >
+                        <Input placeholder="Ej: estudiante@correo.com" allowClear />
+                    </Form.Item>
 
                     {config.pideFoto && (
                         <Form.Item label="Fotografía para el Carnet (Opcional)" name="foto" valuePropName="fileList" getValueFromEvent={normFile}>
