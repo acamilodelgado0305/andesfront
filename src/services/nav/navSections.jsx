@@ -106,7 +106,8 @@ export const buildNavSections = (user) => {
     const allPosItems = [
       { key: '/inicio/certificados',     navKey: 'movimientos', icon: <SwapOutlined />,         label: 'Movimientos',  path: '/inicio/certificados' },
       { key: '/inicio/documentos-venta', navKey: 'facturas',    icon: <FileDoneOutlined />,     label: 'Facturas',     path: '/inicio/documentos-venta' },
-      { key: '/inicio/cuentas-por-pagar', navKey: 'cuentas-por-pagar', icon: <BankOutlined />,   label: 'Cuentas por Pagar', path: '/inicio/cuentas-por-pagar' },
+      // Por Pagar y Por Cobrar viven en la misma vista, con pestañas.
+      { key: '/inicio/cuentas',          navKey: 'cuentas',     icon: <BankOutlined />,         label: 'Cuentas',      path: '/inicio/cuentas' },
       { key: '/inicio/personas',         navKey: 'contactos',   icon: <ContactsOutlined />,     label: 'Contactos',    path: '/inicio/personas' },
       { key: '/inicio/crm',              navKey: 'crm',         icon: <UsergroupAddOutlined />, label: 'CRM',          path: '/inicio/crm' },
       { key: '/inicio/inventario',       navKey: 'inventario',  icon: <InboxOutlined />,        label: 'Inventario',   path: '/inicio/inventario' },
@@ -196,7 +197,7 @@ export const buildNavSections = (user) => {
 export const NAV_META = {
   '/inicio/certificados':      { hint: 'Ingresos y gastos',        tone: 'blue' },
   '/inicio/documentos-venta':  { hint: 'Facturas y cotizaciones',  tone: 'blue' },
-  '/inicio/cuentas-por-pagar': { hint: 'Deudas a proveedores',     tone: 'rose' },
+  '/inicio/cuentas':           { hint: 'Por pagar y por cobrar',   tone: 'rose' },
   '/inicio/personas':          { hint: 'Clientes y proveedores',   tone: 'amber' },
   '/inicio/crm':               { hint: 'Prospectos y seguimiento', tone: 'amber' },
   '/inicio/inventario':        { hint: 'Productos y existencias',  tone: 'cyan' },

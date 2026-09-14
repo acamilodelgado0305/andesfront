@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Drawer, Form, Button, Input, Select, DatePicker,
     Typography, Space, Row, Col, Divider, Avatar,
@@ -15,6 +15,7 @@ import dayjs from 'dayjs';
 import { cuentaOptions } from '../options';
 import { useCurrencyInput } from '../../../hooks/useCurrency';
 import { createEgreso, updateEgreso } from '../../../services/controlapos/posService';
+import EtiquetasSelector from './EtiquetasSelector';
 import { getPersonas } from '../../../services/person/personaService';
 import PersonaFormDrawer from '../../personas/PersonaFormDrawer';
 import useIsMobile from '../../../hooks/useIsMobile';
@@ -43,6 +44,19 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
     const [loadingPersonas, setLoadingPersonas]     = useState(false);
     const [selectedPersona, setSelectedPersona]     = useState(null);
     const [personaDrawerOpen, setPersonaDrawerOpen] = useState(false);
+
+    // ── Etiquetas del gasto (por negocio; se crean aquí mismo) ──
+    // En la interfaz se llaman «etiquetas»; en BD/API siguen siendo `categoria`.
+    // Crear/editar/eliminar etiquetas pasa en EtiquetasSelector. Si se tocó
+    // alguna y el drawer se cierra sin guardar, la tabla igual se refresca para
+    // no mostrar nombres o colores viejos.
+    const etiquetasCambiaron = useRef(false);
+    useEffect(() => { if (open) etiquetasCambiaron.current = false; }, [open]);
+
+    const cerrar = () => {
+        if (etiquetasCambiaron.current) onSuccess?.();
+        onClose();
+    };
 
     // ── Reset al abrir ────────────────────────────────────────
     useEffect(() => {
@@ -99,6 +113,8 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                 fecha: values.fecha ? values.fecha.toISOString() : new Date().toISOString(),
                 valor: Number(values.valor),
                 persona_id: selectedPersona?.id || null,
+                // Al limpiar el select queda undefined: null le dice al backend que la quite.
+                categoria_id: values.categoria_id ?? null,
                 vendedor: userName,
             };
 
@@ -130,11 +146,11 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                 }
                 placement="right"
                 width={isMobile ? '100vw' : 500}
-                onClose={onClose}
+                onClose={cerrar}
                 open={open}
                 destroyOnClose
                 closable={false}
-                extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} />}
+                extra={<Button type="text" icon={<CloseOutlined />} onClick={cerrar} />}
                 rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
                 styles={{
                     body: { background: 'var(--qc-bg)', padding: isMobile ? '16px' : '24px', overflowX: 'hidden', ...CUERPO_FLEX },
@@ -267,6 +283,13 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                             <CalendarOutlined style={{ color: '#155153' }} />
                             <Text strong style={{ fontSize: 13, color: 'var(--qc-text)' }}>Detalles del Gasto</Text>
                         </div>
+
+                        <FL label="Etiqueta">
+                            {/* Chips de color: tocar uno lo elige; "+" crea, edita o elimina */}
+                            <Form.Item name="categoria_id" noStyle>
+                                <EtiquetasSelector onCambios={() => { etiquetasCambiaron.current = true; }} />
+                            </Form.Item>
+                        </FL>
 
                         <FL label="Descripción / Motivo" required>
                             <Form.Item name="descripcion" noStyle rules={[{ required: true, message: 'La descripción es requerida' }]}>

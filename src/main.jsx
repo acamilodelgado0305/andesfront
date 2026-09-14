@@ -60,7 +60,7 @@ const MyStudentEvaluationsPage = lazyWithRetry(() => import("./components/Evalua
 const RegistroExpress = lazyWithRetry(() => import("./components/PublicForms/RegistroExpress"));
 const PedidosDashboard = lazyWithRetry(() => import("./components/pedidos/PedidosDashboard"));
 const DocumentosVentaDashboard = lazyWithRetry(() => import("./components/documentosVenta/DocumentosVentaDashboard"));
-const CuentasPorPagarDashboard = lazyWithRetry(() => import("./components/cuentasPorPagar/CuentasPorPagarDashboard"));
+const CuentasPage = lazyWithRetry(() => import("./components/cuentas/CuentasPage"));
 const StudentClaseDetalle = lazyWithRetry(() => import("./components/Clases/StudentClaseDetalle"));
 const ProgramaDetalle = lazyWithRetry(() => import("./components/programas/ProgramaDetalle"));
 const MisProgramas = lazyWithRetry(() => import("./components/programas/MisProgramas"));
@@ -212,7 +212,9 @@ const App = () => (
                   <Route path="crm" element={<CrmDashboard />} />
                   <Route path="pedidos" element={<PedidosDashboard />} />
                   <Route path="documentos-venta" element={<DocumentosVentaDashboard />} />
-                  <Route path="cuentas-por-pagar" element={<CuentasPorPagarDashboard />} />
+                  {/* Cuentas por Pagar y por Cobrar en una sola vista con pestañas (?tab=cobrar) */}
+                  <Route path="cuentas" element={<CuentasPage />} />
+                  <Route path="cuentas-por-pagar" element={<Navigate to="/inicio/cuentas" replace />} />
                   <Route path="students/facturas/:id" element={<Facturas />} />
                   <Route path="students/view/:id" element={<StudentInformacion />} />
                   <Route path="configuracion" element={<Configuracion />} />

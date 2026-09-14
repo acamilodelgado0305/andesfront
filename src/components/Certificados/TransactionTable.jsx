@@ -27,6 +27,8 @@ import {
   plantillaDeItem,
 } from './envioDocumentos';
 import EnvioAcreditacionModal from './components/EnvioAcreditacionModal';
+import { EtiquetaChip } from './components/EtiquetasSelector';
+import EtiquetaCell from './components/EtiquetaCell';
 import useCurrency from '../../hooks/useCurrency';
 import useIsMobile from '../../hooks/useIsMobile';
 import { useTheme } from '../../ThemeContext';
@@ -42,6 +44,14 @@ const { RangePicker } = DatePicker;
 // Microservicio académico (andesback) que genera/envía los documentos del curso
 const API_CERT_URL = import.meta.env.VITE_API_BACKEND;
 
+// Valor del filtro de categoría para los gastos que aún no tienen una.
+const SIN_CATEGORIA = '__sin_categoria__';
+
+// Opción del filtro de etiqueta: el chip de color (o el texto "Sin etiqueta").
+const renderOpcionEtiqueta = (opcion) => (opcion.value === SIN_CATEGORIA
+  ? opcion.label
+  : <EtiquetaChip nombre={opcion.label} color={opcion.data?.color} size="sm" />);
+
 // Atajos de fecha
 const QUICK_RANGES = [
   { label: 'Hoy',    range: () => [moment().startOf('day'),   moment().endOf('day')]   },
@@ -54,7 +64,7 @@ const QUICK_RANGES = [
 /* ─────────────────────────────────────────────────────────────────────────────
    Mobile card component
 ───────────────────────────────────────────────────────────────────────────── */
-const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, onDelete, canSendMail, sending, onSendMail }) => {
+const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, onDelete, onRefresh, canSendMail, sending, onSendMail }) => {
   const { isDark } = useTheme();
   const dateField = type === 'ingresos' ? 'createdAt' : 'fecha';
   const date      = record[dateField];
@@ -170,12 +180,16 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
 
       {/* Row 2: cuenta tag + action buttons */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-        <Tag
-          color={cuenta === 'Nequi' ? 'purple' : 'blue'}
-          style={{ fontSize: 12, margin: 0 }}
-        >
-          {cuenta || 'N/D'}
-        </Tag>
+        <Space size={4} wrap style={{ minWidth: 0 }}>
+          <Tag
+            color={cuenta === 'Nequi' ? 'purple' : 'blue'}
+            style={{ fontSize: 12, margin: 0 }}
+          >
+            {cuenta || 'N/D'}
+          </Tag>
+          {/* La etiqueta del gasto se cambia aquí mismo */}
+          {!isIngreso && <EtiquetaCell record={record} onSaved={onRefresh} />}
+        </Space>
 
         <Space size={4}>
           {canSendMail && (
@@ -223,6 +237,7 @@ const TransactionTable = ({
   const [paymentFilter, setPaymentFilter] = useState(null);
   const [conceptFilter, setConceptFilter] = useState(null);
   const [vendedorFilter,setVendedorFilter]= useState(null);
+  const [categoriaFilter, setCategoriaFilter] = useState(null); // solo gastos
   const [sendingId,     setSendingId]     = useState(null);
   // Venta pendiente de confirmar antes de mandar el diploma (null = modal cerrado)
   const [envioAcreditacion, setEnvioAcreditacion] = useState(null);
@@ -385,6 +400,22 @@ const TransactionTable = ({
     return Array.from(set).map(id => ({ value: id, label: `Usuario ${id}` }));
   }, [vendedores, data]);
 
+  // Opciones del filtro de categoría (gastos): las que aparecen en los datos
+  const categoriaOptions = useMemo(() => {
+    if (type === 'ingresos') return [];
+    const colores = new Map(); // nombre → color
+    let haySinCategoria = false;
+    (data || []).forEach((item) => {
+      if (item.categoria_nombre) colores.set(item.categoria_nombre, item.categoria_color);
+      else haySinCategoria = true;
+    });
+    const opciones = [...colores.keys()]
+      .sort((a, b) => a.localeCompare(b, 'es'))
+      .map((nombre) => ({ value: nombre, label: nombre, color: colores.get(nombre) }));
+    if (haySinCategoria) opciones.push({ value: SIN_CATEGORIA, label: 'Sin etiqueta' });
+    return opciones;
+  }, [data, type]);
+
   // Filtrado
   const filteredData = useMemo(() => {
     return (data || [])
@@ -403,12 +434,15 @@ const TransactionTable = ({
           (item.cliente_documento && item.cliente_documento.toString().includes(searchLower)) ||
           (item.numeroDeDocumento && item.numeroDeDocumento.toString().includes(searchLower)) ||
           (item.payment_reference && item.payment_reference.toLowerCase().includes(searchLower)) ||
+          (item.descripcion && item.descripcion.toLowerCase().includes(searchLower)) ||
+          (item.categoria_nombre && item.categoria_nombre.toLowerCase().includes(searchLower)) ||
           concept.includes(searchLower);
 
         if (!textMatch) return false;
         if (paymentFilter  && item.cuenta   !== paymentFilter)  return false;
         if (conceptFilter  && getConcept(item) !== conceptFilter) return false;
         if (vendedorFilter && String(item.usuario) !== vendedorFilter) return false;
+        if (categoriaFilter && (item.categoria_nombre || SIN_CATEGORIA) !== categoriaFilter) return false;
 
         return true;
       })
@@ -416,7 +450,7 @@ const TransactionTable = ({
         const field = type === 'ingresos' ? 'createdAt' : 'fecha';
         return moment(b[field]).valueOf() - moment(a[field]).valueOf();
       });
-  }, [data, dateRange, searchText, paymentFilter, conceptFilter, vendedorFilter, type]);
+  }, [data, dateRange, searchText, paymentFilter, conceptFilter, vendedorFilter, categoriaFilter, type]);
 
   // Notifica al padre cada vez que cambia el conjunto filtrado
   useEffect(() => {
@@ -436,7 +470,7 @@ const TransactionTable = ({
 
   const clearAll = () => {
     setSearchText(''); setPaymentFilter(null);
-    setConceptFilter(null); setVendedorFilter(null);
+    setConceptFilter(null); setVendedorFilter(null); setCategoriaFilter(null);
     syncFilters({ payment: null, product: null, vendedor: null });
   };
 
@@ -563,18 +597,30 @@ const TransactionTable = ({
         </div>
       ),
     },
-    {
-      title: 'Producto / Servicio',
-      dataIndex: 'producto',
-      key: 'producto',
-      width: 160,
-      render: (_, r) => (
-        <span style={{ ...TS, whiteSpace: 'nowrap', overflow: 'hidden',
-          textOverflow: 'ellipsis', display: 'block', maxWidth: 150 }}>
-          {getConcept(r) || '-'}
-        </span>
-      ),
-    },
+    // Los gastos no tienen producto: en su lugar va la etiqueta
+    // (en la interfaz se llama «etiqueta»; en BD/API sigue siendo `categoria`).
+    type === 'ingresos'
+      ? {
+          title: 'Producto / Servicio',
+          dataIndex: 'producto',
+          key: 'producto',
+          width: 160,
+          render: (_, r) => (
+            <span style={{ ...TS, whiteSpace: 'nowrap', overflow: 'hidden',
+              textOverflow: 'ellipsis', display: 'block', maxWidth: 150 }}>
+              {getConcept(r) || '-'}
+            </span>
+          ),
+        }
+      : {
+          title: 'Etiqueta',
+          dataIndex: 'categoria_nombre',
+          key: 'categoria',
+          width: 160,
+          sorter: (a, b) => (a.categoria_nombre || '').localeCompare(b.categoria_nombre || '', 'es'),
+          // Editable en la misma tabla: clic → elegir, quitar o administrar etiquetas.
+          render: (_, r) => <EtiquetaCell record={r} onSaved={onRefresh} />,
+        },
     {
       title: 'Valor',
       dataIndex: 'valor',
@@ -593,7 +639,7 @@ const TransactionTable = ({
       width: 110,
       render: (c) => <Tag color={c === 'Nequi' ? 'purple' : 'blue'} style={{ fontSize: 12 }}>{c || 'N/D'}</Tag>,
     },
-  ], [type, userName, userMap]);
+  ], [type, userName, userMap, onRefresh]);
 
   const generatePDF = () => {
     const doc   = new jsPDF();
@@ -602,11 +648,11 @@ const TransactionTable = ({
     doc.setFontSize(14);
     doc.text(`${title} - ${periodo}`, 14, 20);
     doc.autoTable({
-      head: [['Fecha', type === 'ingresos' ? 'Cliente' : 'Descripción', 'Producto', 'Cuenta', 'Usuario', 'Valor']],
+      head: [['Fecha', type === 'ingresos' ? 'Cliente' : 'Descripción', type === 'ingresos' ? 'Producto' : 'Etiqueta', 'Cuenta', 'Usuario', 'Valor']],
       body: filteredData.map(item => [
         moment(item[type === 'ingresos' ? 'createdAt' : 'fecha']).format('DD/MM/YYYY'),
         type === 'ingresos' ? `${item.cliente_nombre || item.nombre || ''} ${item.persona_id != null ? (item.cliente_apellido ?? '') : (item.apellido || '')}`.trim() : (item.descripcion || ''),
-        getConcept(item),
+        type === 'ingresos' ? getConcept(item) : (item.categoria_nombre || 'Sin etiqueta'),
         item.cuenta || '',
         userMap[String(item.usuario)] || (item.usuario ? `ID ${item.usuario}` : '-'),
         fmt(item.valor),
@@ -758,20 +804,36 @@ const TransactionTable = ({
               notFoundContent="Sin usuarios"
             />
 
-            <Select
-              placeholder="Producto / Servicio"
-              size="small"
-              style={{ width: 190, borderRadius: 8 }}
-              allowClear
-              showSearch
-              value={conceptFilter}
-              onChange={(v) => { setConceptFilter(v); syncFilters({ product: v }); }}
-              options={productOptions}
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              notFoundContent="Sin productos"
-            />
+            {type === 'ingresos' ? (
+              <Select
+                placeholder="Producto / Servicio"
+                size="small"
+                style={{ width: 190, borderRadius: 8 }}
+                allowClear
+                showSearch
+                value={conceptFilter}
+                onChange={(v) => { setConceptFilter(v); syncFilters({ product: v }); }}
+                options={productOptions}
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                notFoundContent="Sin productos"
+              />
+            ) : (
+              <Select
+                placeholder="Etiqueta"
+                size="small"
+                style={{ width: 190, borderRadius: 8 }}
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                value={categoriaFilter}
+                onChange={setCategoriaFilter}
+                options={categoriaOptions}
+                optionRender={renderOpcionEtiqueta}
+                notFoundContent="Sin etiquetas"
+              />
+            )}
 
             <Select
               placeholder="Cuenta"
@@ -804,6 +866,20 @@ const TransactionTable = ({
             <Option value="Bancolombia">Bancolombia</Option>
             <Option value="Efectivo">Efectivo</Option>
           </Select>
+        )}
+
+        {isMobile && type !== 'ingresos' && (
+          <Select
+            placeholder="Etiqueta"
+            size="small"
+            style={{ flex: 1, minWidth: 110, borderRadius: 8 }}
+            allowClear
+            value={categoriaFilter}
+            onChange={setCategoriaFilter}
+            options={categoriaOptions}
+            optionRender={renderOpcionEtiqueta}
+            notFoundContent="Sin etiquetas"
+          />
         )}
 
         <Button icon={<ClearOutlined />} size="small" onClick={clearAll} />
@@ -851,6 +927,7 @@ const TransactionTable = ({
                 getConcept={getConcept}
                 onEdit={onEdit}
                 onDelete={handleDelete}
+                onRefresh={onRefresh}
                 canSendMail={recordSendsMail(record)}
                 sending={sendingId === record._id}
                 onSendMail={handleEnviarCorreo}

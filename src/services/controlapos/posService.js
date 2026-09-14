@@ -78,6 +78,31 @@ export const deleteEgreso = async (id) => {
   return response.data;
 };
 
+// Etiquetas de gasto del negocio activo (en la API se llaman categorías):
+// [{ id, nombre, color }]
+export const getEgresoCategorias = async () => {
+  const response = await coalianzaApi.get("/egresos/categorias");
+  return response.data;
+};
+
+// Crea una etiqueta { nombre, color }; si ya existe (sin distinguir mayúsculas) devuelve esa.
+export const createEgresoCategoria = async (data) => {
+  const response = await coalianzaApi.post("/egresos/categorias", data);
+  return response.data;
+};
+
+// Cambia nombre y/o color de una etiqueta.
+export const updateEgresoCategoria = async (id, data) => {
+  const response = await coalianzaApi.put(`/egresos/categorias/${id}`, data);
+  return response.data;
+};
+
+// Elimina una etiqueta; sus gastos quedan sin etiqueta.
+export const deleteEgresoCategoria = async (id) => {
+  const response = await coalianzaApi.delete(`/egresos/categorias/${id}`);
+  return response.data;
+};
+
 
 // ===================== SALDO ACUMULADO ===================== //
 // El saldo que viene arrastrado de los meses anteriores. Se calcula en el

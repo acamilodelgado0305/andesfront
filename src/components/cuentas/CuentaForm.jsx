@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Drawer, Form, Input, InputNumber, Button, DatePicker,
-  Space, Typography, message, Tag, Avatar, Spin, Empty,
+  Space, Typography, message, Tag, Avatar, Spin, Empty, Select,
 } from 'antd';
 import {
   UserOutlined, CalendarOutlined, SearchOutlined,
@@ -14,18 +14,20 @@ const round2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
 // Nombre completo del contacto (nombre + apellido). Para empresas apellido va vacío.
 const nombreCompletoPersona = (p) => [p?.nombre, p?.apellido].filter(Boolean).join(' ').trim();
 
-import { createCuentaPorPagar, updateCuentaPorPagar } from '../../services/cuentaPorPagar/cuentaPorPagarService';
 import { parseFechaDia, toFechaDiaPayload } from '../../utils/fechas';
 import { getPersonas } from '../../services/person/personaService';
 import PersonaFormDrawer from '../personas/PersonaFormDrawer';
 import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
+import { cuentaOptions } from '../Certificados/options';
 
 const { Text } = Typography;
 const { TextArea } = Input;
 
 const ACCENT = '#1d4ed8'; // azul del tema → botones, iconos, selección (igual que Facturas)
 
-const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
+// Alta/edición de una cuenta por pagar o por cobrar; `config` sale de cuentasConfig.
+const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
+  const { servicio, nombreCol, form: textos } = config;
   const formatCurrency = useCurrency();
   const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
   const [form] = Form.useForm();
@@ -72,14 +74,14 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
       if (editingDoc.persona_id) {
         setSelectedPersona({
           id: editingDoc.persona_id,
-          nombre: editingDoc.persona_nombre || editingDoc.proveedor_nombre || '',
+          nombre: editingDoc.persona_nombre || editingDoc[nombreCol] || '',
         });
       } else {
         setSelectedPersona(null);
       }
       form.setFieldsValue({
         titulo:              editingDoc.titulo || '',
-        proveedor_nombre:    editingDoc.proveedor_nombre || '',
+        contacto_nombre:     editingDoc[nombreCol] || '',
         total:               Number(editingDoc.total) || 0,
         notas:               editingDoc.notas || '',
         fecha_emision:       parseFechaDia(editingDoc.fecha_emision) || dayjs(),
@@ -88,6 +90,8 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
         valor_cuota:         editingDoc.valor_cuota != null
           ? Number(editingDoc.valor_cuota)
           : round2((Number(editingDoc.total) || 0) / Math.max(1, Number(editingDoc.num_cuotas) || 1)),
+        // Cuenta de salida del egreso del préstamo (el backend la manda en el listado).
+        cuenta_egreso:       editingDoc.egreso_cuenta || 'Nequi',
       });
     } else {
       form.resetFields();
@@ -116,23 +120,28 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
   const handleGuardar = async () => {
     try {
       const values = await form.validateFields();
+      if (textos.contactoObligatorio && !selectedPersona) {
+        message.error('Selecciona o crea el contacto');
+        return;
+      }
       setSaving(true);
       const payload = {
         titulo:            values.titulo,
         persona_id:        selectedPersona?.id || null,
-        proveedor_nombre:  nombreCompletoPersona(selectedPersona) || values.proveedor_nombre || null,
+        [nombreCol]:       nombreCompletoPersona(selectedPersona) || values.contacto_nombre || null,
         notas:             values.notas || null,
         fecha_emision:     toFechaDiaPayload(values.fecha_emision),
         num_cuotas:        Math.max(1, Math.trunc(Number(values.num_cuotas) || 1)),
         valor_cuota:       Number(values.valor_cuota) || 0,
         fecha_vencimiento: toFechaDiaPayload(values.fecha_vencimiento),
+        ...(config.generaEgreso && { cuenta_egreso: values.cuenta_egreso }),
       };
       if (editingDoc) {
-        await updateCuentaPorPagar(editingDoc.id, payload);
-        message.success('Cuenta por pagar actualizada');
+        await servicio.updateCuenta(editingDoc.id, payload);
+        message.success(textos.actualizada);
       } else {
-        await createCuentaPorPagar(payload);
-        message.success('Cuenta por pagar creada');
+        await servicio.createCuenta(payload);
+        message.success(textos.creada);
       }
       onSaved?.();
       onClose();
@@ -159,7 +168,7 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>
-                {editingDoc ? 'Editar' : 'Nueva'} cuenta por pagar
+                {editingDoc ? textos.tituloEditar : textos.tituloNuevo}
               </div>
               {editingDoc && (
                 <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 400 }}>{editingDoc.titulo}</div>
@@ -185,7 +194,7 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
                 type="primary" loading={saving} onClick={handleGuardar}
                 style={{ background: ACCENT, borderColor: ACCENT }}
               >
-                {editingDoc ? 'Guardar cambios' : 'Crear cuenta'}
+                {editingDoc ? 'Guardar cambios' : textos.botonCrear}
               </Button>
             </Space>
           </div>
@@ -201,7 +210,7 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
               rules={[{ required: true, message: 'Ingresa un título' }]}
               style={{ marginBottom: 14 }}
             >
-              <Input placeholder="Ej: Arriendo local, Préstamo Bancolombia..." />
+              <Input placeholder={textos.placeholderTitulo} />
             </Form.Item>
 
             <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 12, marginBottom: 12 }}>
@@ -242,6 +251,26 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
               </Text>
               <Text strong style={{ fontSize: 15, color: ACCENT }}>{formatCurrency(totalCuotas)}</Text>
             </div>
+
+            {/* Prestar es plata que sale: el backend registra el egreso en Movimientos */}
+            {config.generaEgreso && (
+              <>
+                <Form.Item
+                  label="Cuenta de salida"
+                  name="cuenta_egreso"
+                  initialValue="Nequi"
+                  rules={[{ required: true, message: 'Elige la cuenta de salida' }]}
+                  style={{ marginTop: 12, marginBottom: 4 }}
+                >
+                  <Select size="large" options={cuentaOptions} />
+                </Form.Item>
+                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+                  {editingDoc
+                    ? 'Si cambias el valor, la fecha, el título o la cuenta, el egreso en Movimientos se ajusta.'
+                    : `Se registrará un egreso por ${formatCurrency(totalCuotas)} en Movimientos.`}
+                </Text>
+              </>
+            )}
           </div>
 
           {/* ── FECHAS ── */}
@@ -267,7 +296,10 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
           <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
               <UserOutlined style={{ color: ACCENT }} />
-              <Text strong style={{ fontSize: 13 }}>Contacto / Proveedor</Text>
+              <Text strong style={{ fontSize: 13 }}>
+                {textos.seccionContacto}
+                {textos.contactoObligatorio && <span style={{ color: '#ef4444' }}> *</span>}
+              </Text>
             </div>
 
             {selectedPersona ? (
@@ -373,7 +405,7 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
           {/* ── NOTAS ── */}
           <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid #e5e7eb' }}>
             <Form.Item label="Notas (opcional)" name="notas" style={{ marginBottom: 0 }}>
-              <TextArea rows={3} placeholder="Detalles, número de factura del proveedor, condiciones..." />
+              <TextArea rows={3} placeholder={textos.placeholderNotas} />
             </Form.Item>
           </div>
 
@@ -388,10 +420,10 @@ const CuentaPorPagarForm = ({ open, onClose, onSaved, editingDoc }) => {
           setSelectedPersona(persona);
           setPersonaDrawerOpen(false);
         }}
-        defaultTipo="PROVEEDOR"
+        defaultTipo={textos.tipoContactoNuevo}
       />
     </>
   );
 };
 
-export default CuentaPorPagarForm;
+export default CuentaForm;

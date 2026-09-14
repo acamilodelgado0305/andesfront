@@ -486,7 +486,12 @@ function CrmDashboard() {
             {r.email && <div style={{ fontSize: 12, color: '#6b7280' }}><MailOutlined /> {r.email}</div>}
             <div style={{ height: 1, background: '#e5e7eb', margin: '8px 0' }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Tag className="text-[10px]">{ORIGEN_MAP[r.origen]?.label || r.origen}</Tag>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                <Tag className="text-[10px]" style={{ marginInlineEnd: 0 }}>{ORIGEN_MAP[r.origen]?.label || r.origen}</Tag>
+                {r.servicio && (
+                  <Tag className="text-[10px]" color="blue" style={{ marginInlineEnd: 0 }}>{SERVICIO_MAP[r.servicio]?.label || r.servicio}</Tag>
+                )}
+              </div>
               {Number(r.valor_estimado) > 0 && (
                 <span style={{ fontWeight: 700, color: '#155153', fontSize: 14 }}>{fmt(r.valor_estimado)}</span>
               )}

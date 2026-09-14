@@ -21,9 +21,23 @@ export const SIDEBAR_STORAGE_KEY = 'qc-sidebar-prefs';
 // Preferencia vacía = menú por defecto.
 export const EMPTY_PREFS = { order: [], hidden: [] };
 
+// Ítems que cambiaron de ruta: el orden/ocultado que el usuario ya guardó con
+// la ruta vieja se aplica al ítem nuevo en vez de mandarlo al final del menú.
+const LEGACY_KEYS = {
+  '/inicio/cuentas-por-pagar': '/inicio/cuentas', // Sep 2026: Por Pagar + Por Cobrar en una vista
+};
+
+const normalizeKeys = (list) => {
+  if (!Array.isArray(list)) return [];
+  const keys = list
+    .filter(k => typeof k === 'string')
+    .map(k => LEGACY_KEYS[k] || k);
+  return [...new Set(keys)];
+};
+
 const normalizePrefs = (raw) => ({
-  order: Array.isArray(raw?.order) ? raw.order.filter(k => typeof k === 'string') : [],
-  hidden: Array.isArray(raw?.hidden) ? raw.hidden.filter(k => typeof k === 'string') : [],
+  order: normalizeKeys(raw?.order),
+  hidden: normalizeKeys(raw?.hidden),
 });
 
 export const isCustomized = (prefs) =>
