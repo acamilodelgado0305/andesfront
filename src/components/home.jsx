@@ -436,7 +436,10 @@ const Home = () => {
 
         {/* BANNER PERIODO DE PRUEBA */}
         {user?.is_trial && (() => {
-          const daysLeft = Math.max(0, Math.ceil((new Date(user.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)));
+          // Día calendario (sin zona horaria), igual que root.jsx: el último día cuenta como 0.
+          const finPrueba = new Date(`${String(user.trial_ends_at).slice(0, 10)}T00:00:00`);
+          const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+          const daysLeft = Math.max(0, Math.round((finPrueba - hoy) / (1000 * 60 * 60 * 24)));
           return (
             <div style={{
               background: 'linear-gradient(135deg, #030d1f 0%, #0a1f3d 60%, #1d4ed8 100%)',

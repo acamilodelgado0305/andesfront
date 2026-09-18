@@ -158,6 +158,23 @@ export const AuthProvider = ({ children }) => {
         });
     };
 
+    // Pide una sesión nueva al backend (módulos, trial, etc. recalculados desde
+    // la BD). Se usa cuando el plan cambió con la sesión abierta: p. ej. el
+    // cliente pagó tras el muro de pago y su token aún traía el menú vacío.
+    const reloadSession = async () => {
+        const storedRefresh = getRefreshToken();
+        if (!storedRefresh) return false;
+        try {
+            const session = await refreshSession(storedRefresh);
+            // Fuente de verdad = lo recién calculado; no mezclar con el user
+            // guardado, que trae los módulos viejos.
+            login(session.token, { ...(getUser() || {}), ...(session.user || {}), modules: undefined }, session.refreshToken);
+            return true;
+        } catch {
+            return false;
+        }
+    };
+
     const logout = () => {
         logoutService();
         setToken(null);
@@ -176,6 +193,7 @@ export const AuthProvider = ({ children }) => {
                 login,
                 logout,
                 patchUser,
+                reloadSession,
             }}
         >
             {children}

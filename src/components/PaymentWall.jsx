@@ -2,6 +2,7 @@ import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Check, ExternalLink, MessageCircle, LogOut, Lock } from 'lucide-react';
+import dayjs from 'dayjs';
 import { AuthContext } from '../AuthContext';
 
 const fmt = (n) => n.toLocaleString('es-CO');
@@ -42,9 +43,10 @@ const PLANS = [
   },
 ];
 
-const WA_NUMBER = '570000000000';
+// Soporte comercial (WhatsApp).
+const WA_NUMBER = '573223267797';
 
-const PaymentWall = ({ reason = 'trial_expired' }) => {
+const PaymentWall = ({ reason = 'trial_expired', endDate = null, planName = null }) => {
   const { logout, user } = useContext(AuthContext);
   const waText = encodeURIComponent(
     `Hola, quiero suscribirme a QControla. Mi correo es ${user?.email || ''}`
@@ -52,6 +54,12 @@ const PaymentWall = ({ reason = 'trial_expired' }) => {
 
   const isTrialExpired = reason === 'trial_expired';
   const isDemoExpired = reason === 'demo_expired';
+
+  // Fecha del último día con acceso, como día calendario (sin zona horaria).
+  const fechaCorte = endDate ? dayjs(String(endDate).slice(0, 10)) : null;
+  const detalleCorte = !isDemoExpired && fechaCorte?.isValid()
+    ? `${planName ? `Plan ${planName} · ` : ''}último día de acceso: ${fechaCorte.format('DD/MM/YYYY')}`
+    : null;
 
   const titulo = isDemoExpired
     ? 'Tu demo educativo terminó'
@@ -63,7 +71,7 @@ const PaymentWall = ({ reason = 'trial_expired' }) => {
     ? 'El instituto de ejemplo y sus datos ya se eliminaron. Elige un plan y arma tu institución real, esta vez con tus programas y tus estudiantes.'
     : isTrialExpired
       ? 'Esperamos que hayas disfrutado los 14 días de acceso completo. Para seguir usando la plataforma, elige un plan a continuación.'
-      : 'Tu plan venció. Renueva tu suscripción para recuperar el acceso a todos tus datos y funciones.';
+      : 'Tu plan venció. Tus datos siguen guardados: renueva tu suscripción y recuperas el acceso a todo tal como lo dejaste.';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -93,6 +101,11 @@ const PaymentWall = ({ reason = 'trial_expired' }) => {
           </div>
           <h1 className="text-2xl font-extrabold text-gray-900 mb-2">{titulo}</h1>
           <p className="text-gray-500 text-sm leading-relaxed">{subtitulo}</p>
+          {detalleCorte && (
+            <p className="mt-3 inline-block text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 dark:text-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30">
+              {detalleCorte}
+            </p>
+          )}
         </motion.div>
 
         {/* Planes */}

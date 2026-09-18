@@ -174,7 +174,7 @@ const PagoResultado = () => {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Válido hasta</span>
                 <span className="font-semibold text-gray-800">
-                  {new Date(subDetails.end_date).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  {new Date(`${String(subDetails.end_date).slice(0, 10)}T00:00:00`).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}
                 </span>
               </div>
             )}

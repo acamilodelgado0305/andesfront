@@ -42,6 +42,11 @@ const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
 const PRIMARY_COLOR = '#1d4ed8';
 const PRIMARY_DARK  = '#0a1f3d';
 
+// Fechas de plan (DATE en la BD) como día calendario, sin zona horaria. Si se
+// parsea el ISO "2026-09-19T00:00:00Z" tal cual, en Colombia queda 18/09 7pm y
+// todos los conteos salían un día corto ("vence en 0 días" un día antes).
+const diaPlan = (d) => (d ? dayjs(String(d).slice(0, 10)) : null);
+
 // =========================================================
 // 🎁 TRIAL BANNER — Se muestra cuando el usuario tiene prueba activa
 // =========================================================
@@ -49,7 +54,7 @@ const TrialBanner = ({ user, navigate }) => {
   if (!user?.is_trial) return null;
 
   const today = dayjs().startOf('day');
-  const trialEnd = dayjs(user.trial_ends_at).startOf('day');
+  const trialEnd = diaPlan(user.trial_ends_at);
   const daysLeft = trialEnd.diff(today, 'day');
 
   if (daysLeft < 0) return null;
@@ -210,7 +215,7 @@ const DemoBanner = ({ user, navigate }) => {
 
 const RootLayout = () => {
   // 1. OBTENER USUARIO DEL CONTEXTO
-  const { user, login, logout, patchUser, loading: authLoading } = useContext(AuthContext);
+  const { user, login, logout, patchUser, reloadSession, loading: authLoading } = useContext(AuthContext);
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -257,7 +262,7 @@ const RootLayout = () => {
     }
   }, [user, authLoading]);
 
-  const [subscriptionData, setSubscriptionData] = useState({ endDate: null, amountPaid: null, planName: null, active: null });
+  const [subscriptionData, setSubscriptionData] = useState({ endDate: null, amountPaid: null, planName: null, active: null, last: null });
   const location = useLocation();
 
   // --- LÓGICA RESPONSIVE ---
@@ -306,6 +311,8 @@ const RootLayout = () => {
           endDate:   data.subscription?.end_date   || null,
           planName:  data.subscription?.plan_name  || null,
           amountPaid: data.subscription?.amount_paid || null,
+          // Sin plan vigente: el último que tuvo (para el muro de pago).
+          last:      data.last || null,
         });
       } catch (error) {
         console.error('Error fetching subscription:', error);
@@ -316,6 +323,19 @@ const RootLayout = () => {
       fetchSubscription();
     }
   }, [user, authLoading]);
+
+  // --- PLAN RENOVADO CON LA SESIÓN ABIERTA ---
+  // Los módulos viajan en el token. Si el negocio ya tiene plan vigente pero el
+  // token trae el menú vacío (se emitió cuando estaba vencido y luego pagó),
+  // pedimos una sesión nueva una sola vez en vez de esperar a que expire.
+  const sessionReloadedRef = useRef(false);
+  useEffect(() => {
+    if (sessionReloadedRef.current || !user || user.role === 'superadmin') return;
+    if (subscriptionData.active === true && !(user.modules || []).length) {
+      sessionReloadedRef.current = true;
+      reloadSession?.();
+    }
+  }, [subscriptionData.active, user, reloadSession]);
 
   // --- REDIRECCIÓN POR SESIÓN EXPIRADA / NO AUTENTICADO ---
   // Si terminó de cargar la sesión y NO hay usuario (token expirado o ausente),
@@ -337,25 +357,32 @@ const RootLayout = () => {
   }, [authLoading, user, location.pathname, navigate]);
 
   // ── Determinar si el usuario puede acceder ──────────────────
-  const trialActive = user?.is_trial && dayjs(user.trial_ends_at).isAfter(dayjs());
+  // El plan sirve TODO su último día: se corta al empezar el día siguiente.
+  const trialActive = user?.is_trial && !!user.trial_ends_at && !diaPlan(user.trial_ends_at).isBefore(dayjs(), 'day');
   // El demo es su propio tipo de acceso: no es trial (no hay cuenta que
   // convertir) ni suscripción pagada, y vence por hora, no por día.
   const demoActive  = user?.is_demo && (!user.demo_expires_at || dayjs(user.demo_expires_at).isAfter(dayjs()));
   const paidActive  = !user?.is_trial && !user?.is_demo && subscriptionData.active === true;
-  // Mientras aún no llegó la respuesta del fetch (active === null) no bloqueamos
-  const canAccess   = trialActive || demoActive || paidActive || subscriptionData.active === null;
-  const accessReason = user?.is_demo ? 'demo_expired' : user?.is_trial ? 'trial_expired' : 'subscription_expired';
+  // Mientras aún no llegó la respuesta del fetch (active === null) no bloqueamos.
+  // El superadmin entra a cualquier negocio aunque esté vencido (para soporte).
+  const isSuperadmin = user?.role === 'superadmin';
+  const canAccess   = isSuperadmin || trialActive || demoActive || paidActive || subscriptionData.active === null;
+  const lastPlan    = subscriptionData.last;
+  const accessReason = user?.is_demo
+    ? 'demo_expired'
+    : (user?.is_trial || lastPlan?.is_trial) ? 'trial_expired' : 'subscription_expired';
 
   const showExpirationWarning = () => {
     if (!subscriptionData.endDate || !paidActive) return null;
     const today = dayjs().startOf('day');
-    const expirationDate = dayjs(subscriptionData.endDate).startOf('day');
-    const daysLeft = expirationDate.diff(today, 'day');
+    const daysLeft = diaPlan(subscriptionData.endDate).diff(today, 'day');
     if (daysLeft > 5 || daysLeft < 0) return null;
+    const cuando = daysLeft === 0 ? 'hoy' : daysLeft === 1 ? 'mañana' : `en ${daysLeft} días`;
     return (
       <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl mb-4 flex items-center justify-between gap-4">
         <p className="m-0 text-sm">
-          ⚠️ Tu plan <strong>{subscriptionData.planName}</strong> vence en <strong>{daysLeft} día{daysLeft !== 1 ? 's' : ''}</strong>.
+          ⚠️ Tu plan <strong>{subscriptionData.planName}</strong> vence <strong>{cuando}</strong>
+          {daysLeft === 0 ? ' (último día de acceso). Renuévalo para no perder el acceso mañana.' : '.'}
         </p>
         <button
           onClick={() => navigate('/precios')}
@@ -500,7 +527,15 @@ const RootLayout = () => {
   };
 
   // ── Bloqueo de acceso ────────────────────────────────────────
-  if (!canAccess) return <PaymentWall reason={accessReason} />;
+  if (!canAccess) {
+    return (
+      <PaymentWall
+        reason={accessReason}
+        endDate={lastPlan?.end_date || user?.trial_ends_at || null}
+        planName={lastPlan?.plan_name || null}
+      />
+    );
+  }
 
   const currentBusinessName = user?.business_name || 'Mi Negocio';
   const availableBusinesses = user?.businesses || [];
@@ -716,7 +751,7 @@ const RootLayout = () => {
                     <>
                       <p style={{ margin: 0, fontSize: 10, color: '#93c5fd', fontWeight: 600, textTransform: 'uppercase' }}>Prueba gratuita</p>
                       <p style={{ margin: '2px 0 0', fontSize: 11, color: '#fff', fontWeight: 500 }}>
-                        {Math.max(0, dayjs(user.trial_ends_at).diff(dayjs(), 'day'))} días restantes
+                        {Math.max(0, diaPlan(user.trial_ends_at).diff(dayjs().startOf('day'), 'day'))} días restantes
                       </p>
                     </>
                   ) : paidActive ? (
@@ -727,7 +762,7 @@ const RootLayout = () => {
                       </p>
                       {subscriptionData.endDate && (
                         <p style={{ margin: '1px 0 0', fontSize: 10, color: '#4ade80' }}>
-                          Hasta {dayjs(subscriptionData.endDate).format('DD MMM YYYY')}
+                          Hasta {diaPlan(subscriptionData.endDate).format('DD MMM YYYY')}
                         </p>
                       )}
                     </>
