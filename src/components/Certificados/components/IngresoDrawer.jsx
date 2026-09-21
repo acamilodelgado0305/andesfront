@@ -47,6 +47,13 @@ const HDR = { fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'u
 
 const emptyLine = () => ({ name: '', qty: 1 });
 
+// Etiqueta visible de cada tipo de contacto en el buscador
+const TIPO_TAG = {
+    CLIENTE:     { color: 'green',  label: 'Cliente' },
+    PROVEEDOR:   { color: 'orange', label: 'Proveedor' },
+    COLABORADOR: { color: 'purple', label: 'Colaborador' },
+};
+
 const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, initialPersona }) => {
     const { prefix: currPrefix } = useCurrencyInput();
     const monto = useAmount();
@@ -459,7 +466,7 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                                                     <div style={{ fontWeight: 600, fontSize: 13 }}>{p.nombre} {p.apellido || ''}</div>
                                                     <div style={{ fontSize: 11, color: '#94a3b8' }}>{p.tipo_documento}: {p.numero_documento}</div>
                                                 </div>
-                                                <Tag color={p.tipo === 'CLIENTE' ? 'green' : 'blue'} style={{ fontSize: 11 }}>{p.tipo}</Tag>
+                                                <Tag color={TIPO_TAG[p.tipo]?.color || 'blue'} style={{ fontSize: 11 }}>{TIPO_TAG[p.tipo]?.label || p.tipo}</Tag>
                                             </div>
                                         ))}
                                     </div>

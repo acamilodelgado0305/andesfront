@@ -371,9 +371,11 @@ function CrmDashboard() {
       },
     },
     {
-      title: 'Lead', key: 'nombre',
+      // width mínimo + nowrap: la columna mide lo que mide el contenido y la
+      // siguiente arranca pegada; el espacio sobrante queda al final de la fila.
+      title: 'Lead', key: 'nombre', width: 1,
       render: (_, r) => (
-        <div>
+        <div style={{ whiteSpace: 'nowrap' }}>
           <span className="font-semibold text-gray-800">{r.nombre}</span>
           {r.empresa && <div className="text-xs text-gray-400"><BankOutlined /> {r.empresa}</div>}
           {r.numero_documento && <div className="text-xs text-gray-400"><IdcardOutlined /> {r.tipo_documento ? `${r.tipo_documento} ` : ''}{r.numero_documento}</div>}
@@ -426,7 +428,7 @@ function CrmDashboard() {
       onFilter: (v, r) => r.estado === v,
     },
     {
-      title: 'Acciones', key: 'acciones', width: 100, align: 'center',
+      title: 'Acciones', key: 'acciones', align: 'left',
       render: (_, r) => (
         <Space size={4}>
           <Tooltip title="Editar">
@@ -640,6 +642,7 @@ function CrmDashboard() {
                 )}}
                 pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t, r) => `${r[0]}-${r[1]} de ${t}` }}
                 scroll={{ x: 890 }}
+                tableLayout="auto"
               />
             </Spin>
           </div>

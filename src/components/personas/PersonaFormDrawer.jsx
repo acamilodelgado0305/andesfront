@@ -4,7 +4,7 @@ import {
 } from 'antd';
 import {
     UserOutlined, UserAddOutlined, ShopOutlined, MailOutlined,
-    GlobalOutlined, PhoneOutlined, EnvironmentOutlined, CheckCircleOutlined, BulbOutlined,
+    GlobalOutlined, PhoneOutlined, EnvironmentOutlined, CheckCircleOutlined, TeamOutlined,
 } from '@ant-design/icons';
 
 import { createPersona, updatePersona } from '../../services/person/personaService';
@@ -51,7 +51,7 @@ const FieldLabel = ({ label, required, children }) => (
  *   onClose     – () => void
  *   onSuccess   – (persona) => void
  *   editingItem – objeto persona para edición (null = crear)
- *   defaultTipo – 'CLIENTE' | 'PROVEEDOR' | 'LEAD'
+ *   defaultTipo – 'CLIENTE' | 'PROVEEDOR' | 'COLABORADOR'
  */
 const PersonaFormDrawer = ({ open, onClose, onSuccess, editingItem = null, defaultTipo = 'CLIENTE' }) => {
     const [form] = Form.useForm();
@@ -147,6 +147,14 @@ const PersonaFormDrawer = ({ open, onClose, onSuccess, editingItem = null, defau
         >
             <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false}>
 
+                {/* Persona / Empresa — primero, define el resto del formulario */}
+                <FieldLabel label="¿Persona o empresa?">
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <ToggleBtn active={entidadTipo === 'PERSONA'} onClick={() => handleEntidadChange('PERSONA')} icon={<UserOutlined />} label="Persona" />
+                        <ToggleBtn active={entidadTipo === 'EMPRESA'} onClick={() => handleEntidadChange('EMPRESA')} icon={<ShopOutlined />} label="Empresa" />
+                    </div>
+                </FieldLabel>
+
                 {/* Nombre */}
                 <Form.Item
                     name="nombre"
@@ -194,14 +202,6 @@ const PersonaFormDrawer = ({ open, onClose, onSuccess, editingItem = null, defau
                             />
                         </Form.Item>
                     </Input.Group>
-                </FieldLabel>
-
-                {/* Persona / Empresa */}
-                <FieldLabel label="¿Persona o empresa?">
-                    <div style={{ display: 'flex', gap: 10 }}>
-                        <ToggleBtn active={entidadTipo === 'PERSONA'} onClick={() => handleEntidadChange('PERSONA')} icon={<UserOutlined />} label="Persona" />
-                        <ToggleBtn active={entidadTipo === 'EMPRESA'} onClick={() => handleEntidadChange('EMPRESA')} icon={<ShopOutlined />} label="Empresa" />
-                    </div>
                 </FieldLabel>
 
                 <Divider style={{ margin: '16px 0 18px' }} />
@@ -254,7 +254,7 @@ const PersonaFormDrawer = ({ open, onClose, onSuccess, editingItem = null, defau
                     <div style={{ display: 'flex', gap: 10 }}>
                         <ToggleBtn active={tipoContacto === 'CLIENTE'}   onClick={() => setTipoContacto('CLIENTE')}   icon={<UserOutlined />}  label="Cliente"   color="#155153" />
                         <ToggleBtn active={tipoContacto === 'PROVEEDOR'} onClick={() => setTipoContacto('PROVEEDOR')} icon={<ShopOutlined />}  label="Proveedor" color="#ea580c" />
-                        <ToggleBtn active={tipoContacto === 'LEAD'}      onClick={() => setTipoContacto('LEAD')}      icon={<BulbOutlined />}  label="Lead"      color="#7c3aed" />
+                        <ToggleBtn active={tipoContacto === 'COLABORADOR'} onClick={() => setTipoContacto('COLABORADOR')} icon={<TeamOutlined />} label="Colaborador" color="#7c3aed" />
                     </div>
                 </FieldLabel>
 

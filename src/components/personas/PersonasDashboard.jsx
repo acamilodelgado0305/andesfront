@@ -33,7 +33,7 @@ import {
     MailOutlined,
     GlobalOutlined,
     CheckCircleOutlined,
-    BulbOutlined,
+    TeamOutlined,
     PhoneOutlined,
     EnvironmentOutlined,
     HistoryOutlined,
@@ -58,7 +58,7 @@ const { Option } = Select;
 const TIPO_CONFIG = {
     CLIENTE:   { bg: '#155153', tag: 'blue',   label: 'Cliente'   },
     PROVEEDOR: { bg: '#ea580c', tag: 'orange', label: 'Proveedor' },
-    LEAD:      { bg: '#7c3aed', tag: 'purple', label: 'Lead'      },
+    COLABORADOR: { bg: '#7c3aed', tag: 'purple', label: 'Colaborador' },
     EMPLEADO:  { bg: '#0369a1', tag: 'cyan',   label: 'Empleado'  }, // compat. con registros viejos
 };
 
@@ -135,7 +135,7 @@ function PersonasDashboard() {
 
     // ── ESTADOS DEL DRAWER ──
     const [entidadTipo, setEntidadTipo] = useState('PERSONA');  // 'PERSONA' | 'EMPRESA'
-    const [tipoContacto, setTipoContacto] = useState('CLIENTE'); // 'CLIENTE' | 'PROVEEDOR' | 'LEAD'
+    const [tipoContacto, setTipoContacto] = useState('CLIENTE'); // 'CLIENTE' | 'PROVEEDOR' | 'COLABORADOR'
 
     // ── ESTADOS HISTORIAL DE VENTAS ──
     const [ventasModalOpen, setVentasModalOpen]   = useState(false);
@@ -281,10 +281,13 @@ function PersonasDashboard() {
     // ── COLUMNAS DE LA TABLA ──
     const columns = [
         {
+            // width mínimo + nowrap: la columna mide lo que mide el nombre y la
+            // siguiente arranca pegada. El espacio sobrante se lo lleva Acciones.
             title: 'Nombre',
             key: 'nombre',
+            width: 1,
             render: (_, r) => (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" style={{ whiteSpace: 'nowrap' }}>
                     <div style={{
                         width: 34, height: 34, borderRadius: 8,
                         background: cfg(r.tipo).bg, color: '#fff',
@@ -315,7 +318,7 @@ function PersonasDashboard() {
             filters: [
                 { text: 'Cliente', value: 'CLIENTE' },
                 { text: 'Proveedor', value: 'PROVEEDOR' },
-                { text: 'Lead', value: 'LEAD' },
+                { text: 'Colaborador', value: 'COLABORADOR' },
             ],
             onFilter: (v, r) => r.tipo === v,
         },
@@ -344,16 +347,17 @@ function PersonasDashboard() {
             dataIndex: 'direccion',
             key: 'direccion',
             width: 200,
-            ellipsis: true,
+            // Recorte a mano: `ellipsis` de antd fuerza tableLayout fixed y
+            // deja de ajustar la columna Nombre a su contenido.
             render: v => v
-                ? <span className="text-sm text-gray-600">{v}</span>
+                ? <div className="text-sm text-gray-600" title={v}
+                    style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</div>
                 : <span className="text-gray-300">—</span>,
         },
         {
             title: 'Acciones',
             key: 'acciones',
-            width: 120,
-            align: 'center',
+            align: 'left',
             render: (_, r) => (
                 <Space size={4}>
                     {r.tipo === 'CLIENTE' && (
@@ -489,7 +493,7 @@ function PersonasDashboard() {
                     </div>
                     <div>
                         <Title level={3} style={{ margin: 0, color: '#155153' }}>Contactos</Title>
-                        <Text type="secondary" className="text-xs">Clientes, Proveedores y Leads</Text>
+                        <Text type="secondary" className="text-xs">Clientes, Proveedores y Colaboradores</Text>
                     </div>
                 </div>
 
@@ -542,6 +546,7 @@ function PersonasDashboard() {
                             )}}
                             pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (t, r) => `${r[0]}-${r[1]} de ${t}` }}
                             scroll={{ x: 800 }}
+                            tableLayout="auto"
                         />
                     </Spin>
                 </div>
@@ -697,7 +702,25 @@ function PersonasDashboard() {
             >
                 <Form form={form} layout="vertical" onFinish={handleFormSubmit} requiredMark={false}>
 
-                    {/* ── 1. NOMBRE ── */}
+                    {/* ── 1. PERSONA / EMPRESA — primero, define el resto del formulario ── */}
+                    <FieldLabel label="¿Persona o empresa?">
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <ToggleBtn
+                                active={entidadTipo === 'PERSONA'}
+                                onClick={() => handleEntidadChange('PERSONA')}
+                                icon={<UserOutlined />}
+                                label="Persona"
+                            />
+                            <ToggleBtn
+                                active={entidadTipo === 'EMPRESA'}
+                                onClick={() => handleEntidadChange('EMPRESA')}
+                                icon={<ShopOutlined />}
+                                label="Empresa"
+                            />
+                        </div>
+                    </FieldLabel>
+
+                    {/* ── 2. NOMBRE ── */}
                     <Form.Item
                         name="nombre"
                         label={<span className="text-xs font-semibold text-slate-500">Nombre {entidadTipo === 'EMPRESA' ? '/ Razón Social' : ''} <span className="text-red-400">*</span></span>}
@@ -711,7 +734,18 @@ function PersonasDashboard() {
                         />
                     </Form.Item>
 
-                    {/* ── 2. NÚMERO DE IDENTIFICACIÓN ── */}
+                    {/* Apellido solo para personas, justo debajo del nombre */}
+                    {entidadTipo === 'PERSONA' && (
+                        <Form.Item
+                            name="apellido"
+                            label={<span className="text-xs font-semibold text-slate-500">Apellidos</span>}
+                            style={{ marginBottom: 14 }}
+                        >
+                            <Input size="large" placeholder="Ej: Pérez Rodríguez" />
+                        </Form.Item>
+                    )}
+
+                    {/* ── 3. NÚMERO DE IDENTIFICACIÓN ── */}
                     <FieldLabel label="Número de identificación" required>
                         <Input.Group compact style={{ display: 'flex' }}>
                             <Form.Item name="tipo_documento" noStyle rules={[{ required: true }]}>
@@ -737,35 +771,6 @@ function PersonasDashboard() {
                             </Form.Item>
                         </Input.Group>
                     </FieldLabel>
-
-                    {/* ── 3. PERSONA / EMPRESA ── */}
-                    <FieldLabel label="¿Persona o empresa?">
-                        <div style={{ display: 'flex', gap: 10 }}>
-                            <ToggleBtn
-                                active={entidadTipo === 'PERSONA'}
-                                onClick={() => handleEntidadChange('PERSONA')}
-                                icon={<UserOutlined />}
-                                label="Persona"
-                            />
-                            <ToggleBtn
-                                active={entidadTipo === 'EMPRESA'}
-                                onClick={() => handleEntidadChange('EMPRESA')}
-                                icon={<ShopOutlined />}
-                                label="Empresa"
-                            />
-                        </div>
-                    </FieldLabel>
-
-                    {/* Apellido solo para personas */}
-                    {entidadTipo === 'PERSONA' && (
-                        <Form.Item
-                            name="apellido"
-                            label={<span className="text-xs font-semibold text-slate-500">Apellidos</span>}
-                            style={{ marginBottom: 14 }}
-                        >
-                            <Input size="large" placeholder="Ej: Pérez Rodríguez" />
-                        </Form.Item>
-                    )}
 
                     <Divider style={{ margin: '16px 0 18px' }} />
 
@@ -832,10 +837,10 @@ function PersonasDashboard() {
                                 color="#ea580c"
                             />
                             <ToggleBtn
-                                active={tipoContacto === 'LEAD'}
-                                onClick={() => setTipoContacto('LEAD')}
-                                icon={<BulbOutlined />}
-                                label="Lead"
+                                active={tipoContacto === 'COLABORADOR'}
+                                onClick={() => setTipoContacto('COLABORADOR')}
+                                icon={<TeamOutlined />}
+                                label="Colaborador"
                                 color="#7c3aed"
                             />
                         </div>

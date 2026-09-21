@@ -23,6 +23,9 @@ import { CUERPO_FLEX, CONTENIDO_CENTRADO_VERTICAL } from './drawerLayout';
 
 const { Text } = Typography;
 
+// Tipos de contacto que se pueden asignar a un egreso
+const TIPOS_EGRESO = ['PROVEEDOR', 'COLABORADOR'];
+
 const FL = ({ label, required, children }) => (
     <div style={{ marginBottom: 16 }}>
         <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--qc-text-muted)', marginBottom: 6 }}>
@@ -92,10 +95,10 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
         const t = setTimeout(async () => {
             setLoadingPersonas(true);
             try {
-                const data = await getPersonas({ q: personaSearch, tipo: 'PROVEEDOR' });
+                const data = await getPersonas({ q: personaSearch });
                 const list = Array.isArray(data) ? data : (data?.personas || []);
-                // filtrar solo proveedores en caso que el backend no lo haga
-                setPersonas(list.filter(p => p.tipo === 'PROVEEDOR'));
+                // A un gasto se le asigna un proveedor o un colaborador
+                setPersonas(list.filter(p => TIPOS_EGRESO.includes(p.tipo)));
             } catch { /* silencioso */ }
             finally { setLoadingPersonas(false); }
         }, 350);
@@ -174,11 +177,11 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
             >
                 <Form form={form} layout="vertical" requiredMark={false} style={CONTENIDO_CENTRADO_VERTICAL}>
 
-                    {/* ── CONTACTO PROVEEDOR ──────────────────── */}
+                    {/* ── CONTACTO: PROVEEDOR O COLABORADOR ───── */}
                     <div style={{ background: 'var(--qc-surface)', border: '1px solid var(--qc-border)', borderRadius: 10, padding: '16px 18px', marginBottom: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                             <ShopOutlined style={{ color: '#ea580c' }} />
-                            <Text strong style={{ fontSize: 13, color: 'var(--qc-text)' }}>Proveedor (opcional)</Text>
+                            <Text strong style={{ fontSize: 13, color: 'var(--qc-text)' }}>Proveedor o colaborador (opcional)</Text>
                         </div>
 
                         {selectedPersona ? (
@@ -208,7 +211,7 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                                 <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                                     <Input
                                         prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
-                                        placeholder="Buscar proveedor por nombre..."
+                                        placeholder="Buscar proveedor o colaborador..."
                                         value={personaSearch}
                                         onChange={e => setPersonaSearch(e.target.value)}
                                         allowClear
@@ -232,8 +235,8 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                                         style={{ margin: '6px 0' }}
                                         description={
                                             <span style={{ fontSize: 12 }}>
-                                                Sin proveedores —{' '}
-                                                <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: '#ea580c' }}>crear proveedor</a>
+                                                Sin resultados —{' '}
+                                                <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: '#ea580c' }}>crear contacto</a>
                                             </span>
                                         }
                                     />
@@ -261,7 +264,9 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                                                         <div style={{ fontSize: 11, color: '#94a3b8' }}>{p.tipo_documento}: {p.numero_documento}</div>
                                                     )}
                                                 </div>
-                                                <Tag color="orange" style={{ fontSize: 11 }}>Proveedor</Tag>
+                                                <Tag color={p.tipo === 'COLABORADOR' ? 'purple' : 'orange'} style={{ fontSize: 11 }}>
+                                                    {p.tipo === 'COLABORADOR' ? 'Colaborador' : 'Proveedor'}
+                                                </Tag>
                                             </div>
                                         ))}
                                     </div>
@@ -357,7 +362,7 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                 </Form>
             </Drawer>
 
-            {/* ── SUB-DRAWER CREAR PROVEEDOR ────────────────── */}
+            {/* ── SUB-DRAWER CREAR PROVEEDOR / COLABORADOR ───── */}
             <PersonaFormDrawer
                 open={personaDrawerOpen}
                 onClose={() => setPersonaDrawerOpen(false)}

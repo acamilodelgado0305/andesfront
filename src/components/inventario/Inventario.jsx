@@ -3,7 +3,7 @@ import {
   Typography, Row, Col, Spin, Alert, Empty,
   Button, Drawer, Form, Input, InputNumber,
   notification, Tooltip, Modal, Upload, Divider,
-  Tag, Select, Table, Space, Statistic, Card, Switch,
+  Tag, Select, Table, Space, Statistic, Card,
 } from "antd";
 import {
   PlusOutlined, EditOutlined, DeleteOutlined,
@@ -22,7 +22,6 @@ import {
   ajustarCategoriaInventario,
 } from "../../services/inventario/inventarioService";
 import RestockDrawer from "./RestockDrawer";
-import { PLANTILLAS, PLANTILLA_ALIMENTOS } from "../Certificados/envioDocumentos";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 import useIsMobile from "../../hooks/useIsMobile";
 
@@ -541,16 +540,12 @@ function Inventario() {
         codigo_barras:          editingItem.codigo_barras || '',
         categoria:              editingItem.categoria || undefined,
         impuesto:               Number(editingItem.impuesto) || 0,
-        send_mail:              editingItem.send_mail === true,
-        plantilla_correo:       editingItem.plantilla_correo || PLANTILLA_ALIMENTOS,
-        intensidad_horaria:     editingItem.intensidad_horaria || '',
       });
     } else {
       setTipoItem('producto'); setPrecioCompra(0); setPrecioVenta(0); setBarcodeValue('');
       form.resetFields();
       form.setFieldsValue({
         unidades_por_caja:1, stock_inicial_empaques:0, stock_minimo:5, impuesto:19,
-        send_mail:false, plantilla_correo: PLANTILLA_ALIMENTOS, intensidad_horaria:'',
       });
     }
   }, [isDrawerOpen, editingItem, form]);
@@ -573,9 +568,9 @@ function Inventario() {
         categoria: values.categoria || '',
         stock_minimo: values.stock_minimo || 0,
         impuesto: values.impuesto ?? 0,
-        send_mail: values.send_mail ? 'true' : 'false',
-        plantilla_correo: values.plantilla_correo || PLANTILLA_ALIMENTOS,
-        intensidad_horaria: values.intensidad_horaria || '',
+        // send_mail / plantilla_correo / intensidad_horaria NO se envían: el envío
+        // de documentos se activa solo en BD para servicios puntuales, y al no
+        // mandarlos el backend conserva lo que ya tenga el ítem.
       }).forEach(([k,v]) => fd.append(k, v));
 
       if (tipoItem === 'producto') {
@@ -654,14 +649,17 @@ function Inventario() {
       onFilter:(v,r)=>r.tipo_item===v,
     },
     {
+      // width mínimo: la columna mide lo que mide el nombre (sin partirlo) y la
+      // siguiente arranca pegada. El espacio sobrante se lo lleva Acciones.
       title: 'Nombre',
       key: 'nombre',
+      width: 1,
       render: (_, r) => (
         <div>
-          <span className="font-semibold text-gray-800">{r.nombre}</span>
-          {r.sku && <span className="text-xs text-gray-400 ml-2">#{r.sku}</span>}
+          <span className="font-semibold text-gray-800" style={{ whiteSpace:'nowrap' }}>{r.nombre}</span>
+          {r.sku && <span className="text-xs text-gray-400 ml-2" style={{ whiteSpace:'nowrap' }}>#{r.sku}</span>}
           {r.descripcion && (
-            <div className="text-xs text-gray-400 mt-0.5 leading-tight" style={{ maxWidth:260 }}>
+            <div className="text-xs text-gray-400 mt-0.5 leading-tight" style={{ minWidth:180, maxWidth:260 }}>
               {r.descripcion.length > 80 ? r.descripcion.slice(0,80) + '…' : r.descripcion}
             </div>
           )}
@@ -702,7 +700,7 @@ function Inventario() {
         : <span className="text-gray-300 text-xs">—</span>,
     },
     {
-      title: 'Acciones', key:'acciones', width:120, align:'center',
+      title: 'Acciones', key:'acciones', align:'left',
       render: (_,r) => (
         <Space size={4}>
           {r.tipo_item !== 'servicio' && (
@@ -925,6 +923,7 @@ function Inventario() {
                 )}}
                 pagination={{ pageSize:20, showSizeChanger:true, showTotal:(t,r)=>`${r[0]}-${r[1]} de ${t}` }}
                 scroll={{ x:900 }}
+                tableLayout="auto"
               />
             </Spin>
           </div>
@@ -1032,9 +1031,9 @@ function Inventario() {
 
           <Divider style={{ margin:'0 0 18px' }}/>
 
-          {/* 2. NOMBRE + SKU */}
+          {/* 2. NOMBRE + SKU (el SKU solo aplica a productos) */}
           <Row gutter={12}>
-            <Col span={14}>
+            <Col span={tipoItem === 'producto' ? 14 : 24}>
               <Form.Item name="nombre"
                 label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Nombre *</span>}
                 rules={[{required:true, message:'El nombre es obligatorio'}]}
@@ -1042,13 +1041,15 @@ function Inventario() {
                 <Input size="large" placeholder={tipoItem==='servicio'?'Ej: Consultoría web':'Ej: Coca Cola 350ml'}/>
               </Form.Item>
             </Col>
-            <Col span={10}>
-              <Form.Item name="sku"
-                label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>SKU</span>}
-                style={{ marginBottom:14 }}>
-                <Input size="large" placeholder="PROD-001"/>
-              </Form.Item>
-            </Col>
+            {tipoItem === 'producto' && (
+              <Col span={10}>
+                <Form.Item name="sku"
+                  label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>SKU</span>}
+                  style={{ marginBottom:14 }}>
+                  <Input size="large" placeholder="PROD-001"/>
+                </Form.Item>
+              </Col>
+            )}
           </Row>
 
           {/* 3. CÓDIGO DE BARRAS (solo productos) */}
@@ -1162,38 +1163,6 @@ function Inventario() {
           <Form.Item name="descripcion"
             label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Descripción</span>}>
             <Input.TextArea rows={3} placeholder="Detalles adicionales..."/>
-          </Form.Item>
-
-          {/* 9. DOCUMENTOS POR CORREO
-              Al vender este ítem se le pueden mandar al cliente los documentos del
-              curso. QUÉ documentos depende de la plantilla: la de alimentos trae el
-              curso impreso; la de acreditación sirve para cualquier curso (Auxiliar
-              de Bodega, Aseo Hospitalario…) y lo imprime a partir del nombre del ítem. */}
-          <Divider orientation="left" style={{ fontSize:12, fontWeight:700, color:'#155153', margin:'20px 0 16px' }}>
-            Documentos por correo
-          </Divider>
-
-          <Form.Item name="send_mail" valuePropName="checked" style={{ marginBottom:14 }}
-            label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Enviar documentos al vender 📧</span>}
-            tooltip="Aparecerá la opción de mandarle los documentos al correo del cliente">
-            <Switch />
-          </Form.Item>
-
-          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.send_mail !== cur.send_mail}>
-            {({ getFieldValue }) => getFieldValue('send_mail') ? (
-              <>
-                <Form.Item name="plantilla_correo" style={{ marginBottom:14 }}
-                  label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>¿Qué documentos?</span>}>
-                  <Select size="large" options={Object.entries(PLANTILLAS).map(([value, p]) => ({ value, label: p.label }))} />
-                </Form.Item>
-
-                <Form.Item name="intensidad_horaria" style={{ marginBottom:14 }}
-                  label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Intensidad horaria</span>}
-                  tooltip="Horas que se imprimen en el documento. Solo el número.">
-                  <Input size="large" placeholder="Ej: 40" suffix="horas"/>
-                </Form.Item>
-              </>
-            ) : null}
           </Form.Item>
 
         </Form>
