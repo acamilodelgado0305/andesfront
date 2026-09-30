@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import axios from 'axios';
 import useCurrency, { useAmount } from '../../hooks/useCurrency';
 import { formatFechaDia } from '../../utils/fechas';
+import { montoEnLetras } from '../../utils/numeroALetras';
 import { AuthContext } from '../../AuthContext';
 import { useTheme } from '../../ThemeContext';
 
@@ -33,8 +34,9 @@ const SHEET_H = 1120;
  * Los tres diseños comparten la misma maqueta (plantilla "Factura" estilo
  * Microsoft Invoicing): cenefa superior con arte geométrico + tarjeta blanca del
  * negocio, bandera con el tipo de documento, bloques PARA / EMITIDO POR,
- * INSTRUCCIONES, tabla con cabecera sólida y renglones reglados, totales
- * escalonados a la derecha y pie con dirección / teléfono / correo.
+ * tabla con cabecera sólida y renglones reglados, totales escalonados a la
+ * derecha, NOTAS (valor en letras + notas del documento) y pie con
+ * dirección / teléfono / correo.
  * Lo que cambia entre diseños es la paleta, la tipografía y los remates.
  * ────────────────────────────────────────────────────────────────────────────*/
 const THEMES = {
@@ -219,23 +221,31 @@ const Flag = ({ t, texto }) => {
 };
 
 // ─── Tabla de ítems ───────────────────────────────────────────────────────────
-const ItemsTable = ({ items, amt, t, minRows = 4 }) => {
-  const showDto = items.some((i) => Number(i.descuento) > 0);
-  const showIva = items.some((i) => Number(i.impuesto) > 0);
+// Valor del ítem = cantidad × valor unitario − descuento, SIN IVA (el `total`
+// guardado en cada línea ya trae el IVA sumado). Así la columna «Valor ítem»
+// suma el Subtotal y la columna «IVA» suma los Impuestos.
+const lineaValores = (it) => {
+  const base  = Number(it.cantidad || 0) * Number(it.precio_unitario || 0);
+  const valor = base - base * (Number(it.descuento || 0) / 100);
+  const iva   = valor * (Number(it.impuesto || 0) / 100);
+  return { valor: Math.round(valor * 100) / 100, iva: Math.round(iva * 100) / 100 };
+};
 
+const ItemsTable = ({ items, amt, t, minRows = 4 }) => {
   const cols = [
-    { k: 'cant',  h: 'Cantidad',          w: 74,   align: 'center' },
-    { k: 'desc',  h: 'Descripción',       w: null, align: 'left' },
-    { k: 'pu',    h: 'Precio por unidad', w: 118,  align: 'right' },
-    ...(showDto ? [{ k: 'dto', h: 'Dto.', w: 58, align: 'right' }] : []),
-    ...(showIva ? [{ k: 'iva', h: 'IVA',  w: 58, align: 'right' }] : []),
-    { k: 'total', h: 'Total',             w: 122,  align: 'right' },
+    { k: 'n',     h: 'Ítem',           w: 40,   align: 'center' },
+    { k: 'desc',  h: 'Descripción',    w: null, align: 'left' },
+    { k: 'pu',    h: 'Valor unitario', w: 100,  align: 'right' },
+    { k: 'cant',  h: 'Cantidad',       w: 78,   align: 'center' },
+    { k: 'dto',   h: 'Descuento',      w: 86,   align: 'center' },
+    { k: 'iva',   h: 'IVA',            w: 92,   align: 'right' },
+    { k: 'total', h: 'Valor ítem',     w: 112,  align: 'right' },
   ];
 
   const filler = Math.max(0, minRows - items.length);
 
   const cell = (align, extra = {}) => ({
-    padding: '9px 12px', textAlign: align, fontSize: 11,
+    padding: '9px 8px', textAlign: align, fontSize: 11,
     borderBottom: `1px solid ${t.hair}`, ...extra,
   });
 
@@ -248,28 +258,37 @@ const ItemsTable = ({ items, amt, t, minRows = 4 }) => {
         <tr style={{ background: t.ink }}>
           {cols.map((c) => (
             <th key={c.k} style={{
-              padding: '10px 12px', color: '#fff', fontSize: 9, fontWeight: 700,
-              letterSpacing: 1.2, textTransform: 'uppercase', textAlign: c.align,
+              padding: '10px 8px', color: '#fff', fontSize: 8.5, fontWeight: 700,
+              letterSpacing: 0.8, textTransform: 'uppercase', textAlign: c.align,
+              lineHeight: 1.3,
             }}>{c.h}</th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {items.map((it, i) => (
-          <tr key={i} style={{ background: t.zebra && i % 2 === 1 ? t.tint : '#fff' }}>
-            <td style={cell('center', { color: '#374151' })}>{it.cantidad}</td>
-            <td style={cell('left', { color: '#1f2937', fontWeight: 500 })}>{it.descripcion}</td>
-            <td style={cell('right', { color: '#4b5563' })}>{amt(it.precio_unitario)}</td>
-            {showDto && <td style={cell('right', { color: '#4b5563' })}>{Number(it.descuento) > 0 ? `${it.descuento}%` : '—'}</td>}
-            {showIva && <td style={cell('right', { color: '#4b5563' })}>{Number(it.impuesto) > 0 ? `${it.impuesto}%` : '—'}</td>}
-            <td style={cell('right', { color: '#111827', fontWeight: 700 })}>{amt(it.total)}</td>
-          </tr>
-        ))}
+        {items.map((it, i) => {
+          const { valor, iva } = lineaValores(it);
+          const pctIva = Number(it.impuesto) || 0;
+          return (
+            <tr key={i} style={{ background: t.zebra && i % 2 === 1 ? t.tint : '#fff' }}>
+              <td style={cell('center', { color: '#6b7280' })}>{i + 1}</td>
+              <td style={cell('left', { color: '#1f2937', fontWeight: 500 })}>{it.descripcion}</td>
+              <td style={cell('right', { color: '#4b5563' })}>{amt(it.precio_unitario)}</td>
+              <td style={cell('center', { color: '#374151' })}>{it.cantidad}</td>
+              <td style={cell('center', { color: '#4b5563' })}>{Number(it.descuento) || 0}%</td>
+              <td style={cell('right', { color: '#4b5563' })}>
+                {amt(iva)}
+                {pctIva > 0 && <div style={{ fontSize: 8.5, color: '#9ca3af', marginTop: 1 }}>{pctIva}%</div>}
+              </td>
+              <td style={cell('right', { color: '#111827', fontWeight: 700 })}>{amt(valor)}</td>
+            </tr>
+          );
+        })}
         {/* renglones vacíos: la plantilla mantiene la retícula aunque falten ítems */}
         {Array.from({ length: filler }).map((_, i) => (
           <tr key={`f${i}`}>
             {cols.map((c) => (
-              <td key={c.k} style={{ padding: '9px 12px', borderBottom: `1px solid ${t.hair}`, fontSize: 11 }}>&nbsp;</td>
+              <td key={c.k} style={{ padding: '9px 8px', borderBottom: `1px solid ${t.hair}`, fontSize: 11 }}>&nbsp;</td>
             ))}
           </tr>
         ))}
@@ -302,7 +321,7 @@ const TotalesBlock = ({ doc, amt, fmt, t, esFactura }) => {
       <div style={{ width: 400 }}>
         {row('Subtotal', amt(doc.subtotal))}
         {Number(doc.descuento_global) > 0 && row('Descuento', `-${amt(doc.descuento_global)}`, { danger: true })}
-        {row('Impuesto sobre las ventas', amt(doc.impuesto_total || 0))}
+        {row('Impuestos (IVA)', amt(doc.impuesto_total || 0))}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
           background: t.ink, color: '#fff', marginTop: 6,
@@ -311,7 +330,7 @@ const TotalesBlock = ({ doc, amt, fmt, t, esFactura }) => {
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', paddingRight: 16 }}>
             {esFactura ? 'Total a pagar' : 'Total cotizado'}
           </div>
-          <div style={{ width: 130, textAlign: 'right', fontSize: 15, fontWeight: 800 }}>{fmt(doc.total)}</div>
+          <div style={{ minWidth: 130, textAlign: 'right', fontSize: 15, fontWeight: 800, whiteSpace: 'nowrap' }}>{fmt(doc.total)}</div>
         </div>
       </div>
     </div>
@@ -419,12 +438,12 @@ const Footer = ({ biz, t }) => {
 };
 
 // ─── Hoja completa ────────────────────────────────────────────────────────────
-const Sheet = ({ doc, items, biz, amt, fmt, t }) => {
+const Sheet = ({ doc, items, biz, amt, fmt, t, country }) => {
   const esFactura = (doc.tipo || 'FACTURA') === 'FACTURA';
   const titulo    = esFactura ? 'FACTURA' : 'COTIZACIÓN';
   const cliente   = doc.persona_nombre || doc.cliente_nombre || 'Sin especificar';
   const est       = estadoStyle(doc.estado);
-  const instrucciones = [doc.notas, doc.condiciones].filter(Boolean);
+  const notas     = [doc.notas, doc.condiciones].filter(Boolean);
 
   const metaRow = (label, value) => (
     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 4 }}>
@@ -498,19 +517,6 @@ const Sheet = ({ doc, items, biz, amt, fmt, t }) => {
 
         <Rule t={t} />
 
-        {/* Instrucciones */}
-        {instrucciones.length > 0 && (
-          <>
-            <div style={{ padding: '12px 0 12px' }}>
-              <Label t={t} style={{ marginBottom: 6 }}>Instrucciones</Label>
-              {instrucciones.map((txt, i) => (
-                <div key={i} style={{ fontSize: 10.5, color: '#374151', lineHeight: 1.75, whiteSpace: 'pre-line' }}>{txt}</div>
-              ))}
-            </div>
-            <Rule t={t} />
-          </>
-        )}
-
         {/* Tabla */}
         <div style={{ marginTop: 18, borderRadius: t.radius ? t.radius - 4 : 0, overflow: 'hidden' }}>
           <ItemsTable items={items} amt={amt} t={t} />
@@ -521,6 +527,18 @@ const Sheet = ({ doc, items, biz, amt, fmt, t }) => {
         </div>
 
         <AbonosBlock doc={doc} amt={amt} fmt={fmt} t={t} />
+
+        {/* Notas: siempre el valor en letras + las notas/condiciones del documento */}
+        <div style={{ marginTop: 22 }}>
+          <Label t={t} style={{ marginBottom: 6 }}>Notas</Label>
+          <Rule t={t} />
+          <div style={{ fontSize: 10.5, color: '#1f2937', lineHeight: 1.75, marginTop: 8 }}>
+            <strong>Son:</strong> {montoEnLetras(doc.total, country)}
+          </div>
+          {notas.map((txt, i) => (
+            <div key={i} style={{ fontSize: 10.5, color: '#374151', lineHeight: 1.75, whiteSpace: 'pre-line', marginTop: 4 }}>{txt}</div>
+          ))}
+        </div>
 
         {/* Cierre + pie */}
         <div style={{ marginTop: 'auto' }}>
@@ -681,7 +699,7 @@ const FacturaViewer = ({ open, onClose, doc }) => {
             boxShadow: '0 4px 20px rgba(0,0,0,0.14)', margin: '0 auto',
           }}
         >
-          <Sheet doc={doc} items={items} biz={bizInfo} amt={amt} fmt={fmt} t={t} />
+          <Sheet doc={doc} items={items} biz={bizInfo} amt={amt} fmt={fmt} t={t} country={user?.country || 'CO'} />
         </div>
       </div>
     </Modal>
