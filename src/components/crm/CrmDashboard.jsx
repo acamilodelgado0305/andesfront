@@ -177,11 +177,15 @@ function CrmDashboard() {
   // ── Filtros (cliente) ──
   const rows = useMemo(() => items.filter(it => {
     const matchE = filterEstado === 'todos' || it.estado === filterEstado;
-    const q = searchTerm.toLowerCase();
+    const q = searchTerm.trim().toLowerCase();
+    // Documento: se compara solo por dígitos para que "1.234.567" encuentre "1234567"
+    const qDigits = q.replace(/\D/g, '');
     const matchQ = !q || it.nombre?.toLowerCase().includes(q)
       || it.empresa?.toLowerCase().includes(q)
       || it.email?.toLowerCase().includes(q)
-      || it.telefono?.toLowerCase().includes(q);
+      || it.telefono?.toLowerCase().includes(q)
+      || String(it.numero_documento || '').toLowerCase().includes(q)
+      || (qDigits && String(it.numero_documento || '').replace(/\D/g, '').includes(qDigits));
     return matchE && matchQ;
   }), [items, filterEstado, searchTerm]);
 
@@ -609,7 +613,7 @@ function CrmDashboard() {
       {/* FILTROS */}
       <div className={`flex ${isMobile ? 'flex-col' : 'flex-wrap'} gap-2 mb-4`}>
         <Input
-          placeholder="Buscar nombre, empresa, email, teléfono..."
+          placeholder="Buscar nombre, documento, empresa, email, teléfono..."
           prefix={<SearchOutlined className="text-gray-400" />}
           value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
           allowClear className={isMobile ? 'w-full' : 'w-full md:w-80'}
