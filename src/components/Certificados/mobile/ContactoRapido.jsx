@@ -38,10 +38,10 @@ const ContactoRapido = ({ value, onChange }) => {
   if (value) {
     return (
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12,
-        border: '1.5px solid #16a34a', background: 'rgba(22,163,74,0.08)',
+        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 14,
+        border: '1.5px solid var(--qc-text)', background: 'var(--qc-surface)',
       }}>
-        <UserOutlined style={{ color: '#16a34a', fontSize: 16 }} />
+        <UserOutlined style={{ color: 'var(--qc-text)', fontSize: 16 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--qc-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {`${value.nombre || ''} ${value.apellido || ''}`.trim() || 'Cliente'}
@@ -74,9 +74,9 @@ const ContactoRapido = ({ value, onChange }) => {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           allowClear
-          style={{ fontSize: 16, borderRadius: 12 }}
+          style={{ fontSize: 16, borderRadius: 14 }}
         />
-        <Button size="large" icon={<UserAddOutlined />} onClick={() => setCrearAbierto(true)} style={{ borderRadius: 12 }}>
+        <Button size="large" icon={<UserAddOutlined />} onClick={() => setCrearAbierto(true)} style={{ borderRadius: 14 }}>
           Crear
         </Button>
       </div>
@@ -92,8 +92,8 @@ const ContactoRapido = ({ value, onChange }) => {
               onClick={() => elegir(p)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-                padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
-                border: '1px solid var(--qc-border)', background: 'var(--qc-surface)',
+                padding: '10px 12px', borderRadius: 14, cursor: 'pointer',
+                border: 'none', background: 'var(--qc-surface)',
               }}
             >
               <UserOutlined style={{ color: 'var(--qc-text-muted)' }} />
@@ -116,7 +116,7 @@ const ContactoRapido = ({ value, onChange }) => {
       {!cargando && q.trim().length >= 2 && lista.length === 0 && (
         <div style={{ fontSize: 12.5, color: 'var(--qc-text-muted)', textAlign: 'center', padding: '10px 0 2px' }}>
           Sin resultados ·{' '}
-          <a onClick={() => setCrearAbierto(true)} style={{ color: '#16a34a', fontWeight: 600 }}>crear contacto</a>
+          <a onClick={() => setCrearAbierto(true)} style={{ color: 'var(--qc-text)', fontWeight: 700, textDecoration: 'underline' }}>crear contacto</a>
         </div>
       )}
 

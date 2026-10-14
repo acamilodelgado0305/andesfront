@@ -123,6 +123,27 @@ export const formatAmountShort = (value, countryCode) => {
   }).format(n);
 };
 
+/**
+ * Monto compacto para espacios mínimos (barras del celular): "717K", "1,48M".
+ * Por debajo de mil se muestra completo. El separador decimal es el del país.
+ */
+export const formatAmountCompact = (value, countryCode) => {
+  const { decimal } = getSeparators(countryCode);
+  const n = Number(value);
+  const v = Number.isFinite(n) ? n : 0;
+  const abs = Math.abs(v);
+  const signo = v < 0 ? '-' : '';
+  // Solo se quitan los ceros DESPUÉS del punto decimal ("1.50" → "1.5", "100" queda "100").
+  const corto = (x, dec) => {
+    const s = x.toFixed(dec);
+    return (s.includes('.') ? s.replace(/\.?0+$/, '') : s).replace('.', decimal);
+  };
+  if (abs >= 1e9) return `${signo}${corto(abs / 1e9, abs < 1e10 ? 2 : 1)}B`;
+  if (abs >= 1e6) return `${signo}${corto(abs / 1e6, abs < 1e7 ? 2 : abs < 1e8 ? 1 : 0)}M`;
+  if (abs >= 1e3) return `${signo}${corto(abs / 1e3, abs < 1e4 ? 1 : 0)}K`;
+  return formatAmountShort(v, countryCode);
+};
+
 // ---------------------------------------------------------------------------
 // MONTO TECLEADO — campo de texto grande del registro rápido (celular)
 //

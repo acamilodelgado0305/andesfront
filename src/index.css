@@ -30,7 +30,15 @@
 .qc-dictando { animation: qc-pulso-dictado 1.4s ease-out infinite; }
 
 /* Filas de Movimientos en el celular: respuesta al toque (no hay hover). */
-.qc-mov-fila:active { background: var(--qc-surface-2); }
+.qc-mov-fila:active { background: var(--qc-relleno); }
+
+/* Fecha elegida a mano en el registro rápido: pastilla invertida (como las
+   demás opciones elegidas), así que el texto va del color del fondo. */
+.qc-fecha-elegida input { color: var(--qc-bg) !important; font-weight: 700; }
+
+/* Fila de barras por etiqueta: se desliza de lado sin mostrar la barra de scroll. */
+.qc-sin-scrollbar { scrollbar-width: none; }
+.qc-sin-scrollbar::-webkit-scrollbar { display: none; }
 
 /* ===========================================================================
    TEMA / MODO OSCURO
@@ -50,6 +58,10 @@
   --qc-text-muted: #6b7280;/* texto secundario */
   --qc-azul: #1d4ed8;      /* azul de marca para texto/bordes de "elegido" */
   --qc-azul-suave: rgba(29, 78, 216, 0.10); /* fondo de "elegido" */
+  /* Rellenos neutros (vista móvil de Movimientos, estilo MonAi): un gris que
+     funciona sobre cualquier fondo porque es transparente. */
+  --qc-relleno: rgba(0, 0, 0, 0.05);
+  --qc-relleno-fuerte: rgba(0, 0, 0, 0.09);
 }
 
 /* Paleta de modo oscuro estilo Claude: tonos cálidos (carbón/tierra),
@@ -64,6 +76,8 @@ html.dark {
   --qc-accent: #d97757;    /* terracota Claude (acento opcional) */
   --qc-azul: #7aa7ff;      /* el azul de marca no se lee sobre fondo oscuro */
   --qc-azul-suave: rgba(122, 167, 255, 0.16);
+  --qc-relleno: rgba(255, 255, 255, 0.07);
+  --qc-relleno-fuerte: rgba(255, 255, 255, 0.13);
 }
 
 html.dark body {

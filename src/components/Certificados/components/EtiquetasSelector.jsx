@@ -29,12 +29,37 @@ const COLOR_POR_DEFECTO = '#475569';
 
 const anillo = (color) => `0 0 0 2px var(--qc-surface), 0 0 0 4px ${color}`;
 
+// Nombres que empiezan con emoji ("🍔 Comida") no necesitan el punto de color.
+const empiezaConEmoji = (nombre = '') => /^\p{Extended_Pictographic}/u.test(String(nombre).trim());
+
 // Chip de color sólido con texto blanco. Se usa igual en el formulario, la
 // tabla y las tarjetas del celular.
-export const EtiquetaChip = ({ nombre, color, size = 'md', selected = false, dimmed = false, onClick, title }) => {
+//
+// `sutil`: versión sobria para la vista del celular (estilo MonAi): fondo
+// neutro del tema y solo un punto con el color de la etiqueta. Se lee igual de
+// bien en claro y en oscuro.
+export const EtiquetaChip = ({ nombre, color, size = 'md', selected = false, dimmed = false, onClick, title, sutil = false }) => {
   const fondo = color || COLOR_POR_DEFECTO;
   const chico = size === 'sm';
   const Elemento = onClick ? 'button' : 'span';
+
+  const estilo = sutil
+    ? {
+      background: 'var(--qc-surface-2)',
+      color: 'var(--qc-text)',
+      borderRadius: chico ? 6 : 18,
+      padding: chico ? '1px 8px' : '6px 13px',
+      fontWeight: selected ? 700 : 500,
+      boxShadow: selected ? '0 0 0 1.5px var(--qc-text)' : 'none',
+    }
+    : {
+      background: fondo,
+      color: '#fff',
+      borderRadius: chico ? 5 : 7,
+      padding: chico ? '1px 8px' : '5px 12px',
+      fontWeight: 600,
+      boxShadow: selected ? anillo(fondo) : 'none',
+    };
 
   return (
     <Elemento
@@ -47,22 +72,20 @@ export const EtiquetaChip = ({ nombre, color, size = 'md', selected = false, dim
         alignItems: 'center',
         gap: 6,
         maxWidth: '100%',
-        background: fondo,
-        color: '#fff',
         border: 'none',
-        borderRadius: chico ? 5 : 7,
-        padding: chico ? '1px 8px' : '5px 12px',
         fontSize: chico ? 12 : 14,
-        fontWeight: 600,
         lineHeight: chico ? '20px' : '22px',
         cursor: onClick ? 'pointer' : 'default',
         opacity: dimmed ? 0.45 : 1,
-        boxShadow: selected ? anillo(fondo) : 'none',
         transition: 'opacity .15s, box-shadow .15s',
         whiteSpace: 'nowrap',
+        ...estilo,
       }}
     >
       {selected && <CheckOutlined style={{ fontSize: chico ? 10 : 12 }} />}
+      {sutil && !selected && !empiezaConEmoji(nombre) && (
+        <span aria-hidden style={{ width: 8, height: 8, borderRadius: '50%', background: fondo, flexShrink: 0 }} />
+      )}
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombre}</span>
     </Elemento>
   );
@@ -138,7 +161,7 @@ const ordenar = (lista) => [...lista].sort((a, b) => a.nombre.localeCompare(b.no
  * onCambios: se llama cuando se crea, edita o elimina una etiqueta, para que
  * quien lo use refresque lo que muestra (p. ej. la tabla de gastos).
  */
-const EtiquetasSelector = ({ value, onChange, onCambios }) => {
+const EtiquetasSelector = ({ value, onChange, onCambios, sutil = false }) => {
   const [etiquetas, setEtiquetas] = useState([]);
   const [cargando, setCargando]   = useState(true);
   const [abierto, setAbierto]     = useState(false);
@@ -272,6 +295,7 @@ const EtiquetasSelector = ({ value, onChange, onCambios }) => {
           key={e.id}
           nombre={e.nombre}
           color={e.color}
+          sutil={sutil}
           selected={value === e.id}
           // Con una elegida, las demás se apagan para que se note cuál es.
           dimmed={value != null && value !== e.id}
@@ -292,6 +316,7 @@ const EtiquetasSelector = ({ value, onChange, onCambios }) => {
           icon={<PlusOutlined />}
           title="Crear, editar o eliminar etiquetas"
           aria-label="Crear, editar o eliminar etiquetas"
+          shape={sutil ? 'circle' : undefined}
           style={{ width: 34, height: 34 }}
         />
       </Popover>

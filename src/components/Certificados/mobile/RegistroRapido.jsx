@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, DatePicker, Input, Modal, message } from 'antd';
+import { DatePicker, Input, Modal, Switch, message } from 'antd';
 import {
   AudioOutlined, CalendarOutlined, CloseOutlined, DeleteOutlined, DownOutlined,
-  ExportOutlined, MailOutlined, ThunderboltFilled, UpOutlined,
+  ExportOutlined, MailOutlined, ThunderboltFilled, UpOutlined, WarningOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -10,8 +10,18 @@ import BottomSheet from '../../common/BottomSheet';
 import EtiquetasSelector from '../components/EtiquetasSelector';
 import ComprobanteAdjunto, { sincronizarComprobante } from '../components/ComprobanteAdjunto';
 import ContactoRapido from './ContactoRapido';
+import { BotonPrincipal, ChipOpcion, CORAL, PuntoSigno } from './piezas';
 import { cuentaOptions } from '../options';
-import { itemEnviaCorreo } from '../envioDocumentos';
+import {
+  PLANTILLAS,
+  construirEnvio,
+  enviarDocumentosPorCorreo,
+  fechaExpedicionPorDefecto,
+  intensidadDeItem,
+  itemEnviaCorreo,
+  periodoPorDefecto,
+  plantillaDeItem,
+} from '../envioDocumentos';
 import { conceptoDe, itemsDe } from '../movimientos';
 import {
   capitalizar, interpretarMovimiento, normalizar, sugerirEtiqueta, sugerirProducto,
@@ -22,7 +32,8 @@ import {
   createIngreso, updateIngreso, deleteIngreso, subirComprobanteIngreso, quitarComprobanteIngreso,
 } from '../../../services/controlapos/posService';
 
-export const COLOR_TIPO = { gasto: '#dc2626', ingreso: '#16a34a' };
+// Backend académico (andesback): ahí viven los endpoints que envían los documentos.
+const API_CERT_URL = import.meta.env.VITE_API_BACKEND;
 
 // En monedas de unidad pequeña un número suelto menor a esto no es plata:
 // "cuota 3 de 12" no es un gasto de 12 pesos.
@@ -42,26 +53,11 @@ const Etiqueta = ({ children }) => (
   </div>
 );
 
-// Botón tipo "pastilla" para elegir una opción con el pulgar. Sin `color`
-// usa el azul de marca del tema (más claro en modo oscuro para que se lea).
-const Chip = ({ activo, color, onClick, children, style }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-pressed={activo}
-    style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
-      minHeight: 38, padding: '0 14px', borderRadius: 19, cursor: 'pointer',
-      fontSize: 14, fontWeight: activo ? 700 : 500, whiteSpace: 'nowrap',
-      border: `1.5px solid ${activo ? (color || 'var(--qc-azul)') : 'var(--qc-border)'}`,
-      background: activo ? (color ? `${color}1f` : 'var(--qc-azul-suave)') : 'var(--qc-surface)',
-      color: activo ? (color || 'var(--qc-azul)') : 'var(--qc-text)',
-      transition: 'background .12s, border-color .12s',
-      ...style,
-    }}
-  >
-    {children}
-  </button>
+const Aviso = ({ children }) => (
+  <div style={{ display: 'flex', gap: 8, marginTop: 8, fontSize: 13, color: 'var(--qc-text)' }}>
+    <WarningOutlined style={{ color: '#d97706', marginTop: 2 }} />
+    <span>{children}</span>
+  </div>
 );
 
 /**
@@ -70,8 +66,10 @@ const Chip = ({ activo, color, onClick, children, style }) => (
  * descripción y sugiere la etiqueta (aprende de los gastos anteriores). Todo
  * queda editable antes de guardar. También sirve para editar uno existente.
  *
- * Lo poco común (cliente, documento soporte, varios productos, envío de
- * certificados) sigue disponible: en "Más detalles" o en el formulario completo.
+ * Si se vende un producto del inventario que envía certificado por correo, aquí
+ * mismo se elige el cliente y se envía al guardar (igual que en el formulario
+ * completo). Lo poco común (documento soporte, varios productos) queda en "Más
+ * detalles" o en el formulario completo.
  */
 const RegistroRapido = ({
   open,
@@ -87,7 +85,7 @@ const RegistroRapido = ({
   onGuardado,
   onAbrirCompleto,
   onEtiquetasCambiaron,
-  envio,                     // useEnvioDocumentos (certificados por correo)
+  envio,                     // useEnvioDocumentos (reenviar certificados de una venta guardada)
   dictado,                   // useDictado
   receptorDictado,           // ref: el dictado iniciado afuera escribe aquí
   entradaPrevia,             // ref: campo puente que abrió el teclado del iPhone
@@ -115,6 +113,10 @@ const RegistroRapido = ({
   const [masAbierto, setMasAbierto] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [buscarProducto, setBuscarProducto] = useState('');
+  // Envío de los documentos del curso al guardar (producto con correo activo).
+  const [enviarCorreo, setEnviarCorreo] = useState(true);
+  const [periodoCurso, setPeriodoCurso] = useState(() => periodoPorDefecto());
+  const [horasCurso, setHorasCurso] = useState('');
 
   // Lo que el usuario cambió a mano ya no lo toca la interpretación del texto.
   const tocado = useRef({});
@@ -137,6 +139,8 @@ const RegistroRapido = ({
     setArchivo(null);
     setGuardando(false);
     setBuscarProducto('');
+    setEnviarCorreo(true);
+    setHorasCurso('');
 
     if (esEdicion) {
       const r = registro.raw;
@@ -160,6 +164,7 @@ const RegistroRapido = ({
       } : null);
       setComprobanteUrl(r.comprobante_url || null);
       setMasAbierto(!!r.comprobante_url || (t === 'ingreso' && !!r.persona_id));
+      setPeriodoCurso(periodoPorDefecto(r.createdAt));
       return;
     }
 
@@ -180,6 +185,7 @@ const RegistroRapido = ({
     setPersona(null);
     setComprobanteUrl(null);
     setMasAbierto(false);
+    setPeriodoCurso(periodoPorDefecto());
   }, [open, registro]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enfocar cuando la hoja termina de abrir (solo al crear): durante la
@@ -218,7 +224,7 @@ const RegistroRapido = ({
     }
   };
 
-  // El dictado que se inicia desde la barra de abajo escribe aquí.
+  // El dictado que se inicia desde el botón del micrófono escribe aquí.
   useEffect(() => { if (receptorDictado) receptorDictado.current = cambiarTexto; });
 
   // Al salir del texto, el valor que venía en él pasa al campo del monto.
@@ -266,7 +272,10 @@ const RegistroRapido = ({
     tocado.current.fecha = true;
     // Se conserva la hora actual para que el orden dentro del día sea natural.
     const ahora = dayjs();
-    setFecha(d.hour(ahora.hour()).minute(ahora.minute()).second(ahora.second()));
+    const nueva = d.hour(ahora.hour()).minute(ahora.minute()).second(ahora.second());
+    setFecha(nueva);
+    // El periodo del curso cierra la víspera de la venta: se corre con la fecha.
+    setPeriodoCurso(periodoPorDefecto(nueva));
   };
 
   const dictar = () => {
@@ -276,8 +285,13 @@ const RegistroRapido = ({
   };
 
   // ── Datos derivados ──
-  const color = COLOR_TIPO[tipo];
   const producto = tipo === 'ingreso' ? inventario.find((i) => String(i.id) === String(productoId)) : null;
+  // ¿El producto vendido envía documentos por correo? (se activa en el inventario)
+  const certificable = !esEdicion && !!producto && itemEnviaCorreo(producto);
+  const configCorreo = PLANTILLAS[plantillaDeItem(producto)];
+  const clienteTieneCorreo = !!persona?.email;
+  const enviaraCorreo = certificable && enviarCorreo;
+
   const interpretado = leer(texto);
   const pista = (() => {
     const partes = [];
@@ -306,6 +320,25 @@ const RegistroRapido = ({
   const esHoy = fecha.isSame(hoy, 'day');
   const esAyer = fecha.isSame(hoy.subtract(1, 'day'), 'day');
 
+  // Documentos del curso al correo del cliente (misma lógica del formulario completo).
+  const enviarDocumentos = async () => {
+    const datos = construirEnvio({
+      plantilla: plantillaDeItem(producto),
+      cliente: {
+        nombre: `${persona.nombre || ''} ${persona.apellido || ''}`.trim(),
+        numeroDocumento: persona.numero_documento || '0',
+        tipoDocumento: persona.tipo_documento || 'C.C.',
+        email: persona.email,
+      },
+      curso: producto?.nombre,
+      intensidadHoraria: horasCurso || intensidadDeItem(producto),
+      periodo: periodoCurso,
+      fechaExpedicion: fechaExpedicionPorDefecto(fecha),
+    });
+    await enviarDocumentosPorCorreo(API_CERT_URL, datos);
+    return datos.documentos;
+  };
+
   // ── Guardar ──
   const guardar = async () => {
     if (guardando) return;
@@ -314,6 +347,16 @@ const RegistroRapido = ({
       montoRef.current?.focus();
       return;
     }
+    // Se pidió enviar el certificado: sin cliente con correo no hay a quién.
+    if (enviaraCorreo && !persona) {
+      message.warning(`Elige el cliente para enviarle el ${configCorreo.documentos}, o desactiva el envío.`);
+      return;
+    }
+    if (enviaraCorreo && !clienteTieneCorreo) {
+      message.warning('El cliente no tiene correo. Agrégaselo en Contactos o desactiva el envío.');
+      return;
+    }
+
     const p = leer(texto);
     const base = (!tocado.current.valor && p.valor != null ? p.descripcion : texto).trim();
     const etiqueta = tipo === 'gasto' ? etiquetas.find((e) => e.id === etiquetaId) : null;
@@ -383,6 +426,20 @@ const RegistroRapido = ({
       recordarCuenta(tipo, cuenta);
       message.success(esEdicion ? 'Cambios guardados' : (tipo === 'gasto' ? 'Gasto registrado' : 'Ingreso registrado'));
       if (falla) message.warning(`Se guardó, pero ${falla}`, 6);
+
+      // Certificado al correo: la venta ya quedó guardada pase lo que pase.
+      if (enviaraCorreo) {
+        const ocultar = message.loading(`Enviando ${configCorreo.documentos} a ${persona.email}…`, 0);
+        try {
+          const documentos = await enviarDocumentos();
+          message.success(`Se enviaron ${documentos} a ${persona.email}`);
+        } catch (mailErr) {
+          message.warning(`El ingreso se guardó, pero no se pudieron enviar los documentos: ${mailErr.message}`, 8);
+        } finally {
+          ocultar();
+        }
+      }
+
       onGuardado?.(tipo);
       onClose();
     } catch (err) {
@@ -428,6 +485,9 @@ const RegistroRapido = ({
     ? (tipo === 'gasto' ? 'Editar gasto' : 'Editar ingreso')
     : (tipo === 'gasto' ? 'Nuevo gasto' : 'Nuevo ingreso');
 
+  // El cliente va en el bloque del certificado cuando se va a enviar; si no, en "Más detalles".
+  const clienteEnCertificado = certificable && enviarCorreo;
+
   return (
     <BottomSheet
       open={open}
@@ -444,7 +504,7 @@ const RegistroRapido = ({
             onClick={onClose}
             style={{
               width: 34, height: 34, borderRadius: '50%', border: 'none', cursor: 'pointer',
-              background: 'var(--qc-surface-2)', color: 'var(--qc-text)', display: 'flex',
+              background: 'var(--qc-relleno)', color: 'var(--qc-text)', display: 'flex',
               alignItems: 'center', justifyContent: 'center', fontSize: 14,
             }}
           >
@@ -454,27 +514,14 @@ const RegistroRapido = ({
         </span>
       )}
       extra={(
-        <Button
-          type="primary"
-          shape="round"
-          loading={guardando}
-          onClick={guardar}
-          style={{ background: color, borderColor: color, fontWeight: 600 }}
-        >
+        <BotonPrincipal onClick={guardar} cargando={guardando} style={{ height: 36, padding: '0 18px', borderRadius: 18, fontSize: 14 }}>
           Guardar
-        </Button>
+        </BotonPrincipal>
       )}
       footer={(
-        <Button
-          block
-          type="primary"
-          size="large"
-          loading={guardando}
-          onClick={guardar}
-          style={{ height: 50, borderRadius: 14, fontWeight: 700, fontSize: 16, background: color, borderColor: color }}
-        >
+        <BotonPrincipal onClick={guardar} cargando={guardando} style={{ width: '100%', height: 52, borderRadius: 16, fontSize: 16 }}>
           {esEdicion ? 'Guardar cambios' : (tipo === 'gasto' ? 'Guardar gasto' : 'Guardar ingreso')}
-        </Button>
+        </BotonPrincipal>
       )}
     >
       {contextoModal}
@@ -483,7 +530,7 @@ const RegistroRapido = ({
       {!esEdicion && (
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: 4,
-          borderRadius: 14, background: 'var(--qc-surface-2)',
+          borderRadius: 16, background: 'var(--qc-relleno)',
         }}>
           {['gasto', 'ingreso'].map((t) => (
             <button
@@ -492,23 +539,24 @@ const RegistroRapido = ({
               onClick={() => cambiarTipo(t)}
               aria-pressed={tipo === t}
               style={{
-                height: 40, borderRadius: 11, border: 'none', cursor: 'pointer',
-                fontSize: 15, fontWeight: 700,
-                background: tipo === t ? COLOR_TIPO[t] : 'transparent',
-                color: tipo === t ? '#fff' : 'var(--qc-text-muted)',
-                transition: 'background .15s, color .15s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                height: 42, borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 15, fontWeight: 700,
+                background: tipo === t ? 'var(--qc-surface)' : 'transparent',
+                boxShadow: tipo === t ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                color: tipo === t ? 'var(--qc-text)' : 'var(--qc-text-muted)',
               }}
             >
-              {t === 'gasto' ? '− Gasto' : '+ Ingreso'}
+              <PuntoSigno tipo={t} size={16} />
+              {t === 'gasto' ? 'Gasto' : 'Ingreso'}
             </button>
           ))}
         </div>
       )}
 
       {/* ── Valor ── */}
-      <div style={{ textAlign: 'center', padding: '14px 0 4px' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--qc-text-muted)', letterSpacing: 1 }}>
-          {codigo}
+      <div style={{ textAlign: 'center', padding: '16px 0 4px' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--qc-text-muted)', letterSpacing: 1 }}>
+          <PuntoSigno tipo={tipo} size={15} /> {codigo}
         </div>
         <input
           ref={montoRef}
@@ -526,8 +574,8 @@ const RegistroRapido = ({
           }}
           style={{
             width: '100%', border: 'none', outline: 'none', background: 'transparent',
-            textAlign: 'center', fontSize: 44, fontWeight: 800, lineHeight: 1.15,
-            color, fontVariantNumeric: 'tabular-nums', padding: 0,
+            textAlign: 'center', fontSize: 46, fontWeight: 800, lineHeight: 1.15, letterSpacing: -1,
+            color: 'var(--qc-text)', fontVariantNumeric: 'tabular-nums', padding: 0,
           }}
         />
       </div>
@@ -535,8 +583,7 @@ const RegistroRapido = ({
       {/* ── Texto libre (escribir o dictar) ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6, marginTop: 8,
-        padding: '2px 4px 2px 14px', borderRadius: 14,
-        border: '1.5px solid var(--qc-border)', background: 'var(--qc-surface)',
+        padding: '2px 4px 2px 16px', borderRadius: 18, background: 'var(--qc-relleno)',
       }}>
         <input
           ref={textoRef}
@@ -550,7 +597,7 @@ const RegistroRapido = ({
           placeholder={tipo === 'gasto' ? '¿En qué? Ej: almuerzo 25.000' : '¿De qué? Ej: venta curso 80.000'}
           style={{
             flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
-            fontSize: 16, padding: '12px 0', color: 'var(--qc-text)',
+            fontSize: 16, padding: '13px 0', color: 'var(--qc-text)',
           }}
         />
         {dictado?.disponible && (
@@ -562,7 +609,7 @@ const RegistroRapido = ({
             style={{
               width: 42, height: 42, borderRadius: '50%', border: 'none', cursor: 'pointer', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-              background: dictado.escuchando ? '#dc2626' : 'var(--qc-surface-2)',
+              background: dictado.escuchando ? CORAL : 'transparent',
               color: dictado.escuchando ? '#fff' : 'var(--qc-text)',
             }}
           >
@@ -572,8 +619,8 @@ const RegistroRapido = ({
       </div>
       <div style={{ minHeight: 18, marginTop: 6, fontSize: 12.5, color: 'var(--qc-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
         {dictado?.escuchando
-          ? <span style={{ color: '#dc2626', fontWeight: 600 }}>Escuchando… di por ejemplo “almuerzo 25 mil”</span>
-          : pista && (<><ThunderboltFilled style={{ color: '#f59e0b' }} /> {pista}</>)}
+          ? <span style={{ color: 'var(--qc-text)', fontWeight: 600 }}>Escuchando… di por ejemplo “almuerzo 25 mil”</span>
+          : pista && (<><ThunderboltFilled /> {pista}</>)}
       </div>
 
       {/* ── Etiqueta (gastos) ── */}
@@ -581,6 +628,7 @@ const RegistroRapido = ({
         <>
           <Etiqueta>Etiqueta</Etiqueta>
           <EtiquetasSelector
+            sutil
             value={etiquetaId}
             onChange={(id) => setEtiquetaManual(id ?? null)}
             onCambios={onEtiquetasCambiaron}
@@ -598,69 +646,121 @@ const RegistroRapido = ({
               placeholder="Buscar en el inventario"
               value={buscarProducto}
               onChange={(e) => setBuscarProducto(e.target.value)}
-              style={{ marginBottom: 8, borderRadius: 12, fontSize: 16 }}
+              style={{ marginBottom: 8, borderRadius: 14, fontSize: 16 }}
             />
           )}
-          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -18px', padding: '0 18px 4px' }}>
-            {productosOrdenados.map((item) => (
-              <Chip
-                key={item.id}
-                activo={String(productoId) === String(item.id)}
-                color={COLOR_TIPO.ingreso}
-                onClick={() => elegirProducto(item)}
-              >
-                <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nombre}</span>
-                {Number(item.monto) > 0 && (
-                  <span style={{ fontSize: 12, opacity: 0.7, fontWeight: 500 }}>{montoCorto(item.monto)}</span>
-                )}
-              </Chip>
-            ))}
+          <div className="qc-sin-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -18px', padding: '0 18px 4px' }}>
+            {productosOrdenados.map((item) => {
+              const activo = String(productoId) === String(item.id);
+              return (
+                <ChipOpcion key={item.id} activo={activo} onClick={() => elegirProducto(item)}>
+                  <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nombre}</span>
+                  {itemEnviaCorreo(item) && <MailOutlined style={{ fontSize: 12, opacity: 0.7 }} />}
+                  {Number(item.monto) > 0 && (
+                    <span style={{ fontSize: 12, opacity: 0.65, fontWeight: 500 }}>{montoCorto(item.monto)}</span>
+                  )}
+                </ChipOpcion>
+              );
+            })}
             {productosOrdenados.length === 0 && (
               <span style={{ fontSize: 13, color: 'var(--qc-text-muted)' }}>Sin coincidencias</span>
             )}
           </div>
-          {producto && itemEnviaCorreo(producto) && !esEdicion && (
-            <div style={{
-              marginTop: 10, padding: '10px 12px', borderRadius: 12, fontSize: 13,
-              background: 'rgba(29,78,216,0.08)', color: 'var(--qc-text)',
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <MailOutlined style={{ color: 'var(--qc-azul)', fontSize: 16 }} />
-              <span style={{ flex: 1 }}>Este producto envía certificado por correo. Para elegir el cliente y enviarlo, usa el formulario completo.</span>
-              <Button size="small" onClick={abrirCompleto}>Abrir</Button>
-            </div>
-          )}
         </>
+      )}
+
+      {/* ── Certificado por correo (producto con envío activo) ── */}
+      {certificable && (
+        <div style={{ marginTop: 16, padding: 14, borderRadius: 18, background: 'var(--qc-relleno)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+            <Switch checked={enviarCorreo} onChange={setEnviarCorreo} />
+            <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--qc-text)', lineHeight: 1.3 }}>
+              <MailOutlined /> Enviar {configCorreo.documentos} al correo del cliente
+            </span>
+          </label>
+
+          {enviarCorreo && (
+            <>
+              <Etiqueta>Cliente</Etiqueta>
+              <ContactoRapido value={persona} onChange={setPersona} />
+              {persona && !clienteTieneCorreo && (
+                <Aviso>Este cliente no tiene correo. Agrégaselo en Contactos o elige otro.</Aviso>
+              )}
+              {persona && clienteTieneCorreo && (
+                <div style={{ marginTop: 8, fontSize: 13, color: 'var(--qc-text-muted)' }}>
+                  Se envían a <b style={{ color: 'var(--qc-text)' }}>{persona.email}</b> al guardar.
+                </div>
+              )}
+
+              {/* El diploma imprime periodo y horas; la plantilla de alimentos los trae impresos. */}
+              {configCorreo.pidePeriodo && (
+                <>
+                  <Etiqueta>Periodo del curso</Etiqueta>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <DatePicker
+                      inputReadOnly
+                      allowClear={false}
+                      format="DD/MM/YYYY"
+                      placeholder="Inicio"
+                      value={periodoCurso?.[0]}
+                      onChange={(d) => d && setPeriodoCurso(([, fin]) => [d, fin])}
+                      style={{ flex: 1, height: 42, borderRadius: 14 }}
+                    />
+                    <DatePicker
+                      inputReadOnly
+                      allowClear={false}
+                      format="DD/MM/YYYY"
+                      placeholder="Fin"
+                      value={periodoCurso?.[1]}
+                      onChange={(d) => d && setPeriodoCurso(([ini]) => [ini, d])}
+                      style={{ flex: 1, height: 42, borderRadius: 14 }}
+                    />
+                  </div>
+                  <Etiqueta>Intensidad horaria</Etiqueta>
+                  <Input
+                    inputMode="numeric"
+                    placeholder={intensidadDeItem(producto)}
+                    value={horasCurso}
+                    onChange={(e) => setHorasCurso(e.target.value)}
+                    suffix="horas"
+                    style={{ borderRadius: 14, fontSize: 16 }}
+                  />
+                </>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {/* ── Cuenta ── */}
       <Etiqueta>{tipo === 'gasto' ? 'Pagado con' : 'Recibido en'}</Etiqueta>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {cuentaOptions.map((c) => (
-          <Chip key={c.value} activo={cuenta === c.value} onClick={() => setCuenta(c.value)}>
+          <ChipOpcion key={c.value} activo={cuenta === c.value} onClick={() => setCuenta(c.value)}>
             {c.label}
-          </Chip>
+          </ChipOpcion>
         ))}
       </div>
 
       {/* ── Fecha ── */}
       <Etiqueta>Fecha</Etiqueta>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-        <Chip activo={esHoy} onClick={() => elegirFecha(dayjs())}>Hoy</Chip>
-        <Chip activo={esAyer} onClick={() => elegirFecha(dayjs().subtract(1, 'day'))}>Ayer</Chip>
+        <ChipOpcion activo={esHoy} onClick={() => elegirFecha(dayjs())}>Hoy</ChipOpcion>
+        <ChipOpcion activo={esAyer} onClick={() => elegirFecha(dayjs().subtract(1, 'day'))}>Ayer</ChipOpcion>
         <DatePicker
           inputReadOnly
           allowClear={false}
+          variant="borderless"
           value={fecha}
           format="DD/MM/YYYY"
           onChange={(d) => d && elegirFecha(d)}
           disabledDate={(d) => d && d.isAfter(dayjs().endOf('day'))}
-          suffixIcon={<CalendarOutlined />}
+          suffixIcon={<CalendarOutlined style={{ color: !esHoy && !esAyer ? 'var(--qc-bg)' : 'var(--qc-text-muted)' }} />}
           placement="topLeft"
+          className={!esHoy && !esAyer ? 'qc-fecha-elegida' : undefined}
           style={{
-            height: 38, borderRadius: 19, width: 150,
-            borderColor: !esHoy && !esAyer ? 'var(--qc-azul)' : undefined,
-            borderWidth: !esHoy && !esAyer ? 1.5 : 1,
+            height: 40, borderRadius: 20, width: 150,
+            background: !esHoy && !esAyer ? 'var(--qc-text)' : 'var(--qc-relleno)',
           }}
         />
       </div>
@@ -678,13 +778,13 @@ const RegistroRapido = ({
         {masAbierto ? <UpOutlined /> : <DownOutlined />}
         Más detalles
         <span style={{ fontWeight: 400, color: 'var(--qc-text-muted)', fontSize: 12.5 }}>
-          {tipo === 'ingreso' ? 'cliente, documento soporte' : 'documento soporte'}
+          {tipo === 'ingreso' && !clienteEnCertificado ? 'cliente, documento soporte' : 'documento soporte'}
         </span>
       </button>
 
       {masAbierto && (
         <div style={{ paddingBottom: 6 }}>
-          {tipo === 'ingreso' && (
+          {tipo === 'ingreso' && !clienteEnCertificado && (
             <>
               <Etiqueta>Cliente</Etiqueta>
               <ContactoRapido value={persona} onChange={setPersona} />
@@ -700,18 +800,15 @@ const RegistroRapido = ({
         </div>
       )}
 
-      {/* ── Acciones de un registro existente ── */}
+      {/* ── Reenviar los documentos de una venta ya guardada ── */}
       {esEdicion && tipo === 'ingreso' && envio?.puedeEnviar(registro.raw) && (
-        <Button
-          block
-          size="large"
-          icon={<MailOutlined />}
-          loading={envio.enviandoId === registro.raw._id}
+        <ChipOpcion
           onClick={() => envio.enviar(registro.raw)}
-          style={{ marginTop: 12, borderRadius: 12 }}
+          disabled={envio.enviandoId === registro.raw._id}
+          style={{ width: '100%', minHeight: 48, borderRadius: 14, marginTop: 12 }}
         >
-          Enviar {envio.documentosDe(registro.raw)} por correo
-        </Button>
+          <MailOutlined /> {envio.enviandoId === registro.raw._id ? 'Enviando…' : `Enviar ${envio.documentosDe(registro.raw)} por correo`}
+        </ChipOpcion>
       )}
 
       <div style={{
@@ -719,14 +816,22 @@ const RegistroRapido = ({
         alignItems: 'center', gap: 8, marginTop: 16,
       }}>
         {onAbrirCompleto && (
-          <Button type="link" icon={<ExportOutlined />} onClick={abrirCompleto} style={{ paddingLeft: 0 }}>
-            Formulario completo
-          </Button>
+          <button
+            type="button"
+            onClick={abrirCompleto}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--qc-text)', fontSize: 14, fontWeight: 600, padding: '8px 0' }}
+          >
+            <ExportOutlined /> Formulario completo
+          </button>
         )}
         {esEdicion && (
-          <Button danger type="text" icon={<DeleteOutlined />} onClick={eliminar}>
-            Eliminar
-          </Button>
+          <button
+            type="button"
+            onClick={eliminar}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14, fontWeight: 600, padding: '8px 0' }}
+          >
+            <DeleteOutlined /> Eliminar
+          </button>
         )}
       </div>
     </BottomSheet>

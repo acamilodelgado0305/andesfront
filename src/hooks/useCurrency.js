@@ -22,6 +22,7 @@ import {
   formatCurrency,
   formatAmount,
   formatAmountShort,
+  formatAmountCompact,
   formatTypedAmount,
   typedAmountFromValue,
   getCurrencyCode,
@@ -61,6 +62,12 @@ export const useAmount = () => {
 export const useAmountShort = () => {
   const country = useCountry();
   return (value) => formatAmountShort(value, country);
+};
+
+/** Monto compacto para espacios mínimos: "717K", "1,48M". */
+export const useAmountCompact = () => {
+  const country = useCountry();
+  return (value) => formatAmountCompact(value, country);
 };
 
 /**
