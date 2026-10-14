@@ -103,6 +103,37 @@ export const deleteEgresoCategoria = async (id) => {
   return response.data;
 };
 
+// ===================== DOCUMENTO SOPORTE ===================== //
+// PDF o imagen adjunto a un ingreso o egreso. Se sube después de guardar el
+// movimiento (necesita su id) y reemplaza el que hubiera.
+
+const subirComprobante = async (ruta, archivo) => {
+  const fd = new FormData();
+  fd.append("archivo", archivo);
+  // La instancia manda JSON por defecto: sin este header axios convertiría el
+  // FormData a JSON. Con él, el navegador pone multipart y su boundary.
+  const response = await coalianzaApi.put(ruta, fd, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};
+
+export const subirComprobanteIngreso = (id, archivo) =>
+  subirComprobante(`/ingresos/${id}/comprobante`, archivo);
+
+export const quitarComprobanteIngreso = async (id) => {
+  const response = await coalianzaApi.delete(`/ingresos/${id}/comprobante`);
+  return response.data;
+};
+
+export const subirComprobanteEgreso = (id, archivo) =>
+  subirComprobante(`/egresos/${id}/comprobante`, archivo);
+
+export const quitarComprobanteEgreso = async (id) => {
+  const response = await coalianzaApi.delete(`/egresos/${id}/comprobante`);
+  return response.data;
+};
+
 
 // ===================== SALDO ACUMULADO ===================== //
 // El saldo que viene arrastrado de los meses anteriores. Se calcula en el

@@ -6,7 +6,7 @@ import {
 import {
   SearchOutlined, ClearOutlined, FilePdfOutlined,
   EditOutlined, DeleteOutlined, MailOutlined,
-  LeftOutlined, RightOutlined,
+  LeftOutlined, RightOutlined, PaperClipOutlined,
 } from '@ant-design/icons';
 import moment from 'moment';
 import dayjs from 'dayjs';
@@ -192,6 +192,16 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
         </Space>
 
         <Space size={4}>
+          {record.comprobante_url && (
+            <Button
+              size="small"
+              type="text"
+              href={record.comprobante_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              icon={<PaperClipOutlined style={{ color: isDark ? '#5eead4' : '#155153' }} />}
+            />
+          )}
           {canSendMail && (
             <Button
               size="small"
@@ -942,10 +952,22 @@ const TransactionTable = ({
             {
               title: '',
               key: 'act',
-              width: 100,
+              width: 130,
               fixed: 'right',
               render: (_, r) => (
                 <Space>
+                  {r.comprobante_url && (
+                    <Tooltip title="Ver documento soporte">
+                      <Button
+                        size="small"
+                        type="text"
+                        href={r.comprobante_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        icon={<PaperClipOutlined style={{ color: isDark ? '#5eead4' : '#155153' }} />}
+                      />
+                    </Tooltip>
+                  )}
                   {recordSendsMail(r) && (
                     <Tooltip title={`Enviar ${PLANTILLAS[plantillaDeItem(itemCertificable(r))].documentos} por correo`}>
                       <Button
@@ -970,7 +992,7 @@ const TransactionTable = ({
           loading={loading}
           pagination={{ pageSize: 7 }}
           size="small"
-          scroll={{ x: 770 }}
+          scroll={{ x: 800 }}
         />
       )}
 

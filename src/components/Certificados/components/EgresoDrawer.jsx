@@ -8,17 +8,21 @@ import {
     EditOutlined, FileProtectOutlined, SaveOutlined,
     CalendarOutlined, DollarCircleOutlined, UserOutlined,
     SearchOutlined, UserAddOutlined, CloseCircleOutlined,
-    CheckCircleOutlined, ShopOutlined, CloseOutlined,
+    CheckCircleOutlined, ShopOutlined, CloseOutlined, PaperClipOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import { cuentaOptions } from '../options';
 import { useCurrencyInput } from '../../../hooks/useCurrency';
-import { createEgreso, updateEgreso } from '../../../services/controlapos/posService';
+import {
+    createEgreso, updateEgreso, subirComprobanteEgreso, quitarComprobanteEgreso,
+} from '../../../services/controlapos/posService';
 import EtiquetasSelector from './EtiquetasSelector';
+import ComprobanteAdjunto, { sincronizarComprobante } from './ComprobanteAdjunto';
 import { getPersonas } from '../../../services/person/personaService';
 import PersonaFormDrawer from '../../personas/PersonaFormDrawer';
 import useIsMobile from '../../../hooks/useIsMobile';
+import { useTheme } from '../../../ThemeContext';
 import { CUERPO_FLEX, CONTENIDO_CENTRADO_VERTICAL } from './drawerLayout';
 
 const { Text } = Typography;
@@ -38,6 +42,7 @@ const FL = ({ label, required, children }) => (
 const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => {
     const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
     const isMobile = useIsMobile();
+    const { isDark } = useTheme();
     const [form] = Form.useForm();
     const [saving, setSaving] = useState(false);
 
@@ -47,6 +52,10 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
     const [loadingPersonas, setLoadingPersonas]     = useState(false);
     const [selectedPersona, setSelectedPersona]     = useState(null);
     const [personaDrawerOpen, setPersonaDrawerOpen] = useState(false);
+
+    // ── Documento soporte: archivo nuevo (se sube al guardar) y el ya guardado ──
+    const [archivo, setArchivo]               = useState(null);
+    const [comprobanteUrl, setComprobanteUrl] = useState(null);
 
     // ── Etiquetas del gasto (por negocio; se crean aquí mismo) ──
     // En la interfaz se llaman «etiquetas»; en BD/API siguen siendo `categoria`.
@@ -64,6 +73,8 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
     // ── Reset al abrir ────────────────────────────────────────
     useEffect(() => {
         if (!open) return;
+        setArchivo(null);
+        setComprobanteUrl(initialValues?.comprobante_url || null);
         if (initialValues) {
             form.setFieldsValue({
                 ...initialValues,
@@ -121,13 +132,24 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                 vendedor: userName,
             };
 
-            if (initialValues?._id) {
-                await updateEgreso(initialValues._id, payload);
+            let egresoId = initialValues?._id;
+            if (egresoId) {
+                await updateEgreso(egresoId, payload);
                 message.success('Egreso actualizado correctamente');
             } else {
-                await createEgreso(payload);
+                egresoId = (await createEgreso(payload))?._id;
                 message.success('Egreso registrado exitosamente');
             }
+
+            const fallaDocumento = await sincronizarComprobante({
+                id: egresoId,
+                archivo,
+                url: comprobanteUrl,
+                urlInicial: initialValues?.comprobante_url,
+                subir: subirComprobanteEgreso,
+                quitar: quitarComprobanteEgreso,
+            });
+            if (fallaDocumento) message.warning(`El gasto se guardó, pero ${fallaDocumento}`, 6);
 
             onSuccess?.();
             onClose();
@@ -356,6 +378,20 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
                                 </FL>
                             </Col>
                         </Row>
+                    </div>
+
+                    {/* ── DOCUMENTO SOPORTE ───────────────────── */}
+                    <div style={{ background: 'var(--qc-surface)', border: '1px solid var(--qc-border)', borderRadius: 10, padding: '16px 18px', marginTop: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                            <PaperClipOutlined style={{ color: isDark ? '#5eead4' : '#155153' }} />
+                            <Text strong style={{ fontSize: 13, color: 'var(--qc-text)' }}>Documento soporte (opcional)</Text>
+                        </div>
+                        <ComprobanteAdjunto
+                            archivo={archivo}
+                            url={comprobanteUrl}
+                            onArchivo={setArchivo}
+                            onQuitar={() => { setArchivo(null); setComprobanteUrl(null); }}
+                        />
                     </div>
 
                     <Form.Item name="vendedor" hidden><Input /></Form.Item>

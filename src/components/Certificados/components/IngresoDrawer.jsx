@@ -8,7 +8,7 @@ import {
     FileDoneOutlined, UserOutlined, ShoppingOutlined, WalletOutlined,
     EditOutlined, DownOutlined, FilePdfOutlined, SaveOutlined,
     SearchOutlined, UserAddOutlined, CloseCircleOutlined, PlusOutlined, CloseOutlined,
-    MailOutlined,
+    MailOutlined, PaperClipOutlined,
 } from '@ant-design/icons';
 
 import { cuentaOptions } from '../options';
@@ -23,10 +23,13 @@ import {
     periodoPorDefecto,
     plantillaDeItem,
 } from '../envioDocumentos';
-import { createIngreso, updateIngreso } from '../../../services/controlapos/posService';
+import {
+    createIngreso, updateIngreso, subirComprobanteIngreso, quitarComprobanteIngreso,
+} from '../../../services/controlapos/posService';
 import { getInventario } from '../../../services/inventario/inventarioService';
 import { getPersonas, getPersonaById } from '../../../services/person/personaService';
 import PersonaFormDrawer from '../../personas/PersonaFormDrawer';
+import ComprobanteAdjunto, { sincronizarComprobante } from './ComprobanteAdjunto';
 import { CUERPO_FLEX, CONTENIDO_CENTRADO_VERTICAL } from './drawerLayout';
 import { useCurrencyInput, useAmount } from '../../../hooks/useCurrency';
 import useIsMobile from '../../../hooks/useIsMobile';
@@ -63,6 +66,10 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
     const [loadingInventario, setLoadingInventario] = useState(false);
     const [saving, setSaving]                       = useState(false);
     const [lineItems, setLineItems]                 = useState([emptyLine()]);
+
+    // ── Documento soporte: archivo nuevo (se sube al guardar) y el ya guardado ──
+    const [archivo, setArchivo]               = useState(null);
+    const [comprobanteUrl, setComprobanteUrl] = useState(null);
 
     // ── Contacto ──────────────────────────────────────────────
     const [personaSearch, setPersonaSearch]         = useState('');
@@ -159,6 +166,8 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
     useEffect(() => {
         if (!open) return;
         setEnviarCorreo(false);
+        setArchivo(null);
+        setComprobanteUrl(initialValues?.comprobante_url || null);
         if (!initialValues) {
             form.resetFields();
             form.setFieldsValue({ vendedor: userName, valor: 0 });
@@ -289,13 +298,24 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
             };
             delete payload.nombreCompleto;
 
-            if (initialValues?._id) {
-                await updateIngreso(initialValues._id, payload);
+            let ingresoId = initialValues?._id;
+            if (ingresoId) {
+                await updateIngreso(ingresoId, payload);
                 message.success('Venta actualizada correctamente');
             } else {
-                await createIngreso(payload);
+                ingresoId = (await createIngreso(payload))?.data?._id;
                 message.success('Venta registrada exitosamente');
             }
+
+            const fallaDocumento = await sincronizarComprobante({
+                id: ingresoId,
+                archivo,
+                url: comprobanteUrl,
+                urlInicial: initialValues?.comprobante_url,
+                subir: subirComprobanteIngreso,
+                quitar: quitarComprobanteIngreso,
+            });
+            if (fallaDocumento) message.warning(`La venta se guardó, pero ${fallaDocumento}`, 6);
 
             // Envío de certificado + carnet por correo (si aplica y se marcó la opción)
             if (enviarCorreo && algunItemEnviaCorreo && clienteTieneCorreo) {
@@ -625,6 +645,16 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                                 <Form.Item name="valor" hidden><Input /></Form.Item>
                             </div>
                         </div>
+                    </SECTION>
+
+                    {/* ── DOCUMENTO SOPORTE ────────────────────── */}
+                    <SECTION icon={<PaperClipOutlined />} title="Documento soporte (opcional)">
+                        <ComprobanteAdjunto
+                            archivo={archivo}
+                            url={comprobanteUrl}
+                            onArchivo={setArchivo}
+                            onQuitar={() => { setArchivo(null); setComprobanteUrl(null); }}
+                        />
                     </SECTION>
 
                     {/* ── ENVÍO DE LOS DOCUMENTOS POR CORREO ───── */}
