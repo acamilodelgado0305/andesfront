@@ -10,23 +10,12 @@ import {
 } from '@ant-design/icons';
 import moment from 'moment';
 import dayjs from 'dayjs';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import 'moment/locale/es';
 
 import { deleteIngreso, deleteEgreso } from '../../services/controlapos/posService';
-import {
-  PLANTILLA_ACREDITACION,
-  PLANTILLAS,
-  construirEnvio,
-  enviarDocumentosPorCorreo,
-  fechaExpedicionPorDefecto,
-  intensidadDeItem,
-  itemEnviaCorreo,
-  periodoPorDefecto,
-  plantillaDeItem,
-} from './envioDocumentos';
-import EnvioAcreditacionModal from './components/EnvioAcreditacionModal';
+import useEnvioDocumentos from './useEnvioDocumentos';
+import { conceptoDe } from './movimientos';
+import { generarPdfMovimientos } from './movimientosPdf';
 import { EtiquetaChip } from './components/EtiquetasSelector';
 import EtiquetaCell from './components/EtiquetaCell';
 import useCurrency from '../../hooks/useCurrency';
@@ -40,9 +29,6 @@ const amountColor = (isIngreso, isDark) =>
 moment.locale('es');
 const { Option } = Select;
 const { RangePicker } = DatePicker;
-
-// Microservicio académico (andesback) que genera/envía los documentos del curso
-const API_CERT_URL = import.meta.env.VITE_API_BACKEND;
 
 // Valor del filtro de categoría para los gastos que aún no tienen una.
 const SIN_CATEGORIA = '__sin_categoria__';
@@ -248,133 +234,17 @@ const TransactionTable = ({
   const [conceptFilter, setConceptFilter] = useState(null);
   const [vendedorFilter,setVendedorFilter]= useState(null);
   const [categoriaFilter, setCategoriaFilter] = useState(null); // solo gastos
-  const [sendingId,     setSendingId]     = useState(null);
-  // Venta pendiente de confirmar antes de mandar el diploma (null = modal cerrado)
-  const [envioAcreditacion, setEnvioAcreditacion] = useState(null);
 
-  const getConcept = (r = {}) => {
-    if (r.items_detalle) {
-      const items = typeof r.items_detalle === 'string' ? JSON.parse(r.items_detalle) : r.items_detalle;
-      if (Array.isArray(items) && items.length > 0) {
-        return items.map(it => it.descripcion || it.nombre_producto || '').filter(Boolean).join(', ');
-      }
-    }
-    return (r.producto || '').trim();
-  };
+  const getConcept = conceptoDe;
 
   const syncFilters = (partial) => {
     if (!onFiltersChange) return;
     onFiltersChange((prev) => ({ ...prev, ...partial }));
   };
 
-  // Ítems del inventario con el envío de correo activo, indexados por id y por
-  // nombre. Se guarda el ítem COMPLETO (no un booleano) porque de él salen la
-  // plantilla de documentos y la intensidad horaria del envío.
-  const sendMailLookup = useMemo(() => {
-    const byId = {};
-    const byName = {};
-    (inventario || []).forEach(i => {
-      if (itemEnviaCorreo(i)) {
-        if (i.id != null) byId[String(i.id)] = i;
-        const nm = (i.nombre || i.name || '').trim().toLowerCase();
-        if (nm) byName[nm] = i;
-      }
-    });
-    return { byId, byName };
-  }, [inventario]);
-
-  // Ítem del registro que dispara el envío de documentos (el primero que lo
-  // tenga activo), o null si la venta no certifica nada.
-  const itemCertificable = (r = {}) => {
-    if (type !== 'ingresos') return null;
-    let items = r.items_detalle;
-    if (typeof items === 'string') {
-      try { items = JSON.parse(items); } catch { items = []; }
-    }
-    if (Array.isArray(items) && items.length > 0) {
-      for (const it of items) {
-        const porId = it.inventario_id != null ? sendMailLookup.byId[String(it.inventario_id)] : null;
-        const porNombre = sendMailLookup.byName[(it.descripcion || it.nombre_producto || '').trim().toLowerCase()];
-        if (porId || porNombre) return porId || porNombre;
-      }
-      return null;
-    }
-    return sendMailLookup.byName[(r.producto || '').trim().toLowerCase()] || null;
-  };
-
-  const recordSendsMail = (r = {}) => !!itemCertificable(r);
-
-  // Datos del cliente de la venta, en el formato que esperan los endpoints de
-  // documentos de andesback.
-  const clienteDeRegistro = (r = {}) => ({
-    nombre: `${r.cliente_nombre || r.nombre || ''} ${r.persona_id != null ? (r.cliente_apellido ?? '') : (r.apellido || '')}`.trim(),
-    numeroDocumento: r.cliente_documento || r.numeroDeDocumento || '0',
-    tipoDocumento: r.cliente_tipo_doc || r.tipoDocumento || 'C.C.',
-    email: r.customer_email || r.cliente_email,
-  });
-
-  // Dispara un envío ya resuelto (plantilla, curso, fechas) y avisa del resultado.
-  const despacharEnvio = async (registro, envio, email) => {
-    setSendingId(registro._id);
-    const hide = message.loading(`Enviando ${envio.documentos} a ${email}...`, 0);
-    try {
-      await enviarDocumentosPorCorreo(API_CERT_URL, envio);
-      message.success(`Se enviaron ${envio.documentos} a ${email}`);
-    } catch (err) {
-      message.error(`No se pudo enviar el correo: ${err.message}`);
-    } finally {
-      hide();
-      setSendingId(null);
-    }
-  };
-
-  // Enviar al correo del cliente los documentos que le corresponden a la venta.
-  // La plantilla de alimentos sale de una: trae el curso impreso y no necesita
-  // fechas. La de acreditación (diploma + certificado) sirve para cualquier
-  // curso, así que antes de enviar se confirman curso, horas y periodo.
-  const handleEnviarCorreo = async (r) => {
-    const cliente = clienteDeRegistro(r);
-    if (!cliente.email) {
-      message.warning('El cliente de esta venta no tiene correo registrado.');
-      return;
-    }
-
-    const item = itemCertificable(r);
-    const plantilla = plantillaDeItem(item);
-
-    if (plantilla === PLANTILLA_ACREDITACION) {
-      setEnvioAcreditacion({
-        registro: r,
-        cliente,
-        curso: item?.nombre || item?.name || getConcept(r),
-        intensidadHoraria: intensidadDeItem(item),
-        periodo: periodoPorDefecto(r.createdAt),
-        fechaExpedicion: fechaExpedicionPorDefecto(r.createdAt),
-      });
-      return;
-    }
-
-    await despacharEnvio(
-      r,
-      construirEnvio({ plantilla, cliente, intensidadHoraria: intensidadDeItem(item) }),
-      cliente.email,
-    );
-  };
-
-  // Confirmación del modal de acreditación.
-  const confirmarEnvioAcreditacion = async (valores) => {
-    const { registro, cliente } = envioAcreditacion;
-    const envio = construirEnvio({
-      plantilla: PLANTILLA_ACREDITACION,
-      cliente,
-      curso: valores.curso,
-      intensidadHoraria: valores.intensidadHoraria,
-      periodo: valores.periodo,
-      fechaExpedicion: valores.fechaExpedicion,
-    });
-    setEnvioAcreditacion(null);
-    await despacharEnvio(registro, envio, cliente.email);
-  };
+  // Envío por correo de los documentos del curso (compartido con el celular).
+  const envio = useEnvioDocumentos(inventario);
+  const recordSendsMail = (r = {}) => type === 'ingresos' && envio.puedeEnviar(r);
 
   // Opciones de producto desde el inventario real
   const productOptions = useMemo(() => {
@@ -651,26 +521,8 @@ const TransactionTable = ({
     },
   ], [type, userName, userMap, onRefresh]);
 
-  const generatePDF = () => {
-    const doc   = new jsPDF();
-    const title = type === 'ingresos' ? 'Reporte de Ventas' : 'Reporte de Gastos';
-    const periodo = `${moment(dateRange[0]).format('DD/MM/YYYY')} - ${moment(dateRange[1]).format('DD/MM/YYYY')}`;
-    doc.setFontSize(14);
-    doc.text(`${title} - ${periodo}`, 14, 20);
-    doc.autoTable({
-      head: [['Fecha', type === 'ingresos' ? 'Cliente' : 'Descripción', type === 'ingresos' ? 'Producto' : 'Etiqueta', 'Cuenta', 'Usuario', 'Valor']],
-      body: filteredData.map(item => [
-        moment(item[type === 'ingresos' ? 'createdAt' : 'fecha']).format('DD/MM/YYYY'),
-        type === 'ingresos' ? `${item.cliente_nombre || item.nombre || ''} ${item.persona_id != null ? (item.cliente_apellido ?? '') : (item.apellido || '')}`.trim() : (item.descripcion || ''),
-        type === 'ingresos' ? getConcept(item) : (item.categoria_nombre || 'Sin etiqueta'),
-        item.cuenta || '',
-        userMap[String(item.usuario)] || (item.usuario ? `ID ${item.usuario}` : '-'),
-        fmt(item.valor),
-      ]),
-      startY: 26,
-    });
-    doc.save(`${title.replace(/\s+/g, '_')}_${moment(dateRange[0]).format('DD_MM_YYYY')}.pdf`);
-  };
+  const generatePDF = () =>
+    generarPdfMovimientos({ type, registros: filteredData, dateRange, userMap, fmt });
 
   /* ── Quick-range button shared style helper ── */
   const quickBtnStyle = (active) => ({
@@ -939,8 +791,8 @@ const TransactionTable = ({
                 onDelete={handleDelete}
                 onRefresh={onRefresh}
                 canSendMail={recordSendsMail(record)}
-                sending={sendingId === record._id}
-                onSendMail={handleEnviarCorreo}
+                sending={envio.enviandoId === record._id}
+                onSendMail={envio.enviar}
               />
             ))
           )}
@@ -969,13 +821,13 @@ const TransactionTable = ({
                     </Tooltip>
                   )}
                   {recordSendsMail(r) && (
-                    <Tooltip title={`Enviar ${PLANTILLAS[plantillaDeItem(itemCertificable(r))].documentos} por correo`}>
+                    <Tooltip title={`Enviar ${envio.documentosDe(r)} por correo`}>
                       <Button
                         size="small"
                         type="text"
-                        loading={sendingId === r._id}
+                        loading={envio.enviandoId === r._id}
                         icon={<MailOutlined style={{ color: '#155153' }} />}
-                        onClick={() => handleEnviarCorreo(r)}
+                        onClick={() => envio.enviar(r)}
                       />
                     </Tooltip>
                   )}
@@ -997,11 +849,7 @@ const TransactionTable = ({
       )}
 
       {/* Confirmación de curso, horas y periodo antes de mandar el diploma */}
-      <EnvioAcreditacionModal
-        envio={envioAcreditacion}
-        onCancel={() => setEnvioAcreditacion(null)}
-        onConfirm={confirmarEnvioAcreditacion}
-      />
+      {envio.modal}
     </div>
   );
 };

@@ -20,6 +20,18 @@
   .qc-pres-fullbleed > * { border-radius: 0 !important; }
 }
 
+/* Micrófono del registro rápido mientras escucha: pulso rojo para que se note
+   que la app está oyendo. */
+@keyframes qc-pulso-dictado {
+  0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
+  70%  { box-shadow: 0 0 0 12px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+.qc-dictando { animation: qc-pulso-dictado 1.4s ease-out infinite; }
+
+/* Filas de Movimientos en el celular: respuesta al toque (no hay hover). */
+.qc-mov-fila:active { background: var(--qc-surface-2); }
+
 /* ===========================================================================
    TEMA / MODO OSCURO
    El modo oscuro se activa con la clase `dark` en <html> (ver ThemeContext y
@@ -36,6 +48,8 @@
   --qc-border: #e5e7eb;    /* bordes */
   --qc-text: #1f2937;      /* texto principal */
   --qc-text-muted: #6b7280;/* texto secundario */
+  --qc-azul: #1d4ed8;      /* azul de marca para texto/bordes de "elegido" */
+  --qc-azul-suave: rgba(29, 78, 216, 0.10); /* fondo de "elegido" */
 }
 
 /* Paleta de modo oscuro estilo Claude: tonos cálidos (carbón/tierra),
@@ -48,6 +62,8 @@ html.dark {
   --qc-text: #faf9f5;      /* crema (texto principal) */
   --qc-text-muted: #a8a59e;/* gris cálido (texto secundario) */
   --qc-accent: #d97757;    /* terracota Claude (acento opcional) */
+  --qc-azul: #7aa7ff;      /* el azul de marca no se lee sobre fondo oscuro */
+  --qc-azul-suave: rgba(122, 167, 255, 0.16);
 }
 
 html.dark body {

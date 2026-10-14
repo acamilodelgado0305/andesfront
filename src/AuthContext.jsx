@@ -14,6 +14,7 @@ import {
     setRefreshToken as saveRefreshToken,
     refreshSession,
 } from "./services/auth/authService";
+import { renovarSesion, esRechazoDeSesion } from "./services/auth/sessionRefresh";
 
 export const AuthContext = createContext(null);
 
@@ -91,21 +92,32 @@ export const AuthProvider = ({ children }) => {
             const storedRefresh = getRefreshToken();
             if (storedRefresh) {
                 try {
-                    const session = await refreshSession(storedRefresh);
-                    const payload = decodeToken(session.token);
+                    // Renovación compartida con los interceptores de axios: si
+                    // alguna petición temprana también la pide, se espera la misma.
+                    const newToken = await renovarSesion();
+                    const payload = decodeToken(newToken);
 
-                    saveToken(session.token);
-                    if (session.refreshToken) saveRefreshToken(session.refreshToken);
-
-                    const merged = buildUserFromPayload(payload || {}, session.user || storedUser || {});
+                    const merged = buildUserFromPayload(payload || {}, getUser() || storedUser || {});
                     saveUser(merged);
-                    setToken(session.token);
+                    setToken(newToken);
                     setUser(merged);
                     setIsAuthenticated(true);
                     setLoading(false);
                     return;
                 } catch (e) {
-                    // Refresh token expirado/ inválido → limpiar sesión
+                    // Sin señal al abrir la app (típico en el celular): NO se
+                    // cierra la sesión por eso. Se entra con lo guardado y la
+                    // renovación se reintenta sola en la siguiente petición o
+                    // cuando vuelva la red. Solo un rechazo real del servidor
+                    // (refresh vencido o inválido) manda al login.
+                    if (!esRechazoDeSesion(e) && storedToken && storedUser) {
+                        const merged = buildUserFromPayload(decodeToken(storedToken) || {}, storedUser);
+                        setToken(storedToken);
+                        setUser(merged);
+                        setIsAuthenticated(true);
+                        setLoading(false);
+                        return;
+                    }
                     logoutService();
                 }
             } else {
@@ -145,6 +157,8 @@ export const AuthProvider = ({ children }) => {
 
         saveUser(finalUser);
         setUser(finalUser);
+        // Quien llama lo usa para decidir a dónde entrar (ver getLandingPath).
+        return finalUser;
     };
 
     // Permite parchar el user en memoria (y en localStorage) sin hacer refresh

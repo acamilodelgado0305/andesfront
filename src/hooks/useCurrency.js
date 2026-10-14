@@ -18,7 +18,15 @@
  */
 import { useContext } from 'react';
 import { AuthContext } from '../AuthContext';
-import { formatCurrency, formatAmount, getInputCurrencyProps } from '../utils/currency';
+import {
+  formatCurrency,
+  formatAmount,
+  formatAmountShort,
+  formatTypedAmount,
+  typedAmountFromValue,
+  getCurrencyCode,
+  getInputCurrencyProps,
+} from '../utils/currency';
 
 /** País del negocio activo; Colombia si no hay contexto disponible */
 const useCountry = () => {
@@ -44,6 +52,30 @@ const useCurrency = () => {
 export const useAmount = () => {
   const country = useCountry();
   return (value) => formatAmount(value, country);
+};
+
+/**
+ * Monto corto para el celular: "25.000" (sin ",00"); los centavos que sí
+ * existen se muestran: "25.000,50".
+ */
+export const useAmountShort = () => {
+  const country = useCountry();
+  return (value) => formatAmountShort(value, country);
+};
+
+/**
+ * Campo de monto tecleado (registro rápido): da formato mientras se escribe.
+ *   const { codigo, formatear, desdeValor } = useTypedAmount();
+ *   formatear('25000')   → { texto: '25.000', valor: 25000 }
+ *   desdeValor(25000.5)  → '25.000,50'
+ */
+export const useTypedAmount = () => {
+  const country = useCountry();
+  return {
+    codigo: getCurrencyCode(country),
+    formatear: (raw) => formatTypedAmount(raw, country),
+    desdeValor: (value) => typedAmountFromValue(value, country),
+  };
 };
 
 /** Props listas para <InputNumber prefix formatter parser precision step /> */

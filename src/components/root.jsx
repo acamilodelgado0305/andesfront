@@ -23,7 +23,9 @@ import PaymentWall from './PaymentWall';
 import DocentePerfilGate from './Perfil/DocentePerfilGate';
 import UserAvatar from './Perfil/UserAvatar';
 import CustomizeSidebarModal from './Sidebar/CustomizeSidebarModal';
+import BusinessSwitcherSheet, { colorNegocio, inicialesNegocio } from './Sidebar/BusinessSwitcherSheet';
 import { buildNavSections } from '../services/nav/navSections';
+import { getLandingPath, rutasDelMenu } from '../services/nav/landing';
 import MobileBottomNav, { MOBILE_NAV_HEIGHT } from './Sidebar/MobileBottomNav';
 import {
   resolvePrefs,
@@ -445,7 +447,10 @@ const RootLayout = () => {
   };
 
   // --- 4. DROPDOWN DE NEGOCIOS ---
-  const [switchingBusiness, setSwitchingBusiness] = useState(false);
+  // Id del negocio al que se está cambiando (null = ninguno en curso).
+  const [switchingBusiness, setSwitchingBusiness] = useState(null);
+  // En el celular el cambio de negocio se hace en una hoja inferior.
+  const [businessSheetOpen, setBusinessSheetOpen] = useState(false);
   const [isCreateBusinessOpen, setIsCreateBusinessOpen] = useState(false);
   const [createBusinessLoading, setCreateBusinessLoading] = useState(false);
   const [publicPlans, setPublicPlans] = useState([]);
@@ -508,21 +513,27 @@ const RootLayout = () => {
   const handleBusinessSelect = async (business) => {
     if (user.bid === business.id || switchingBusiness) return;
 
-    setSwitchingBusiness(true);
+    setSwitchingBusiness(business.id);
     try {
       const { switchBusiness } = await import('../services/auth/authService');
       const response = await switchBusiness(business.id);
 
       if (response.token) {
-        login(response.token, response.user, response.refreshToken);
+        const nuevaSesion = login(response.token, response.user, response.refreshToken);
         message.success(`Cambiado a ${business.name}`);
-        // Forzar recarga completa para limpiar todo el estado cacheado
-        window.location.replace('/inicio');
+        // Se queda en el mismo módulo si el otro negocio también lo tiene: en el
+        // celular se pasa de "Personal" a la empresa sin salir de Movimientos.
+        // Si no lo tiene (o se estaba en un detalle, p. ej. un programa), entra
+        // por donde entraría al abrir la app.
+        const aqui = location.pathname === '/inicio' ? '/inicio/dashboard' : location.pathname;
+        const destino = rutasDelMenu(nuevaSesion).includes(aqui) ? location.pathname : getLandingPath(nuevaSesion);
+        // Recarga completa para limpiar todo el estado cacheado del negocio anterior
+        window.location.replace(destino);
       }
     } catch (error) {
       console.error("Error cambiando negocio", error);
       message.error("Error al cambiar de negocio.");
-      setSwitchingBusiness(false);
+      setSwitchingBusiness(null);
     }
   };
 
@@ -911,9 +922,10 @@ const RootLayout = () => {
           marginLeft: isMobile ? 0 : 56,
           minHeight: '100vh',
           transition: 'margin-left 0.22s ease',
-          // En móvil la barra inferior es fija: se reserva su alto para que
-          // no tape el último bloque de cada página.
-          paddingBottom: isMobile ? MOBILE_NAV_HEIGHT + 12 : 0,
+          // En móvil la barra inferior es fija: se reserva su alto (más la
+          // franja del gesto de inicio del iPhone) para que no tape el último
+          // bloque de cada página.
+          paddingBottom: isMobile ? `calc(${MOBILE_NAV_HEIGHT + 12}px + env(safe-area-inset-bottom, 0px))` : 0,
         }}>
 
           {/* ── HEADER TRANSPARENTE ── */}
@@ -927,7 +939,40 @@ const RootLayout = () => {
             gap: 12,
           }}>
 
-            {/* Izquierda: selector de negocio */}
+            {/* Izquierda: selector de negocio. En el celular abre una hoja
+                inferior con filas grandes; en computador, el menú desplegable. */}
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={() => setBusinessSheetOpen(true)}
+                aria-label={`Negocio activo: ${currentBusinessName}. Toca para cambiar`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, minWidth: 0,
+                  height: 38, padding: '0 10px 0 4px', borderRadius: 10, cursor: 'pointer',
+                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'}`,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.6)',
+                  maxWidth: 'calc(100vw - 120px)',
+                }}
+              >
+                <span style={{
+                  width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                  backgroundColor: colorNegocio(user?.bid), color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700,
+                }}>
+                  {inicialesNegocio(currentBusinessName)}
+                </span>
+                <span style={{
+                  fontSize: 14, fontWeight: 600, color: shell.textStrong, minWidth: 0,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  {currentBusinessName}
+                </span>
+                {availableBusinesses.length > 1 && (
+                  <span style={{ color: '#9ca3af', fontSize: 10, flexShrink: 0 }}>▼</span>
+                )}
+              </button>
+            ) : (
             <Dropdown overlay={businessMenu} trigger={['click']} placement="bottomLeft">
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8,
@@ -955,6 +1000,7 @@ const RootLayout = () => {
                 <span style={{ color: '#9ca3af', fontSize: 9, flexShrink: 0 }}>▾</span>
               </div>
             </Dropdown>
+            )}
 
             {/* Derecha: perfil */}
             <Dropdown overlay={collapsedProfileMenu} trigger={['click']} placement="bottomRight">
@@ -1093,6 +1139,21 @@ const RootLayout = () => {
           onMore={() => setMobileDrawerOpen(true)}
           onNavigate={() => setMobileDrawerOpen(false)}
           isDark={isDark}
+        />
+      )}
+
+      {/* ── Cambio de negocio en el celular (hoja inferior) ── */}
+      {isMobile && (
+        <BusinessSwitcherSheet
+          open={businessSheetOpen}
+          onClose={() => setBusinessSheetOpen(false)}
+          businesses={availableBusinesses}
+          activeId={user.bid}
+          switchingId={switchingBusiness}
+          onSelect={handleBusinessSelect}
+          onCreate={user.role === 'superadmin'
+            ? () => { setBusinessSheetOpen(false); openCreateBusiness(); }
+            : undefined}
         />
       )}
 

@@ -164,9 +164,11 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
         <>
             <Drawer
                 title={
+                    /* Sin _id son datos prellenados (vienen del registro rápido del
+                       celular): es un gasto nuevo, no una edición. */
                     <Space>
-                        {initialValues ? <EditOutlined /> : <FileProtectOutlined />}
-                        <Text strong>{initialValues ? 'Editar Egreso' : 'Registrar Gasto'}</Text>
+                        {initialValues?._id ? <EditOutlined /> : <FileProtectOutlined />}
+                        <Text strong>{initialValues?._id ? 'Editar Egreso' : 'Registrar Gasto'}</Text>
                     </Space>
                 }
                 placement="right"

@@ -1,19 +1,28 @@
 // src/pages/auth/Login.jsx (o donde lo tengas)
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../AuthContext";
-import { Button, Input, Form, Typography, message, Divider } from "antd";
+import { Button, Input, Form, Typography, message, Divider, Spin } from "antd";
 import { MailOutlined, LockOutlined } from "@ant-design/icons";
 import { login as loginService, loginWithGoogle } from "../../services/auth/authService";
+import { getLandingPath } from "../../services/nav/landing";
 import { GoogleLogin } from "@react-oauth/google";
 const { Title, Text, Link } = Typography;
 const PRIMARY_COLOR = "#0a1f3d";
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login: contextLogin } = useContext(AuthContext);
+  const { login: contextLogin, isAuthenticated, loading: authLoading, user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [form] = Form.useForm();
+
+  // Con la sesión abierta no se vuelve a pedir la contraseña: abrir la app
+  // (app.rapictrl.com, el ícono instalado o /login) entra directo. Antes
+  // siempre se mostraba este formulario y parecía que la sesión se había caído.
+  const yaTieneSesion = !authLoading && isAuthenticated && !!user;
+  useEffect(() => {
+    if (yaTieneSesion) navigate(getLandingPath(user), { replace: true });
+  }, [yaTieneSesion, user, navigate]);
 
   const onFinish = async (values) => {
     setIsLoading(true);
@@ -23,10 +32,10 @@ const Login = () => {
 
       if (response.token) {
         // Guardamos token + user en el contexto
-        contextLogin(response.token, response.user, response.refreshToken);
+        const sesion = contextLogin(response.token, response.user, response.refreshToken);
 
         message.success(response.message || "¡Inicio de sesión exitoso!", 2);
-        navigate("/inicio");
+        navigate(getLandingPath(sesion), { replace: true });
       } else {
         throw new Error(response.message || "Credenciales inválidas");
       }
@@ -45,9 +54,9 @@ const Login = () => {
     try {
       const response = await loginWithGoogle(credentialResponse.credential);
       if (response.token) {
-        contextLogin(response.token, response.user, response.refreshToken);
+        const sesion = contextLogin(response.token, response.user, response.refreshToken);
         message.success(response.message || "¡Inicio de sesión con Google exitoso!", 2);
-        navigate("/inicio");
+        navigate(getLandingPath(sesion), { replace: true });
       } else {
         throw new Error("No se recibió token del servidor");
       }
@@ -64,6 +73,16 @@ const Login = () => {
   const onGoogleError = () => {
     message.error("No se pudo iniciar sesión con Google. Inténtalo de nuevo.");
   };
+
+  // Mientras se restaura la sesión guardada (o se redirige) no se muestra el
+  // formulario: evita el parpadeo del login al abrir la app ya logueado.
+  if (authLoading || yaTieneSesion) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#262624]">
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

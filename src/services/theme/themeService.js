@@ -44,6 +44,11 @@ export const applyThemeToDom = (mode) => {
   root.classList.toggle('dark', isDark);
   root.style.colorScheme = isDark ? 'dark' : 'light';
   root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  // Con la app instalada en el celular, la barra de estado toma este color:
+  // el mismo del encabezado (superficie) para que se vean como una sola pieza.
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', isDark ? '#30302e' : '#ffffff');
   return isDark;
 };
 

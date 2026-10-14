@@ -359,9 +359,11 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
         <>
             <Drawer
                 title={
+                    /* Sin _id son datos prellenados (vienen del registro rápido del
+                       celular): es una venta nueva, no una edición. */
                     <Space>
-                        {initialValues ? <EditOutlined /> : <FileDoneOutlined />}
-                        <Text strong>{initialValues ? 'Editar Ingreso' : 'Registrar Nueva Venta'}</Text>
+                        {initialValues?._id ? <EditOutlined /> : <FileDoneOutlined />}
+                        <Text strong>{initialValues?._id ? 'Editar Ingreso' : 'Registrar Nueva Venta'}</Text>
                     </Space>
                 }
                 placement="right"

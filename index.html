@@ -1,10 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./images/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/images/logo.png" />
+    <!-- viewport-fit=cover: con la app instalada, la página llega hasta los
+         bordes del iPhone y las barras fijas usan env(safe-area-inset-*). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Rapictrl</title>
+    <!-- App instalable (PWA): ícono en la pantalla de inicio y pantalla completa.
+         El color de la barra de estado lo ajusta themeService según el tema. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Rapictrl" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="description" content="Registra tus ingresos y gastos desde el celular en segundos." />
     <!-- Pre-paint del tema: aplica el modo oscuro ANTES de montar React para
          evitar el parpadeo (FOUC). Lee la caché local `qc-theme` y resuelve
          'system' contra prefers-color-scheme. Debe mantenerse en sintonía con
@@ -24,6 +36,10 @@
           if (isDark) root.classList.add('dark');
           root.style.colorScheme = isDark ? 'dark' : 'light';
           root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+          // Barra de estado del celular del mismo color que el encabezado
+          // (mismo valor que themeService.applyThemeToDom).
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', isDark ? '#30302e' : '#ffffff');
         } catch (e) { /* sin acceso a localStorage → tema claro por defecto */ }
       })();
     </script>

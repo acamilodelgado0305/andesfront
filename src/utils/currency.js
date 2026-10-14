@@ -105,6 +105,65 @@ export const formatAmount = (value, countryCode) => {
   }).format(Number.isFinite(number) ? number : 0);
 };
 
+/**
+ * Monto corto para pantallas angostas (celular): sin decimales cuando son cero.
+ *   formatAmountShort(25000, 'CO')    →  "25.000"
+ *   formatAmountShort(25000.5, 'CO')  →  "25.000,50"
+ * Los centavos que sí existen se muestran completos: nunca se redondea plata.
+ */
+export const formatAmountShort = (value, countryCode) => {
+  const config = getConfig(countryCode);
+  const number = Number(value);
+  const n = Number.isFinite(number) ? number : 0;
+  const tieneCentavos = config.decimals > 0 && Math.round(n * 100) % 100 !== 0;
+  return new Intl.NumberFormat(config.locale, {
+    style: 'decimal',
+    minimumFractionDigits: tieneCentavos ? config.decimals : 0,
+    maximumFractionDigits: tieneCentavos ? config.decimals : 0,
+  }).format(n);
+};
+
+// ---------------------------------------------------------------------------
+// MONTO TECLEADO — campo de texto grande del registro rápido (celular)
+//
+// El usuario teclea solo dígitos (y la coma decimal del país); los separadores
+// de miles se ponen solos mientras escribe: "25000" se ve "25.000". Un punto
+// tecleado en Colombia se ignora (ahí el punto es de miles, lo pone la app).
+// ---------------------------------------------------------------------------
+const escaparRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Texto tecleado → { texto: "25.000,5", valor: 25000.5 } (valor null si está vacío). */
+export const formatTypedAmount = (raw, countryCode) => {
+  const { decimals } = getConfig(countryCode);
+  const { group, decimal } = getSeparators(countryCode);
+
+  let limpio = String(raw ?? '').replace(new RegExp(`[^0-9${escaparRegex(decimal)}]`, 'g'), '');
+  const primerDecimal = limpio.indexOf(decimal);
+  if (primerDecimal !== -1) {
+    // Solo una coma decimal: las siguientes se descartan.
+    limpio = limpio.slice(0, primerDecimal + 1) + limpio.slice(primerDecimal + 1).split(decimal).join('');
+  }
+
+  let [entero = '', fraccion] = limpio.split(decimal);
+  entero = entero.replace(/^0+(?=\d)/, '');
+  if (decimals === 0) fraccion = undefined;
+  else if (fraccion !== undefined) fraccion = fraccion.slice(0, decimals);
+
+  if (!entero && fraccion === undefined) return { texto: '', valor: null };
+
+  const enteroVisible = (entero || '0').replace(/\B(?=(\d{3})+(?!\d))/g, group);
+  const texto = fraccion !== undefined ? `${enteroVisible}${decimal}${fraccion}` : enteroVisible;
+  const valor = Number(`${entero || '0'}.${fraccion || '0'}`);
+  return { texto, valor: Number.isFinite(valor) ? valor : null };
+};
+
+/** Valor numérico → texto del campo de monto ("25.000" o "25.000,5"). */
+export const typedAmountFromValue = (value, countryCode) => {
+  const n = Number(value);
+  if (value === null || value === undefined || value === '' || !Number.isFinite(n)) return '';
+  return formatAmountShort(n, countryCode);
+};
+
 // ---------------------------------------------------------------------------
 // INPUTS — props listas para usar en <InputNumber>
 //

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext,useMemo } from 'react';
 import { Card, Tabs, Typography, Button, message, Spin, Tooltip } from 'antd';
-import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined, BarChartOutlined, BankOutlined } from '@ant-design/icons';
+import { ReloadOutlined, UserOutlined, PlusOutlined, MinusOutlined, ArrowUpOutlined, ArrowDownOutlined, BarChartOutlined, BankOutlined, MobileOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import 'moment/locale/es';
 import axios from 'axios';
@@ -26,6 +26,7 @@ import SaldoInicialModal from './components/SaldoInicialModal';
 import DashboardStats from './DashboardStats';
 import TransactionTable from './TransactionTable';
 import EstadisticasMovimientos from './EstadisticasMovimientos';
+import MovimientosMobile from './mobile/MovimientosMobile';
 import DocumentoVentaForm from '../documentosVenta/DocumentoVentaForm';
 
 const { Title } = Typography;
@@ -33,10 +34,21 @@ const { TabPane } = Tabs;
 
 moment.locale('es');
 
+// En el celular, Movimientos abre en la vista tipo app (registro rápido). Quien
+// prefiera la tabla de siempre la elige desde el menú y queda recordado en
+// este dispositivo.
+const CLAVE_VISTA = 'qc-movimientos-vista';
+const leerVistaClasica = () => { try { return localStorage.getItem(CLAVE_VISTA) === 'clasica'; } catch { return false; } };
+
 function Certificados() {
   const { user } = useContext(AuthContext);
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
+  const [vistaClasica, setVistaClasica] = useState(leerVistaClasica);
+  const cambiarVista = (clasica) => {
+    setVistaClasica(clasica);
+    try { localStorage.setItem(CLAVE_VISTA, clasica ? 'clasica' : 'app'); } catch { /* sin almacenamiento */ }
+  };
 
   const [rawDataIngresos, setRawDataIngresos] = useState([]);
   const [rawDataEgresos, setRawDataEgresos] = useState([]);
@@ -162,8 +174,40 @@ function Certificados() {
 
   if (!user) return <div className="p-10 flex justify-center"><Spin size="large" /></div>;
 
+  const vistaApp = isMobile && !vistaClasica;
+
   return (
-    <div className="p-4 md:p-6">
+    <div className={vistaApp ? '' : 'p-4 md:p-6'}>
+
+      {vistaApp ? (
+        <MovimientosMobile
+          user={user}
+          loading={loading}
+          ingresos={myIngresos}
+          egresos={myEgresos}
+          saldo={saldo}
+          dateRange={dateRange}
+          onDateRangeChange={handleDateRangeChange}
+          onRefresh={() => fetchTransactions(dateRange)}
+          inventario={inventario}
+          vendedores={vendedores}
+          onEditarCompleto={(tipo, registro) => openDrawer(tipo === 'gasto' ? 'egreso' : 'ingreso', registro)}
+          onConfigurarSaldo={() => setSaldoModalOpen(true)}
+          onVistaClasica={() => cambiarVista(true)}
+        />
+      ) : (
+      <>
+      {/* Volver a la vista app (solo celular, si se eligió la clásica) */}
+      {isMobile && (
+        <Button
+          block
+          icon={<MobileOutlined />}
+          onClick={() => cambiarVista(false)}
+          style={{ marginBottom: 12, borderRadius: 10 }}
+        >
+          Volver a la vista app
+        </Button>
+      )}
 
       {/* Header */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
@@ -299,6 +343,8 @@ function Certificados() {
 
         </Tabs>
       </Card>
+      </>
+      )}
 
       {/* DRAWERS: Se les pasa handleSuccess en lugar de onSubmit */}
       

@@ -1,3 +1,7 @@
+// PRIMERO: instala la renovación automática de la sesión en axios. Tiene que
+// evaluarse antes que cualquier servicio que haga `axios.create`, para que
+// todas las instancias nazcan con ella (ver services/auth/sessionRefresh.js).
+import "./services/auth/sessionRefresh";
 import React, { Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
@@ -12,10 +16,13 @@ import { AuthProvider } from "./AuthContext";
 import { ThemeProvider, useTheme } from "./ThemeContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
-// Registra los interceptores globales de axios (manejo de sesión expirada → 401).
-// Importado por su efecto secundario: al evaluarse el módulo se enganchan los
-// interceptores en axios global y en la instancia backApi.
+// Instancia compartida del backend académico (ya trae la renovación de sesión).
 import "./services/backApi";
+// App instalable en el celular (PWA): escucha el aviso de instalación desde el
+// arranque y registra el service worker en producción.
+import { iniciarPwa } from "./services/pwa/pwa";
+
+iniciarPwa();
 
 // =========================================================
 // Componentes cargados de forma diferida (code-splitting).
