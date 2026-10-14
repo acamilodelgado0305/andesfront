@@ -173,8 +173,8 @@ const MobileCard = ({ record, type, fmt, userMap, userName, getConcept, onEdit, 
           >
             {cuenta || 'N/D'}
           </Tag>
-          {/* La etiqueta del gasto se cambia aquí mismo */}
-          {!isIngreso && <EtiquetaCell record={record} onSaved={onRefresh} />}
+          {/* La etiqueta del movimiento se cambia aquí mismo */}
+          <EtiquetaCell record={record} tipo={isIngreso ? 'ingreso' : 'gasto'} onSaved={onRefresh} />
         </Space>
 
         <Space size={4}>
@@ -477,10 +477,10 @@ const TransactionTable = ({
         </div>
       ),
     },
-    // Los gastos no tienen producto: en su lugar va la etiqueta
+    // Los ingresos llevan producto y etiqueta; los gastos, solo la etiqueta
     // (en la interfaz se llama «etiqueta»; en BD/API sigue siendo `categoria`).
-    type === 'ingresos'
-      ? {
+    ...(type === 'ingresos'
+      ? [{
           title: 'Producto / Servicio',
           dataIndex: 'producto',
           key: 'producto',
@@ -491,16 +491,17 @@ const TransactionTable = ({
               {getConcept(r) || '-'}
             </span>
           ),
-        }
-      : {
-          title: 'Etiqueta',
-          dataIndex: 'categoria_nombre',
-          key: 'categoria',
-          width: 160,
-          sorter: (a, b) => (a.categoria_nombre || '').localeCompare(b.categoria_nombre || '', 'es'),
-          // Editable en la misma tabla: clic → elegir, quitar o administrar etiquetas.
-          render: (_, r) => <EtiquetaCell record={r} onSaved={onRefresh} />,
-        },
+        }]
+      : []),
+    {
+      title: 'Etiqueta',
+      dataIndex: 'categoria_nombre',
+      key: 'categoria',
+      width: 160,
+      sorter: (a, b) => (a.categoria_nombre || '').localeCompare(b.categoria_nombre || '', 'es'),
+      // Editable en la misma tabla: clic → elegir, quitar o administrar etiquetas.
+      render: (_, r) => <EtiquetaCell record={r} tipo={type === 'ingresos' ? 'ingreso' : 'gasto'} onSaved={onRefresh} />,
+    },
     {
       title: 'Valor',
       dataIndex: 'valor',

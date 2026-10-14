@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { Card, Row, Col, Statistic, Spin, Empty, Segmented } from 'antd';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, Cell,
+  ResponsiveContainer, Legend, Cell, PieChart, Pie,
 } from 'recharts';
 import {
   ArrowUpOutlined, ArrowDownOutlined, TrophyOutlined,
@@ -28,6 +28,82 @@ const formatCompact = (v) => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
   return `${n}`;
+};
+
+// ── Reparto por etiqueta (cada etiqueta con su color) ──
+const SIN_ETIQUETA_COLOR = '#9ca3af';
+
+const porEtiqueta = (lista = []) => {
+  const mapa = new Map();
+  lista.forEach((it) => {
+    const id = it.categoria_id ?? null;
+    const clave = id == null ? 'sin' : String(id);
+    if (!mapa.has(clave)) {
+      mapa.set(clave, {
+        clave,
+        nombre: id == null ? 'Sin etiqueta' : (it.categoria_nombre || 'Etiqueta'),
+        color: id == null ? SIN_ETIQUETA_COLOR : (it.categoria_color || '#64748b'),
+        total: 0,
+      });
+    }
+    mapa.get(clave).total += Number(it.valor || 0);
+  });
+  return [...mapa.values()].filter((d) => d.total > 0).sort((a, b) => b.total - a.total);
+};
+
+const DonaEtiquetas = ({ titulo, pregunta, datos, fmt, tooltipStyle, vacio }) => {
+  const total = datos.reduce((s, d) => s + d.total, 0);
+  return (
+    <div className="h-full rounded-2xl border border-slate-200 dark:border-[#403e3a] bg-white/70 dark:bg-[#30302e]/70 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100 dark:border-[#403e3a]">
+        <p className="text-xs font-semibold text-slate-400 dark:text-[#a8a59e] uppercase tracking-wide mb-0.5">{titulo}</p>
+        <p className="text-sm font-medium text-slate-700 dark:text-[#faf9f5] mb-0">{pregunta}</p>
+      </div>
+      {datos.length === 0 ? (
+        <div className="px-5 py-10 text-center text-sm text-slate-500 dark:text-[#a8a59e]">{vacio}</div>
+      ) : (
+        <div className="px-4 sm:px-5 py-4 flex flex-col sm:flex-row items-center gap-4">
+          <div style={{ width: 180, height: 180, flexShrink: 0, position: 'relative' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={datos}
+                  dataKey="total"
+                  nameKey="nombre"
+                  innerRadius={56}
+                  outerRadius={86}
+                  paddingAngle={datos.length > 1 ? 2 : 0}
+                  stroke="none"
+                  isAnimationActive={false}
+                >
+                  {datos.map((d) => <Cell key={d.clave} fill={d.color} />)}
+                </Pie>
+                <Tooltip contentStyle={tooltipStyle} formatter={(v, n) => [fmt(v), n]} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{
+              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              pointerEvents: 'none', fontSize: 18, fontWeight: 800,
+            }} className="text-slate-700 dark:text-[#faf9f5] tabular-nums">
+              {formatCompact(Math.round(total))}
+            </div>
+          </div>
+          <ul className="flex-1 w-full min-w-0 m-0 p-0 list-none">
+            {datos.map((d) => (
+              <li key={d.clave} className="flex items-center gap-2 py-1.5 text-sm">
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
+                <span className="flex-1 min-w-0 truncate text-slate-700 dark:text-[#faf9f5]">{d.nombre}</span>
+                <span className="text-xs text-slate-400 dark:text-[#a8a59e] tabular-nums">
+                  {total > 0 ? Math.round((d.total / total) * 100) : 0}%
+                </span>
+                <span className="font-semibold text-slate-700 dark:text-[#faf9f5] tabular-nums">{fmt(d.total)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const EstadisticasMovimientos = () => {
@@ -136,9 +212,14 @@ const EstadisticasMovimientos = () => {
     const balance = totalIngresos - totalEgresos;
     const totalVentas = diaria.reduce((a, p) => a + p.ventas, 0);
 
+    // Ingresos por etiqueta solo si el negocio ya etiqueta sus ingresos.
+    const ingresosEtiquetados = (ingresos || []).some((it) => it.categoria_id != null);
+
     return {
       diaria, semana, totalIngresos, totalEgresos, balance,
       mejorDia, mejorWd, promedioDiario, totalVentas,
+      gastosPorEtiqueta: porEtiqueta(egresos),
+      ingresosPorEtiqueta: ingresosEtiquetados ? porEtiqueta(ingresos) : [],
     };
   }, [ingresos, egresos, mes, esMesActual]);
 
@@ -268,6 +349,34 @@ const EstadisticasMovimientos = () => {
                 </div>
               </Card>
             </Col>
+          </Row>
+
+          {/* ── En qué se va y de dónde viene: por etiqueta, con sus colores ── */}
+          <Row gutter={[16, 16]} className="mt-2">
+            {(metric === 'ambos' || metric === 'egreso') && (
+              <Col xs={24} lg={metric === 'ambos' ? 12 : 24}>
+                <DonaEtiquetas
+                  titulo="Gastos por etiqueta"
+                  pregunta="¿En qué se va la plata?"
+                  datos={stats.gastosPorEtiqueta}
+                  fmt={fmt}
+                  tooltipStyle={tooltipStyle}
+                  vacio="Sin gastos este mes."
+                />
+              </Col>
+            )}
+            {(metric === 'ambos' || metric === 'ingreso') && (
+              <Col xs={24} lg={metric === 'ambos' ? 12 : 24}>
+                <DonaEtiquetas
+                  titulo="Ingresos por etiqueta"
+                  pregunta="¿De dónde viene la plata?"
+                  datos={stats.ingresosPorEtiqueta}
+                  fmt={fmt}
+                  tooltipStyle={tooltipStyle}
+                  vacio="Ponle una etiqueta de color a tus ingresos y aquí verás de dónde viene cada peso."
+                />
+              </Col>
+            )}
           </Row>
 
           {/* ── Gráfica: fluctuación diaria del mes ── */}

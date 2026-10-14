@@ -1,22 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  Button, DatePicker, Dropdown, Input, Popconfirm, Segmented, Select, Skeleton, Spin, Tooltip, message,
+  Button, DatePicker, Dropdown, Input, Popconfirm, Segmented, Select, Skeleton, Spin, Switch, Tooltip, message,
 } from 'antd';
 import {
   ArrowDownOutlined, ArrowUpOutlined, AudioOutlined, BankOutlined, BarChartOutlined,
   CalendarOutlined, CloseOutlined, DeleteOutlined, DownloadOutlined, EnterOutlined, FilterOutlined,
-  LeftOutlined, MailOutlined, MobileOutlined, PaperClipOutlined, PlusOutlined, ReloadOutlined,
+  FormOutlined, LeftOutlined, MailOutlined, MobileOutlined, PaperClipOutlined, PlusOutlined, ReloadOutlined,
   RightOutlined, SearchOutlined, SettingOutlined, TableOutlined,
 } from '@ant-design/icons';
 import moment from 'moment';
 import dayjs from 'dayjs';
 
 import BottomSheet from '../../common/BottomSheet';
-import RegistroRapido from './RegistroRapido';
+import RegistroRapido, { ultimaCuenta } from './RegistroRapido';
 import { ChipOpcion, COLOR_SIGNO, CORAL, PuntoSigno } from './piezas';
 import useDictado from './useDictado';
-import { emojiInicial, normalizar } from './interpretarMovimiento';
+import {
+  emojiInicial, interpretarMovimiento, montoMinimoPara, normalizar, sugerirEtiqueta,
+} from './interpretarMovimiento';
 import { EtiquetaChip } from '../components/EtiquetasSelector';
 import EtiquetaCell from '../components/EtiquetaCell';
 import EstadisticasMovimientos from '../EstadisticasMovimientos';
@@ -26,14 +28,15 @@ import { generarPdfMovimientos } from '../movimientosPdf';
 import { cuentaOptions } from '../options';
 import useCurrency, { useAmountCompact, useAmountShort, useTypedAmount } from '../../../hooks/useCurrency';
 import {
-  deleteEgreso, deleteIngreso, getAllEgresos, getEgresoCategorias,
+  deleteEgreso, deleteIngreso, getAllEgresos, getAllIngresos, getEgresoCategorias, updateFinanzasConfig,
 } from '../../../services/controlapos/posService';
 import useIsMobile from '../../../hooks/useIsMobile';
 import { usePwaInstall } from '../../../services/pwa/pwa';
 import { MOBILE_NAV_HEIGHT } from '../../Sidebar/MobileBottomNav';
 
 const ALTO_BOTONES = 64;
-const SIN_ETIQUETA = 'sin';
+const SIN_ETIQUETA = 'sin';            // gastos sin etiqueta
+const SIN_ETIQUETA_INGRESO = 'sin-i';  // ingresos sin etiqueta
 const POR_PAGINA = 80;
 const CLAVE_VISTA = 'qc-movimientos-mostrar';
 const CLAVE_BANNER = 'qc-pwa-banner-oculto';
@@ -104,12 +107,15 @@ const Circulo = ({ children, size = 46, fondo = 'var(--qc-relleno)', color = 'va
 
 // Ícono de un movimiento: el emoji de su etiqueta ("🍔 Comida") o su inicial,
 // sobre un tinte suave del color de la etiqueta (la letra va en el color del
-// texto: un azul o un morado puros no se leen sobre fondo oscuro). Los
-// ingresos, una flecha hacia arriba.
+// texto: un azul o un morado puros no se leen sobre fondo oscuro). Sin
+// etiqueta, una flecha (abajo el gasto, arriba el ingreso).
 const IconoMovimiento = ({ m }) => {
-  if (m.tipo === 'ingreso') return <Circulo><ArrowUpOutlined style={{ fontSize: 18 }} /></Circulo>;
   const nombre = m.raw.categoria_nombre;
-  if (!nombre) return <Circulo color="var(--qc-text-muted)"><ArrowDownOutlined style={{ fontSize: 18 }} /></Circulo>;
+  if (!nombre) {
+    return m.tipo === 'ingreso'
+      ? <Circulo><ArrowUpOutlined style={{ fontSize: 18 }} /></Circulo>
+      : <Circulo color="var(--qc-text-muted)"><ArrowDownOutlined style={{ fontSize: 18 }} /></Circulo>;
+  }
   const emoji = emojiInicial(nombre);
   const color = m.raw.categoria_color;
   return (
@@ -137,22 +143,27 @@ const BotonCircular = ({ onClick, label, children, activo = false, size = 44 }) 
   </button>
 );
 
-const OpcionMenu = ({ icon, titulo, detalle, onClick }) => (
-  <button
-    type="button"
+// Fila de opción de las hojas. Es un div con rol de botón para poder llevar
+// un interruptor a la derecha (un <button> no puede ir dentro de otro).
+const OpcionMenu = ({ icon, titulo, detalle, onClick, extra = null }) => (
+  <div
+    role="button"
+    tabIndex={0}
     onClick={onClick}
+    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
     className="qc-mov-fila"
     style={{
       display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '12px 4px',
-      border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderRadius: 12,
+      textAlign: 'left', cursor: 'pointer', borderRadius: 12,
     }}
   >
     <Circulo size={40}><span style={{ fontSize: 17 }}>{icon}</span></Circulo>
-    <span style={{ minWidth: 0 }}>
+    <span style={{ flex: 1, minWidth: 0 }}>
       <span style={{ display: 'block', fontSize: 15, fontWeight: 600, color: 'var(--qc-text)' }}>{titulo}</span>
       {detalle && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--qc-text-muted)' }}>{detalle}</span>}
     </span>
-  </button>
+    {extra}
+  </div>
 );
 
 const ChipFiltro = ({ children, onQuitar }) => (
@@ -259,35 +270,50 @@ const MovimientosApp = ({
   };
 
   // ── Etiquetas del negocio e historial para sugerir (aprende del uso) ──
+  // Dos listas separadas: las de gastos y las de ingresos.
   const [etiquetas, setEtiquetas] = useState([]);
+  const [etiquetasIngreso, setEtiquetasIngreso] = useState([]);
   const cargarEtiquetas = useCallback(() => {
-    getEgresoCategorias()
-      .then((d) => setEtiquetas(Array.isArray(d) ? d : []))
+    const comoLista = (d) => (Array.isArray(d) ? d : []);
+    getEgresoCategorias({ tipo: 'gasto' })
+      .then((d) => setEtiquetas(comoLista(d)))
+      .catch(() => { /* sin etiquetas igual se registra */ });
+    getEgresoCategorias({ tipo: 'ingreso' })
+      .then((d) => setEtiquetasIngreso(comoLista(d)))
       .catch(() => { /* sin etiquetas igual se registra */ });
   }, []);
   useEffect(() => { cargarEtiquetas(); }, [cargarEtiquetas]);
 
-  // Los gastos del periodo en pantalla pueden ser pocos: la primera vez que se
-  // abre el registro se piden los últimos 6 meses para sugerir mejor.
-  const [historialLargo, setHistorialLargo] = useState([]);
+  // Los movimientos del periodo en pantalla pueden ser pocos: la primera vez
+  // que se abre el registro se piden los últimos 6 meses para sugerir mejor.
+  const [historialLargo, setHistorialLargo] = useState({ egresos: [], ingresos: [] });
   const historialPedido = useRef(false);
   const cargarHistorial = () => {
     if (historialPedido.current) return;
     historialPedido.current = true;
-    getAllEgresos({
+    const rango = {
       fecha_inicio: moment().subtract(180, 'days').startOf('day').toISOString(),
       fecha_fin: moment().endOf('day').toISOString(),
       tz_offset: new Date().getTimezoneOffset(),
-    })
-      .then((d) => setHistorialLargo(Array.isArray(d) ? d : (d?.data || [])))
+    };
+    const comoLista = (d) => (Array.isArray(d) ? d : (d?.data || []));
+    Promise.all([getAllEgresos(rango), getAllIngresos({ ...rango, limit: 3000 })])
+      .then(([e, i]) => setHistorialLargo({ egresos: comoLista(e), ingresos: comoLista(i) }))
       .catch(() => { historialPedido.current = false; });
   };
 
   const historial = useMemo(
-    () => [...egresos, ...historialLargo]
+    () => [...egresos, ...historialLargo.egresos]
       .filter((e) => e?.descripcion)
       .map((e) => ({ descripcion: e.descripcion, categoria_id: e.categoria_id ?? null })),
     [egresos, historialLargo],
+  );
+  // En un ingreso lo que se "escribe" es el producto o concepto vendido.
+  const historialIngresos = useMemo(
+    () => [...ingresos, ...historialLargo.ingresos]
+      .map((r) => ({ descripcion: conceptoDe(r) || r.descripcion || '', categoria_id: r.categoria_id ?? null }))
+      .filter((r) => r.descripcion),
+    [ingresos, historialLargo],
   );
 
   // Productos más vendidos primero en el registro de ingresos.
@@ -311,12 +337,16 @@ const MovimientosApp = ({
     const ing = ingresos.map((r) => {
       // "Cliente General" es el relleno de una venta sin cliente: no se muestra.
       const cliente = r.persona_id != null || (r.numeroDeDocumento && r.numeroDeDocumento !== '0') ? clienteDe(r) : '';
+      // Un solo producto vendido varias veces: "Curso BPM × 3".
+      const items = itemsDe(r);
+      const veces = items.length === 1 ? Number(items[0].cantidad) || 1 : 1;
+      const concepto = conceptoDe(r);
       return {
         tipo: 'ingreso',
         id: `i-${r._id}`,
         fecha: moment(r.createdAt),
         valor: Number(r.valor) || 0,
-        titulo: conceptoDe(r) || cliente || 'Ingreso',
+        titulo: (concepto && veces > 1 ? `${concepto} × ${veces}` : concepto) || cliente || 'Ingreso',
         cliente,
         raw: r,
       };
@@ -339,8 +369,11 @@ const MovimientosApp = ({
     if (filtros.cuenta && r.cuenta !== filtros.cuenta) return false;
     if (filtros.usuario && String(r.usuario) !== String(filtros.usuario)) return false;
     if (filtros.etiqueta != null) {
-      if (m.tipo !== 'gasto') return false;
-      if (String(r.categoria_id ?? SIN_ETIQUETA) !== String(filtros.etiqueta)) return false;
+      // Cada etiqueta es de un solo tipo; "sin etiqueta" va por tipo también.
+      const f = String(filtros.etiqueta);
+      if (f === SIN_ETIQUETA || f === SIN_ETIQUETA_INGRESO) {
+        if (m.tipo !== (f === SIN_ETIQUETA ? 'gasto' : 'ingreso') || r.categoria_id != null) return false;
+      } else if (String(r.categoria_id) !== f) return false;
     }
     if (filtros.concepto != null) {
       if (m.tipo !== 'ingreso') return false;
@@ -380,26 +413,33 @@ const MovimientosApp = ({
     return [...mapa.values()];
   }, [listados, limite]);
 
-  // Barras: gastos por etiqueta (o, viendo ingresos, ingresos por concepto).
+  // Barras: gastos por etiqueta. Viendo ingresos, ingresos por etiqueta si el
+  // negocio ya los etiqueta; si no, por producto o concepto.
   const deIngresos = mostrar === 'ingresos';
+  const ingresosEtiquetados = useMemo(
+    () => filtrados.some((m) => m.tipo === 'ingreso' && m.raw.categoria_id != null),
+    [filtrados],
+  );
+  const barrasPorConcepto = deIngresos && !ingresosEtiquetados;
   const barras = useMemo(() => {
     const mapa = new Map();
     filtrados.forEach((m) => {
       if (deIngresos ? m.tipo !== 'ingreso' : m.tipo !== 'gasto') return;
       const r = m.raw;
-      const clave = deIngresos ? (conceptoDe(r) || 'Sin concepto') : String(r.categoria_id ?? SIN_ETIQUETA);
+      const sinEtiqueta = deIngresos ? SIN_ETIQUETA_INGRESO : SIN_ETIQUETA;
+      const clave = barrasPorConcepto ? (conceptoDe(r) || 'Sin concepto') : String(r.categoria_id ?? sinEtiqueta);
       if (!mapa.has(clave)) {
         mapa.set(clave, {
           clave,
-          nombre: deIngresos ? clave : (r.categoria_nombre || 'Sin etiqueta'),
-          color: deIngresos ? null : (r.categoria_id != null ? (r.categoria_color || null) : null),
+          nombre: barrasPorConcepto ? clave : (r.categoria_nombre || 'Sin etiqueta'),
+          color: barrasPorConcepto || r.categoria_id == null ? null : (r.categoria_color || null),
           total: 0,
         });
       }
       mapa.get(clave).total += m.valor;
     });
     return [...mapa.values()].sort((a, b) => b.total - a.total);
-  }, [filtrados, deIngresos]);
+  }, [filtrados, deIngresos, barrasPorConcepto]);
   const totalBarras = barras.reduce((s, d) => s + d.total, 0);
   const maxBarra = barras[0]?.total || 1;
 
@@ -443,8 +483,49 @@ const MovimientosApp = ({
   };
 
   // ── Registro ──
+  // Algunos negocios (p. ej. los que siempre facturan a un cliente) registran
+  // todo con el formulario completo: lo decide un administrador desde ⚙ y vale
+  // para todos los usuarios del negocio (finanzas_config.registro_completo).
+  const esAdmin = ['admin', 'superadmin'].includes(user?.role);
+  const [registroCompletoLocal, setRegistroCompletoLocal] = useState(null);
+  useEffect(() => { setRegistroCompletoLocal(null); }, [saldo]);
+  const registroCompleto = registroCompletoLocal ?? (saldo?.registro_completo === true);
+  const puedeDictar = dictado.disponible && !registroCompleto;
+
+  const cambiarRegistroCompleto = async (valor) => {
+    setRegistroCompletoLocal(valor);
+    try {
+      await updateFinanzasConfig({ registro_completo: valor });
+      message.success(valor ? 'Este negocio registra con el formulario completo' : 'Este negocio vuelve al registro rápido');
+      onRefresh();
+    } catch (e) {
+      setRegistroCompletoLocal(null);
+      message.error(e?.response?.data?.message || 'No se pudo guardar el cambio');
+    }
+  };
+
+  // Lo escrito ("almuerzo 25000") llega ya repartido al formulario completo.
+  const abrirFormularioCompleto = ({ tipo, texto = '', registro = null }) => {
+    if (registro) { onEditarCompleto(registro.tipo, registro.raw); return; }
+    const p = texto.trim() ? interpretarMovimiento(texto, { montoMinimo: montoMinimoPara(codigoMoneda) }) : null;
+    const t = p?.tipo || tipo;
+    const cuenta = ultimaCuenta(t) || 'Nequi';
+    if (t === 'gasto') {
+      const descripcion = p ? capitalizar(p.valor != null ? p.descripcion : texto.trim()) : '';
+      const etiqueta = descripcion ? sugerirEtiqueta(descripcion, etiquetas, historial) : null;
+      onEditarCompleto('gasto', {
+        descripcion, cuenta, fecha: new Date().toISOString(),
+        ...(p?.valor != null ? { valor: p.valor } : {}),
+        ...(etiqueta != null ? { categoria_id: etiqueta } : {}),
+      });
+    } else {
+      onEditarCompleto('ingreso', { cuenta, valor: p?.valor ?? 0 });
+    }
+  };
+
   const tipoPorDefecto = mostrar === 'ingresos' ? 'ingreso' : 'gasto';
   const abrirRegistro = ({ tipo, texto = '', registro = null, conDictado = false } = {}) => {
+    if (registroCompleto) { abrirFormularioCompleto({ tipo: tipo || tipoPorDefecto, texto, registro }); return; }
     // iPhone: el teclado solo abre si algo se enfoca dentro del toque. Se enfoca
     // un campo invisible ya mismo y la hoja pasa el foco a su campo al abrir.
     if (!registro && !conDictado) proxyRef.current?.focus({ preventScroll: true });
@@ -458,13 +539,11 @@ const MovimientosApp = ({
   };
 
   const abrirMovimiento = (m) => {
-    // Ventas con varios productos o cantidades: su edición vive en el formulario completo.
-    if (m.tipo === 'ingreso') {
-      const items = itemsDe(m.raw);
-      if (items.length > 1 || items.some((it) => Number(it.cantidad) > 1)) {
-        onEditarCompleto('ingreso', m.raw);
-        return;
-      }
+    // Ventas con varios productos distintos: su edición vive en el formulario
+    // completo (un producto con cantidad sí se edita en el registro rápido).
+    if (m.tipo === 'ingreso' && itemsDe(m.raw).length > 1) {
+      onEditarCompleto('ingreso', m.raw);
+      return;
     }
     abrirRegistro({ registro: { tipo: m.tipo, raw: m.raw } });
   };
@@ -499,7 +578,7 @@ const MovimientosApp = ({
   const ocultarBanner = () => { setBannerOculto(true); guardarLocal(CLAVE_BANNER, '1'); };
 
   const alternarFiltroBarra = (d) => {
-    if (deIngresos) setFiltros((f) => ({ ...f, concepto: f.concepto === d.clave ? null : d.clave }));
+    if (barrasPorConcepto) setFiltros((f) => ({ ...f, concepto: f.concepto === d.clave ? null : d.clave }));
     else setFiltros((f) => ({ ...f, etiqueta: String(f.etiqueta) === d.clave ? null : d.clave }));
   };
 
@@ -511,10 +590,12 @@ const MovimientosApp = ({
 
   const hayFiltros = filtros.cuenta || filtros.etiqueta != null || filtros.concepto != null || filtros.usuario;
   const nombreEtiquetaFiltro = filtros.etiqueta === SIN_ETIQUETA
-    ? 'Sin etiqueta'
-    : (etiquetas.find((e) => String(e.id) === String(filtros.etiqueta))?.nombre
-      || egresos.find((e) => String(e.categoria_id) === String(filtros.etiqueta))?.categoria_nombre
-      || 'Etiqueta');
+    ? 'Gastos sin etiqueta'
+    : filtros.etiqueta === SIN_ETIQUETA_INGRESO
+      ? 'Ingresos sin etiqueta'
+      : ([...etiquetas, ...etiquetasIngreso].find((e) => String(e.id) === String(filtros.etiqueta))?.nombre
+        || [...egresos, ...ingresos].find((e) => String(e.categoria_id) === String(filtros.etiqueta))?.categoria_nombre
+        || 'Etiqueta');
 
   const conceptos = useMemo(
     () => [...new Set(ingresos.map((r) => conceptoDe(r) || 'Sin concepto'))].sort((a, b) => a.localeCompare(b, 'es')),
@@ -579,9 +660,9 @@ const MovimientosApp = ({
       {barras.map((d) => {
         const pct = totalBarras > 0 ? Math.round((d.total / totalBarras) * 100) : 0;
         const alto = 74 + Math.round((d.total / maxBarra) * 116);
-        const activo = deIngresos ? filtros.concepto === d.clave : String(filtros.etiqueta) === d.clave;
+        const activo = barrasPorConcepto ? filtros.concepto === d.clave : String(filtros.etiqueta) === d.clave;
         const emoji = emojiInicial(d.nombre);
-        const sinNombre = d.clave === SIN_ETIQUETA || d.nombre === 'Sin concepto';
+        const sinNombre = d.clave === SIN_ETIQUETA || d.clave === SIN_ETIQUETA_INGRESO || d.nombre === 'Sin concepto';
         return (
           <button
             key={d.clave}
@@ -599,7 +680,9 @@ const MovimientosApp = ({
             }}
           >
             <span style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 700, color: emoji ? undefined : 'var(--qc-text)' }}>
-              {deIngresos ? <ArrowUpOutlined /> : (emoji || (sinNombre ? '?' : d.nombre.trim().charAt(0).toUpperCase()))}
+              {barrasPorConcepto || d.clave === SIN_ETIQUETA_INGRESO
+                ? <ArrowUpOutlined />
+                : (emoji || (sinNombre ? '?' : d.nombre.trim().charAt(0).toUpperCase()))}
             </span>
             <span style={{ fontSize: 15, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{montoCompacto(d.total)}</span>
             <span style={{ fontSize: 12, color: 'var(--qc-text-muted)', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -624,6 +707,8 @@ const MovimientosApp = ({
         registro={hoja.registro}
         etiquetas={etiquetas}
         historial={historial}
+        etiquetasIngreso={etiquetasIngreso}
+        historialIngresos={historialIngresos}
         inventario={inventario}
         usoProductos={usoProductos}
         userName={user?.name}
@@ -690,6 +775,15 @@ const MovimientosApp = ({
           onClick={() => { setMenuAbierto(false); onConfigurarSaldo(); }} />
         <OpcionMenu icon={<ReloadOutlined />} titulo="Actualizar"
           onClick={() => { setMenuAbierto(false); onRefresh(); }} />
+        {esAdmin && (
+          <OpcionMenu
+            icon={<FormOutlined />}
+            titulo="Siempre el formulario completo"
+            detalle="Para todos los usuarios de este negocio, en lugar del registro rápido"
+            onClick={() => cambiarRegistroCompleto(!registroCompleto)}
+            extra={<Switch checked={registroCompleto} style={{ pointerEvents: 'none', flexShrink: 0 }} />}
+          />
+        )}
         {ofrecerInstalar && (
           <OpcionMenu icon={<MobileOutlined />} titulo="Instalar la app" detalle="Ícono en tu pantalla de inicio" onClick={instalar} />
         )}
@@ -724,28 +818,28 @@ const MovimientosApp = ({
           ))}
         </div>
 
-        <Seccion>Etiqueta (gastos)</Seccion>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {etiquetas.map((e) => (
-            <EtiquetaChip
-              key={e.id}
-              sutil
-              nombre={e.nombre}
-              color={e.color}
-              selected={String(filtros.etiqueta) === String(e.id)}
-              dimmed={filtros.etiqueta != null && String(filtros.etiqueta) !== String(e.id)}
-              onClick={() => setFiltros((f) => ({ ...f, etiqueta: String(f.etiqueta) === String(e.id) ? null : String(e.id) }))}
-            />
-          ))}
-          <EtiquetaChip
-            sutil
-            nombre="Sin etiqueta"
-            color="#9ca3af"
-            selected={filtros.etiqueta === SIN_ETIQUETA}
-            dimmed={filtros.etiqueta != null && filtros.etiqueta !== SIN_ETIQUETA}
-            onClick={() => setFiltros((f) => ({ ...f, etiqueta: f.etiqueta === SIN_ETIQUETA ? null : SIN_ETIQUETA }))}
-          />
-        </div>
+        {[
+          { titulo: 'Etiqueta (gastos)', lista: etiquetas, sin: SIN_ETIQUETA },
+          { titulo: 'Etiqueta (ingresos)', lista: etiquetasIngreso, sin: SIN_ETIQUETA_INGRESO },
+        ].filter((g) => g.sin === SIN_ETIQUETA || g.lista.length > 0).map((g) => (
+          <React.Fragment key={g.sin}>
+            <Seccion>{g.titulo}</Seccion>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {[...g.lista.map((e) => ({ id: String(e.id), nombre: e.nombre, color: e.color })),
+                { id: g.sin, nombre: 'Sin etiqueta', color: '#9ca3af' }].map((e) => (
+                  <EtiquetaChip
+                    key={e.id}
+                    sutil
+                    nombre={e.nombre}
+                    color={e.color}
+                    selected={String(filtros.etiqueta) === e.id}
+                    dimmed={filtros.etiqueta != null && String(filtros.etiqueta) !== e.id}
+                    onClick={() => setFiltros((f) => ({ ...f, etiqueta: String(f.etiqueta) === e.id ? null : e.id }))}
+                  />
+              ))}
+            </div>
+          </React.Fragment>
+        ))}
 
         {conceptos.length > 0 && (
           <>
@@ -837,10 +931,16 @@ const MovimientosApp = ({
     const columnas = compacto
       ? 'minmax(140px, 2fr) minmax(120px, 1.2fr) 88px 120px'
       : `minmax(160px, 2.4fr) minmax(130px, 1.3fr) 100px ${variosUsuarios ? '130px ' : ''}96px 128px`;
-    const opcionesEtiqueta = [
-      ...etiquetas.map((e) => ({ value: String(e.id), label: e.nombre, color: e.color })),
-      { value: SIN_ETIQUETA, label: 'Sin etiqueta', color: '#9ca3af' },
+    const opcionesDe = (lista, sin) => [
+      ...lista.map((e) => ({ value: String(e.id), label: e.nombre, color: e.color })),
+      { value: sin, label: 'Sin etiqueta', color: '#9ca3af' },
     ];
+    const opcionesEtiqueta = etiquetasIngreso.length > 0
+      ? [
+        { label: 'Gastos', title: 'Gastos', options: opcionesDe(etiquetas, SIN_ETIQUETA) },
+        { label: 'Ingresos', title: 'Ingresos', options: opcionesDe(etiquetasIngreso, SIN_ETIQUETA_INGRESO) },
+      ]
+      : opcionesDe(etiquetas, SIN_ETIQUETA);
     const verSaldoAnterior = saldoAnterior !== null && !ocultas.includes('saldo_anterior');
 
     return (
@@ -866,6 +966,20 @@ const MovimientosApp = ({
                 items: [
                   { key: 'saldo', icon: <BankOutlined />, label: 'Saldo inicial y tarjetas', onClick: onConfigurarSaldo },
                   { key: 'actualizar', icon: <ReloadOutlined />, label: 'Actualizar', onClick: () => onRefresh() },
+                  ...(esAdmin ? [{
+                    key: 'completo',
+                    icon: <FormOutlined />,
+                    label: (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 16, justifyContent: 'space-between' }}>
+                        <span>
+                          Siempre el formulario completo
+                          <span style={{ display: 'block', fontSize: 12, color: 'var(--qc-text-muted)' }}>Para todo el negocio</span>
+                        </span>
+                        <Switch size="small" checked={registroCompleto} style={{ pointerEvents: 'none' }} />
+                      </span>
+                    ),
+                    onClick: () => cambiarRegistroCompleto(!registroCompleto),
+                  }] : []),
                   ...(ofrecerInstalar ? [{ key: 'instalar', icon: <MobileOutlined />, label: 'Instalar la app', onClick: instalar }] : []),
                   { type: 'divider' },
                   { key: 'clasica', icon: <TableOutlined />, label: 'Vista clásica (tabla)', onClick: onVistaClasica },
@@ -984,7 +1098,7 @@ const MovimientosApp = ({
                       aria-label="Escribe un movimiento"
                       style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 15.5, padding: '11px 0', color: 'var(--qc-text)' }}
                     />
-                    {dictado.disponible && (
+                    {puedeDictar && (
                       <Tooltip title="Dictar">
                         <button type="button" aria-label="Dictar un movimiento" onClick={() => abrirRegistro({ conDictado: true })}
                           style={{
@@ -1083,7 +1197,7 @@ const MovimientosApp = ({
                   }}>
                     <span />
                     <span>Movimiento</span>
-                    <span>Etiqueta / cliente</span>
+                    <span>Etiqueta</span>
                     {!compacto && <span>Cuenta</span>}
                     {!compacto && variosUsuarios && <span>Registró</span>}
                     <span />
@@ -1110,7 +1224,9 @@ const MovimientosApp = ({
                             ? `Ref ${r.payment_reference}` : null;
                           // En pantallas medianas la cuenta y quién registró pasan a esta línea.
                           const detalle = [
-                            hora(m.fecha), documento, referencia,
+                            hora(m.fecha),
+                            m.tipo === 'ingreso' && m.cliente && m.cliente !== m.titulo ? m.cliente : null,
+                            documento, referencia,
                             compacto ? r.cuenta : null,
                             compacto && variosUsuarios ? userMap[String(r.usuario)] : null,
                           ].filter(Boolean).join(' · ');
@@ -1136,11 +1252,9 @@ const MovimientosApp = ({
                                   {detalle}
                                 </span>
                               </span>
-                              {/* La etiqueta se cambia aquí mismo, sin abrir el gasto */}
+                              {/* La etiqueta se cambia aquí mismo, sin abrir el movimiento */}
                               <span style={{ minWidth: 0 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                                {m.tipo === 'gasto'
-                                  ? <EtiquetaCell sutil record={r} onSaved={() => onRefresh()} />
-                                  : <span style={{ display: 'block', fontSize: 13.5, color: m.cliente ? 'var(--qc-text)' : 'var(--qc-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.cliente || 'Venta general'}</span>}
+                                <EtiquetaCell sutil tipo={m.tipo} record={r} onSaved={() => onRefresh()} />
                               </span>
                               {!compacto && <span style={{ fontSize: 13.5, color: 'var(--qc-text)' }}>{r.cuenta || '—'}</span>}
                               {!compacto && variosUsuarios && (
@@ -1368,7 +1482,8 @@ const MovimientosApp = ({
                   const r = m.raw;
                   const certificable = m.tipo === 'ingreso' && envio.puedeEnviar(r);
                   const subtitulo = [
-                    m.tipo === 'gasto' ? r.categoria_nombre : (m.cliente && m.cliente !== m.titulo ? m.cliente : null),
+                    r.categoria_nombre,
+                    m.tipo === 'ingreso' && m.cliente && m.cliente !== m.titulo ? m.cliente : null,
                     r.cuenta,
                     variosUsuarios ? userMap[String(r.usuario)] : null,
                   ].filter(Boolean).join(' · ');
@@ -1450,7 +1565,7 @@ const MovimientosApp = ({
           borderRadius: 32, background: 'var(--qc-surface)', border: '1px solid var(--qc-border)',
           boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
         }}>
-          {dictado.disponible && (
+          {puedeDictar && (
             <button
               type="button"
               aria-label={tipoPorDefecto === 'ingreso' ? 'Nuevo ingreso' : 'Nuevo gasto'}
@@ -1481,15 +1596,15 @@ const MovimientosApp = ({
         {/* Con dictado: el botón grande es el micrófono. Sin él, es el +. */}
         <button
           type="button"
-          aria-label={dictado.disponible ? 'Dictar un movimiento' : (tipoPorDefecto === 'ingreso' ? 'Nuevo ingreso' : 'Nuevo gasto')}
-          onClick={() => (dictado.disponible ? abrirRegistro({ conDictado: true }) : abrirRegistro())}
+          aria-label={puedeDictar ? 'Dictar un movimiento' : (tipoPorDefecto === 'ingreso' ? 'Nuevo ingreso' : 'Nuevo gasto')}
+          onClick={() => (puedeDictar ? abrirRegistro({ conDictado: true }) : abrirRegistro())}
           style={{
             pointerEvents: 'auto', width: ALTO_BOTONES, height: ALTO_BOTONES, borderRadius: '50%',
             border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 26, background: CORAL, color: '#fff', boxShadow: '0 8px 22px rgba(240,86,92,0.45)',
           }}
         >
-          {dictado.disponible ? <AudioOutlined /> : <PlusOutlined />}
+          {puedeDictar ? <AudioOutlined /> : <PlusOutlined />}
         </button>
       </div>
 

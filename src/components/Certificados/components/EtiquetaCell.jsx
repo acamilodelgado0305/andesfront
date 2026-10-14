@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Popover, Spin, message } from 'antd';
 import { TagOutlined } from '@ant-design/icons';
 
-import { updateEgreso } from '../../../services/controlapos/posService';
+import { updateEgreso, updateIngreso } from '../../../services/controlapos/posService';
 import EtiquetasSelector, { EtiquetaChip } from './EtiquetasSelector';
 
 /**
@@ -14,7 +14,8 @@ import EtiquetasSelector, { EtiquetaChip } from './EtiquetasSelector';
  * onSaved: recarga los gastos (la tabla recibe los datos del padre).
  */
 // `sutil`: chip neutro con punto de color (vista nueva de Movimientos).
-const EtiquetaCell = ({ record, onSaved, sutil = false }) => {
+// `tipo`: 'gasto' (por defecto) o 'ingreso': qué lista de etiquetas y qué registro se actualiza.
+const EtiquetaCell = ({ record, onSaved, sutil = false, tipo = 'gasto' }) => {
   const [abierto, setAbierto]     = useState(false);
   const [guardando, setGuardando] = useState(false);
   // Se crearon/editaron/eliminaron etiquetas: al cerrar hay que recargar para
@@ -38,7 +39,7 @@ const EtiquetaCell = ({ record, onSaved, sutil = false }) => {
     setGuardando(true);
     try {
       // Solo se manda la etiqueta: el backend conserva el resto del gasto.
-      await updateEgreso(record._id, { categoria_id: nueva });
+      await (tipo === 'ingreso' ? updateIngreso : updateEgreso)(record._id, { categoria_id: nueva });
       message.success(nueva ? 'Etiqueta asignada' : 'Etiqueta quitada');
       etiquetasCambiaron.current = false;
       setAbierto(false);
@@ -60,13 +61,14 @@ const EtiquetaCell = ({ record, onSaved, sutil = false }) => {
       destroyTooltipOnHide
       title={
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          Etiqueta del gasto {guardando && <Spin size="small" />}
+          Etiqueta del {tipo === 'ingreso' ? 'ingreso' : 'gasto'} {guardando && <Spin size="small" />}
         </span>
       }
       content={
         <div style={{ maxWidth: 320, opacity: guardando ? 0.6 : 1, pointerEvents: guardando ? 'none' : 'auto' }}>
           <EtiquetasSelector
             sutil={sutil}
+            tipo={tipo}
             value={actual}
             onChange={asignar}
             onCambios={() => { etiquetasCambiaron.current = true; }}

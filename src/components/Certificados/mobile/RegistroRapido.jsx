@@ -24,7 +24,7 @@ import {
 } from '../envioDocumentos';
 import { conceptoDe, itemsDe } from '../movimientos';
 import {
-  capitalizar, interpretarMovimiento, normalizar, sugerirEtiqueta, sugerirProducto,
+  capitalizar, interpretarMovimiento, montoMinimoPara, normalizar, sugerirEtiqueta, sugerirProducto,
 } from './interpretarMovimiento';
 import { useAmountShort, useTypedAmount } from '../../../hooks/useCurrency';
 import {
@@ -35,13 +35,9 @@ import {
 // Backend académico (andesback): ahí viven los endpoints que envían los documentos.
 const API_CERT_URL = import.meta.env.VITE_API_BACKEND;
 
-// En monedas de unidad pequeña un número suelto menor a esto no es plata:
-// "cuota 3 de 12" no es un gasto de 12 pesos.
-const MONEDAS_SIN_CENTAVOS_UTILES = ['COP', 'CLP', 'PYG'];
-
 // La cuenta usada la última vez (por tipo) queda elegida la próxima.
 const claveCuenta = (tipo) => `qc-ultima-cuenta-${tipo}`;
-const ultimaCuenta = (tipo) => { try { return localStorage.getItem(claveCuenta(tipo)); } catch { return null; } };
+export const ultimaCuenta = (tipo) => { try { return localStorage.getItem(claveCuenta(tipo)); } catch { return null; } };
 const recordarCuenta = (tipo, cuenta) => { try { localStorage.setItem(claveCuenta(tipo), cuenta); } catch { /* sin almacenamiento */ } };
 
 const Etiqueta = ({ children }) => (
@@ -77,8 +73,10 @@ const RegistroRapido = ({
   tipoInicial = 'gasto',
   textoInicial = '',
   registro = null,           // { tipo: 'gasto'|'ingreso', raw } para editar
-  etiquetas = [],
-  historial = [],
+  etiquetas = [],            // etiquetas de gastos
+  historial = [],            // gastos anteriores (para sugerir etiqueta)
+  etiquetasIngreso = [],     // etiquetas de ingresos
+  historialIngresos = [],    // ingresos anteriores (para sugerir etiqueta)
   inventario = [],
   usoProductos = {},
   userName,
@@ -94,7 +92,7 @@ const RegistroRapido = ({
   const { codigo, formatear, desdeValor } = useTypedAmount();
   const montoCorto = useAmountShort();
   const [modal, contextoModal] = Modal.useModal();
-  const montoMinimo = MONEDAS_SIN_CENTAVOS_UTILES.includes(codigo) ? 50 : 0;
+  const montoMinimo = montoMinimoPara(codigo);
   const leer = (t) => interpretarMovimiento(t, { montoMinimo });
   const esEdicion = !!registro;
 
@@ -106,6 +104,10 @@ const RegistroRapido = ({
   // null = la quitó, número = la eligió.
   const [etiquetaManual, setEtiquetaManual] = useState(undefined);
   const [productoId, setProductoId] = useState(null);
+  // Cantidad del producto vendido y su precio por unidad (el del catálogo, o
+  // valor ÷ cantidad al editar). El total se recalcula mientras no se escriba a mano.
+  const [cantidad, setCantidad] = useState(1);
+  const [precioUnitario, setPrecioUnitario] = useState(0);
   const [cuenta, setCuenta] = useState('Nequi');
   const [fecha, setFecha] = useState(() => dayjs());
   const [persona, setPersona] = useState(null);
@@ -126,12 +128,19 @@ const RegistroRapido = ({
 
   const ponerValor = (v) => { setValor(v); setValorTexto(desdeValor(v)); };
 
+  const producto = tipo === 'ingreso' ? inventario.find((i) => String(i.id) === String(productoId)) : null;
+  // Etiquetas del tipo que se está registrando (gastos e ingresos tienen listas separadas).
+  const etiquetasDelTipo = tipo === 'gasto' ? etiquetas : etiquetasIngreso;
+
   // La etiqueta sugerida se calcula en cada render (no se guarda): así nunca
   // queda vieja si las etiquetas o el historial llegan mientras se escribe.
-  const etiquetaSugerida = useMemo(
-    () => (tipo === 'gasto' ? sugerirEtiqueta(leer(texto).descripcion, etiquetas, historial) : null),
-    [tipo, texto, etiquetas, historial], // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  // En un ingreso sin texto se sugiere por el producto ("Curso BPM" → Cursos).
+  const etiquetaSugerida = useMemo(() => {
+    const base = leer(texto).descripcion || producto?.nombre || '';
+    return tipo === 'gasto'
+      ? sugerirEtiqueta(base, etiquetas, historial)
+      : sugerirEtiqueta(base, etiquetasIngreso, historialIngresos);
+  }, [tipo, texto, producto, etiquetas, historial, etiquetasIngreso, historialIngresos]); // eslint-disable-line react-hooks/exhaustive-deps
   const etiquetaId = etiquetaManual !== undefined ? etiquetaManual : etiquetaSugerida;
 
   // ── Al abrir: llenar con el registro a editar o con lo que se escribió ──
@@ -146,13 +155,16 @@ const RegistroRapido = ({
     if (esEdicion) {
       const r = registro.raw;
       const t = registro.tipo;
-      tocado.current = { tipo: true, valor: true, producto: true, fecha: false };
+      tocado.current = { tipo: true, valor: true, producto: true, fecha: false, montoAMano: false };
       setTipo(t);
       setTexto(t === 'gasto' ? (r.descripcion || '') : (conceptoDe(r) || r.descripcion || ''));
       ponerValor(Number(r.valor) || null);
       setEtiquetaManual(r.categoria_id ?? null);
       const items = itemsDe(r);
       setProductoId(items.length === 1 ? (items[0].inventario_id ?? null) : null);
+      const cant = items.length === 1 ? Math.max(1, Number(items[0].cantidad) || 1) : 1;
+      setCantidad(cant);
+      setPrecioUnitario((Number(r.valor) || 0) / cant);
       setCuenta(r.cuenta || 'Nequi');
       setFecha(dayjs(t === 'gasto' ? r.fecha : r.createdAt));
       setPersona(t === 'ingreso' && r.persona_id ? {
@@ -173,13 +185,15 @@ const RegistroRapido = ({
     // el valor al monto y el resto a la descripción.
     const p = leer(textoInicial);
     const t = p.tipo || tipoInicial;
-    tocado.current = { tipo: !!p.tipo, valor: p.valor != null, producto: false, fecha: false };
+    tocado.current = { tipo: !!p.tipo, valor: p.valor != null, producto: false, fecha: false, montoAMano: p.valor != null };
+    setCantidad(1);
     setTipo(t);
     setTexto(p.valor != null ? p.descripcion : textoInicial);
     ponerValor(p.valor);
     setEtiquetaManual(undefined);
     const prod = t === 'ingreso' ? sugerirProducto(p.descripcion, inventario) : null;
     setProductoId(prod?.id ?? null);
+    setPrecioUnitario(Number(prod?.monto) || 0);
     if (prod && p.valor == null && Number(prod.monto) > 0) ponerValor(Number(prod.monto));
     setCuenta(ultimaCuenta(t) || 'Nequi');
     setFecha(dayjs());
@@ -221,7 +235,8 @@ const RegistroRapido = ({
     if (tipoEf === 'ingreso' && !tocado.current.producto) {
       const prod = sugerirProducto(p.descripcion, inventario);
       setProductoId(prod?.id ?? null);
-      if (prod && !tocado.current.valor && p.valor == null && Number(prod.monto) > 0) ponerValor(Number(prod.monto));
+      setPrecioUnitario(Number(prod?.monto) || 0);
+      if (prod && !tocado.current.valor && p.valor == null && Number(prod.monto) > 0) ponerValor(Number(prod.monto) * cantidad);
     }
   };
 
@@ -245,6 +260,7 @@ const RegistroRapido = ({
       if (p.valor != null && p.valor === valor) setTexto(p.descripcion);
     }
     tocado.current.valor = true;
+    tocado.current.montoAMano = true;
     const r = formatear(raw);
     setValorTexto(r.texto);
     setValor(r.valor);
@@ -254,6 +270,8 @@ const RegistroRapido = ({
     if (t === tipo) return;
     tocado.current.tipo = true;
     setTipo(t);
+    // Cada tipo tiene su lista de etiquetas: lo elegido en el otro no aplica.
+    setEtiquetaManual(undefined);
     setCuenta(ultimaCuenta(t) || cuenta);
     if (t === 'ingreso' && !tocado.current.producto) setProductoId(sugerirProducto(leer(texto).descripcion, inventario)?.id ?? null);
   };
@@ -262,9 +280,22 @@ const RegistroRapido = ({
     tocado.current.producto = true;
     if (String(productoId) === String(item.id)) { setProductoId(null); return; }
     setProductoId(item.id);
-    // El precio del catálogo solo llena el monto si el usuario no puso uno.
-    if (!tocado.current.valor || !(valor > 0)) {
-      ponerValor(Number(item.monto) || null);
+    setPrecioUnitario(Number(item.monto) || 0);
+    // El precio del catálogo (× cantidad) solo llena el monto si el usuario no puso uno.
+    if (!tocado.current.montoAMano || !(valor > 0)) {
+      ponerValor((Number(item.monto) || 0) * cantidad || null);
+      tocado.current.valor = true;
+      tocado.current.montoAMano = false;
+    }
+  };
+
+  // Cantidad vendida: el total sigue al precio por unidad mientras no se haya
+  // escrito un valor a mano (si se escribió, se respeta y la unidad sale de él).
+  const cambiarCantidad = (n) => {
+    const nueva = Math.max(1, Math.min(9999, Math.round(Number(n) || 1)));
+    setCantidad(nueva);
+    if (!tocado.current.montoAMano && precioUnitario > 0) {
+      ponerValor(Math.round(precioUnitario * nueva * 100) / 100);
       tocado.current.valor = true;
     }
   };
@@ -286,7 +317,6 @@ const RegistroRapido = ({
   };
 
   // ── Datos derivados ──
-  const producto = tipo === 'ingreso' ? inventario.find((i) => String(i.id) === String(productoId)) : null;
   // ¿El producto vendido envía documentos por correo? (se activa en el inventario)
   const certificable = !esEdicion && !!producto && itemEnviaCorreo(producto);
   const configCorreo = PLANTILLAS[plantillaDeItem(producto)];
@@ -297,8 +327,8 @@ const RegistroRapido = ({
   const pista = (() => {
     const partes = [];
     if (!tocado.current.valor && interpretado.valor != null) partes.push(`valor ${montoCorto(interpretado.valor)}`);
-    if (tipo === 'gasto' && etiquetaManual === undefined && etiquetaId != null) {
-      const e = etiquetas.find((x) => x.id === etiquetaId);
+    if (etiquetaManual === undefined && etiquetaId != null) {
+      const e = etiquetasDelTipo.find((x) => x.id === etiquetaId);
       if (e) partes.push(`etiqueta ${e.nombre}`);
     }
     if (tipo === 'ingreso' && !tocado.current.producto && producto) partes.push(producto.nombre);
@@ -360,7 +390,7 @@ const RegistroRapido = ({
 
     const p = leer(texto);
     const base = (!tocado.current.valor && p.valor != null ? p.descripcion : texto).trim();
-    const etiqueta = tipo === 'gasto' ? etiquetas.find((e) => e.id === etiquetaId) : null;
+    const etiqueta = etiquetasDelTipo.find((e) => e.id === etiquetaId);
     const descripcion = capitalizar(
       base
       || producto?.nombre
@@ -393,7 +423,12 @@ const RegistroRapido = ({
         // Al editar uno que ya tenía su línea, se reemplaza para que cuadre el total.
         let items;
         if (producto) {
-          items = [{ inventario_id: producto.id, descripcion: producto.nombre, cantidad: 1, precio_unitario: valor }];
+          items = [{
+            inventario_id: producto.id,
+            descripcion: producto.nombre,
+            cantidad,
+            precio_unitario: Math.round((valor / cantidad) * 100) / 100,
+          }];
         } else if (esEdicion && itemsDe(registro.raw).length > 0) {
           items = [{ inventario_id: null, descripcion, cantidad: 1, precio_unitario: valor }];
         }
@@ -412,6 +447,7 @@ const RegistroRapido = ({
           valor,
           cuenta,
           vendedor: userName,
+          categoria_id: etiquetaId ?? null,
           ...(items ? { items } : {}),
           // Al editar, la fecha solo viaja si se cambió.
           ...(!esEdicion || tocado.current.fecha ? { fecha: fecha.toISOString() } : {}),
@@ -479,7 +515,13 @@ const RegistroRapido = ({
     const descripcion = (!tocado.current.valor && p.valor != null ? p.descripcion : texto).trim();
     onAbrirCompleto?.(tipo, tipo === 'gasto'
       ? { descripcion: capitalizar(descripcion), valor, cuenta, fecha: fecha.toISOString(), categoria_id: etiquetaId }
-      : { valor, cuenta, ...(producto ? { producto: producto.nombre } : {}) });
+      : {
+        valor,
+        cuenta,
+        categoria_id: etiquetaId,
+        // El formulario completo arma sus líneas desde items_detalle (con la cantidad).
+        ...(producto ? { items_detalle: [{ descripcion: producto.nombre, cantidad }] } : {}),
+      });
   };
 
   const titulo = esEdicion
@@ -626,19 +668,6 @@ const RegistroRapido = ({
           : pista && (<><ThunderboltFilled /> {pista}</>)}
       </div>
 
-      {/* ── Etiqueta (gastos) ── */}
-      {tipo === 'gasto' && (
-        <>
-          <Etiqueta>Etiqueta</Etiqueta>
-          <EtiquetasSelector
-            sutil
-            value={etiquetaId}
-            onChange={(id) => setEtiquetaManual(id ?? null)}
-            onCambios={onEtiquetasCambiaron}
-          />
-        </>
-      )}
-
       {/* ── Producto o servicio (ingresos) ── */}
       {tipo === 'ingreso' && inventario.length > 0 && (
         <>
@@ -669,8 +698,65 @@ const RegistroRapido = ({
               <span style={{ fontSize: 13, color: 'var(--qc-text-muted)' }}>Sin coincidencias</span>
             )}
           </div>
+          {producto && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--qc-text)' }}>Cantidad</span>
+              <div style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 22, background: 'var(--qc-relleno)' }}>
+                <button
+                  type="button"
+                  aria-label="Una menos"
+                  onClick={() => cambiarCantidad(cantidad - 1)}
+                  disabled={cantidad <= 1}
+                  style={{
+                    width: 40, height: 40, border: 'none', background: 'none', fontSize: 20, fontWeight: 700,
+                    cursor: cantidad <= 1 ? 'not-allowed' : 'pointer', color: 'var(--qc-text)', opacity: cantidad <= 1 ? 0.35 : 1,
+                  }}
+                >
+                  −
+                </button>
+                <input
+                  aria-label="Cantidad"
+                  inputMode="numeric"
+                  value={cantidad}
+                  onChange={(e) => {
+                    const limpio = e.target.value.replace(/D/g, '');
+                    if (limpio) cambiarCantidad(limpio);
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  style={{
+                    width: 46, border: 'none', outline: 'none', background: 'transparent', textAlign: 'center',
+                    fontSize: 17, fontWeight: 800, color: 'var(--qc-text)', fontVariantNumeric: 'tabular-nums',
+                  }}
+                />
+                <button
+                  type="button"
+                  aria-label="Una más"
+                  onClick={() => cambiarCantidad(cantidad + 1)}
+                  style={{ width: 40, height: 40, border: 'none', background: 'none', fontSize: 20, fontWeight: 700, cursor: 'pointer', color: 'var(--qc-text)' }}
+                >
+                  +
+                </button>
+              </div>
+              {precioUnitario > 0 && (
+                <span style={{ fontSize: 13, color: 'var(--qc-text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                  × {montoCorto(precioUnitario)} c/u
+                </span>
+              )}
+            </div>
+          )}
         </>
       )}
+
+      {/* ── Etiqueta (gastos e ingresos: cada tipo con su lista) ── */}
+      <Etiqueta>Etiqueta</Etiqueta>
+      <EtiquetasSelector
+        key={tipo}
+        sutil
+        tipo={tipo}
+        value={etiquetaId}
+        onChange={(id) => setEtiquetaManual(id ?? null)}
+        onCambios={onEtiquetasCambiaron}
+      />
 
       {/* ── Certificado por correo (producto con envío activo) ── */}
       {certificable && (

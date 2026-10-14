@@ -78,14 +78,15 @@ export const deleteEgreso = async (id) => {
   return response.data;
 };
 
-// Etiquetas de gasto del negocio activo (en la API se llaman categorías):
-// [{ id, nombre, color }]
-export const getEgresoCategorias = async () => {
-  const response = await coalianzaApi.get("/egresos/categorias");
+// Etiquetas del negocio activo (en la API se llaman categorías):
+// [{ id, nombre, color, tipo }]. { tipo: 'ingreso' } trae las de ingresos;
+// sin tipo, las de gastos.
+export const getEgresoCategorias = async (params = {}) => {
+  const response = await coalianzaApi.get("/egresos/categorias", { params });
   return response.data;
 };
 
-// Crea una etiqueta { nombre, color }; si ya existe (sin distinguir mayúsculas) devuelve esa.
+// Crea una etiqueta { nombre, color, tipo }; si ya existe en ese tipo (sin distinguir mayúsculas) devuelve esa.
 export const createEgresoCategoria = async (data) => {
   const response = await coalianzaApi.post("/egresos/categorias", data);
   return response.data;

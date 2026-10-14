@@ -8,7 +8,7 @@ import {
     FileDoneOutlined, UserOutlined, ShoppingOutlined, WalletOutlined,
     EditOutlined, DownOutlined, FilePdfOutlined, SaveOutlined,
     SearchOutlined, UserAddOutlined, CloseCircleOutlined, PlusOutlined, CloseOutlined,
-    MailOutlined, PaperClipOutlined,
+    MailOutlined, PaperClipOutlined, TagOutlined,
 } from '@ant-design/icons';
 
 import { cuentaOptions } from '../options';
@@ -30,6 +30,7 @@ import { getInventario } from '../../../services/inventario/inventarioService';
 import { getPersonas, getPersonaById } from '../../../services/person/personaService';
 import PersonaFormDrawer from '../../personas/PersonaFormDrawer';
 import ComprobanteAdjunto, { sincronizarComprobante } from './ComprobanteAdjunto';
+import EtiquetasSelector from './EtiquetasSelector';
 import { CUERPO_FLEX, CONTENIDO_CENTRADO_VERTICAL } from './drawerLayout';
 import { useCurrencyInput, useAmount } from '../../../hooks/useCurrency';
 import useIsMobile from '../../../hooks/useIsMobile';
@@ -177,7 +178,10 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
             setPersonas([]);
             setLineItems([emptyLine()]);
         } else {
-            form.setFieldsValue({ ...initialValues });
+            // Sin _id es uno nuevo que llega ya llenado (desde Movimientos):
+            // se parte de un formulario limpio para no arrastrar lo anterior.
+            if (!initialValues._id) form.resetFields();
+            form.setFieldsValue({ ...(initialValues._id ? {} : { vendedor: userName }), ...initialValues });
             setSelectedPersona(
                 initialValues.persona_id
                     ? {
@@ -280,6 +284,8 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                 items,
                 tipo: validLines.map(li => li.name),
                 persona_id: selectedPersona?.id || null,
+                // Etiqueta de color del ingreso; null le dice al backend que la quite.
+                categoria_id: values.categoria_id ?? null,
                 vendedor: userName,
                 ...(selectedPersona
                     ? {
@@ -620,6 +626,13 @@ const IngresoDrawer = ({ open, onClose, onSuccess, userName, initialValues, init
                         >
                             Agregar línea
                         </Button>
+                    </SECTION>
+
+                    {/* ── ETIQUETA (color en las barras y gráficas) ── */}
+                    <SECTION icon={<TagOutlined />} title="Etiqueta (opcional)">
+                        <Form.Item name="categoria_id" noStyle>
+                            <EtiquetasSelector tipo="ingreso" />
+                        </Form.Item>
                     </SECTION>
 
                     {/* ── PAGO ─────────────────────────────────── */}

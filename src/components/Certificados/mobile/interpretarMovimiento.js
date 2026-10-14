@@ -90,6 +90,12 @@ const limpiarDescripcion = (s) => {
 export const capitalizar = (s = '') => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 /**
+ * En monedas de unidad pequeña un número suelto menor a esto no es plata:
+ * "cuota 3 de 12" no es un gasto de 12 pesos.
+ */
+export const montoMinimoPara = (codigoMoneda) => (['COP', 'CLP', 'PYG'].includes(codigoMoneda) ? 50 : 0);
+
+/**
  * Interpreta un texto libre.
  * @param {string} texto
  * @param {{ montoMinimo?: number }} opciones  montoMinimo: un número suelto (sin

@@ -76,7 +76,11 @@ const EgresoDrawer = ({ open, onClose, onSuccess, userName, initialValues }) => 
         setArchivo(null);
         setComprobanteUrl(initialValues?.comprobante_url || null);
         if (initialValues) {
+            // Sin _id es uno nuevo que llega ya llenado (desde Movimientos):
+            // se parte de un formulario limpio para no arrastrar lo anterior.
+            if (!initialValues._id) form.resetFields();
             form.setFieldsValue({
+                ...(initialValues._id ? {} : { vendedor: userName, cuenta: 'Nequi' }),
                 ...initialValues,
                 fecha: initialValues.fecha ? dayjs(initialValues.fecha) : dayjs(),
                 valor: Number(initialValues.valor) || 0,

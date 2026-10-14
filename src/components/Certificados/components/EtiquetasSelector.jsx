@@ -161,7 +161,8 @@ const ordenar = (lista) => [...lista].sort((a, b) => a.nombre.localeCompare(b.no
  * onCambios: se llama cuando se crea, edita o elimina una etiqueta, para que
  * quien lo use refresque lo que muestra (p. ej. la tabla de gastos).
  */
-const EtiquetasSelector = ({ value, onChange, onCambios, sutil = false }) => {
+// `tipo`: 'gasto' (por defecto) o 'ingreso'. Son dos listas separadas.
+const EtiquetasSelector = ({ value, onChange, onCambios, sutil = false, tipo = 'gasto' }) => {
   const [etiquetas, setEtiquetas] = useState([]);
   const [cargando, setCargando]   = useState(true);
   const [abierto, setAbierto]     = useState(false);
@@ -170,12 +171,12 @@ const EtiquetasSelector = ({ value, onChange, onCambios, sutil = false }) => {
 
   useEffect(() => {
     let vigente = true;
-    getEgresoCategorias()
+    getEgresoCategorias({ tipo })
       .then((data) => { if (vigente) setEtiquetas(ordenar(Array.isArray(data) ? data : [])); })
       .catch(() => { /* el campo es opcional: sin etiquetas igual se guarda el gasto */ })
       .finally(() => { if (vigente) setCargando(false); });
     return () => { vigente = false; };
-  }, []);
+  }, [tipo]);
 
   const errorDe = (err, porDefecto) => err?.response?.data?.message || porDefecto;
 
@@ -183,7 +184,7 @@ const EtiquetasSelector = ({ value, onChange, onCambios, sutil = false }) => {
     setGuardando(true);
     try {
       // Si el nombre ya existía, el backend devuelve esa etiqueta.
-      const etiqueta = await createEgresoCategoria(datos);
+      const etiqueta = await createEgresoCategoria({ ...datos, tipo });
       setEtiquetas((prev) => ordenar([...prev.filter((e) => e.id !== etiqueta.id), etiqueta]));
       onChange?.(etiqueta.id); // la recién creada queda elegida
       setEditando(null);
@@ -215,9 +216,10 @@ const EtiquetasSelector = ({ value, onChange, onCambios, sutil = false }) => {
       const res = await deleteEgresoCategoria(id);
       setEtiquetas((prev) => prev.filter((e) => e.id !== id));
       if (value === id) onChange?.(null);
-      const n = Number(res?.gastos_sin_etiqueta) || 0;
+      const n = Number(res?.movimientos_sin_etiqueta ?? res?.gastos_sin_etiqueta) || 0;
+      const que = tipo === 'ingreso' ? 'ingreso' : 'gasto';
       message.success(n > 0
-        ? `Etiqueta eliminada · ${n} gasto${n === 1 ? '' : 's'} quedó sin etiqueta`
+        ? `Etiqueta eliminada · ${n} ${que}${n === 1 ? '' : 's'} quedó sin etiqueta`
         : 'Etiqueta eliminada');
       onCambios?.();
     } catch (err) {
