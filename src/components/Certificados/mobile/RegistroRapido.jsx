@@ -89,6 +89,7 @@ const RegistroRapido = ({
   dictado,                   // useDictado
   receptorDictado,           // ref: el dictado iniciado afuera escribe aquí
   entradaPrevia,             // ref: campo puente que abrió el teclado del iPhone
+  lateral = false,           // computador: panel a la derecha en vez de hoja inferior
 }) => {
   const { codigo, formatear, desdeValor } = useTypedAmount();
   const montoCorto = useAmountShort();
@@ -494,6 +495,8 @@ const RegistroRapido = ({
       onClose={onClose}
       height="92%"
       maxHeight="none"
+      lateral={lateral}
+      width={480}
       autoFocus={false}
       afterOpenChange={alTerminarDeAbrir}
       title={(

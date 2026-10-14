@@ -13,7 +13,8 @@ import EtiquetasSelector, { EtiquetaChip } from './EtiquetasSelector';
  *
  * onSaved: recarga los gastos (la tabla recibe los datos del padre).
  */
-const EtiquetaCell = ({ record, onSaved }) => {
+// `sutil`: chip neutro con punto de color (vista nueva de Movimientos).
+const EtiquetaCell = ({ record, onSaved, sutil = false }) => {
   const [abierto, setAbierto]     = useState(false);
   const [guardando, setGuardando] = useState(false);
   // Se crearon/editaron/eliminaron etiquetas: al cerrar hay que recargar para
@@ -65,6 +66,7 @@ const EtiquetaCell = ({ record, onSaved }) => {
       content={
         <div style={{ maxWidth: 320, opacity: guardando ? 0.6 : 1, pointerEvents: guardando ? 'none' : 'auto' }}>
           <EtiquetasSelector
+            sutil={sutil}
             value={actual}
             onChange={asignar}
             onCambios={() => { etiquetasCambiaron.current = true; }}
@@ -89,7 +91,7 @@ const EtiquetaCell = ({ record, onSaved }) => {
       >
         {/* Sin ícono de editar: tocar el chip ya abre la edición */}
         {record.categoria_nombre ? (
-          <EtiquetaChip nombre={record.categoria_nombre} color={record.categoria_color} size="sm" />
+          <EtiquetaChip nombre={record.categoria_nombre} color={record.categoria_color} size="sm" sutil={sutil} />
         ) : (
           <span
             style={{

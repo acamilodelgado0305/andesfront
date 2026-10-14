@@ -26,7 +26,7 @@ import SaldoInicialModal from './components/SaldoInicialModal';
 import DashboardStats from './DashboardStats';
 import TransactionTable from './TransactionTable';
 import EstadisticasMovimientos from './EstadisticasMovimientos';
-import MovimientosMobile from './mobile/MovimientosMobile';
+import MovimientosApp from './mobile/MovimientosApp';
 import DocumentoVentaForm from '../documentosVenta/DocumentoVentaForm';
 
 const { Title } = Typography;
@@ -34,9 +34,9 @@ const { TabPane } = Tabs;
 
 moment.locale('es');
 
-// En el celular, Movimientos abre en la vista tipo app (registro rápido). Quien
-// prefiera la tabla de siempre la elige desde el menú y queda recordado en
-// este dispositivo.
+// Movimientos abre en la vista nueva (estilo MonAi, registro rápido) en el
+// celular y en el computador. Quien prefiera la tabla de siempre la elige desde
+// el menú y queda recordado en este dispositivo.
 const CLAVE_VISTA = 'qc-movimientos-vista';
 const leerVistaClasica = () => { try { return localStorage.getItem(CLAVE_VISTA) === 'clasica'; } catch { return false; } };
 
@@ -174,13 +174,13 @@ function Certificados() {
 
   if (!user) return <div className="p-10 flex justify-center"><Spin size="large" /></div>;
 
-  const vistaApp = isMobile && !vistaClasica;
+  const vistaApp = !vistaClasica;
 
   return (
     <div className={vistaApp ? '' : 'p-4 md:p-6'}>
 
       {vistaApp ? (
-        <MovimientosMobile
+        <MovimientosApp
           user={user}
           loading={loading}
           ingresos={myIngresos}
@@ -197,17 +197,17 @@ function Certificados() {
         />
       ) : (
       <>
-      {/* Volver a la vista app (solo celular, si se eligió la clásica) */}
-      {isMobile && (
+      {/* Volver a la vista nueva (si se eligió la clásica) */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <Button
-          block
+          block={isMobile}
           icon={<MobileOutlined />}
           onClick={() => cambiarVista(false)}
-          style={{ marginBottom: 12, borderRadius: 10 }}
+          style={{ borderRadius: 10 }}
         >
-          Volver a la vista app
+          Usar la vista nueva
         </Button>
-      )}
+      </div>
 
       {/* Header */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
