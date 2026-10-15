@@ -1,27 +1,20 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  Typography, Row, Col, Spin, Alert, Empty,
-  Button, Drawer, Form, Input, InputNumber,
-  notification, Tooltip, Modal, Upload, Divider,
-  Tag, Select, Table, Space, Statistic, Card,
+  Spin, Button, Drawer, Form, Input, InputNumber,
+  Modal, Upload, Divider, Select, Row, Col, message,
 } from "antd";
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined,
-  AppstoreAddOutlined, ReloadOutlined,
-  InboxOutlined, BarcodeOutlined,
-  ShoppingOutlined, ToolOutlined, WarningFilled,
-  SearchOutlined, TagOutlined,
-  ThunderboltOutlined, ShoppingCartOutlined,
-  CameraOutlined, UploadOutlined,
-  PercentageOutlined, CheckCircleOutlined, CloseOutlined,
+  BarcodeOutlined, ShoppingOutlined, ToolOutlined,
+  ThunderboltOutlined, CameraOutlined, UploadOutlined, CloseOutlined,
 } from "@ant-design/icons";
 
 import {
-  getInventario, createInventario, updateInventario, deleteInventario,
-  getInventarioStats, uploadInventarioPhoto, ajustarStockInventario,
-  ajustarCategoriaInventario,
+  getInventario, createInventario, updateInventario, deleteInventario, uploadInventarioPhoto,
 } from "../../services/inventario/inventarioService";
 import RestockDrawer from "./RestockDrawer";
+import InventarioVista, { ChipCategoria, MargenChip } from "./InventarioVista";
+import { CATEGORIAS } from "./categorias";
+import { BotonPrincipal, ChipOpcion } from "../Certificados/mobile/piezas";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 import useIsMobile from "../../hooks/useIsMobile";
 
@@ -45,423 +38,12 @@ const TAX_OPTIONS = [
   { label: '21% — IVA Argentina',value: 21  },
 ];
 
-// ─── Categorías ────────────────────────────────────────────
-const CATEGORIAS = [
-  'Alimentos y bebidas','Tecnología y electrónica','Ropa y calzado',
-  'Salud y belleza','Hogar y decoración','Papelería y oficina',
-  'Herramientas y ferretería','Juguetes y entretenimiento','Deportes',
-  'Automotriz','Mascotas','Servicios profesionales','Consultoría',
-  'Diseño','Transporte','Educación','Construcción','Agropecuario','Otro',
-];
-
-// ─── Color de cada categoría (presets de Ant Design) ───────
-const CATEGORIA_COLORS = {
-  'Alimentos y bebidas':        'orange',
-  'Tecnología y electrónica':   'geekblue',
-  'Ropa y calzado':             'magenta',
-  'Salud y belleza':            'pink',
-  'Hogar y decoración':         'cyan',
-  'Papelería y oficina':        'blue',
-  'Herramientas y ferretería':  'volcano',
-  'Juguetes y entretenimiento': 'purple',
-  'Deportes':                   'lime',
-  'Automotriz':                 'red',
-  'Mascotas':                   'gold',
-  'Servicios profesionales':    'blue',
-  'Consultoría':                'geekblue',
-  'Diseño':                     'purple',
-  'Transporte':                 'volcano',
-  'Educación':                  'cyan',
-  'Construcción':               'gold',
-  'Agropecuario':               'green',
-  'Otro':                       'default',
-};
-
-// Paleta de reserva para categorías antiguas que ya no están en la lista:
-// mismo nombre → siempre el mismo color.
-const FALLBACK_COLORS = ['magenta','red','volcano','orange','gold','lime','green','cyan','blue','geekblue','purple'];
-const colorCategoria = (cat) => {
-  if (!cat) return 'default';
-  if (CATEGORIA_COLORS[cat]) return CATEGORIA_COLORS[cat];
-  let h = 0;
-  for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) % 997;
-  return FALLBACK_COLORS[h % FALLBACK_COLORS.length];
-};
-
-// ─── Celda «Categoría» editable en línea ────────────────────
-// Clic sobre la categoría → se abre el desplegable ahí mismo y guarda al elegir.
-const CategoriaCell = ({ item, onSaved, compact = false }) => {
-  const [editando, setEditando]   = useState(false);
-  const [guardando, setGuardando] = useState(false);
-
-  const original = item.categoria || null;
-
-  const abrir = (e) => { e?.stopPropagation?.(); setEditando(true); };
-
-  const guardar = async (valor) => {
-    const nueva = valor || null;
-    if (nueva === original) { setEditando(false); return; }
-
-    setGuardando(true);
-    try {
-      const res = await ajustarCategoriaInventario(item.id, nueva);
-      notification.success({ message: res.message || 'Categoría actualizada' });
-      setEditando(false);
-      await onSaved?.();
-    } catch (err) {
-      notification.error({
-        message: 'No se pudo cambiar la categoría',
-        description: err.response?.data?.message || 'Hubo un problema.',
-      });
-    } finally { setGuardando(false); }
-  };
-
-  if (editando) {
-    return (
-      <div onClick={e => e.stopPropagation()}>
-        <Select
-          autoFocus
-          defaultOpen
-          showSearch
-          allowClear
-          size="small"
-          style={{ width: compact ? 170 : '100%', minWidth: 130 }}
-          placeholder="Sin categoría"
-          value={original || undefined}
-          loading={guardando}
-          disabled={guardando}
-          options={CATEGORIAS.map(c => ({ label: c, value: c }))}
-          optionRender={opt => (
-            <Tag color={colorCategoria(opt.value)} className="text-[11px]" style={{ margin: 0 }}>
-              {opt.label}
-            </Tag>
-          )}
-          filterOption={(input, opt) => opt.label.toLowerCase().includes(input.toLowerCase())}
-          onChange={guardar}
-          onClear={() => guardar(null)}
-          onBlur={() => setEditando(false)}
-          onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setEditando(false); } }}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <Tooltip title="Clic para cambiar la categoría">
-      <span
-        role="button"
-        tabIndex={0}
-        onClick={abrir}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(e); } }}
-        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-      >
-        {original
-          ? <Tag icon={<TagOutlined/>} color={colorCategoria(original)} className="text-[10px]" style={{ margin: 0 }}>{original}</Tag>
-          : <span style={{ color: '#9ca3af', borderBottom: '1px dashed #d9d9d9' }}>— sin categoría</span>}
-        <EditOutlined style={{ fontSize: 10, opacity: 0.55 }}/>
-      </span>
-    </Tooltip>
-  );
-};
-
-// ─── Celda «Stock» editable en línea ────────────────────────
-// Clic sobre la cantidad → se edita ahí mismo. Enter/salir guarda, Esc cancela.
-// Escribe 0 para reiniciar el stock.
-const StockCell = ({ item, bajo, onSaved, compact = false }) => {
-  const [editando, setEditando]   = useState(false);
-  const [valor, setValor]         = useState(item.cantidad ?? 0);
-  const [guardando, setGuardando] = useState(false);
-  // Enter dispara onPressEnter y además el onBlur al desmontarse: evita el doble PUT.
-  const enCurso = useRef(false);
-
-  const original = Number(item.cantidad ?? 0);
-
-  const abrir = (e) => {
-    e?.stopPropagation?.();
-    setValor(original);
-    setEditando(true);
-  };
-
-  const guardar = async () => {
-    if (enCurso.current) return;
-    const nuevo = Number(valor);
-    if (!Number.isFinite(nuevo) || nuevo < 0) {
-      notification.error({ message: 'El stock no puede ser negativo' });
-      return;
-    }
-    if (nuevo === original) { setEditando(false); return; }
-
-    enCurso.current = true;
-    setGuardando(true);
-    try {
-      const res = await ajustarStockInventario(item.id, nuevo);
-      notification.success({ message: res.message || 'Stock actualizado' });
-      setEditando(false);
-      await onSaved?.();
-    } catch (err) {
-      notification.error({
-        message: 'No se pudo ajustar el stock',
-        description: err.response?.data?.message || 'Hubo un problema.',
-      });
-    } finally {
-      enCurso.current = false;
-      setGuardando(false);
-    }
-  };
-
-  if (editando) {
-    return (
-      <InputNumber
-        autoFocus
-        size="small"
-        min={0}
-        precision={0}
-        style={{ width: 90 }}
-        value={valor}
-        onChange={v => setValor(v ?? 0)}
-        disabled={guardando}
-        onClick={e => e.stopPropagation()}
-        onPressEnter={guardar}
-        onBlur={guardar}
-        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setEditando(false); } }}
-      />
-    );
-  }
-
-  return (
-    <Tooltip title={`Clic para ajustar el stock (escribe 0 para reiniciarlo)${item.stock_minimo > 0 ? ` · alerta en ${item.stock_minimo} und` : ''}`}>
-      <span
-        role="button"
-        tabIndex={0}
-        onClick={abrir}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(e); } }}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          cursor: 'pointer', padding: '2px 6px', margin: '-2px -6px',
-          borderRadius: 6, borderBottom: '1px dashed #d9d9d9',
-          color: bajo ? '#ef4444' : (compact ? undefined : 'var(--qc-text)'),
-          fontWeight: 600,
-        }}
-      >
-        {bajo && <WarningFilled style={{ fontSize: compact ? 12 : undefined }}/>}
-        {original}
-        <EditOutlined style={{ fontSize: 10, opacity: 0.55 }}/>
-      </span>
-    </Tooltip>
-  );
-};
-
-// ─── Toggle button ──────────────────────────────────────────
-const ToggleBtn = ({ active, onClick, icon, label, color = '#155153' }) => (
-  <button type="button" onClick={onClick} style={{
-    flex: 1, padding: '11px 16px', borderRadius: 10,
-    border: `1.5px solid ${active ? color : '#e5e7eb'}`,
-    background: active ? `${color}12` : '#fafafa',
-    cursor: 'pointer', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', gap: 8, fontWeight: 600, fontSize: 13,
-    color: active ? color : '#64748b', transition: 'all 0.15s ease',
-    boxShadow: active ? `0 2px 8px ${color}22` : 'none',
-  }}>
-    {icon}{label}
-    {active && <span style={{ width:7, height:7, borderRadius:'50%', background:color, marginLeft:2 }} />}
-  </button>
+// Rótulo de campo del formulario (neutro: se lee en claro y en oscuro).
+const Rotulo = ({ children }) => (
+  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--qc-text-muted)', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+    {children}
+  </span>
 );
-
-const normFile = (e) => Array.isArray(e) ? e : e?.fileList;
-
-// ─── Margen badge ───────────────────────────────────────────
-const MarginBadge = ({ compra, venta }) => {
-  if (!venta || !compra || compra <= 0) return null;
-  const pct = ((venta - compra) / venta) * 100;
-  const [color, bg] = pct >= 30 ? ['#16a34a','#f0fdf4'] : pct >= 15 ? ['#d97706','#fffbeb'] : ['#dc2626','#fef2f2'];
-  return (
-    <span style={{ fontSize:12, fontWeight:700, color, background:bg,
-      padding:'2px 8px', borderRadius:6, border:`1px solid ${color}33` }}>
-      {pct.toFixed(1)}%
-    </span>
-  );
-};
-
-
-// ═══════════════════════════════════════════════════════════
-// MODAL DE INFORME DEL PRODUCTO
-// ═══════════════════════════════════════════════════════════
-const ProductoInformeModal = ({ item, onClose, onPhotoUpdated, fmt }) => {
-  const [stats, setStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-
-  useEffect(() => {
-    if (!item) return;
-    setLoadingStats(true);
-    getInventarioStats(item.id)
-      .then(d => setStats(d))
-      .catch(() => notification.error({ message: 'No se pudieron cargar las estadísticas' }))
-      .finally(() => setLoadingStats(false));
-  }, [item]);
-
-  if (!item) return null;
-
-  const esServicio = item.tipo_item === 'servicio';
-  const margen = item.precio_compra_unitario > 0 && item.monto > 0
-    ? ((item.monto - item.precio_compra_unitario) / item.monto * 100).toFixed(1)
-    : null;
-
-  const handlePhotoUpload = async (file) => {
-    setUploadingPhoto(true);
-    try {
-      const result = await uploadInventarioPhoto(item.id, file);
-      notification.success({ message: 'Foto actualizada' });
-      onPhotoUpdated(item.id, result.imagen_url);
-    } catch {
-      notification.error({ message: 'Error al subir la foto' });
-    } finally { setUploadingPhoto(false); }
-    return false; // evitar upload automático de antd
-  };
-
-  const statsCols = [
-    { title: 'Fecha', dataIndex: 'created_at', key: 'date',
-      render: v => new Date(v).toLocaleDateString('es', { day:'2-digit', month:'short', year:'2-digit' }) },
-    { title: 'Pedido', dataIndex: 'pedido_id', key: 'id', render: v => `#${v}` },
-    { title: 'Cliente', key: 'cliente',
-      render: r => `${r.cliente_nombre || ''} ${r.cliente_apellido || ''}`.trim() || '—' },
-    { title: 'Und.', dataIndex: 'cantidad', key: 'qty', align: 'center' },
-    { title: 'Subtotal', dataIndex: 'subtotal', key: 'sub', align: 'right',
-      render: v => fmt(v) },
-    { title: 'Estado', dataIndex: 'estado', key: 'estado',
-      render: v => <Tag color={v==='ENTREGADO'?'green':'blue'} className="text-[10px]">{v}</Tag> },
-  ];
-
-  return (
-    <Modal
-      open={!!item}
-      onCancel={onClose}
-      footer={null}
-      width={Math.min(720, window.innerWidth - 16)}
-      title={
-        <div className="flex items-center gap-2" style={{ color:'#155153' }}>
-          <AppstoreAddOutlined />
-          <span>Informe — {item.nombre}</span>
-        </div>
-      }
-    >
-      {/* ── Foto + Info básica ── */}
-      <div className="flex gap-4 mb-6">
-        {/* Foto */}
-        <div style={{ width:120, flexShrink:0 }}>
-          <div style={{
-            width:120, height:120, borderRadius:12, overflow:'hidden',
-            background: esServicio ? '#f5f3ff' : '#f1f5f9',
-            border:'1px solid #e5e7eb',
-            display:'flex', alignItems:'center', justifyContent:'center',
-          }}>
-            {item.imagen_url
-              ? <img src={item.imagen_url} alt={item.nombre} style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
-              : (esServicio
-                  ? <ToolOutlined style={{ fontSize:36, color:'#7c3aed', opacity:.4 }}/>
-                  : <ShoppingOutlined style={{ fontSize:36, color:'#94a3b8' }}/>)
-            }
-          </div>
-          <Upload showUploadList={false} beforeUpload={handlePhotoUpload} accept="image/*">
-            <Button
-              size="small" block icon={uploadingPhoto ? <Spin size="small"/> : <CameraOutlined/>}
-              style={{ marginTop:6, fontSize:11 }}
-            >
-              {item.imagen_url ? 'Cambiar foto' : 'Agregar foto'}
-            </Button>
-          </Upload>
-        </div>
-
-        {/* Info */}
-        <div className="flex-1">
-          <div className="flex flex-wrap gap-1 mb-2">
-            <Tag color={esServicio?'purple':'blue'} icon={esServicio?<ToolOutlined/>:<ShoppingOutlined/>}>
-              {esServicio?'Servicio':'Producto'}
-            </Tag>
-            {item.categoria && <Tag icon={<TagOutlined/>} color={colorCategoria(item.categoria)}>{item.categoria}</Tag>}
-            {item.impuesto > 0 && <Tag color="gold" icon={<PercentageOutlined/>}>IVA {item.impuesto}%</Tag>}
-          </div>
-          {item.sku && <p style={{ margin:'0 0 4px', fontSize:12, color:'#94a3b8' }}>SKU: {item.sku}</p>}
-
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 16px', marginTop:8 }}>
-            {item.precio_compra_unitario > 0 && (
-              <div>
-                <span style={{ fontSize:11, color:'#94a3b8', display:'block' }}>Precio compra</span>
-                <span style={{ fontWeight:700, color:'#374151' }}>{fmt(item.precio_compra_unitario)}</span>
-              </div>
-            )}
-            <div>
-              <span style={{ fontSize:11, color:'#94a3b8', display:'block' }}>Precio venta</span>
-              <span style={{ fontWeight:700, color:'#155153', fontSize:16 }}>{fmt(item.monto)}</span>
-            </div>
-            {margen && (
-              <div>
-                <span style={{ fontSize:11, color:'#94a3b8', display:'block' }}>Margen</span>
-                <MarginBadge compra={item.precio_compra_unitario} venta={item.monto}/>
-              </div>
-            )}
-            {!esServicio && (
-              <div>
-                <span style={{ fontSize:11, color:'#94a3b8', display:'block' }}>Stock actual</span>
-                <span style={{
-                  fontWeight:700,
-                  color: (item.stock_minimo > 0 && item.cantidad <= item.stock_minimo) ? '#ef4444' : '#374151'
-                }}>
-                  {item.cantidad ?? 0} und.
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <Divider style={{ margin:'0 0 16px' }}/>
-
-      {/* ── Stats de ventas ── */}
-      <Spin spinning={loadingStats}>
-        {stats && (
-          <>
-            <Row gutter={16} style={{ marginBottom:20 }}>
-              {[
-                { title:'Pedidos', value: stats.stats?.total_pedidos   || 0, suffix:'' },
-                { title:'Unidades vendidas', value: stats.stats?.unidades_vendidas || 0, suffix:'und.' },
-                { title:'Ingresos totales', value: fmt(stats.stats?.ingresos_totales || 0), isText:true },
-              ].map(s => (
-                <Col span={8} key={s.title}>
-                  <Card styles={{ body:{ padding:'12px 16px' } }}
-                    style={{ border:'1px solid #e5e7eb', borderRadius:10, textAlign:'center' }}>
-                    {s.isText
-                      ? <><div style={{ fontSize:11, color:'#94a3b8', marginBottom:4 }}>{s.title}</div>
-                          <div style={{ fontSize:18, fontWeight:800, color:'#155153' }}>{s.value}</div></>
-                      : <Statistic title={s.title} value={s.value} suffix={s.suffix}
-                          valueStyle={{ fontSize:20, fontWeight:800, color:'#155153' }}/>
-                    }
-                  </Card>
-                </Col>
-              ))}
-            </Row>
-
-            {/* Últimas ventas */}
-            <p style={{ fontWeight:700, fontSize:13, color:'#374151', marginBottom:8 }}>
-              Últimas ventas
-            </p>
-            {stats.recent_sales?.length > 0
-              ? <Table
-                  dataSource={stats.recent_sales}
-                  columns={statsCols}
-                  rowKey="pedido_id"
-                  size="small"
-                  pagination={false}
-                  scroll={{ x: 500 }}
-                />
-              : <Empty description="Sin ventas registradas aún" image={Empty.PRESENTED_IMAGE_SIMPLE}/>
-            }
-          </>
-        )}
-      </Spin>
-    </Modal>
-  );
-};
 
 // ═══════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
@@ -478,10 +60,6 @@ function Inventario() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingItem, setEditingItem]   = useState(null);
   const [restockItem, setRestockItem]   = useState(null);
-  const [selectedKeys, setSelectedKeys] = useState([]);
-  const [searchTerm, setSearchTerm]     = useState('');
-  const [filterTipo, setFilterTipo]     = useState('todos');
-  const [informeItem, setInformeItem]   = useState(null);
   const [form] = Form.useForm();
 
   // Drawer state
@@ -500,24 +78,6 @@ function Inventario() {
   }, []);
 
   useEffect(() => { fetchInventario(); }, [fetchInventario]);
-
-  // ── Filtros ──
-  const rows = useMemo(() => items.filter(it => {
-    const matchT = filterTipo === 'todos' || it.tipo_item === filterTipo;
-    const q = searchTerm.toLowerCase();
-    const matchQ = !q || it.nombre?.toLowerCase().includes(q)
-      || it.sku?.toLowerCase().includes(q)
-      || it.codigo_barras?.toLowerCase().includes(q)
-      || it.categoria?.toLowerCase().includes(q);
-    return matchT && matchQ;
-  }), [items, filterTipo, searchTerm]);
-
-  const stats = useMemo(() => ({
-    total:     items.length,
-    productos: items.filter(i => i.tipo_item !== 'servicio').length,
-    servicios: items.filter(i => i.tipo_item === 'servicio').length,
-    stockBajo: items.filter(i => i.tipo_item !== 'servicio' && i.stock_minimo > 0 && (i.cantidad ?? 0) <= i.stock_minimo).length,
-  }), [items]);
 
   // ── Init drawer ──
   useEffect(() => {
@@ -580,37 +140,39 @@ function Inventario() {
 
       if (editingItem) {
         await updateInventario(editingItem.id, fd);
-        notification.success({ message: `${tipoItem === 'servicio' ? 'Servicio' : 'Producto'} actualizado` });
+        message.success(`${tipoItem === 'servicio' ? 'Servicio' : 'Producto'} actualizado`);
       } else {
         await createInventario(fd);
-        notification.success({ message: `${tipoItem === 'servicio' ? 'Servicio' : 'Producto'} creado` });
+        message.success(`${tipoItem === 'servicio' ? 'Servicio' : 'Producto'} creado`);
       }
       handleCloseDrawer(); fetchInventario();
     } catch (err) {
-      notification.error({ message:'Operación fallida', description: err.response?.data?.message || 'Error al guardar.' });
+      message.error(err.response?.data?.message || 'No se pudo guardar');
     } finally { setIsSubmitting(false); }
   };
 
-  const handleDelete = (ids) => {
+  // `confirmado`: la vista ya preguntó (Popconfirm en la fila o en la ficha).
+  const handleDelete = (ids, alTerminar, { confirmado = false } = {}) => {
+    const borrar = async () => {
+      try {
+        await deleteInventario(ids);
+        message.success(ids.length === 1 ? 'Eliminado' : `${ids.length} eliminados`);
+        alTerminar?.();
+        fetchInventario();
+      } catch (err) { message.error(err.response?.data?.message || 'No se pudo eliminar'); }
+    };
+    if (confirmado) { borrar(); return; }
     Modal.confirm({
-      title: `¿Eliminar ${ids.length} elemento(s)?`,
+      title: `¿Eliminar ${ids.length} ${ids.length === 1 ? 'elemento' : 'elementos'}?`,
       content: 'Esta acción no se puede deshacer.',
       okText:'Eliminar', okType:'danger', cancelText:'Cancelar',
-      onOk: async () => {
-        try {
-          await deleteInventario(ids);
-          notification.success({ message:'Eliminado correctamente' });
-          setSelectedKeys([]);
-          fetchInventario();
-        } catch (error) { notification.error({ message:'Error al eliminar', description: error.response?.data?.message || 'Hubo un problema.' }); }
-      },
+      onOk: borrar,
     });
   };
 
   // Actualizar foto en el estado local (sin recargar todo)
   const handlePhotoUpdated = (id, url) => {
     setItems(prev => prev.map(i => i.id === id ? { ...i, imagen_url: url } : i));
-    if (informeItem?.id === id) setInformeItem(prev => ({ ...prev, imagen_url: url }));
   };
 
   // Subir foto desde el drawer de edición
@@ -619,318 +181,35 @@ function Inventario() {
     setUploadingPhoto(true);
     try {
       const result = await uploadInventarioPhoto(editingItem.id, file);
-      notification.success({ message: 'Foto actualizada' });
+      message.success('Foto actualizada');
       handlePhotoUpdated(editingItem.id, result.imagen_url);
       setEditingItem(prev => ({ ...prev, imagen_url: result.imagen_url }));
     } catch {
-      notification.error({ message: 'Error al subir la foto' });
+      message.error('No se pudo subir la foto');
     } finally {
       setUploadingPhoto(false);
     }
     return false;
   };
 
-  const esStockBajo = (item) =>
-    item.tipo_item !== 'servicio' && item.stock_minimo > 0 && (item.cantidad ?? 0) <= item.stock_minimo;
-
-  // ── Columnas de la tabla ──
-  const columns = [
-    {
-      title: 'Tipo',
-      key: 'tipo',
-      width: 100,
-      render: (_, r) => (
-        <Tag color={r.tipo_item==='servicio'?'purple':'blue'} className="text-[10px]"
-          icon={r.tipo_item==='servicio'?<ToolOutlined/>:<ShoppingOutlined/>}>
-          {r.tipo_item==='servicio'?'Servicio':'Producto'}
-        </Tag>
-      ),
-      filters:[{text:'Producto',value:'producto'},{text:'Servicio',value:'servicio'}],
-      onFilter:(v,r)=>r.tipo_item===v,
-    },
-    {
-      // width mínimo: la columna mide lo que mide el nombre (sin partirlo) y la
-      // siguiente arranca pegada. El espacio sobrante se lo lleva Acciones.
-      title: 'Nombre',
-      key: 'nombre',
-      width: 1,
-      render: (_, r) => (
-        <div>
-          <span className="font-semibold text-gray-800" style={{ whiteSpace:'nowrap' }}>{r.nombre}</span>
-          {r.sku && <span className="text-xs text-gray-400 ml-2" style={{ whiteSpace:'nowrap' }}>#{r.sku}</span>}
-          {r.descripcion && (
-            <div className="text-xs text-gray-400 mt-0.5 leading-tight" style={{ minWidth:180, maxWidth:260 }}>
-              {r.descripcion.length > 80 ? r.descripcion.slice(0,80) + '…' : r.descripcion}
-            </div>
-          )}
-          {r.codigo_barras && <div className="text-xs text-gray-300">{r.codigo_barras}</div>}
-        </div>
-      ),
-    },
-    {
-      title: 'Categoría', dataIndex:'categoria', key:'categoria', width:170,
-      render: (_,r) => <CategoriaCell item={r} onSaved={fetchInventario}/>,
-    },
-    {
-      title: 'Stock', key:'stock', width:110, align:'center',
-      render: (_,r) => r.tipo_item==='servicio'
-        ? <span className="text-gray-300 text-xs">N/A</span>
-        : (
-          <StockCell item={r} bajo={esStockBajo(r)} onSaved={fetchInventario}/>
-        ),
-    },
-    {
-      title: 'Precio compra', key:'pcompra', width:130, align:'right',
-      render: (_,r) => r.precio_compra_unitario > 0
-        ? <span className="text-gray-500 text-sm">{fmt(r.precio_compra_unitario)}</span>
-        : <span className="text-gray-300">—</span>,
-    },
-    {
-      title: 'Precio venta', dataIndex:'monto', key:'pventa', width:130, align:'right',
-      render: v => <span style={{ fontWeight:700, color:'#155153' }}>{fmt(v)}</span>,
-    },
-    {
-      title: 'Margen', key:'margen', width:90, align:'center',
-      render: (_,r) => <MarginBadge compra={r.precio_compra_unitario} venta={r.monto}/>,
-    },
-    {
-      title: 'IVA', dataIndex:'impuesto', key:'impuesto', width:80, align:'center',
-      render: v => v > 0
-        ? <Tag color="gold" className="text-[10px]">{v}%</Tag>
-        : <span className="text-gray-300 text-xs">—</span>,
-    },
-    {
-      title: 'Acciones', key:'acciones', align:'left',
-      render: (_,r) => (
-        <Space size={4}>
-          {r.tipo_item !== 'servicio' && (
-            <Tooltip title="Registrar compra">
-              <Button size="small" icon={<ShoppingCartOutlined/>}
-                onClick={e => { e.stopPropagation(); setRestockItem(r); }}
-                style={{ color:'#059669', borderColor:'#05996933' }}/>
-            </Tooltip>
-          )}
-          <Tooltip title="Editar">
-            <Button size="small" icon={<EditOutlined/>}
-              onClick={e => { e.stopPropagation(); handleOpenEdit(r); }}
-              style={{ color:'#155153', borderColor:'#15515333' }}/>
-          </Tooltip>
-          <Tooltip title="Eliminar">
-            <Button size="small" danger icon={<DeleteOutlined/>}
-              onClick={e => { e.stopPropagation(); handleDelete([r.id]); }}/>
-          </Tooltip>
-        </Space>
-      ),
-    },
-  ];
-
-  // ── Mobile card list ──
-  const MobileCardList = () => {
-    if (loading) return <div style={{ textAlign:'center', padding:32 }}><Spin/></div>;
-    if (!rows.length) return (
-      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sin elementos aún." style={{ margin:'32px 0' }}>
-        <Button type="primary" onClick={handleOpenCreate} style={{ background:'#155153' }}>
-          Crear el primero
-        </Button>
-      </Empty>
-    );
-    return (
-      <div>
-        {rows.map(r => (
-          <div
-            key={r.id}
-            onClick={() => setInformeItem(r)}
-            style={{
-              background: esStockBajo(r) ? '#fff5f5' : '#fff',
-              borderRadius: 12,
-              border: '1px solid #e5e7eb',
-              padding: '14px',
-              marginBottom: 10,
-              cursor: 'pointer',
-            }}
-          >
-            {/* Type tag */}
-            <div style={{ marginBottom: 6 }}>
-              <Tag
-                color={r.tipo_item === 'servicio' ? 'purple' : 'blue'}
-                icon={r.tipo_item === 'servicio' ? <ToolOutlined/> : <ShoppingOutlined/>}
-                style={{ fontSize: 10 }}
-              >
-                {r.tipo_item === 'servicio' ? 'Servicio' : 'Producto'}
-              </Tag>
-            </div>
-
-            {/* Name row + edit/delete buttons */}
-            <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap: 8, marginBottom: 4 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontWeight: 700, color: '#1f2937', fontSize: 15, display:'block' }}>{r.nombre}</span>
-                {r.sku && (
-                  <span style={{ fontSize: 11, color: '#9ca3af' }}>SKU: {r.sku}</span>
-                )}
-              </div>
-              <div style={{ display:'flex', gap: 6, flexShrink: 0 }}>
-                {r.tipo_item !== 'servicio' && (
-                  <Tooltip title="Registrar compra">
-                    <Button
-                      size="small"
-                      icon={<ShoppingCartOutlined/>}
-                      onClick={e => { e.stopPropagation(); setRestockItem(r); }}
-                      style={{ color:'#059669', borderColor:'#05996933' }}
-                    />
-                  </Tooltip>
-                )}
-                <Button
-                  size="small"
-                  icon={<EditOutlined/>}
-                  onClick={e => { e.stopPropagation(); handleOpenEdit(r); }}
-                  style={{ color:'#155153', borderColor:'#15515333' }}
-                />
-                <Button
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined/>}
-                  onClick={e => { e.stopPropagation(); handleDelete([r.id]); }}
-                />
-              </div>
-            </div>
-
-            {/* Category */}
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
-              <CategoriaCell item={r} onSaved={fetchInventario} compact/>
-            </div>
-
-            <div style={{ height: 1, background: '#e5e7eb', margin: '8px 0' }}/>
-
-            {/* Stock + Precio */}
-            <div style={{ display:'flex', alignItems:'center', gap: 16 }}>
-              {r.tipo_item !== 'servicio' && (
-                <div style={{ fontSize: 13, color: esStockBajo(r) ? '#ef4444' : '#374151', fontWeight: 600, display:'flex', alignItems:'center', gap: 6 }}>
-                  Stock: <StockCell item={r} bajo={esStockBajo(r)} onSaved={fetchInventario} compact/>
-                </div>
-              )}
-              <div style={{ fontWeight: 700, color: '#155153', fontSize: 14 }}>
-                Precio: {fmt(r.monto)}
-              </div>
-            </div>
-
-            {/* Low stock warning */}
-            {esStockBajo(r) && (
-              <div style={{ marginTop: 6, fontSize: 11, color: '#ef4444', fontWeight: 600 }}>
-                <WarningFilled style={{ marginRight: 4 }}/>Stock bajo — revisar
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    );
-  };
+  const nombreTipo = tipoItem === 'servicio' ? 'servicio' : 'producto';
 
   // ── RENDER ──
   return (
-    <div className="p-3 md:p-6">
+    <>
+      <InventarioVista
+        items={items}
+        loading={loading}
+        error={error}
+        onRecargar={fetchInventario}
+        onNuevo={handleOpenCreate}
+        onEditar={handleOpenEdit}
+        onRestock={setRestockItem}
+        onEliminar={handleDelete}
+        onFotoActualizada={handlePhotoUpdated}
+      />
 
-      {/* HEADER */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#155153]/10 flex items-center justify-center">
-            <AppstoreAddOutlined className="text-[#155153] text-xl"/>
-          </div>
-          <div>
-            <p className="m-0 font-bold text-lg" style={{ color:'#155153' }}>Inventario</p>
-            <p className="m-0 text-xs text-gray-400">Productos y servicios</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Tooltip title="Recargar">
-            <Button icon={<ReloadOutlined/>} onClick={fetchInventario} loading={loading} shape="circle"/>
-          </Tooltip>
-          <Button type="primary" icon={<PlusOutlined/>} onClick={handleOpenCreate}
-            style={{ backgroundColor:'#155153', borderColor:'#155153' }}>
-            Nuevo
-          </Button>
-        </div>
-      </div>
-
-      {/* STATS CHIPS */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {[
-          { label:`${stats.total} en total`,      color:'default' },
-          { label:`${stats.productos} productos`, color:'blue'    },
-          { label:`${stats.servicios} servicios`, color:'purple'  },
-          ...(stats.stockBajo > 0 ? [{ label:`⚠️ ${stats.stockBajo} stock bajo`, color:'error' }] : []),
-        ].map(s => (
-          <Tag key={s.label} color={s.color} className="rounded-full px-3 py-0.5 text-xs font-medium">{s.label}</Tag>
-        ))}
-      </div>
-
-      {/* FILTROS */}
-      <div className={`flex ${isMobile ? 'flex-col' : 'flex-wrap'} gap-2 mb-4`}>
-        <Input
-          placeholder="Buscar nombre, SKU, código de barras..."
-          prefix={<SearchOutlined className="text-gray-400"/>}
-          value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-          allowClear className={isMobile ? 'w-full' : 'w-full md:w-72'}
-        />
-        <div className={`flex gap-1 ${isMobile ? 'w-full' : ''}`}>
-          {['todos','producto','servicio'].map(t => (
-            <button key={t} type="button" onClick={() => setFilterTipo(t)} style={{
-              flex: isMobile ? 1 : undefined,
-              padding:'6px 14px', borderRadius:8, border:'none',
-              background: filterTipo===t ? '#155153' : '#f3f4f6',
-              color: filterTipo===t ? '#fff' : '#64748b',
-              fontWeight:600, fontSize:12, cursor:'pointer', transition:'all 0.15s',
-            }}>
-              {t==='todos'?'Todos':t==='producto'?'Productos':'Servicios'}
-            </button>
-          ))}
-        </div>
-        {!isMobile && selectedKeys.length > 0 && (
-          <Button danger icon={<DeleteOutlined/>} onClick={() => handleDelete(selectedKeys)}>
-            Eliminar {selectedKeys.length} seleccionados
-          </Button>
-        )}
-      </div>
-
-      {/* TABLA / CARDS */}
-      {error ? <Alert message={error} type="error" showIcon/> : (
-        isMobile ? (
-          <MobileCardList/>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <Spin spinning={loading}>
-              <Table
-                dataSource={rows}
-                columns={columns}
-                rowKey="id"
-                size="middle"
-                rowSelection={{
-                  selectedRowKeys: selectedKeys,
-                  onChange: setSelectedKeys,
-                }}
-                onRow={r => ({
-                  onClick: () => setInformeItem(r),
-                  style: {
-                    background: esStockBajo(r) ? '#fff5f5' : undefined,
-                    cursor: 'pointer',
-                  },
-                })}
-                locale={{ emptyText: (
-                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sin elementos aún.">
-                    <Button type="primary" onClick={handleOpenCreate} style={{ background:'#155153' }}>
-                      Crear el primero
-                    </Button>
-                  </Empty>
-                )}}
-                pagination={{ pageSize:20, showSizeChanger:true, showTotal:(t,r)=>`${r[0]}-${r[1]} de ${t}` }}
-                scroll={{ x:900 }}
-                tableLayout="auto"
-              />
-            </Spin>
-          </div>
-        )
-      )}
-
-      {/* ── RESTOCK DRAWER ── */}
+      {/* ── COMPRA (REABASTECER) ── */}
       <RestockDrawer
         open={!!restockItem}
         onClose={() => setRestockItem(null)}
@@ -938,37 +217,22 @@ function Inventario() {
         onSuccess={() => { setRestockItem(null); fetchInventario(); }}
       />
 
-      {/* ── MODAL INFORME ── */}
-      <ProductoInformeModal
-        item={informeItem}
-        onClose={() => setInformeItem(null)}
-        onPhotoUpdated={handlePhotoUpdated}
-        fmt={fmt}
-      />
-
       {/* ═══════════════════════════════════════
           DRAWER — CREAR / EDITAR
       ═══════════════════════════════════════ */}
       <Drawer
-        title={
-          <div className="flex items-center gap-2" style={{ color:'#155153' }}>
-            <AppstoreAddOutlined/>
-            <span>{editingItem ? `Editar ${tipoItem}` : 'Nuevo elemento'}</span>
-          </div>
-        }
+        title={<span style={{ fontSize: 17, fontWeight: 700 }}>{editingItem ? `Editar ${nombreTipo}` : 'Nuevo producto o servicio'}</span>}
         width={isMobile ? '100vw' : 500} onClose={handleCloseDrawer} open={isDrawerOpen} destroyOnClose
         closable={false}
-        extra={<Button type="text" icon={<CloseOutlined />} onClick={handleCloseDrawer} />}
+        extra={<Button type="text" shape="circle" icon={<CloseOutlined />} onClick={handleCloseDrawer} aria-label="Cerrar" />}
         rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
         styles={{ wrapper: isMobile ? { height: '100%', width: '100%' } : {}, body: { overflowX: 'hidden' } }}
         footer={
-          <div className="flex justify-end gap-2">
-            <Button onClick={handleCloseDrawer}>Cancelar</Button>
-            <Button onClick={() => form.submit()} type="primary" loading={isSubmitting}
-              icon={<CheckCircleOutlined/>}
-              style={{ backgroundColor:'#155153', borderColor:'#155153' }}>
-              {editingItem ? 'Guardar cambios' : `Crear ${tipoItem}`}
-            </Button>
+          <div style={{ display: 'flex', gap: 8, padding: '6px 0 calc(6px + env(safe-area-inset-bottom, 0px))' }}>
+            <Button onClick={handleCloseDrawer} size="large" style={{ borderRadius: 14 }}>Cancelar</Button>
+            <BotonPrincipal onClick={() => form.submit()} cargando={isSubmitting} style={{ flex: 1, height: 44, borderRadius: 14, fontSize: 15 }}>
+              {editingItem ? 'Guardar cambios' : `Crear ${nombreTipo}`}
+            </BotonPrincipal>
           </div>
         }
       >
@@ -976,77 +240,57 @@ function Inventario() {
 
           {/* FOTO — solo en modo edición */}
           {editingItem && (
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 10 }}>
-                Foto del producto
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                {/* Preview */}
-                <div style={{
-                  width: 88, height: 88, borderRadius: 10, overflow: 'hidden', flexShrink: 0,
-                  background: '#f1f5f9', border: '1.5px solid #e5e7eb',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {editingItem.imagen_url
-                    ? <img src={editingItem.imagen_url} alt={editingItem.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <CameraOutlined style={{ fontSize: 28, color: '#cbd5e1' }} />
-                  }
-                </div>
-
-                {/* Botón upload */}
-                <div>
-                  <Upload showUploadList={false} beforeUpload={handleDrawerPhotoUpload} accept="image/*">
-                    <Button
-                      icon={uploadingPhoto ? <Spin size="small" /> : <UploadOutlined />}
-                      loading={uploadingPhoto}
-                      style={{ borderColor: '#155153', color: '#155153' }}
-                    >
-                      {editingItem.imagen_url ? 'Cambiar foto' : 'Subir foto'}
-                    </Button>
-                  </Upload>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 5 }}>
-                    JPG, PNG o WEBP · máx. 5 MB
-                  </div>
-                </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+              <div style={{
+                width: 88, height: 88, borderRadius: 20, overflow: 'hidden', flexShrink: 0,
+                background: 'var(--qc-relleno)', color: 'var(--qc-text-muted)', fontSize: 28,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {editingItem.imagen_url
+                  ? <img src={editingItem.imagen_url} alt={editingItem.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <CameraOutlined />}
               </div>
-              <Divider style={{ margin: '16px 0 18px' }} />
+              <div>
+                <Upload showUploadList={false} beforeUpload={handleDrawerPhotoUpload} accept="image/*">
+                  <ChipOpcion>
+                    {uploadingPhoto ? <Spin size="small" /> : <UploadOutlined />}
+                    {editingItem.imagen_url ? 'Cambiar foto' : 'Subir foto'}
+                  </ChipOpcion>
+                </Upload>
+                <div style={{ fontSize: 12, color: 'var(--qc-text-muted)', marginTop: 6 }}>JPG, PNG o WEBP · máx. 5 MB</div>
+              </div>
             </div>
           )}
 
           {/* 1. TIPO */}
-          <div style={{ marginBottom:20 }}>
-            <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#475569', marginBottom:8 }}>
-              ¿Qué tipo de elemento es? <span style={{ color:'#ef4444' }}>*</span>
-            </label>
-            <div style={{ display:'flex', gap:10 }}>
-              <ToggleBtn active={tipoItem==='producto'} onClick={() => setTipoItem('producto')}
-                icon={<ShoppingOutlined/>} label="Producto" color="#155153"/>
-              <ToggleBtn active={tipoItem==='servicio'} onClick={() => setTipoItem('servicio')}
-                icon={<ToolOutlined/>} label="Servicio" color="#7c3aed"/>
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ marginBottom: 8 }}><Rotulo>¿Qué es?</Rotulo></div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <ChipOpcion activo={tipoItem === 'producto'} onClick={() => setTipoItem('producto')} style={{ flex: 1, minHeight: 46, borderRadius: 14 }}>
+                <ShoppingOutlined /> Producto
+              </ChipOpcion>
+              <ChipOpcion activo={tipoItem === 'servicio'} onClick={() => setTipoItem('servicio')} style={{ flex: 1, minHeight: 46, borderRadius: 14 }}>
+                <ToolOutlined /> Servicio
+              </ChipOpcion>
             </div>
-            <p style={{ margin:'6px 0 0', fontSize:11, color:'#94a3b8' }}>
-              {tipoItem==='producto' ? 'Los productos llevan control de stock mediante compras.' : 'Los servicios no requieren control de stock.'}
-            </p>
+            <div style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--qc-text-muted)' }}>
+              {tipoItem === 'producto' ? 'Los productos llevan control de stock con las compras.' : 'Los servicios no llevan stock.'}
+            </div>
           </div>
-
-          <Divider style={{ margin:'0 0 18px' }}/>
 
           {/* 2. NOMBRE + SKU (el SKU solo aplica a productos) */}
           <Row gutter={12}>
             <Col span={tipoItem === 'producto' ? 14 : 24}>
-              <Form.Item name="nombre"
-                label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Nombre *</span>}
-                rules={[{required:true, message:'El nombre es obligatorio'}]}
-                style={{ marginBottom:14 }}>
-                <Input size="large" placeholder={tipoItem==='servicio'?'Ej: Consultoría web':'Ej: Coca Cola 350ml'}/>
+              <Form.Item name="nombre" label={<Rotulo>Nombre</Rotulo>}
+                rules={[{ required: true, message: 'El nombre es obligatorio' }]}
+                style={{ marginBottom: 14 }}>
+                <Input size="large" placeholder={tipoItem === 'servicio' ? 'Ej: Consultoría web' : 'Ej: Coca Cola 350ml'} />
               </Form.Item>
             </Col>
             {tipoItem === 'producto' && (
               <Col span={10}>
-                <Form.Item name="sku"
-                  label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>SKU</span>}
-                  style={{ marginBottom:14 }}>
-                  <Input size="large" placeholder="PROD-001"/>
+                <Form.Item name="sku" label={<Rotulo>SKU</Rotulo>} style={{ marginBottom: 14 }}>
+                  <Input size="large" placeholder="PROD-001" />
                 </Form.Item>
               </Col>
             )}
@@ -1054,88 +298,79 @@ function Inventario() {
 
           {/* 3. CÓDIGO DE BARRAS (solo productos) */}
           {tipoItem === 'producto' && (
-            <div style={{ marginBottom:14 }}>
-              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#475569', marginBottom:6 }}>
-                Código de barras
-              </label>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ marginBottom: 6 }}><Rotulo>Código de barras</Rotulo></div>
               <Form.Item name="codigo_barras" noStyle>
                 <Input size="large"
-                  prefix={<BarcodeOutlined className="text-gray-400"/>}
-                  placeholder="Escanea o escribe..."
+                  prefix={<BarcodeOutlined style={{ color: 'var(--qc-text-muted)' }} />}
+                  placeholder="Escanea o escribe…"
                   value={barcodeValue}
-                  onChange={e => { setBarcodeValue(e.target.value); form.setFieldsValue({codigo_barras:e.target.value}); }}
-                  allowClear onClear={() => { setBarcodeValue(''); form.setFieldsValue({codigo_barras:''}); }}
+                  onChange={e => { setBarcodeValue(e.target.value); form.setFieldsValue({ codigo_barras: e.target.value }); }}
+                  allowClear onClear={() => { setBarcodeValue(''); form.setFieldsValue({ codigo_barras: '' }); }}
                 />
               </Form.Item>
               {!barcodeValue && (
                 <button type="button"
-                  onClick={() => { const c=generateEAN13(); setBarcodeValue(c); form.setFieldsValue({codigo_barras:c}); }}
-                  style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:6,
-                    padding:'6px 14px', borderRadius:8, border:'1.5px dashed #155153',
-                    background:'#f0fafa', color:'#155153', fontWeight:600, fontSize:12, cursor:'pointer' }}>
-                  <ThunderboltOutlined/> Generar código EAN-13 automático
+                  onClick={() => { const c = generateEAN13(); setBarcodeValue(c); form.setFieldsValue({ codigo_barras: c }); }}
+                  style={{
+                    marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 16,
+                    border: '1px dashed var(--qc-border)', background: 'var(--qc-relleno)', color: 'var(--qc-text)',
+                    fontWeight: 600, fontSize: 12.5, cursor: 'pointer',
+                  }}>
+                  <ThunderboltOutlined /> Generar código EAN-13
                 </button>
               )}
             </div>
           )}
 
           {/* 4. CATEGORÍA */}
-          <Form.Item name="categoria"
-            label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Categoría</span>}
-            style={{ marginBottom:14 }}>
-            <Select showSearch allowClear placeholder="Selecciona o escribe..." size="large"
-              options={CATEGORIAS.map(c=>({label:c,value:c}))}
-              optionRender={o => (
-                <Tag color={colorCategoria(o.value)} className="text-[11px]" style={{ margin:0 }}>{o.label}</Tag>
-              )}
-              filterOption={(i,o)=>o.label.toLowerCase().includes(i.toLowerCase())}/>
+          <Form.Item name="categoria" label={<Rotulo>Categoría</Rotulo>} style={{ marginBottom: 14 }}>
+            <Select showSearch allowClear placeholder="Selecciona o escribe…" size="large"
+              options={CATEGORIAS.map(c => ({ label: c, value: c }))}
+              optionRender={o => <ChipCategoria nombre={o.value} />}
+              filterOption={(i, o) => o.label.toLowerCase().includes(i.toLowerCase())} />
           </Form.Item>
 
-          <Divider orientation="left" style={{ fontSize:12, fontWeight:700, color:'#155153', margin:'4px 0 16px' }}>
-            Precios e impuestos
-          </Divider>
+          <Divider style={{ margin: '6px 0 16px' }} />
 
           {/* 5. PRECIOS */}
           <Row gutter={12}>
             <Col span={12}>
-              <Form.Item name="precio_compra_unitario"
-                label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Precio de compra</span>}
-                style={{ marginBottom:14 }}>
+              <Form.Item name="precio_compra_unitario" label={<Rotulo>Precio de compra</Rotulo>} style={{ marginBottom: 14 }}>
                 <InputNumber size="large" className="w-full" placeholder="0" min={0}
                   addonAfter={currSuffix} formatter={currFormatter} parser={currParser}
                   precision={currPrecision} step={currStep}
-                  onChange={v=>setPrecioCompra(v||0)}/>
+                  onChange={v => setPrecioCompra(v || 0)} />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="monto"
-                label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Precio de venta *</span>}
-                rules={[{required:true, message:'Requerido'}]}
-                style={{ marginBottom:14 }}>
+              <Form.Item name="monto" label={<Rotulo>Precio de venta</Rotulo>}
+                rules={[{ required: true, message: 'Requerido' }]}
+                style={{ marginBottom: 14 }}>
                 <InputNumber size="large" className="w-full" placeholder="0" min={0}
                   addonAfter={currSuffix} formatter={currFormatter} parser={currParser}
                   precision={currPrecision} step={currStep}
-                  onChange={v=>setPrecioVenta(v||0)}/>
+                  onChange={v => setPrecioVenta(v || 0)} />
               </Form.Item>
             </Col>
           </Row>
 
           {/* Margen */}
-          <div style={{ marginBottom:14, minHeight:28 }}>
-            <MarginBadge compra={precioCompra} venta={precioVenta}/>
-          </div>
+          {precioCompra > 0 && precioVenta > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontSize: 13, color: 'var(--qc-text-muted)' }}>
+              Margen <MargenChip compra={precioCompra} venta={precioVenta} /> · ganas {fmt(precioVenta - precioCompra)} por unidad
+            </div>
+          )}
 
           {/* 6. IMPUESTO */}
-          <Form.Item name="impuesto"
-            label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Impuesto (IVA)</span>}
-            style={{ marginBottom:16 }}>
-            <Select size="large" placeholder="Selecciona el impuesto..."
+          <Form.Item name="impuesto" label={<Rotulo>Impuesto (IVA)</Rotulo>} style={{ marginBottom: 16 }}>
+            <Select size="large" placeholder="Selecciona el impuesto…"
               options={TAX_OPTIONS}
               optionRender={o => (
-                <span style={{ display:'flex', justifyContent:'space-between' }}>
+                <span style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>{o.label}</span>
                   {o.data.value > 0 && (
-                    <span style={{ fontSize:11, color:'#94a3b8' }}>
+                    <span style={{ fontSize: 11, color: 'var(--qc-text-muted)' }}>
                       +{fmt((precioVenta * o.data.value / 100) || 0)}
                     </span>
                   )}
@@ -1146,28 +381,21 @@ function Inventario() {
 
           {/* 7. STOCK MÍNIMO (solo productos) */}
           {tipoItem === 'producto' && (
-            <>
-              <Divider orientation="left" style={{ fontSize:12, fontWeight:700, color:'#155153', margin:'4px 0 16px' }}>
-                Alerta de stock
-              </Divider>
-              <Form.Item name="stock_minimo"
-                label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Stock mínimo ⚠️</span>}
-                tooltip="Recibirás una alerta cuando el stock llegue a este número"
-                style={{ marginBottom:14 }}>
-                <InputNumber min={0} size="large" className="w-full" placeholder="Ej: 5"/>
-              </Form.Item>
-            </>
+            <Form.Item name="stock_minimo" label={<Rotulo>Avisar cuando el stock llegue a</Rotulo>}
+              tooltip="Aparece en «Stock bajo» cuando el stock llega a este número"
+              style={{ marginBottom: 14 }}>
+              <InputNumber min={0} size="large" className="w-full" placeholder="Ej: 5" />
+            </Form.Item>
           )}
 
           {/* 8. DESCRIPCIÓN */}
-          <Form.Item name="descripcion"
-            label={<span style={{ fontSize:12, fontWeight:600, color:'#475569' }}>Descripción</span>}>
-            <Input.TextArea rows={3} placeholder="Detalles adicionales..."/>
+          <Form.Item name="descripcion" label={<Rotulo>Descripción</Rotulo>}>
+            <Input.TextArea rows={3} placeholder="Detalles adicionales…" />
           </Form.Item>
 
         </Form>
       </Drawer>
-    </div>
+    </>
   );
 }
 

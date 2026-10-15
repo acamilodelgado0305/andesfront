@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-    Drawer, Button, InputNumber, Typography, message,
-    Space, Avatar, Input, Tag, Spin, Empty, Divider,
+    Drawer, Button, Typography, message,
+    Input, Spin, Empty, Divider,
 } from 'antd';
 import {
-    ShoppingCartOutlined, UserOutlined, PlusOutlined,
-    DeleteOutlined, UserAddOutlined, SearchOutlined,
-    CloseCircleOutlined, SaveOutlined, ShopOutlined,
-    FileTextOutlined,
+    UserOutlined, DeleteOutlined, UserAddOutlined, SearchOutlined,
+    CloseCircleOutlined, ShopOutlined, FileTextOutlined, CloseOutlined,
 } from '@ant-design/icons';
 
 import { getInventario } from '../../services/inventario/inventarioService';
@@ -16,16 +14,20 @@ import { createPedido, updatePedido, getPedidoById } from '../../services/pedido
 import PersonaFormDrawer from '../personas/PersonaFormDrawer';
 import useCurrency from '../../hooks/useCurrency';
 import useIsMobile from '../../hooks/useIsMobile';
+import { BotonPrincipal, Circulo, Stepper, inicialDe } from '../Certificados/mobile/piezas';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { TextArea } = Input;
 
+// Bloque del formulario (neutro: se lee en claro y en oscuro).
 const SECTION = ({ icon, title, children }) => (
     <div style={{
-        background: '#fff', padding: 20, borderRadius: 8,
-        border: '1px solid #e8e8e8', marginBottom: 14,
+        background: 'var(--qc-surface)', padding: 18, borderRadius: 20,
+        border: '1px solid var(--qc-border)', marginBottom: 14,
     }}>
-        <Title level={5} style={{ marginTop: 0, marginBottom: 14 }}>{icon} {title}</Title>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 12, fontWeight: 700, color: 'var(--qc-text-muted)', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+            {icon} {title}
+        </div>
         {children}
     </div>
 );
@@ -225,31 +227,20 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
     return (
         <>
             <Drawer
-                title={
-                    <Space>
-                        <ShoppingCartOutlined />
-                        <Text strong>
-                            {orderIdToEdit ? `Editar Pedido #${orderIdToEdit}` : 'Nuevo Pedido'}
-                        </Text>
-                    </Space>
-                }
+                title={<span style={{ fontSize: 17, fontWeight: 700 }}>{orderIdToEdit ? `Editar pedido #${orderIdToEdit}` : 'Nuevo pedido'}</span>}
+                closable={false}
+                extra={<Button type="text" shape="circle" icon={<CloseOutlined />} onClick={onClose} aria-label="Cerrar" />}
                 placement="right"
                 width={isMobile ? '100%' : 540}
                 onClose={onClose}
                 open={open}
-                styles={{ body: { background: '#f5f5f5', padding: '18px' } }}
+                styles={{ body: { background: 'var(--qc-bg)', padding: '16px' } }}
                 footer={
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '10px 0' }}>
-                        <Button onClick={onClose} disabled={saving}>Cancelar</Button>
-                        <Button
-                            type="primary"
-                            icon={<SaveOutlined />}
-                            loading={saving}
-                            onClick={handleGuardar}
-                            style={{ background: '#155153' }}
-                        >
-                            {orderIdToEdit ? 'Actualizar Pedido' : 'Crear Pedido'}
-                        </Button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0 calc(6px + env(safe-area-inset-bottom, 0px))' }}>
+                        <Button onClick={onClose} disabled={saving} size="large" style={{ borderRadius: 14 }}>Cancelar</Button>
+                        <BotonPrincipal onClick={handleGuardar} cargando={saving} style={{ flex: 1, height: 44, borderRadius: 14, fontSize: 15 }}>
+                            {orderIdToEdit ? 'Guardar pedido' : 'Crear pedido'}{total > 0 ? ` · ${formatCurrency(total)}` : ''}
+                        </BotonPrincipal>
                     </div>
                 }
             >
@@ -261,21 +252,20 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                     {selectedPersona ? (
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 12,
-                            background: '#f0faf9', border: '2px solid #155153',
-                            borderRadius: 8, padding: '10px 14px',
+                            background: 'var(--qc-relleno)', borderRadius: 16, padding: '10px 12px',
                         }}>
-                            <Avatar style={{ background: '#155153', flexShrink: 0 }} icon={<UserOutlined />} />
+                            <Circulo size={38}>{inicialDe(nombrePersona)}</Circulo>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontWeight: 700, fontSize: 14 }}>{nombrePersona}</div>
                                 {selectedPersona.numero_documento && (
-                                    <div style={{ fontSize: 12, color: '#64748b' }}>
+                                    <div style={{ fontSize: 12, color: 'var(--qc-text-muted)' }}>
                                         {selectedPersona.tipo_documento}: {selectedPersona.numero_documento}
                                     </div>
                                 )}
                             </div>
                             <Button
                                 type="text" size="small"
-                                icon={<CloseCircleOutlined style={{ color: '#94a3b8' }} />}
+                                icon={<CloseCircleOutlined style={{ color: 'var(--qc-text-muted)' }} />}
                                 onClick={limpiarCliente}
                             />
                         </div>
@@ -286,8 +276,8 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                 ref={inputRef}
                                 prefix={
                                     mentionMode
-                                        ? <span style={{ color: '#155153', fontWeight: 700, fontSize: 14 }}>@</span>
-                                        : <UserOutlined style={{ color: '#9ca3af' }} />
+                                        ? <span style={{ color: 'var(--qc-text)', fontWeight: 700, fontSize: 14 }}>@</span>
+                                        : <UserOutlined style={{ color: 'var(--qc-text-muted)' }} />
                                 }
                                 placeholder="Referencia o @ para buscar persona registrada..."
                                 value={clienteInput}
@@ -295,7 +285,7 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                 allowClear
                                 suffix={
                                     !clienteInput && (
-                                        <span style={{ fontSize: 11, color: '#cbd5e1', userSelect: 'none' }}>
+                                        <span style={{ fontSize: 11, color: 'var(--qc-text-muted)', userSelect: 'none' }}>
                                             @ para buscar
                                         </span>
                                     )
@@ -306,8 +296,8 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                             {mentionMode && (
                                 <div style={{
                                     position: 'absolute', top: '100%', left: 0, right: 0,
-                                    background: '#fff', border: '1px solid #e2e8f0',
-                                    borderRadius: '0 0 8px 8px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                    background: 'var(--qc-surface)', border: '1px solid var(--qc-border)',
+                                    borderRadius: '0 0 14px 14px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
                                     zIndex: 100, marginTop: 2,
                                 }}>
                                     {loadingSugerencias && (
@@ -324,7 +314,7 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                                 description={
                                                     <span style={{ fontSize: 12 }}>
                                                         Sin resultados —{' '}
-                                                        <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: '#155153' }}>
+                                                        <a onClick={() => setPersonaDrawerOpen(true)} style={{ color: 'var(--qc-text)', fontWeight: 600, textDecoration: 'underline' }}>
                                                             crear contacto
                                                         </a>
                                                     </span>
@@ -334,7 +324,7 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                     )}
 
                                     {!loadingSugerencias && mentionQuery.length < 1 && (
-                                        <div style={{ padding: '8px 14px', fontSize: 12, color: '#94a3b8' }}>
+                                        <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--qc-text-muted)' }}>
                                             Escribe el nombre a buscar...
                                         </div>
                                     )}
@@ -346,32 +336,32 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                             style={{
                                                 display: 'flex', alignItems: 'center', gap: 10,
                                                 padding: '9px 14px', cursor: 'pointer',
-                                                borderTop: '1px solid #f1f5f9',
+                                                borderTop: '1px solid var(--qc-border)',
                                                 transition: 'background 0.1s',
                                             }}
-                                            onMouseEnter={e => e.currentTarget.style.background = '#f0faf9'}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--qc-relleno)'}
                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                         >
-                                            <Avatar size="small" style={{ background: '#155153', flexShrink: 0 }} icon={<UserOutlined />} />
+                                            <Circulo size={30}>{inicialDe(p.nombre)}</Circulo>
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ fontWeight: 600, fontSize: 13 }}>
                                                     {p.nombre} {p.apellido || ''}
                                                 </div>
-                                                <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                                                <div style={{ fontSize: 11, color: 'var(--qc-text-muted)' }}>
                                                     {p.tipo_documento}: {p.numero_documento}
                                                 </div>
                                             </div>
-                                            <Tag color={p.tipo === 'CLIENTE' ? 'green' : 'blue'} style={{ fontSize: 11 }}>
-                                                {p.tipo}
-                                            </Tag>
+                                            <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 10, background: 'var(--qc-relleno)', color: 'var(--qc-text-muted)' }}>
+                                                {String(p.tipo || '').toLowerCase()}
+                                            </span>
                                         </div>
                                     ))}
 
                                     {sugerencias.length > 0 && (
                                         <div
-                                            style={{ padding: '8px 14px', borderTop: '1px solid #f1f5f9', cursor: 'pointer', fontSize: 12, color: '#155153', display: 'flex', alignItems: 'center', gap: 6 }}
+                                            style={{ padding: '8px 14px', borderTop: '1px solid var(--qc-border)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--qc-text)', display: 'flex', alignItems: 'center', gap: 6 }}
                                             onClick={() => setPersonaDrawerOpen(true)}
-                                            onMouseEnter={e => e.currentTarget.style.background = '#f0faf9'}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--qc-relleno)'}
                                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                         >
                                             <UserAddOutlined /> Crear nuevo contacto
@@ -384,7 +374,7 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
 
                     {/* Hint debajo del input */}
                     {!selectedPersona && (
-                        <div style={{ marginTop: 6, fontSize: 11, color: '#94a3b8' }}>
+                        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--qc-text-muted)' }}>
                             Escribe una referencia, o usa <strong>@</strong> para vincular a una persona registrada.
                         </div>
                     )}
@@ -395,7 +385,7 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
 
                     {/* Buscador */}
                     <Input
-                        prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
+                        prefix={<SearchOutlined style={{ color: 'var(--qc-text-muted)' }} />}
                         placeholder="Buscar producto..."
                         value={busquedaProducto}
                         onChange={e => setBusquedaProducto(e.target.value)}
@@ -423,16 +413,16 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                         onClick={() => tocarProducto(prod)}
                                         style={{
                                             position: 'relative',
-                                            background: enCarrito ? '#f0faf9' : '#fff',
-                                            border: enCarrito ? '2px solid #155153' : '1.5px solid #e5e7eb',
-                                            borderRadius: 10,
+                                            background: enCarrito ? 'var(--qc-relleno-fuerte)' : 'var(--qc-surface)',
+                                            border: enCarrito ? '2px solid var(--qc-text)' : '1.5px solid var(--qc-border)',
+                                            borderRadius: 16,
                                             padding: 8,
                                             cursor: 'pointer',
                                             transition: 'border-color 0.15s, transform 0.1s',
                                             userSelect: 'none',
                                         }}
-                                        onMouseEnter={e => { if (!enCarrito) e.currentTarget.style.borderColor = '#94a3b8'; }}
-                                        onMouseLeave={e => { if (!enCarrito) e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                                        onMouseEnter={e => { if (!enCarrito) e.currentTarget.style.borderColor = 'var(--qc-text-muted)'; }}
+                                        onMouseLeave={e => { if (!enCarrito) e.currentTarget.style.borderColor = 'var(--qc-border)'; }}
                                         onMouseDown={e => e.currentTarget.style.transform = 'scale(0.96)'}
                                         onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                                     >
@@ -440,7 +430,7 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                         {enCarrito && (
                                             <div style={{
                                                 position: 'absolute', top: 5, right: 5,
-                                                background: '#155153', color: '#fff',
+                                                background: 'var(--qc-text)', color: 'var(--qc-bg)',
                                                 fontSize: 11, fontWeight: 700,
                                                 width: 20, height: 20, borderRadius: '50%',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -454,21 +444,21 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                         {/* Imagen o icono */}
                                         <div style={{
                                             aspectRatio: '1',
-                                            background: '#f8fafc',
-                                            borderRadius: 7,
+                                            background: 'var(--qc-relleno)',
+                                            borderRadius: 11,
                                             marginBottom: 6,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             overflow: 'hidden',
                                         }}>
                                             {prod.imagen_url
                                                 ? <img src={prod.imagen_url} alt={prod.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                : <ShopOutlined style={{ fontSize: 24, color: '#cbd5e1' }} />
+                                                : <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--qc-text-muted)' }}>{inicialDe(prod.nombre)}</span>
                                             }
                                         </div>
 
                                         {/* Nombre */}
                                         <div style={{
-                                            fontSize: 11, fontWeight: 600, color: '#1e293b',
+                                            fontSize: 11.5, fontWeight: 600, color: 'var(--qc-text)',
                                             lineHeight: 1.3,
                                             display: '-webkit-box', WebkitLineClamp: 2,
                                             WebkitBoxOrient: 'vertical', overflow: 'hidden',
@@ -478,20 +468,20 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                         </div>
 
                                         {/* Precio */}
-                                        <div style={{ fontSize: 11, fontWeight: 800, color: '#155153' }}>
+                                        <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--qc-text)' }}>
                                             {formatCurrency(prod.monto)}
                                         </div>
                                     </div>
                                 );
                             })}
                             {productosFiltrados.length === 0 && (
-                                <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#94a3b8', padding: '20px 0', fontSize: 13 }}>
+                                <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--qc-text-muted)', padding: '20px 0', fontSize: 13 }}>
                                     Sin productos
                                 </div>
                             )}
                             {!busquedaProducto.trim() && productosFiltrados.length > 5 && (
                                 <div style={{ gridColumn: '1 / -1', textAlign: 'center', paddingTop: 4 }}>
-                                    <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                                    <span style={{ fontSize: 12, color: 'var(--qc-text-muted)' }}>
                                         +{productosFiltrados.length - 5} más — busca por nombre para filtrar
                                     </span>
                                 </div>
@@ -509,34 +499,27 @@ const PedidoDrawer = ({ open, onClose, onSuccess, orderIdToEdit }) => {
                                         key={item.inventario_id}
                                         style={{
                                             display: 'flex', alignItems: 'center', gap: 8,
-                                            background: '#f8fafc', border: '1px solid #e2e8f0',
-                                            borderRadius: 8, padding: '8px 10px',
+                                            background: 'var(--qc-relleno)', borderRadius: 14, padding: '8px 8px 8px 12px',
                                         }}
                                     >
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--qc-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {item.nombre}
                                             </div>
-                                            <div style={{ fontSize: 12, color: '#64748b' }}>
-                                                {formatCurrency(item.precio_unitario)} c/u · <span style={{ fontWeight: 700, color: '#155153' }}>{formatCurrency(item.precio_unitario * item.cantidad)}</span>
+                                            <div style={{ fontSize: 12, color: 'var(--qc-text-muted)' }}>
+                                                {formatCurrency(item.precio_unitario)} c/u · <span style={{ fontWeight: 700, color: 'var(--qc-text)' }}>{formatCurrency(item.precio_unitario * item.cantidad)}</span>
                                             </div>
                                         </div>
-                                        <InputNumber
-                                            min={1}
-                                            value={item.cantidad}
-                                            onChange={val => cambiarCantidad(item.inventario_id, val)}
-                                            style={{ width: 68 }}
-                                            size="small"
-                                        />
+                                        <Stepper valor={item.cantidad} onCambiar={val => cambiarCantidad(item.inventario_id, val)} size={30} />
                                         <Button type="text" danger size="small" icon={<DeleteOutlined />} onClick={() => eliminarItem(item.inventario_id)} />
                                     </div>
                                 ))}
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, padding: '0 2px' }}>
-                                <Text style={{ color: '#64748b', fontSize: 12 }}>
+                                <Text style={{ color: 'var(--qc-text-muted)', fontSize: 12.5 }}>
                                     {items.reduce((a, i) => a + i.cantidad, 0)} unidades
                                 </Text>
-                                <Text strong style={{ fontSize: 20, color: '#155153' }}>
+                                <Text strong style={{ fontSize: 22, color: 'var(--qc-text)', fontVariantNumeric: 'tabular-nums' }}>
                                     {formatCurrency(total)}
                                 </Text>
                             </div>

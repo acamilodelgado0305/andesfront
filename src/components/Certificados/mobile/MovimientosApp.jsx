@@ -14,7 +14,9 @@ import dayjs from 'dayjs';
 
 import BottomSheet from '../../common/BottomSheet';
 import RegistroRapido, { ultimaCuenta } from './RegistroRapido';
-import { ChipOpcion, COLOR_SIGNO, CORAL, PuntoSigno } from './piezas';
+import {
+  BotonCircular, ChipFiltro, ChipOpcion, Circulo, COLOR_SIGNO, CORAL, OpcionMenu, PuntoSigno, Seccion,
+} from './piezas';
 import useDictado from './useDictado';
 import {
   emojiInicial, interpretarMovimiento, montoMinimoPara, normalizar, sugerirEtiqueta,
@@ -95,16 +97,6 @@ const nombreDia = (d) => {
 
 // ── Piezas visuales (neutras: sirven igual en claro y en oscuro) ──────────
 
-const Circulo = ({ children, size = 46, fondo = 'var(--qc-relleno)', color = 'var(--qc-text)' }) => (
-  <span style={{
-    width: size, height: size, borderRadius: '50%', flexShrink: 0,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: fondo, color, fontSize: size * 0.42, fontWeight: 700, lineHeight: 1,
-  }}>
-    {children}
-  </span>
-);
-
 // Ícono de un movimiento: el emoji de su etiqueta ("🍔 Comida") o su inicial,
 // sobre un tinte suave del color de la etiqueta (la letra va en el color del
 // texto: un azul o un morado puros no se leen sobre fondo oscuro). Sin
@@ -124,71 +116,6 @@ const IconoMovimiento = ({ m }) => {
     </Circulo>
   );
 };
-
-const BotonCircular = ({ onClick, label, children, activo = false, size = 44 }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-label={label}
-    title={label}
-    style={{
-      width: size, height: size, borderRadius: '50%', cursor: 'pointer', flexShrink: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19,
-      border: `1px solid ${activo ? 'var(--qc-text)' : 'var(--qc-border)'}`,
-      background: activo ? 'var(--qc-relleno-fuerte)' : 'var(--qc-surface)',
-      color: 'var(--qc-text)',
-    }}
-  >
-    {children}
-  </button>
-);
-
-// Fila de opción de las hojas. Es un div con rol de botón para poder llevar
-// un interruptor a la derecha (un <button> no puede ir dentro de otro).
-const OpcionMenu = ({ icon, titulo, detalle, onClick, extra = null }) => (
-  <div
-    role="button"
-    tabIndex={0}
-    onClick={onClick}
-    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
-    className="qc-mov-fila"
-    style={{
-      display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '12px 4px',
-      textAlign: 'left', cursor: 'pointer', borderRadius: 12,
-    }}
-  >
-    <Circulo size={40}><span style={{ fontSize: 17 }}>{icon}</span></Circulo>
-    <span style={{ flex: 1, minWidth: 0 }}>
-      <span style={{ display: 'block', fontSize: 15, fontWeight: 600, color: 'var(--qc-text)' }}>{titulo}</span>
-      {detalle && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--qc-text-muted)' }}>{detalle}</span>}
-    </span>
-    {extra}
-  </div>
-);
-
-const ChipFiltro = ({ children, onQuitar }) => (
-  <span style={{
-    display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 6px 0 12px',
-    borderRadius: 16, fontSize: 13, fontWeight: 600, flexShrink: 0,
-    background: 'var(--qc-relleno-fuerte)', color: 'var(--qc-text)',
-  }}>
-    {children}
-    <button
-      type="button"
-      onClick={onQuitar}
-      aria-label="Quitar filtro"
-      style={{ border: 'none', background: 'none', color: 'inherit', cursor: 'pointer', padding: 3, display: 'flex' }}
-    >
-      <CloseOutlined style={{ fontSize: 11 }} />
-    </button>
-  </span>
-);
-
-const Seccion = ({ children }) => (
-  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--qc-text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, margin: '18px 0 8px' }}>
-    {children}
-  </div>
-);
 
 /**
  * Movimientos al estilo de MonAi, en celular y en computador: el balance

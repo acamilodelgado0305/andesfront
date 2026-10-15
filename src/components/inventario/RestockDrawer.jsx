@@ -1,28 +1,33 @@
 import React, { useEffect } from 'react';
 import {
-    Drawer, Form, InputNumber, Select, DatePicker,
-    Button, Typography, Space, Tag, message,
+    Drawer, Form, InputNumber, DatePicker, Input, Button, message,
 } from 'antd';
-import {
-    ShoppingCartOutlined, SaveOutlined, InboxOutlined,
-    CheckCircleOutlined, DollarCircleOutlined, CloseOutlined,
-} from '@ant-design/icons';
+import { CloseOutlined, InboxOutlined, WarningFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import { cuentaOptions } from '../Certificados/options';
-import { useCurrencyInput, useAmount } from '../../hooks/useCurrency';
+import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
 import { restockInventario } from '../../services/inventario/inventarioService';
 import useIsMobile from '../../hooks/useIsMobile';
+import { BotonPrincipal, ChipOpcion, COLOR_SIGNO } from '../Certificados/mobile/piezas';
 
-const { Text } = Typography;
-
-const FL = ({ label, required, hint, children }) => (
+// Rótulo + campo (neutro: se lee en claro y en oscuro).
+const FL = ({ label, hint, children }) => (
     <div style={{ marginBottom: 16 }}>
-        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
-            {label}{required && <span style={{ color: '#ef4444' }}> *</span>}
-        </label>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--qc-text-muted)', textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>
+            {label}
+        </div>
         {children}
-        {hint && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{hint}</div>}
+        {hint && <div style={{ fontSize: 12, color: 'var(--qc-text-muted)', marginTop: 4 }}>{hint}</div>}
+    </div>
+);
+
+// Cuenta de pago como chips (campo de Form: recibe value/onChange).
+const CuentaChips = ({ value, onChange }) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {cuentaOptions.map((c) => (
+            <ChipOpcion key={c.value} activo={value === c.value} onClick={() => onChange?.(c.value)}>{c.label}</ChipOpcion>
+        ))}
     </div>
 );
 
@@ -30,7 +35,7 @@ const RestockDrawer = ({ open, onClose, onSuccess, producto }) => {
     const [form] = Form.useForm();
     const isMobile = useIsMobile();
     const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
-    const monto = useAmount();
+    const fmt = useCurrency();
 
     const cantidad   = Form.useWatch('cantidad_a_agregar', form) || 0;
     const precioUnit = Form.useWatch('precio_unitario_compra', form) || 0;
@@ -63,37 +68,29 @@ const RestockDrawer = ({ open, onClose, onSuccess, producto }) => {
         }
     };
 
+    const bajo = producto && Number(producto.stock_minimo) > 0 && Number(producto.cantidad ?? 0) <= Number(producto.stock_minimo);
+
     return (
         <Drawer
-            title={
-                <Space>
-                    <ShoppingCartOutlined style={{ color: '#155153' }} />
-                    <Text strong>Registrar Compra</Text>
-                </Space>
-            }
+            title={<span style={{ fontSize: 17, fontWeight: 700 }}>Registrar compra</span>}
             placement="right"
             width={isMobile ? '100vw' : 420}
             open={open}
             onClose={onClose}
             destroyOnClose
             closable={false}
-            extra={<Button type="text" icon={<CloseOutlined />} onClick={onClose} />}
+            extra={<Button type="text" shape="circle" icon={<CloseOutlined />} onClick={onClose} aria-label="Cerrar" />}
             rootStyle={isMobile ? { position: 'fixed', inset: 0 } : undefined}
             styles={{
-                body: { background: '#f9fafb', padding: isMobile ? 16 : 24, overflowX: 'hidden' },
+                body: { padding: isMobile ? 16 : 24, overflowX: 'hidden' },
                 wrapper: isMobile ? { height: '100%', width: '100%' } : {},
             }}
             footer={
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '8px 0' }}>
-                    <Button onClick={onClose}>Cancelar</Button>
-                    <Button
-                        type="primary"
-                        icon={<SaveOutlined />}
-                        onClick={handleSave}
-                        style={{ background: '#155153', borderColor: '#155153' }}
-                    >
-                        {conCosto ? 'Registrar Compra' : 'Agregar Stock'}
-                    </Button>
+                <div style={{ display: 'flex', gap: 8, padding: '6px 0 calc(6px + env(safe-area-inset-bottom, 0px))' }}>
+                    <Button onClick={onClose} size="large" style={{ borderRadius: 14 }}>Cancelar</Button>
+                    <BotonPrincipal onClick={handleSave} style={{ flex: 1, height: 44, borderRadius: 14, fontSize: 15 }}>
+                        {conCosto ? 'Registrar compra' : 'Agregar stock'}
+                    </BotonPrincipal>
                 </div>
             }
         >
@@ -102,108 +99,89 @@ const RestockDrawer = ({ open, onClose, onSuccess, producto }) => {
                 {/* Info del producto */}
                 {producto && (
                     <div style={{
-                        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
-                        padding: '14px 16px', marginBottom: 16,
-                        display: 'flex', alignItems: 'center', gap: 12,
+                        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', marginBottom: 18,
+                        borderRadius: 18, background: 'var(--qc-relleno)',
                     }}>
                         <div style={{
-                            width: 40, height: 40, borderRadius: 10,
-                            background: '#ecfdf5', display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontSize: 20, flexShrink: 0,
+                            width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                            background: 'var(--qc-relleno-fuerte)', color: 'var(--qc-text)', fontSize: 20,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                            <InboxOutlined style={{ color: '#059669' }} />
+                            {producto.imagen_url
+                                ? <img src={producto.imagen_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                : <InboxOutlined />}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>
-                                {producto.nombre}
-                            </div>
-                            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-                                Stock actual:{' '}
-                                <Tag color={producto.stock_bajo ? 'red' : 'green'} style={{ fontSize: 11 }}>
-                                    {producto.cantidad ?? 0} und
-                                </Tag>
-                                {producto.stock_minimo > 0 && (
-                                    <span style={{ color: '#9ca3af' }}>· mín {producto.stock_minimo}</span>
-                                )}
+                            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--qc-text)' }}>{producto.nombre}</div>
+                            <div style={{ fontSize: 13, color: bajo ? COLOR_SIGNO.gasto : 'var(--qc-text-muted)', marginTop: 2 }}>
+                                {bajo && <WarningFilled />} Stock actual {producto.cantidad ?? 0}
+                                {producto.stock_minimo > 0 && ` · mínimo ${producto.stock_minimo}`}
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Cantidad */}
-                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 18px', marginBottom: 16 }}>
-                    <FL label="Unidades a agregar" required>
-                        <Form.Item
-                            name="cantidad_a_agregar"
-                            noStyle
-                            rules={[
-                                { required: true, message: 'Ingresa la cantidad' },
-                                { type: 'number', min: 1, message: 'Debe ser mayor a 0' },
-                            ]}
-                        >
-                            <InputNumber size="large" min={1} style={{ width: '100%' }} placeholder="Ej: 10" />
-                        </Form.Item>
-                    </FL>
-
-                    <FL
-                        label="Precio unitario de compra"
-                        hint="Déjalo en 0 para agregar stock sin registrar un gasto"
+                <FL label="Unidades a agregar">
+                    <Form.Item
+                        name="cantidad_a_agregar"
+                        noStyle
+                        rules={[
+                            { required: true, message: 'Ingresa la cantidad' },
+                            { type: 'number', min: 1, message: 'Debe ser mayor a 0' },
+                        ]}
                     >
-                        <Form.Item name="precio_unitario_compra" noStyle>
-                            <InputNumber
-                                size="large"
-                                min={0}
-                                style={{ width: '100%' }}
-                                addonAfter={currSuffix}
-                                formatter={currFormatter}
-                                parser={currParser}
-                                precision={currPrecision}
-                                step={currStep}
-                                placeholder="0"
-                            />
-                        </Form.Item>
-                    </FL>
+                        <InputNumber size="large" min={1} style={{ width: '100%' }} placeholder="Ej: 10" />
+                    </Form.Item>
+                </FL>
 
-                    {/* Indicador dinámico */}
-                    <div style={{
-                        borderRadius: 8, padding: '10px 14px', marginTop: 4,
-                        background: conCosto ? '#f0fdf4' : '#f8fafc',
-                        border: `1px solid ${conCosto ? '#bbf7d0' : '#e2e8f0'}`,
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    }}>
-                        {conCosto ? (
-                            <>
-                                <Space size={6}>
-                                    <DollarCircleOutlined style={{ color: '#166534' }} />
-                                    <Text style={{ fontSize: 13, color: '#166534' }}>Se registrará un egreso</Text>
-                                </Space>
-                                <Text strong style={{ fontSize: 15, color: '#166534' }}>
-                                    ${monto(valorTotal)}
-                                </Text>
-                            </>
-                        ) : (
-                            <Space size={6}>
-                                <CheckCircleOutlined style={{ color: '#64748b' }} />
-                                <Text style={{ fontSize: 13, color: '#64748b' }}>Solo se actualizará el stock, sin egreso</Text>
-                            </Space>
-                        )}
-                    </div>
+                <FL label="Precio unitario de compra" hint="Déjalo en 0 para sumar stock sin registrar un gasto.">
+                    <Form.Item name="precio_unitario_compra" noStyle>
+                        <InputNumber
+                            size="large"
+                            min={0}
+                            style={{ width: '100%' }}
+                            addonAfter={currSuffix}
+                            formatter={currFormatter}
+                            parser={currParser}
+                            precision={currPrecision}
+                            step={currStep}
+                            placeholder="0"
+                        />
+                    </Form.Item>
+                </FL>
+
+                {/* Qué pasa al guardar */}
+                <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+                    padding: '12px 14px', borderRadius: 16, marginBottom: 18,
+                    border: '1px solid var(--qc-border)', background: 'var(--qc-surface)',
+                    fontSize: 13.5, color: 'var(--qc-text-muted)',
+                }}>
+                    {conCosto ? (
+                        <>
+                            <span>Se registra como gasto</span>
+                            <b style={{ fontSize: 16, color: 'var(--qc-text)', fontVariantNumeric: 'tabular-nums' }}>{fmt(valorTotal)}</b>
+                        </>
+                    ) : (
+                        <span>Solo se suma al stock, sin gasto.</span>
+                    )}
                 </div>
 
-                {/* Pago — solo visible si hay costo */}
+                {/* Pago: solo si hay costo */}
                 {conCosto && (
-                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: '16px 18px', marginBottom: 16 }}>
-                        <FL label="Cuenta de pago" required>
-                            <Form.Item name="cuenta" noStyle rules={[{ required: true, message: 'Selecciona la cuenta' }]}>
-                                <Select size="large" options={cuentaOptions} style={{ width: '100%' }} placeholder="Seleccionar" />
+                    <>
+                        <FL label="Pagado desde">
+                            <Form.Item name="cuenta" noStyle rules={[{ required: true, message: 'Elige la cuenta' }]}>
+                                <CuentaChips />
                             </Form.Item>
                         </FL>
 
-                        <FL label="Fecha de compra" required>
+                        <FL label="Fecha de compra">
                             <Form.Item name="fecha" noStyle rules={[{ required: true, message: 'Requerida' }]}>
                                 <DatePicker
                                     size="large"
                                     format="DD/MM/YYYY"
+                                    inputReadOnly={isMobile}
                                     style={{ width: '100%' }}
                                     disabledDate={c => c && c > dayjs().endOf('day')}
                                 />
@@ -212,18 +190,10 @@ const RestockDrawer = ({ open, onClose, onSuccess, producto }) => {
 
                         <FL label="Descripción (opcional)">
                             <Form.Item name="descripcion" noStyle>
-                                <input
-                                    style={{
-                                        width: '100%', padding: '8px 12px', fontSize: 14,
-                                        border: '1px solid #d9d9d9', borderRadius: 6,
-                                        outline: 'none', boxSizing: 'border-box',
-                                    }}
-                                    placeholder={`Compra de inventario: ${producto?.nombre || ''}`}
-                                    onChange={e => form.setFieldValue('descripcion', e.target.value)}
-                                />
+                                <Input size="large" placeholder={`Compra de inventario: ${producto?.nombre || ''}`} />
                             </Form.Item>
                         </FL>
-                    </div>
+                    </>
                 )}
 
             </Form>
