@@ -5,10 +5,12 @@ import {
   AppstoreOutlined,
   BulbFilled,
   BulbOutlined,
+  DownOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   PlusOutlined,
+  RightOutlined,
   SettingOutlined,
   ShopOutlined,
   UserOutlined,
@@ -43,6 +45,10 @@ const API_URL = import.meta.env.VITE_API_BACKEND;
 const API_AUTH_URL = import.meta.env.VITE_API_AUTH_SERVICE;
 const PRIMARY_COLOR = '#1d4ed8';
 const PRIMARY_DARK  = '#0a1f3d';
+// Alto del header. Los avisos de prueba/demo se pegan justo debajo: con top 0
+// (y más z-index) tapaban el header al hacer scroll y en el celular dejaban sin
+// alcance el botón de cambiar de negocio.
+const HEADER_HEIGHT = 52;
 
 // Fechas de plan (DATE en la BD) como día calendario, sin zona horaria. Si se
 // parsea el ISO "2026-09-19T00:00:00Z" tal cual, en Colombia queda 18/09 7pm y
@@ -80,7 +86,7 @@ const TrialBanner = ({ user, navigate }) => {
         gap: 12,
         flexWrap: 'wrap',
         position: 'sticky',
-        top: 0,
+        top: HEADER_HEIGHT,
         zIndex: 997,
         borderBottom: '1px solid rgba(255,255,255,0.15)',
       }}
@@ -176,7 +182,7 @@ const DemoBanner = ({ user, navigate }) => {
         gap: 12,
         flexWrap: 'wrap',
         position: 'sticky',
-        top: 0,
+        top: HEADER_HEIGHT,
         zIndex: 997,
         borderBottom: '1px solid rgba(255,255,255,0.15)',
       }}
@@ -537,6 +543,30 @@ const RootLayout = () => {
     }
   };
 
+  // Renombrar el negocio activo desde la hoja del celular (mismo endpoint que
+  // Configuración). El nombre nuevo se parcha en la sesión —header y lista de
+  // negocios— sin pedir token: al recargar, el `user` guardado manda sobre el
+  // nombre viejo del JWT, y la próxima renovación ya trae el nuevo.
+  const handleRenameBusiness = async (nombre) => {
+    try {
+      const { data } = await axios.put(
+        `${API_AUTH_URL}/api/businesses/my`,
+        { name: nombre },
+        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+      );
+      const nuevo = data?.name || nombre;
+      patchUser({
+        business_name: nuevo,
+        businesses: (user.businesses || []).map((b) => (String(b.id) === String(user.bid) ? { ...b, name: nuevo } : b)),
+      });
+      message.success('Nombre del negocio actualizado.');
+      return true;
+    } catch (err) {
+      message.error(err.response?.data?.error || 'No se pudo cambiar el nombre del negocio.');
+      return false;
+    }
+  };
+
   // ── Bloqueo de acceso ────────────────────────────────────────
   if (!canAccess) {
     return (
@@ -878,6 +908,40 @@ const RootLayout = () => {
                 )}
               </div>
 
+              {/* ── Negocio activo (solo celular): cambiarlo o editarlo desde
+                  abajo del menú, al alcance del pulgar, sin subir al header ── */}
+              {isMobile && !collapsed && (
+                <button
+                  type="button"
+                  onClick={() => { setMobileDrawerOpen(false); setBusinessSheetOpen(true); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
+                    margin: '0 8px 8px', padding: '8px 10px', minHeight: 52,
+                    borderRadius: 10, border: `1px solid ${shell.border}`,
+                    background: 'transparent', cursor: 'pointer', textAlign: 'left',
+                    touchAction: 'manipulation',
+                  }}
+                >
+                  <span style={{
+                    width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                    backgroundColor: colorNegocio(user?.bid), color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 700,
+                  }}>
+                    {inicialesNegocio(currentBusinessName)}
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
+                    <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: shell.textStrong, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {currentBusinessName}
+                    </span>
+                    <span style={{ display: 'block', fontSize: 11, color: shell.textMuted }}>
+                      Cambiar o editar negocio
+                    </span>
+                  </span>
+                  <RightOutlined style={{ fontSize: 11, color: shell.textMuted, flexShrink: 0 }} />
+                </button>
+              )}
+
               {/* ── Footer: usuario ── */}
               <div style={{ flexShrink: 0, borderTop: '1px solid #e9eaec' }}>
                 <Dropdown overlay={collapsedProfileMenu} trigger={['click']} placement="topRight">
@@ -945,32 +1009,38 @@ const RootLayout = () => {
               <button
                 type="button"
                 onClick={() => setBusinessSheetOpen(true)}
-                aria-label={`Negocio activo: ${currentBusinessName}. Toca para cambiar`}
+                aria-label={`Negocio activo: ${currentBusinessName}. Toca para cambiar o editar`}
+                // Toda la barra es el botón (no solo el texto): 44px de alto, lo
+                // mínimo cómodo para el dedo, y ocupa el ancho libre del header.
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8, minWidth: 0,
-                  height: 38, padding: '0 10px 0 4px', borderRadius: 10, cursor: 'pointer',
-                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)'}`,
-                  backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.6)',
-                  maxWidth: 'calc(100vw - 120px)',
+                  display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1,
+                  height: 44, padding: '0 10px 0 5px', borderRadius: 12, cursor: 'pointer',
+                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)'}`,
+                  backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f8fafc',
+                  touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
+                  textAlign: 'left',
                 }}
               >
                 <span style={{
-                  width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                  width: 34, height: 34, borderRadius: 9, flexShrink: 0,
                   backgroundColor: colorNegocio(user?.bid), color: '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 700,
+                  fontSize: 13, fontWeight: 700,
                 }}>
                   {inicialesNegocio(currentBusinessName)}
                 </span>
-                <span style={{
-                  fontSize: 14, fontWeight: 600, color: shell.textStrong, minWidth: 0,
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                }}>
-                  {currentBusinessName}
+                <span style={{ flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+                  <span style={{ display: 'block', fontSize: 10, fontWeight: 600, color: shell.textMuted, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                    Negocio
+                  </span>
+                  <span style={{
+                    display: 'block', fontSize: 14, fontWeight: 600, color: shell.textStrong,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {currentBusinessName}
+                  </span>
                 </span>
-                {availableBusinesses.length > 1 && (
-                  <span style={{ color: '#9ca3af', fontSize: 10, flexShrink: 0 }}>▼</span>
-                )}
+                <DownOutlined style={{ color: shell.textMuted, fontSize: 12, flexShrink: 0 }} />
               </button>
             ) : (
             <Dropdown overlay={businessMenu} trigger={['click']} placement="bottomLeft">
@@ -1149,11 +1219,16 @@ const RootLayout = () => {
           onClose={() => setBusinessSheetOpen(false)}
           businesses={availableBusinesses}
           activeId={user.bid}
+          activeName={currentBusinessName}
           switchingId={switchingBusiness}
           onSelect={handleBusinessSelect}
           onCreate={user.role === 'superadmin'
             ? () => { setBusinessSheetOpen(false); openCreateBusiness(); }
             : undefined}
+          // Mismo permiso que el endpoint (PUT /api/businesses/my).
+          onRename={['admin', 'superadmin'].includes(user.role) ? handleRenameBusiness : undefined}
+          // Por encima del botón ☰ (fijo, z 1002), que si no flotaba sobre la hoja.
+          zIndex={1005}
         />
       )}
 
