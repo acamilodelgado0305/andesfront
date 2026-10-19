@@ -223,15 +223,29 @@ const RegistroRapido = ({
   };
 
   // ── Texto libre: se interpreta mientras se escribe o se dicta ──
-  const cambiarTexto = (t) => {
-    setTexto(t);
+  // `separar` (dictado): el monto dicho pasa de una vez al campo del valor y en
+  // el texto queda solo la descripción. Al escribir se separa al salir del campo.
+  const cambiarTexto = (t, { separar = false } = {}) => {
     const p = leer(t);
+    const separa = separar && p.valor != null;
+    setTexto(separa ? p.descripcion : t);
     let tipoEf = tipo;
     if (!tocado.current.tipo && p.tipo && p.tipo !== tipo) {
       tipoEf = p.tipo;
       setTipo(p.tipo);
     }
-    if (!tocado.current.valor) ponerValor(p.valor);
+    if (separa) {
+      ponerValor(p.valor);
+      tocado.current.valor = 'dictado';
+      tocado.current.montoAMano = true;
+    } else if (separar && tocado.current.valor === 'dictado') {
+      // El resultado parcial traía un monto que el final ya no trae.
+      ponerValor(null);
+      tocado.current.valor = false;
+      tocado.current.montoAMano = false;
+    } else if (!tocado.current.valor) {
+      ponerValor(p.valor);
+    }
     if (tipoEf === 'ingreso' && !tocado.current.producto) {
       const prod = sugerirProducto(p.descripcion, inventario);
       setProductoId(prod?.id ?? null);
@@ -240,8 +254,14 @@ const RegistroRapido = ({
     }
   };
 
-  // El dictado que se inicia desde el botón del micrófono escribe aquí.
-  useEffect(() => { if (receptorDictado) receptorDictado.current = cambiarTexto; });
+  // El dictado (desde este micrófono o el grande de la pantalla) escribe aquí.
+  // Si el reconocimiento duda entre varias frases, se queda con la que trae un
+  // monto: "almuerzo veinticinco mil" mejor que "almuerzo veinticinco mi".
+  const recibirDictado = (t, alternativas = []) => {
+    const conMonto = [t, ...alternativas].find((x) => leer(x).valor != null);
+    cambiarTexto(conMonto ?? t, { separar: true });
+  };
+  useEffect(() => { if (receptorDictado) receptorDictado.current = recibirDictado; });
 
   // Al salir del texto, el valor que venía en él pasa al campo del monto.
   const alSalirDelTexto = () => {
@@ -313,7 +333,7 @@ const RegistroRapido = ({
   const dictar = () => {
     if (!dictado?.disponible) return;
     if (dictado.escuchando) { dictado.detener(); return; }
-    dictado.iniciar((t) => receptorDictado?.current?.(t));
+    dictado.iniciar((t, alternativas) => receptorDictado?.current?.(t, alternativas));
   };
 
   // ── Datos derivados ──

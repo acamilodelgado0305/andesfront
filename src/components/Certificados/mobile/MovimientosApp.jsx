@@ -458,7 +458,7 @@ const MovimientosApp = ({
     if (!registro && !conDictado) proxyRef.current?.focus({ preventScroll: true });
     cargarHistorial();
     setHoja({ open: true, tipo: tipo || tipoPorDefecto, texto, registro });
-    if (conDictado) dictado.iniciar((t) => receptorDictado.current?.(t));
+    if (conDictado) dictado.iniciar((t, alternativas) => receptorDictado.current?.(t, alternativas));
   };
   const cerrarRegistro = () => {
     dictado.detener();

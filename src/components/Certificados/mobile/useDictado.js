@@ -11,6 +11,7 @@ const Reconocimiento = typeof window !== 'undefined'
 /**
  * Dictar un movimiento ("almuerzo veinticinco mil"). El texto llega mientras
  * se habla (parcial) y la escucha se corta sola al terminar la frase.
+ * `onTexto(texto, alternativas)`: alternativas = otras versiones de la frase.
  *
  * `iniciar` debe llamarse dentro del toque del usuario: Safari solo pide el
  * permiso del micrófono desde un gesto.
@@ -31,11 +32,15 @@ const useDictado = () => {
     r.lang = 'es-CO';
     r.interimResults = true;
     r.continuous = false;
-    r.maxAlternatives = 1;
+    // Varias versiones de lo dicho: quien recibe puede preferir la que trae un
+    // monto. Safari suele dar una sola; Chrome en Android, varias.
+    r.maxAlternatives = 3;
     r.onresult = (e) => {
-      let texto = '';
-      for (let i = 0; i < e.results.length; i += 1) texto += e.results[i][0].transcript;
-      onTexto?.(texto.trim());
+      let previo = '';
+      for (let i = 0; i < e.results.length - 1; i += 1) previo += e.results[i][0].transcript;
+      const ultimo = e.results[e.results.length - 1];
+      const versiones = Array.from(ultimo || [], (alt) => (previo + alt.transcript).trim());
+      onTexto?.(versiones[0] || previo.trim(), versiones.slice(1));
     };
     r.onerror = (e) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {

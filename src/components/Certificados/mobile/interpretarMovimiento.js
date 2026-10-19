@@ -52,6 +52,175 @@ export const leerNumero = (raw = '') => {
   return Number.isFinite(n) ? n : null;
 };
 
+// ── Montos dichos en voz alta ─────────────────────────────────────────────
+// El dictado del celular escribe la plata de muchas formas: "veinticinco mil",
+// "un millón doscientos mil", "1 millón 200 mil", "25 mil 500", "medio millón".
+// Antes de buscar el monto se pasan a un solo número ("1200000"); si no,
+// "1 millón 200 mil" quedaba en 1.000.000 y "200 mil" en la descripción.
+const UNIDADES = new Map(Object.entries({
+  cero: 0, un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9,
+  diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15,
+  dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20,
+  veintiun: 21, veintiuno: 21, veintiuna: 21, veintidos: 22, veintitres: 23, veinticuatro: 24,
+  veinticinco: 25, veintiseis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29,
+}));
+const DECENAS = new Map(Object.entries({
+  treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90,
+}));
+const CENTENAS = new Map(Object.entries({
+  cien: 100, ciento: 100, doscientos: 200, doscientas: 200, trescientos: 300, trescientas: 300,
+  cuatrocientos: 400, cuatrocientas: 400, quinientos: 500, quinientas: 500, seiscientos: 600, seiscientas: 600,
+  setecientos: 700, setecientas: 700, ochocientos: 800, ochocientas: 800, novecientos: 900, novecientas: 900,
+}));
+const MILES = new Set(['mil', 'luca', 'lucas']);
+const MILLONES = new Set(['millon', 'millones', 'palo', 'palos']);
+
+const claseDe = (core, w) => {
+  if (/^\d[\d.,']*$/.test(core)) return { k: 'dig', v: leerNumero(core) };
+  if (UNIDADES.has(w)) return { k: 'uni', v: UNIDADES.get(w) };
+  if (DECENAS.has(w)) return { k: 'dec', v: DECENAS.get(w) };
+  if (CENTENAS.has(w)) return { k: 'cen', v: CENTENAS.get(w) };
+  if (MILES.has(w)) return { k: 'mil' };
+  if (MILLONES.has(w)) return { k: 'mill' };
+  if (w === 'y') return { k: 'y' };
+  if (w === 'medio') return { k: 'medio' };
+  return null;
+};
+
+/** Palabras del texto con su posición; `corta` = traía coma o punto pegado. */
+const tokenizar = (texto) => {
+  const toks = [];
+  const re = /\S+/g;
+  let m;
+  while ((m = re.exec(texto)) !== null) {
+    const crudo = m[0];
+    const lead = crudo.match(/^[+\-−$¡¿("“]*/)[0].length;
+    const trail = crudo.slice(lead).match(/[.,;:!?)"”]*$/)[0].length;
+    const core = crudo.slice(lead, crudo.length - trail);
+    toks.push({
+      inicio: m.index + lead,
+      fin: m.index + crudo.length - trail,
+      corta: trail > 0,
+      clase: core ? claseDe(core, normalizar(core)) : null,
+    });
+  }
+  return toks;
+};
+
+// Un número menor que mil dicho en palabras: "doscientos treinta y cinco".
+const leerGrupo = (at, k) => {
+  let n = 0;
+  let j = k;
+  if (at(j)?.k === 'cen') { n += at(j).v; j += 1; }
+  if (at(j)?.k === 'dec') {
+    n += at(j).v; j += 1;
+    if (at(j)?.k === 'y' && at(j + 1)?.k === 'uni' && at(j + 1).v >= 1 && at(j + 1).v <= 9) { n += at(j + 1).v; j += 2; }
+  } else if (at(j)?.k === 'uni') { n += at(j).v; j += 1; }
+  return j > k ? { n, j } : null;
+};
+
+/**
+ * Lee un monto hablado que empieza en el token `i`: grupos con multiplicador
+ * de mayor a menor ("un millón" + "doscientos mil" + "quinientos").
+ */
+const leerMontoHablado = (toks, i) => {
+  // Una coma o un punto cortan el número: "taxi 12 mil, 2 personas".
+  const at = (k) => (k < toks.length && (k === i || !toks[k - 1].corta) ? toks[k].clase : null);
+  let total = 0;
+  let k = i;
+  let escalaPrevia = Infinity;
+  let partes = 0;
+  let conPalabras = false;
+  let multiplicado = false;
+  let soloMil = false;
+
+  for (;;) {
+    let n;
+    let j;
+    let palabras = false;
+    const c = at(k);
+    if (c?.k === 'dig') { n = c.v; j = k + 1; }
+    else if (c?.k === 'mil') { n = 1; j = k; palabras = true; } // "mil quinientos"
+    else if (c?.k === 'medio' && at(k + 1)?.k === 'mill') { n = 0.5; j = k + 1; palabras = true; } // "medio millón"
+    else {
+      const g = leerGrupo(at, k);
+      if (!g) break;
+      ({ n, j } = g);
+      palabras = true;
+    }
+    if (n == null) break;
+
+    let escala = 1;
+    if (at(j)?.k === 'mill') { escala = 1e6; j += 1; } else if (at(j)?.k === 'mil') { escala = 1e3; j += 1; }
+    // "25 mil 3 mil" son dos números, no uno.
+    if (escala >= escalaPrevia) break;
+
+    let valor = n * escala;
+    if (escala === 1 && partes > 0) {
+      // Número suelto después de "mil" o "millón".
+      if (escalaPrevia === 1e6 && n >= 1 && n < 1000) valor = n * 1e3; // "un millón quinientos" = 1.500.000
+      else if (escalaPrevia === 1e6 && n < 1e6) { /* "un millón 200000" */ }
+      else if (escalaPrevia === 1e3 && n >= 100 && n < 1000) { /* "25 mil 500" */ }
+      else break; // "20 mil 2 personas": el 2 no es parte de la plata
+    }
+
+    if (partes === 0) soloMil = c?.k === 'mil' && escala === 1e3;
+    else soloMil = false;
+    total += valor;
+    k = j;
+    partes += 1;
+    escalaPrevia = escala;
+    conPalabras = conPalabras || palabras || escala > 1;
+    multiplicado = multiplicado || escala > 1;
+    if (escala === 1) break;
+    if (escala === 1e6 && at(k)?.k === 'y' && at(k + 1)?.k === 'medio') { total += 5e5; k += 2; } // "dos millones y medio"
+  }
+
+  if (!partes || !conPalabras) return null; // Solo cifras: lo resuelve MONTO_RE tal cual.
+  if (!multiplicado && total < 100) return null; // "dos almuerzos", "un taxi": no es plata.
+  return {
+    valor: total,
+    fin: k,
+    // "mil" suelto no delata plata con seguridad ("almuerzo mil sabores 25000").
+    marcado: multiplicado && !(soloMil && partes === 1),
+  };
+};
+
+/**
+ * Reescribe los montos hablados como cifras. Devuelve el texto nuevo y cada
+ * reemplazo con su posición en los dos textos: así se sabe que esa cifra es
+ * plata aunque ya no diga "mil", y la descripción sale del texto original
+ * (un "mil" que no era la plata no aparece como "1000").
+ */
+const montosHabladosACifras = (texto) => {
+  const toks = tokenizar(texto);
+  let salida = '';
+  let cursor = 0;
+  const reemplazos = [];
+  for (let i = 0; i < toks.length;) {
+    const r = toks[i].clase ? leerMontoHablado(toks, i) : null;
+    if (!r) { i += 1; continue; }
+    const cifra = String(Math.round(r.valor * 100) / 100);
+    const origen = [toks[i].inicio, toks[r.fin - 1].fin];
+    salida += texto.slice(cursor, origen[0]);
+    reemplazos.push({ salida: [salida.length, salida.length + cifra.length], origen, marcado: r.marcado });
+    salida += cifra;
+    cursor = origen[1];
+    i = r.fin;
+  }
+  // Posición en el texto reescrito → posición en el original.
+  const aOriginal = (p, lado) => {
+    let delta = 0;
+    for (const r of reemplazos) {
+      if (p <= r.salida[0]) break;
+      if (p < r.salida[1]) return lado === 'inicio' ? r.origen[0] : r.origen[1];
+      delta += (r.origen[1] - r.origen[0]) - (r.salida[1] - r.salida[0]);
+    }
+    return p + delta;
+  };
+  return { texto: salida + texto.slice(cursor), reemplazos, aOriginal };
+};
+
 // ── Ingreso o gasto ───────────────────────────────────────────────────────
 // Solo frases que no dejan duda. "pago" solo es ambiguo ("pago arriendo" es un
 // gasto): por eso cuenta "me pagaron" pero no "pago".
@@ -62,28 +231,63 @@ const PALABRAS_INGRESO = [
   'comision', 'comisiones', 'dividendos', 'intereses ganados', 'abono recibido',
 ];
 
+// Lo que se dice al dictar un gasto: "gasto taxi…", "gasté…", "pagué…".
+const PALABRAS_GASTO = [
+  'gasto', 'gastos', 'egreso', 'egresos', 'gaste', 'pague', 'compre', 'me costo', 'me cobraron',
+];
+
+// Si hay palabras de los dos tipos, manda la que se dijo primero: "pagué la
+// comisión" es un gasto aunque "comisión" suela ser ingreso.
 const detectarTipo = (textoNormalizado, signo) => {
   if (signo === '+') return 'ingreso';
   if (signo === '-' || signo === '−') return 'gasto';
   const t = ` ${textoNormalizado.replace(/[^a-z0-9ñ ]+/g, ' ')} `;
-  return PALABRAS_INGRESO.some((p) => t.includes(` ${p} `)) ? 'ingreso' : null;
+  const primera = (lista) => Math.min(...lista.map((p) => {
+    const i = t.indexOf(` ${p} `);
+    return i === -1 ? Infinity : i;
+  }));
+  const ingreso = primera(PALABRAS_INGRESO);
+  const gasto = primera(PALABRAS_GASTO);
+  if (ingreso === Infinity && gasto === Infinity) return null;
+  return ingreso < gasto ? 'ingreso' : 'gasto';
 };
 
 // Palabras de relleno que quedan al quitar el monto: "almuerzo de 25000" → "almuerzo".
-const RELLENO_FINAL = /\s+(de|por|en|a|al|con|para|del|valor|total|y)$/i;
-// También los verbos que solo dicen el tipo ("me pagaron freelance" → "freelance").
-const RELLENO_INICIAL = /^(gaste|gasté|pague|pagué|compre|compré|fueron|fue|son|me costo|me costó|me pagaron|me consignaron|me transfirieron|recibi|recibí|cobre|cobré|en|por|para|con)\s+/i;
+const RELLENO_FINAL = /\s+(de|por|en|a|al|con|para|del|valor|total|y|pesos)$/i;
+// También los verbos que solo dicen el tipo ("me pagaron freelance" → "freelance")
+// y lo que se dice al dictar: "anota un gasto de…", "descripción…", "valor…".
+const RELLENO = [
+  'me gaste', 'me gasté', 'gaste', 'gasté', 'pague', 'pagué', 'compre', 'compré', 'fueron', 'fue', 'son',
+  'me costo', 'me costó', 'me cobraron', 'me pagaron', 'me consignaron', 'me transfirieron',
+  'recibi', 'recibí', 'cobre', 'cobré',
+  'registra', 'registrar', 'registre', 'registré', 'anota', 'anotar', 'apunta', 'apuntar',
+  'agrega', 'agregar', 'añade', 'añadir', 'pon', 'poner', 'guarda', 'guardar', 'nuevo', 'nueva',
+  'gasto', 'egreso', 'ingreso', 'descripcion', 'descripción', 'concepto', 'valor',
+  'en', 'por', 'para', 'con', 'de', 'del',
+].join('|');
+const RELLENO_INICIAL = new RegExp(`^(${RELLENO})\\s+`, 'i');
+// El artículo solo se quita detrás de una muletilla ("pagué el arriendo" →
+// "arriendo"); escrito a secas es parte del nombre ("La luz", "El Corral").
+const ARTICULO_INICIAL = /^(un|una|unos|unas|el|la|los|las)\s+/i;
+// Si no queda nada más que relleno ("gasté 25 mil" → "gasté"), no hay descripción.
+const SOLO_RELLENO = new RegExp(`^(${RELLENO})$`, 'i');
 
-const limpiarDescripcion = (s) => {
+// `conMonto`: se quitó un monto del texto; si lo que queda es pura muletilla
+// ("gasté"), no hay descripción. Sin monto, "ingreso" a secas se respeta.
+const limpiarDescripcion = (s, conMonto = false) => {
   let d = s.replace(/\s+/g, ' ').trim();
   // Quita signos sueltos y separadores que quedaron colgando.
   d = d.replace(/^[\s+\-−:,.;]+|[\s:,.;-]+$/g, '').trim();
   let antes;
+  let trasMuletilla = false;
   do {
     antes = d;
-    d = d.replace(RELLENO_FINAL, '').replace(RELLENO_INICIAL, '').trim();
+    d = d.replace(RELLENO_FINAL, '').trim();
+    const sinInicio = d.replace(RELLENO_INICIAL, '').trim();
+    if (sinInicio !== d) trasMuletilla = true;
+    d = trasMuletilla ? sinInicio.replace(ARTICULO_INICIAL, '').trim() : sinInicio;
   } while (d !== antes);
-  return d;
+  return conMonto && SOLO_RELLENO.test(d) ? '' : d;
 };
 
 /** "almuerzo" → "Almuerzo" (solo la primera letra; respeta el resto). */
@@ -107,7 +311,10 @@ export const montoMinimoPara = (codigoMoneda) => (['COP', 'CLP', 'PYG'].includes
  *   tipo: 'ingreso'/'gasto' si el texto lo deja claro (signo o palabras), si no null
  */
 export const interpretarMovimiento = (texto = '', { montoMinimo = 0 } = {}) => {
-  const original = String(texto);
+  // Los montos dichos en palabras ("veinticinco mil") se buscan ya como cifras.
+  const dicho = String(texto);
+  const { texto: original, reemplazos, aOriginal } = montosHabladosACifras(dicho);
+  const marcas = reemplazos.filter((r) => r.marcado).map((r) => r.salida);
   const candidatos = [];
   let m;
   MONTO_RE.lastIndex = 0;
@@ -121,8 +328,10 @@ export const interpretarMovimiento = (texto = '', { montoMinimo = 0 } = {}) => {
       valor: base * mult,
       inicio,
       fin: m.index + completo.length,
-      // Un "$", "pesos" o un multiplicador delatan que ese número es la plata.
-      marcado: /\$/.test(prefijo) || !!sufijo || mult > 1,
+      // Un "$", "pesos" o un multiplicador (también dicho: "veinte mil") delatan
+      // que ese número es la plata.
+      marcado: /\$/.test(prefijo) || !!sufijo || mult > 1
+        || marcas.some(([a, b]) => inicio < b && m.index + completo.length > a),
       signo: (prefijo.match(/[+\-−]/) || [null])[0],
     });
     if (m[0].length === 0) MONTO_RE.lastIndex += 1;
@@ -136,12 +345,12 @@ export const interpretarMovimiento = (texto = '', { montoMinimo = 0 } = {}) => {
     : null;
 
   const sinMonto = elegido
-    ? original.slice(0, elegido.inicio) + ' ' + original.slice(elegido.fin)
-    : original;
+    ? dicho.slice(0, aOriginal(elegido.inicio, 'inicio')) + ' ' + dicho.slice(aOriginal(elegido.fin, 'fin'))
+    : dicho;
 
   // Un "+" o "-" al comienzo del texto también marca el tipo.
   const signoInicial = (original.trim().match(/^[+\-−]/) || [null])[0];
-  const descripcion = limpiarDescripcion(sinMonto);
+  const descripcion = limpiarDescripcion(sinMonto, !!elegido);
 
   return {
     valor: elegido && elegido.valor > 0 ? Math.round(elegido.valor * 100) / 100 : null,
