@@ -28,10 +28,6 @@ const INTENSIDAD_POR_PLANTILLA = {
     [PLANTILLA_ACREDITACION]: '40',
 };
 
-// Días de curso que se asumen cuando nadie indica el periodo. Solo lo usa la
-// plantilla de acreditación, que imprime "INICIO … FINALIZO …" en el diploma.
-const DIAS_CURSO_POR_DEFECTO = 30;
-
 export const PLANTILLAS = {
     [PLANTILLA_ALIMENTOS]: {
         label: 'Certificado + carnet (Manipulación de Alimentos)',
@@ -66,19 +62,30 @@ const referencia = (fecha) => {
     return d.isValid() ? d : dayjs();
 };
 
+// Fechas del diploma de acreditación (Auxiliar de Bodega y demás): el curso dura
+// un mes calendario y el diploma nunca se expide en domingo. Son las mismas reglas
+// del envío automático de los pagos Nequi (BACKEND/src/controllers/nequiController.js).
+
+/** ¿Se puede expedir un diploma ese día? Cualquiera menos el domingo. */
+export const esDiaDeExpedicion = (fecha) => dayjs(fecha).day() !== 0;
+
+/** Fecha de expedición sugerida: el día de la venta; si cae domingo, el sábado. */
+export const fechaExpedicionPorDefecto = (fechaVenta) => {
+    const dia = referencia(fechaVenta);
+    return esDiaDeExpedicion(dia) ? dia : dia.subtract(1, 'day');
+};
+
 /**
- * Periodo sugerido del curso: TERMINA EL DÍA ANTERIOR a la venta y arranca un mes
- * antes de ese fin. Cerrarlo el día anterior evita el sinsentido de un diploma
- * que dice que el curso finalizó el mismo día en que se expide.
+ * Periodo sugerido del curso: TERMINA EL DÍA ANTES de la expedición y arranca un
+ * mes calendario antes de ese fin (19 sep → 19 oct; 31 mar → 28 feb). Cerrarlo la
+ * víspera evita el sinsentido de un diploma que dice que el curso finalizó el
+ * mismo día en que se expide.
  * Es solo el valor inicial del formulario — quien envía puede corregirlo.
  */
 export const periodoPorDefecto = (fechaVenta) => {
-    const fin = referencia(fechaVenta).subtract(1, 'day');
-    return [fin.subtract(DIAS_CURSO_POR_DEFECTO, 'day'), fin];
+    const fin = fechaExpedicionPorDefecto(fechaVenta).subtract(1, 'day');
+    return [fin.subtract(1, 'month'), fin];
 };
-
-/** Fecha de expedición sugerida: el día de la venta (el curso cerró la víspera). */
-export const fechaExpedicionPorDefecto = (fechaVenta) => referencia(fechaVenta);
 
 const aISO = (d) => (d && dayjs(d).isValid() ? dayjs(d).format('YYYY-MM-DD') : undefined);
 

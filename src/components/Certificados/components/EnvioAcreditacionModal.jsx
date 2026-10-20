@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, Input, DatePicker, Typography, Alert } from 'antd';
 import { MailOutlined } from '@ant-design/icons';
+import { esDiaDeExpedicion } from '../envioDocumentos';
 
 const { Text } = Typography;
 
@@ -89,9 +90,21 @@ const EnvioAcreditacionModal = ({ envio, onCancel, onConfirm }) => {
                         <Form.Item
                             label="Fecha de expedición"
                             name="fechaExpedicion"
-                            rules={[{ required: true, message: 'Indica la fecha de expedición.' }]}
+                            extra="Cualquier día menos domingo."
+                            rules={[
+                                { required: true, message: 'Indica la fecha de expedición.' },
+                                {
+                                    validator: (_, valor) => (!valor || esDiaDeExpedicion(valor)
+                                        ? Promise.resolve()
+                                        : Promise.reject(new Error('El diploma no se expide en domingo.'))),
+                                },
+                            ]}
                         >
-                            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+                            <DatePicker
+                                style={{ width: '100%' }}
+                                format="DD/MM/YYYY"
+                                disabledDate={(dia) => !esDiaDeExpedicion(dia)}
+                            />
                         </Form.Item>
                     </Form>
 
