@@ -120,8 +120,14 @@ export const construirEnvio = ({
     };
 
     if (config === PLANTILLAS[PLANTILLA_ALIMENTOS]) {
-        // La plantilla de alimentos trae el curso impreso; no se le manda.
-        return { endpoint: config.endpoint, body: base, documentos: config.documentos };
+        // La plantilla de alimentos trae el curso impreso; no se le manda. La fecha
+        // sí: sin ella andesback imprime "hoy" en hora del servidor (UTC), que de
+        // noche ya es mañana y puede caer en domingo. El carnet vence un año después.
+        return {
+            endpoint: config.endpoint,
+            documentos: config.documentos,
+            body: { ...base, fechaExpedicion: aISO(fechaExpedicion) || aISO(fechaExpedicionPorDefecto()) },
+        };
     }
 
     return {
