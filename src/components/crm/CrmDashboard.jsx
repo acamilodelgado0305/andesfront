@@ -2,13 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo, useContext } from "re
 import {
   Spin, Alert, Empty, Button, Drawer, Form, Input, InputNumber,
   notification, Tooltip, Modal, Tag, Select, Table, Space, Card,
-  DatePicker,
+  DatePicker, Segmented,
 } from "antd";
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined,
   SearchOutlined, CloseOutlined, CheckCircleOutlined,
   UsergroupAddOutlined, PhoneOutlined, MailOutlined, BankOutlined,
-  IdcardOutlined,
+  IdcardOutlined, UnorderedListOutlined, ProjectOutlined,
 } from "@ant-design/icons";
 import moment from "moment";
 import dayjs from "dayjs";
@@ -35,6 +35,7 @@ import IngresoDrawer from "../Certificados/components/IngresoDrawer";
 import { AuthContext } from "../../AuthContext";
 import useCurrency, { useCurrencyInput } from "../../hooks/useCurrency";
 import useIsMobile from "../../hooks/useIsMobile";
+import { useTheme } from "../../ThemeContext";
 
 // ─── Estados del embudo ─────────────────────────────────────
 const ESTADOS = [
@@ -86,6 +87,182 @@ const EstadoTag = ({ estado }) => {
   );
 };
 
+// "hace 2 horas", "ayer"... con Intl y no con moment.fromNow(): en dev Vite
+// separa `moment/locale/es` y el texto saldría en inglés (ver TransactionTable).
+const RTF = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
+const haceCuanto = (fecha) => {
+  const seg = (new Date(fecha).getTime() - Date.now()) / 1000;
+  const pasos = [[60, 'second'], [60, 'minute'], [24, 'hour'], [30, 'day'], [12, 'month'], [Infinity, 'year']];
+  let v = seg;
+  for (const [tope, unidad] of pasos) {
+    if (Math.abs(v) < tope) return RTF.format(Math.round(v), unidad);
+    v /= tope;
+  }
+  return '';
+};
+
+// Vista elegida (lista / tablero), recordada por navegador
+const VISTA_KEY = 'qc-crm-vista';
+const leerVista = () => {
+  try { return localStorage.getItem(VISTA_KEY) === 'tablero' ? 'tablero' : 'lista'; } catch { return 'lista'; }
+};
+
+// ═══════════════════════════════════════════════════════════
+// TABLERO KANBAN — una columna por etapa del embudo
+// ═══════════════════════════════════════════════════════════
+// Va fuera de CrmDashboard a propósito: si se definiera adentro, cada cambio
+// de estado lo remontaría y el navegador cancelaría el arrastre a medias.
+// En escritorio se arrastra la tarjeta; en el celular (sin drag táctil) cada
+// tarjeta trae su selector de etapa.
+function KanbanBoard({ rows, estados, loading, converting, isMobile, isDark, fmt, onOpen, onMove }) {
+  const [dragId, setDragId]   = useState(null);
+  const [overCol, setOverCol] = useState(null);
+
+  const porEstado = useMemo(() => {
+    const m = {};
+    estados.forEach(e => { m[e.value] = []; });
+    rows.forEach(r => { (m[r.estado] || m.NUEVO)?.push(r); });
+    return m;
+  }, [rows, estados]);
+
+  const endDrag = () => { setDragId(null); setOverCol(null); };
+
+  const handleDrop = (ev, estado) => {
+    ev.preventDefault();
+    const id = ev.dataTransfer.getData('text/plain') || dragId;
+    const item = rows.find(r => String(r.id) === String(id));
+    endDrag();
+    if (item && item.estado !== estado) onMove(item, estado);
+  };
+
+  return (
+    <Spin spinning={loading || converting}>
+      <div
+        className="qc-sin-scrollbar"
+        style={{
+          display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8,
+          scrollSnapType: isMobile ? 'x mandatory' : undefined,
+        }}
+      >
+        {estados.map(e => {
+          const lista = porEstado[e.value] || [];
+          const valor = lista.reduce((s, r) => s + (Number(r.valor_estimado) || 0), 0);
+          const isOver = overCol === e.value && dragId != null;
+          return (
+            <div
+              key={e.value}
+              onDragOver={ev => { if (isMobile) return; ev.preventDefault(); if (overCol !== e.value) setOverCol(e.value); }}
+              onDragLeave={ev => { if (!ev.currentTarget.contains(ev.relatedTarget)) setOverCol(null); }}
+              onDrop={ev => handleDrop(ev, e.value)}
+              style={{
+                flex: `0 0 ${isMobile ? '82vw' : '272px'}`,
+                scrollSnapAlign: 'start',
+                display: 'flex', flexDirection: 'column',
+                background: isOver ? `${e.color}${isDark ? '26' : '14'}` : 'var(--qc-surface-2)',
+                border: `1px ${isOver ? 'dashed' : 'solid'} ${isOver ? e.color : 'var(--qc-border)'}`,
+                borderTop: `3px solid ${e.color}`,
+                borderRadius: 12,
+                transition: 'background 0.15s, border-color 0.15s',
+              }}
+            >
+              {/* Cabecera de la columna */}
+              <div style={{ padding: '10px 12px 8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: e.color, flexShrink: 0 }} />
+                  <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--qc-text)' }}>{e.label}</span>
+                  <span style={{
+                    marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: e.color,
+                    background: `${e.color}${isDark ? '33' : '1a'}`, borderRadius: 10, padding: '1px 8px',
+                  }}>
+                    {lista.length}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--qc-text-muted)', marginTop: 2, paddingLeft: 16 }}>
+                  {valor > 0 ? fmt(valor) : 'Sin valor estimado'}
+                </div>
+              </div>
+
+              {/* Tarjetas */}
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: 8,
+                padding: '0 8px 10px', minHeight: 120, maxHeight: '68vh', overflowY: 'auto',
+              }}>
+                {lista.length === 0 && (
+                  <div style={{
+                    fontSize: 12, color: 'var(--qc-text-muted)', textAlign: 'center',
+                    padding: '20px 8px', border: '1px dashed var(--qc-border)', borderRadius: 10,
+                  }}>
+                    {isMobile ? 'Sin leads en esta etapa' : 'Arrastra un lead aquí'}
+                  </div>
+                )}
+                {lista.map(r => (
+                  <div
+                    key={r.id}
+                    draggable={!isMobile && !converting}
+                    onDragStart={ev => {
+                      ev.dataTransfer.setData('text/plain', String(r.id));
+                      ev.dataTransfer.effectAllowed = 'move';
+                      setDragId(r.id);
+                    }}
+                    onDragEnd={endDrag}
+                    onClick={() => onOpen(r)}
+                    style={{
+                      background: 'var(--qc-surface)',
+                      border: '1px solid var(--qc-border)',
+                      borderLeft: `3px solid ${e.color}`,
+                      borderRadius: 10, padding: '10px 12px',
+                      cursor: isMobile ? 'pointer' : 'grab',
+                      opacity: dragId === r.id ? 0.45 : 1,
+                      boxShadow: isDark ? 'none' : '0 1px 2px rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--qc-text)', lineHeight: 1.3, wordBreak: 'break-word' }}>
+                      {r.nombre}
+                    </div>
+                    {r.empresa && (
+                      <div style={{ fontSize: 11, color: 'var(--qc-text-muted)', marginTop: 2 }}><BankOutlined /> {r.empresa}</div>
+                    )}
+                    {r.telefono && (
+                      <div style={{ fontSize: 11, color: 'var(--qc-text-muted)', marginTop: 2 }}><PhoneOutlined /> {r.telefono}</div>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                      <Tag className="text-[10px]" style={{ marginInlineEnd: 0 }}>{ORIGEN_MAP[r.origen]?.label || r.origen}</Tag>
+                      {r.servicio && (
+                        <Tag className="text-[10px]" color="blue" style={{ marginInlineEnd: 0 }}>{SERVICIO_MAP[r.servicio]?.label || r.servicio}</Tag>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 6 }}>
+                      <Tooltip title={r.created_at ? moment(r.created_at).format('DD/MM/YYYY · hh:mm a') : ''}>
+                        <span style={{ fontSize: 11, color: 'var(--qc-text-muted)' }}>
+                          {r.created_at ? haceCuanto(r.created_at) : '—'}
+                        </span>
+                      </Tooltip>
+                      {Number(r.valor_estimado) > 0 && (
+                        <span style={{ fontWeight: 700, fontSize: 12, color: isDark ? '#5eead4' : '#155153' }}>{fmt(r.valor_estimado)}</span>
+                      )}
+                    </div>
+                    {isMobile && (
+                      <Select
+                        value={r.estado}
+                        size="small"
+                        style={{ width: '100%', marginTop: 8 }}
+                        disabled={converting}
+                        onClick={ev => ev.stopPropagation()}
+                        onChange={val => onMove(r, val)}
+                        options={ESTADOS.map(x => ({ value: x.value, label: <EstadoTag estado={x.value} /> }))}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Spin>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════
@@ -93,6 +270,7 @@ function CrmDashboard() {
   const fmt = useCurrency();
   const { addonAfter: currSuffix, formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
   const isMobile = useIsMobile();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
 
@@ -108,7 +286,13 @@ function CrmDashboard() {
   const [converting, setConverting]     = useState(false);
   const [ingresoOpen, setIngresoOpen]   = useState(false);
   const [ingresoPersona, setIngresoPersona] = useState(null);
+  const [vista, setVista]               = useState(leerVista);
   const [form] = Form.useForm();
+
+  const cambiarVista = (v) => {
+    setVista(v);
+    try { localStorage.setItem(VISTA_KEY, v); } catch { /* sin almacenamiento: solo dura esta visita */ }
+  };
 
   const [dateRange, setDateRange] = useState([
     moment().startOf('day'),
@@ -273,15 +457,18 @@ function CrmDashboard() {
     });
   };
 
-  // Cambio rápido de estado desde la tabla
+  // Cambio rápido de estado desde la tabla o el tablero. Se mueve primero en
+  // pantalla (para que la tarjeta no "rebote" al soltarla) y se revierte si falla.
   const handleQuickEstado = async (item, estado) => {
     // Al pasar a "Ganado" → convertir el lead en cliente y abrir la venta
     if (estado === 'GANADO') return convertirYVender(item);
+    const estadoAnterior = item.estado;
+    setItems(prev => prev.map(i => i.id === item.id ? { ...i, estado } : i));
     try {
       await updateLead(item.id, { estado });
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, estado } : i));
       fetchLeads();
     } catch {
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, estado: estadoAnterior } : i));
       notification.error({ message: 'No se pudo cambiar el estado' });
     }
   };
@@ -624,10 +811,32 @@ function CrmDashboard() {
           className={isMobile ? 'w-full' : 'w-44'}
           options={[{ value: 'todos', label: 'Todos los estados' }, ...ESTADOS.map(e => ({ value: e.value, label: e.label }))]}
         />
+        <Segmented
+          value={vista}
+          onChange={cambiarVista}
+          block={isMobile}
+          className={isMobile ? '' : 'md:ml-auto'}
+          options={[
+            { value: 'lista',   label: 'Lista',   icon: <UnorderedListOutlined /> },
+            { value: 'tablero', label: 'Tablero', icon: <ProjectOutlined /> },
+          ]}
+        />
       </div>
 
-      {/* TABLA / CARDS */}
-      {error ? <Alert message={error} type="error" showIcon /> : (
+      {/* TABLA / CARDS / TABLERO */}
+      {error ? <Alert message={error} type="error" showIcon /> : vista === 'tablero' ? (
+        <KanbanBoard
+          rows={rows}
+          estados={filterEstado === 'todos' ? ESTADOS : ESTADOS.filter(e => e.value === filterEstado)}
+          loading={loading}
+          converting={converting}
+          isMobile={isMobile}
+          isDark={isDark}
+          fmt={fmt}
+          onOpen={handleOpenEdit}
+          onMove={handleQuickEstado}
+        />
+      ) : (
         isMobile ? <MobileCardList /> : (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <Spin spinning={loading}>
