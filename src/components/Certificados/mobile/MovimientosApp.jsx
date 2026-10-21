@@ -19,7 +19,7 @@ import {
 } from './piezas';
 import useDictado from './useDictado';
 import {
-  emojiInicial, interpretarMovimiento, montoMinimoPara, normalizar, sugerirEtiqueta,
+  emojiInicial, interpretarMovimiento, montoMinimoPara, normalizar, sugerirEtiqueta, sugerirProducto,
 } from './interpretarMovimiento';
 import { EtiquetaChip } from '../components/EtiquetasSelector';
 import EtiquetaCell from '../components/EtiquetaCell';
@@ -417,7 +417,7 @@ const MovimientosApp = ({
   const [registroCompletoLocal, setRegistroCompletoLocal] = useState(null);
   useEffect(() => { setRegistroCompletoLocal(null); }, [saldo]);
   const registroCompleto = registroCompletoLocal ?? (saldo?.registro_completo === true);
-  const puedeDictar = dictado.disponible && !registroCompleto;
+  const puedeDictar = dictado.disponible;
 
   const cambiarRegistroCompleto = async (valor) => {
     setRegistroCompletoLocal(valor);
@@ -431,14 +431,20 @@ const MovimientosApp = ({
     }
   };
 
-  // Lo escrito ("almuerzo 25000") llega ya repartido al formulario completo.
+  const tipoPorDefecto = mostrar === 'ingresos' ? 'ingreso' : 'gasto';
+  const leerTexto = (t) => interpretarMovimiento(t, { montoMinimo: montoMinimoPara(codigoMoneda) });
+  // Si el reconocimiento duda entre varias frases, la que trae un monto.
+  const conMontoDe = (t, alternativas = []) => [t, ...alternativas].find((x) => leerTexto(x).valor != null) ?? t;
+
+  // Lo escrito o dictado ("almuerzo 25000") llega ya repartido al formulario
+  // completo. Manda el tipo elegido a mano; si no se eligió, el que se dijo.
   const abrirFormularioCompleto = ({ tipo, texto = '', registro = null }) => {
     if (registro) { onEditarCompleto(registro.tipo, registro.raw); return; }
-    const p = texto.trim() ? interpretarMovimiento(texto, { montoMinimo: montoMinimoPara(codigoMoneda) }) : null;
-    const t = p?.tipo || tipo;
+    const p = texto.trim() ? leerTexto(texto) : null;
+    const t = tipo || p?.tipo || tipoPorDefecto;
     const cuenta = ultimaCuenta(t) || 'Nequi';
+    const descripcion = p ? capitalizar(p.valor != null ? p.descripcion : texto.trim()) : '';
     if (t === 'gasto') {
-      const descripcion = p ? capitalizar(p.valor != null ? p.descripcion : texto.trim()) : '';
       const etiqueta = descripcion ? sugerirEtiqueta(descripcion, etiquetas, historial) : null;
       onEditarCompleto('gasto', {
         descripcion, cuenta, fecha: new Date().toISOString(),
@@ -446,13 +452,49 @@ const MovimientosApp = ({
         ...(etiqueta != null ? { categoria_id: etiqueta } : {}),
       });
     } else {
-      onEditarCompleto('ingreso', { cuenta, valor: p?.valor ?? 0 });
+      // En la venta lo dicho elige el producto ("venta curso BPM") y, si el
+      // valor es varias veces su precio, la cantidad ("3 cursos BPM 150 mil").
+      const producto = descripcion ? sugerirProducto(descripcion, inventario) : null;
+      const precio = Number(producto?.monto) || 0;
+      const veces = producto && p?.valor && precio > 0 ? p.valor / precio : 1;
+      const cantidad = Number.isInteger(veces) && veces >= 1 ? Math.min(veces, 999) : 1;
+      const etiqueta = descripcion ? sugerirEtiqueta(descripcion, etiquetasIngreso, historialIngresos) : null;
+      onEditarCompleto('ingreso', {
+        cuenta, valor: p?.valor ?? 0,
+        // El formulario completo arma sus líneas desde items_detalle (con la cantidad).
+        ...(producto ? { items_detalle: [{ descripcion: producto.nombre, cantidad }] } : {}),
+        ...(etiqueta != null ? { categoria_id: etiqueta } : {}),
+      });
     }
   };
 
-  const tipoPorDefecto = mostrar === 'ingresos' ? 'ingreso' : 'gasto';
+  // Celular con formulario completo: el + y el micrófono no saben si viene un
+  // gasto o un ingreso, así que primero se elige (o se dicta y se elige) y
+  // luego se abre el formulario de ese tipo ya llenado.
+  const [nuevo, setNuevo] = useState({ open: false, texto: '' });
+  const dictarNuevo = () => {
+    if (dictado.escuchando) { dictado.detener(); return; }
+    setNuevo((n) => ({ ...n, texto: '' }));
+    dictado.iniciar((t, alternativas) => setNuevo((n) => ({ ...n, texto: conMontoDe(t, alternativas) })));
+  };
+  const abrirNuevo = ({ conDictado = false } = {}) => {
+    setNuevo({ open: true, texto: '' });
+    if (conDictado) dictarNuevo();
+  };
+  const cerrarNuevo = () => {
+    dictado.detener();
+    setNuevo((n) => ({ ...n, open: false }));
+  };
+  const elegirNuevo = (tipo) => {
+    const { texto } = nuevo;
+    cerrarNuevo();
+    abrirFormularioCompleto({ tipo, texto });
+  };
+  const leidoNuevo = nuevo.texto ? leerTexto(nuevo.texto) : null;
+  const tipoSugerido = leidoNuevo?.tipo || { gastos: 'gasto', ingresos: 'ingreso' }[mostrar] || null;
+
   const abrirRegistro = ({ tipo, texto = '', registro = null, conDictado = false } = {}) => {
-    if (registroCompleto) { abrirFormularioCompleto({ tipo: tipo || tipoPorDefecto, texto, registro }); return; }
+    if (registroCompleto) { abrirFormularioCompleto({ tipo, texto, registro }); return; }
     // iPhone: el teclado solo abre si algo se enfoca dentro del toque. Se enfoca
     // un campo invisible ya mismo y la hoja pasa el foco a su campo al abrir.
     if (!registro && !conDictado) proxyRef.current?.focus({ preventScroll: true });
@@ -463,6 +505,22 @@ const MovimientosApp = ({
   const cerrarRegistro = () => {
     dictado.detener();
     setHoja((h) => ({ ...h, open: false }));
+  };
+
+  // Botones de abajo del celular (+ y micrófono).
+  const nuevoMovimiento = ({ conDictado = false } = {}) => (
+    registroCompleto ? abrirNuevo({ conDictado }) : abrirRegistro({ conDictado })
+  );
+  const labelNuevo = registroCompleto ? 'Nuevo movimiento' : (tipoPorDefecto === 'ingreso' ? 'Nuevo ingreso' : 'Nuevo gasto');
+
+  // Computador con formulario completo: el dictado escribe en "Anota un
+  // movimiento" (Enter o "Nuevo gasto/ingreso" lo abren); con el registro
+  // rápido se abre el panel y se dicta allí.
+  const dictadoEnTexto = registroCompleto && dictado.escuchando;
+  const dictarEnEscritorio = () => {
+    if (!registroCompleto) { abrirRegistro({ conDictado: true }); return; }
+    if (dictado.escuchando) { dictado.detener(); return; }
+    dictado.iniciar((t, alternativas) => setTextoRapido(conMontoDe(t, alternativas)));
   };
 
   const abrirMovimiento = (m) => {
@@ -649,6 +707,65 @@ const MovimientosApp = ({
         lateral={esEscritorio}
       />
       {envio.modal}
+
+      {/* ── Formulario completo: ¿gasto o ingreso? (y dictado) ── */}
+      <BottomSheet open={nuevo.open} onClose={cerrarNuevo} title="Nuevo movimiento">
+        {puedeDictar && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 14, padding: 12, marginBottom: 4,
+            borderRadius: 18, background: 'var(--qc-relleno)',
+          }}>
+            <button
+              type="button"
+              onClick={dictarNuevo}
+              aria-label={dictado.escuchando ? 'Detener dictado' : 'Dictar'}
+              className={dictado.escuchando ? 'qc-dictando' : undefined}
+              style={{
+                width: 52, height: 52, borderRadius: '50%', border: 'none', cursor: 'pointer', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                background: dictado.escuchando ? CORAL : 'var(--qc-surface)',
+                color: dictado.escuchando ? '#fff' : 'var(--qc-text)',
+              }}
+            >
+              <AudioOutlined />
+            </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {nuevo.texto ? (
+                <>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--qc-text)', overflowWrap: 'anywhere' }}>“{nuevo.texto}”</div>
+                  {leidoNuevo?.valor != null && (
+                    <div style={{ fontSize: 12.5, color: 'var(--qc-text-muted)', marginTop: 2 }}>
+                      {montoCorto(leidoNuevo.valor)}{leidoNuevo.descripcion ? ` · ${capitalizar(leidoNuevo.descripcion)}` : ''}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{
+                  fontSize: 14.5,
+                  fontWeight: dictado.escuchando ? 600 : 400,
+                  color: dictado.escuchando ? 'var(--qc-text)' : 'var(--qc-text-muted)',
+                }}>
+                  {dictado.escuchando ? 'Escuchando… di por ejemplo “venta curso 80 mil”' : 'Toca el micrófono y dilo, o elige abajo'}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        <Seccion>¿Qué vas a registrar?</Seccion>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {['gasto', 'ingreso'].map((t) => (
+            <ChipOpcion
+              key={t}
+              activo={tipoSugerido === t}
+              onClick={() => elegirNuevo(t)}
+              style={{ minHeight: 60, borderRadius: 18, fontSize: 16, fontWeight: 700, gap: 10 }}
+            >
+              <PuntoSigno tipo={t} size={20} />
+              {t === 'gasto' ? 'Gasto' : 'Ingreso'}
+            </ChipOpcion>
+          ))}
+        </div>
+      </BottomSheet>
 
       {/* ── Periodo ── */}
       <BottomSheet open={periodoAbierto} onClose={() => setPeriodoAbierto(false)} title="Periodo">
@@ -850,6 +967,13 @@ const MovimientosApp = ({
     setTextoRapido('');
     abrirRegistro(texto ? { texto } : {});
   };
+  // "Nuevo gasto/ingreso" también se lleva lo que ya se escribió o dictó.
+  const anotarComo = (tipo) => {
+    dictado.detener();
+    const texto = textoRapido.trim();
+    setTextoRapido('');
+    abrirRegistro({ tipo, texto });
+  };
 
   const vistaEscritorio = () => {
     const pickerValue = [dayjs(dateRange[0].toDate()), dayjs(dateRange[1].toDate())];
@@ -1021,17 +1145,18 @@ const MovimientosApp = ({
                     <input
                       value={textoRapido}
                       onChange={(e) => setTextoRapido(e.target.value)}
-                      placeholder="Ej: almuerzo 25.000"
+                      placeholder={dictadoEnTexto ? 'Escuchando… ej: venta curso 80 mil' : 'Ej: almuerzo 25.000'}
                       aria-label="Escribe un movimiento"
                       style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 15.5, padding: '11px 0', color: 'var(--qc-text)' }}
                     />
                     {puedeDictar && (
-                      <Tooltip title="Dictar">
-                        <button type="button" aria-label="Dictar un movimiento" onClick={() => abrirRegistro({ conDictado: true })}
+                      <Tooltip title={dictadoEnTexto ? 'Detener dictado' : 'Dictar'}>
+                        <button type="button" aria-label={dictadoEnTexto ? 'Detener dictado' : 'Dictar un movimiento'} onClick={dictarEnEscritorio}
+                          className={dictadoEnTexto ? 'qc-dictando' : undefined}
                           style={{
                             width: 40, height: 40, borderRadius: '50%', border: 'none', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17,
-                            background: 'transparent', color: 'var(--qc-text)',
+                            background: dictadoEnTexto ? CORAL : 'transparent', color: dictadoEnTexto ? '#fff' : 'var(--qc-text)',
                           }}>
                           <AudioOutlined />
                         </button>
@@ -1047,8 +1172,8 @@ const MovimientosApp = ({
                     </button>
                   </form>
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                    <ChipOpcion onClick={() => abrirRegistro({ tipo: 'gasto' })}><PuntoSigno tipo="gasto" size={15} /> Nuevo gasto</ChipOpcion>
-                    <ChipOpcion onClick={() => abrirRegistro({ tipo: 'ingreso' })}><PuntoSigno tipo="ingreso" size={15} /> Nuevo ingreso</ChipOpcion>
+                    <ChipOpcion onClick={() => anotarComo('gasto')}><PuntoSigno tipo="gasto" size={15} /> Nuevo gasto</ChipOpcion>
+                    <ChipOpcion onClick={() => anotarComo('ingreso')}><PuntoSigno tipo="ingreso" size={15} /> Nuevo ingreso</ChipOpcion>
                   </div>
                 </div>
               </div>
@@ -1495,8 +1620,8 @@ const MovimientosApp = ({
           {puedeDictar && (
             <button
               type="button"
-              aria-label={tipoPorDefecto === 'ingreso' ? 'Nuevo ingreso' : 'Nuevo gasto'}
-              onClick={() => abrirRegistro()}
+              aria-label={labelNuevo}
+              onClick={() => nuevoMovimiento()}
               style={{
                 width: 50, height: 50, borderRadius: '50%', border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
@@ -1523,8 +1648,8 @@ const MovimientosApp = ({
         {/* Con dictado: el botón grande es el micrófono. Sin él, es el +. */}
         <button
           type="button"
-          aria-label={puedeDictar ? 'Dictar un movimiento' : (tipoPorDefecto === 'ingreso' ? 'Nuevo ingreso' : 'Nuevo gasto')}
-          onClick={() => (puedeDictar ? abrirRegistro({ conDictado: true }) : abrirRegistro())}
+          aria-label={puedeDictar ? 'Dictar un movimiento' : labelNuevo}
+          onClick={() => nuevoMovimiento({ conDictado: puedeDictar })}
           style={{
             pointerEvents: 'auto', width: ALTO_BOTONES, height: ALTO_BOTONES, borderRadius: '50%',
             border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
