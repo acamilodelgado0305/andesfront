@@ -55,6 +55,7 @@ const UsersDashboard = lazyWithRetry(() => import("./components/admin/UsersDashb
 const Inventario = lazyWithRetry(() => import("./components/inventario/Inventario"));
 const PersonasDashboard = lazyWithRetry(() => import("./components/personas/PersonasDashboard"));
 const CrmDashboard = lazyWithRetry(() => import("./components/crm/CrmDashboard"));
+const TareasPage = lazyWithRetry(() => import("./components/tareas/TareasPage"));
 const Verificacion = lazyWithRetry(() => import("./components/Calificaciones/Verificacion"));
 const Docentes = lazyWithRetry(() => import("./GestionAcademica/Docentes/Docentes"));
 const ConsultaPreRegistro = lazyWithRetry(() => import("./components/Calificaciones/ConsultaPreRegistro"));
@@ -217,6 +218,7 @@ const App = () => (
                   <Route path="inventario" element={<Inventario />} />
                   <Route path="personas" element={<PersonasDashboard />} />
                   <Route path="crm" element={<CrmDashboard />} />
+                  <Route path="tareas" element={<TareasPage />} />
                   <Route path="pedidos" element={<PedidosDashboard />} />
                   <Route path="documentos-venta" element={<DocumentosVentaDashboard />} />
                   {/* Cuentas por Pagar y por Cobrar en una sola vista con pestañas (?tab=cobrar) */}

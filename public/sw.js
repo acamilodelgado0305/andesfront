@@ -94,3 +94,32 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+// ── Notificaciones (Tareas) ─────────────────────────────────────────────────
+// El backend manda { title, body, url, tag } (BACKEND/src/services/pushService.js).
+self.addEventListener('push', (event) => {
+  let datos = {};
+  try { datos = event.data ? event.data.json() : {}; } catch { datos = { body: event.data && event.data.text() }; }
+  const titulo = datos.title || 'Rapictrl';
+  event.waitUntil(self.registration.showNotification(titulo, {
+    body: datos.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: datos.tag || undefined,
+    renotify: !!datos.tag,
+    data: { url: datos.url || '/inicio/tareas' },
+  }));
+});
+
+// Tocar el aviso abre la app en la tarea (o enfoca la ventana que ya estaba abierta).
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const destino = new URL(event.notification.data?.url || '/inicio/tareas', self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ventanas) => {
+      const abierta = ventanas.find((v) => v.url.startsWith(self.location.origin));
+      if (abierta) return abierta.focus().then((v) => (v && 'navigate' in v ? v.navigate(destino) : null));
+      return self.clients.openWindow(destino);
+    }),
+  );
+});

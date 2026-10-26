@@ -25,6 +25,7 @@ import {
   BarChartOutlined,
   ToolOutlined,
   CrownOutlined,
+  ProjectOutlined,
 } from '@ant-design/icons';
 
 // =========================================================
@@ -71,6 +72,9 @@ export const buildNavSections = (user) => {
   const hasPOS      = user.role === 'superadmin' || userModules.includes('POS');
   const hasACAD     = user.role === 'superadmin' || userModules.includes('ACADEMICO') || isEducationalPlanUser(user);
   const hasGEN      = user.role === 'superadmin' || userModules.includes('GENERACION');
+  // Tareas (tablero tipo Trello): por ahora solo el superadmin; un plan lo
+  // concede agregando 'TAREAS' a plans.modules.
+  const hasTAREAS   = user.role === 'superadmin' || userModules.includes('TAREAS');
   const isSuperAdmin = user.role === 'superadmin';
   const isAdmin      = ['admin', 'superadmin'].includes(user.role);
   const isDocente    = user.role === 'docente';
@@ -95,7 +99,10 @@ export const buildNavSections = (user) => {
   // — General —
   sections.push({
     sectionLabel: null,
-    items: [{ key: '/inicio/dashboard', icon: <HomeOutlined />, label: 'Inicio', path: '/inicio/dashboard' }],
+    items: [
+      { key: '/inicio/dashboard', icon: <HomeOutlined />, label: 'Inicio', path: '/inicio/dashboard' },
+      ...(hasTAREAS ? [{ key: '/inicio/tareas', icon: <ProjectOutlined />, label: 'Tareas', path: '/inicio/tareas' }] : []),
+    ],
   });
 
   // — Gestión Empresarial —
@@ -195,6 +202,7 @@ export const buildNavSections = (user) => {
 // entrada aquí igual aparece en el inicio (color neutro, sin descripción), así
 // que nunca se queda fuera por olvidar registrarlo.
 export const NAV_META = {
+  '/inicio/tareas':            { hint: 'Proyectos y pendientes',   tone: 'rose' },
   '/inicio/certificados':      { hint: 'Ingresos y gastos',        tone: 'blue' },
   '/inicio/documentos-venta':  { hint: 'Facturas y cotizaciones',  tone: 'blue' },
   '/inicio/cuentas':           { hint: 'Por pagar y por cobrar',   tone: 'rose' },
