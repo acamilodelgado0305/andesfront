@@ -117,7 +117,7 @@ const TarjetaProyecto = ({ t, onAbrir }) => {
 };
 
 const InicioTareas = ({
-  tableros, cargandoTableros, archivados, esMovil, nombreNegocio,
+  tableros, cargandoTableros, archivados, esMovil, nombreUsuario,
   tarjetaAbierta, abrirTarjeta, cerrarTarjeta, abrirTablero, onTablerosCambio,
 }) => {
   const [vista, setVistaEstado] = useState(() => leer(VISTA_KEY, 'resumen'));
@@ -283,7 +283,7 @@ const InicioTareas = ({
         <div style={{ fontSize: 46 }}>🗂️</div>
         <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--qc-text)', margin: '8px 0' }}>Todas tus tareas en un solo lugar</h1>
         <p style={{ color: 'var(--qc-text-muted)', fontSize: 15 }}>
-          Crea un proyecto por cada frente (la universidad, lo personal, cada negocio). Cada uno tiene su tablero kanban,
+          Crea un proyecto por cada frente (la universidad, lo personal, cada negocio). Son tuyas: las ves desde cualquier negocio y nadie más del negocio las ve. Cada proyecto tiene su tablero kanban,
           sus etiquetas, subtareas, fechas con aviso al celular y tareas que se repiten, como tus clases.
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
@@ -311,7 +311,7 @@ const InicioTareas = ({
         <div style={{ flex: 1, minWidth: esMovil ? '100%' : 0 }}>
           <h1 style={{ margin: 0, fontSize: esMovil ? 22 : 26, fontWeight: 800, color: 'var(--qc-text)', letterSpacing: -0.4 }}>Tareas</h1>
           <div style={{ fontSize: 13, color: 'var(--qc-text-muted)' }}>
-            {nombreNegocio ? `${nombreNegocio} · ` : ''}{tableros.length} proyecto{tableros.length === 1 ? '' : 's'} · {pendientes.length} pendientes
+            {nombreUsuario ? `De ${nombreUsuario} · ` : ''}{tableros.length} proyecto{tableros.length === 1 ? '' : 's'} · {pendientes.length} pendientes
           </div>
         </div>
         {/* En el celular, vistas y botones van en su propia fila */}

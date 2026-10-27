@@ -127,7 +127,7 @@ const AvisosHoja = ({ abierta, onCerrar, esMovil }) => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Switch checked={config.activo} onChange={(v) => cambiar({ activo: v })} />
-          <span style={{ color: 'var(--qc-text)' }}>Avisos de tareas de este negocio</span>
+          <span style={{ color: 'var(--qc-text)' }}>Avisos de mis tareas</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Switch checked={config.resumen_diario} disabled={!config.activo} onChange={(v) => cambiar({ resumen_diario: v })} />

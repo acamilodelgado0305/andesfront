@@ -4,13 +4,12 @@
 // La URL manda (así el botón atrás y los avisos del celular funcionan):
 //   ?tablero=ID   proyecto abierto (si no, el inicio de Tareas)
 //   ?tarjeta=ID   detalle de una tarjeta encima de la vista
-//   ?negocio=ID   el aviso venía de otro negocio: se cambia solo a ese negocio
 //
-// Todo cuelga del negocio activo: en "Andres Camilo Delgado" vive lo personal,
-// la universidad y los proyectos propios.
+// Las tareas son del USUARIO, no del negocio: se ven igual desde cualquier
+// negocio en que esté la sesión, y nadie más del negocio las ve.
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { message, Spin } from 'antd';
+import { message } from 'antd';
 import { AuthContext } from '../../AuthContext';
 import useIsMobile from '../../hooks/useIsMobile';
 import * as api from '../../services/tareas/tareasService';
@@ -20,17 +19,15 @@ import InicioTareas from './InicioTareas';
 import TableroVista from './TableroVista';
 
 const TareasPage = () => {
-  const { user, login } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
   const esMovil = useIsMobile();
   const [params, setParams] = useSearchParams();
   const [tableros, setTableros] = useState([]);
   const [archivados, setArchivados] = useState([]);
   const [cargando, setCargando] = useState(true);
-  const [cambiandoNegocio, setCambiandoNegocio] = useState(false);
 
   const tableroId = Number(params.get('tablero')) || null;
   const tarjetaId = Number(params.get('tarjeta')) || null;
-  const negocio = Number(params.get('negocio')) || null;
 
   const cargarTableros = useCallback(async () => {
     try {
@@ -44,37 +41,7 @@ const TareasPage = () => {
     }
   }, []);
 
-  // El aviso del celular trae el negocio de la tarea: si no es el activo, se
-  // cambia (misma ruta que el selector de negocios del header).
-  useEffect(() => {
-    if (!negocio || !user) return;
-    const limpiar = () => setParams((p) => { const n = new URLSearchParams(p); n.delete('negocio'); return n; }, { replace: true });
-    if (Number(user.bid) === negocio) { limpiar(); return; }
-    const existe = (user.businesses || []).some((b) => Number(b.id) === negocio) || user.role === 'superadmin';
-    if (!existe) { limpiar(); return; }
-    setCambiandoNegocio(true);
-    (async () => {
-      try {
-        const { switchBusiness } = await import('../../services/auth/authService');
-        const r = await switchBusiness(negocio);
-        if (r?.token) {
-          login(r.token, r.user, r.refreshToken);
-          const destino = new URLSearchParams(params);
-          destino.delete('negocio');
-          window.location.replace(`/inicio/tareas${destino.toString() ? `?${destino}` : ''}`);
-          return;
-        }
-      } catch {
-        message.error('No se pudo cambiar al negocio de esa tarea');
-      }
-      setCambiandoNegocio(false);
-      limpiar();
-    })();
-    // Solo cuando llega un ?negocio nuevo.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [negocio]);
-
-  useEffect(() => { if (!negocio) cargarTableros(); }, [cargarTableros, negocio, user?.bid]);
+  useEffect(() => { cargarTableros(); }, [cargarTableros]);
 
   const cambiar = (cambios) => setParams((p) => {
     const n = new URLSearchParams(p);
@@ -98,10 +65,6 @@ const TareasPage = () => {
     </div>
   );
 
-  if (cambiandoNegocio) {
-    return fondo(<div style={{ padding: 80, textAlign: 'center', color: 'var(--qc-text-muted)' }}><Spin /><div style={{ marginTop: 12 }}>Abriendo el negocio de esa tarea…</div></div>);
-  }
-
   return fondo(tableroId ? (
     <TableroVista
       key={tableroId}
@@ -120,7 +83,7 @@ const TareasPage = () => {
       archivados={archivados}
       cargandoTableros={cargando}
       esMovil={esMovil}
-      nombreNegocio={user?.business_name}
+      nombreUsuario={user?.name}
       tarjetaAbierta={tarjetaId}
       abrirTarjeta={abrirTarjeta}
       cerrarTarjeta={cerrarTarjeta}
