@@ -7,7 +7,7 @@ import {
 } from 'antd';
 import {
   ArrowLeftOutlined, StarOutlined, StarFilled, MoreOutlined, FilterOutlined, EditOutlined, TagsOutlined,
-  InboxOutlined, ProjectOutlined, TableOutlined, CalendarOutlined, UndoOutlined,
+  InboxOutlined, ProjectOutlined, TableOutlined, CalendarOutlined, UndoOutlined, DeleteOutlined,
 } from '@ant-design/icons';
 import useTablero from './useTablero';
 import Kanban from './Kanban';
@@ -16,6 +16,7 @@ import CalendarioTareas from './CalendarioTareas';
 import TarjetaDetalle from './TarjetaDetalle';
 import RegistroTarea from './RegistroTarea';
 import ProyectoModal from './ProyectoModal';
+import EliminarProyectoModal from './EliminarProyectoModal';
 import { EtiquetasSelector } from './EditoresTarjeta';
 import { EtiquetaPill, IconoProyecto } from './piezasTareas';
 import { OPCIONES_FECHA, hayFiltros, pasaFiltros, textoVence, tinte } from './utilsTareas';
@@ -80,6 +81,7 @@ const TableroVista = ({ tableroId, tableros, esMovil, tarjetaAbierta, abrirTarje
   const [archivadas, setArchivadas] = useState(null);
   const [crearEnDia, setCrearEnDia] = useState(null);
   const [listaRapida, setListaRapida] = useState(null);
+  const [eliminarAbierto, setEliminarAbierto] = useState(false);
 
   const setVista = (v) => { setVistaEstado(v); try { localStorage.setItem(VISTA_KEY, v); } catch { /* sin almacenamiento */ } };
   const datos = tb.datos;
@@ -135,12 +137,14 @@ const TableroVista = ({ tableroId, tableros, esMovil, tarjetaAbierta, abrirTarje
       { key: 'etiquetas', icon: <TagsOutlined />, label: 'Etiquetas del proyecto' },
       { key: 'archivadas', icon: <InboxOutlined />, label: 'Tarjetas archivadas' },
       { type: 'divider' },
-      { key: 'archivar', icon: <InboxOutlined />, label: 'Archivar proyecto', danger: true },
+      { key: 'archivar', icon: <InboxOutlined />, label: 'Archivar proyecto' },
+      { key: 'eliminar', icon: <DeleteOutlined />, label: 'Eliminar proyecto…', danger: true },
     ],
     onClick: ({ key }) => {
       if (key === 'editar') setEditarProyecto(true);
       if (key === 'etiquetas') setVerEtiquetas(true);
       if (key === 'archivadas') abrirArchivadas();
+      if (key === 'eliminar') setEliminarAbierto(true);
       if (key === 'archivar') {
         Modal.confirm({
           title: `¿Archivar ${tablero.nombre}?`,
@@ -272,6 +276,12 @@ const TableroVista = ({ tableroId, tableros, esMovil, tarjetaAbierta, abrirTarje
         onCambio={tb.ponerTarjeta}
         onEliminada={tb.quitarTarjeta}
         onNueva={tb.ponerTarjeta}
+      />
+
+      <EliminarProyectoModal
+        proyecto={eliminarAbierto ? { ...tablero, total: datos.tarjetas.length } : null}
+        onCerrar={() => setEliminarAbierto(false)}
+        onEliminado={() => { setEliminarAbierto(false); onTablerosCambio?.(); onVolver(); }}
       />
 
       <ProyectoModal
