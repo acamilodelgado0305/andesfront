@@ -1015,6 +1015,9 @@ const MovimientosApp = ({
               placement="bottomRight"
               menu={{
                 items: [
+                  { key: 'pdf-g', icon: <DownloadOutlined />, label: 'PDF de gastos', onClick: () => descargarPdf('egresos') },
+                  { key: 'pdf-i', icon: <DownloadOutlined />, label: 'PDF de ingresos', onClick: () => descargarPdf('ingresos') },
+                  { type: 'divider' },
                   { key: 'saldo', icon: <BankOutlined />, label: 'Saldo inicial y tarjetas', onClick: onConfigurarSaldo },
                   { key: 'actualizar', icon: <ReloadOutlined />, label: 'Actualizar', onClick: () => onRefresh() },
                   ...(esAdmin ? [{

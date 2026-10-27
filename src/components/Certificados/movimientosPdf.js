@@ -1,5 +1,7 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+// jspdf-autotable 5 ya no se engancha solo a jsPDF (solo si jsPDF es global, y
+// en la app no lo es): `doc.autoTable` no existía y el PDF fallaba sin avisar.
+import { autoTable } from 'jspdf-autotable';
 import moment from 'moment';
 
 import { clienteDe, conceptoDe } from './movimientos';
@@ -21,7 +23,7 @@ export const generarPdfMovimientos = ({ type, registros, dateRange, userMap = {}
   const periodo = `${moment(dateRange[0]).format('DD/MM/YYYY')} - ${moment(dateRange[1]).format('DD/MM/YYYY')}`;
   doc.setFontSize(14);
   doc.text(`${title} - ${periodo}`, 14, 20);
-  doc.autoTable({
+  autoTable(doc, {
     head: [['Fecha', esIngreso ? 'Cliente' : 'Descripción', esIngreso ? 'Producto' : 'Etiqueta', 'Cuenta', 'Usuario', 'Valor']],
     body: registros.map((item) => [
       moment(item[esIngreso ? 'createdAt' : 'fecha']).format('DD/MM/YYYY'),
