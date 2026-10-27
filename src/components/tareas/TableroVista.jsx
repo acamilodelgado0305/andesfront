@@ -18,7 +18,7 @@ import RegistroTarea from './RegistroTarea';
 import ProyectoModal from './ProyectoModal';
 import { EtiquetasSelector } from './EditoresTarjeta';
 import { EtiquetaPill, IconoProyecto } from './piezasTareas';
-import { hayFiltros, pasaFiltros, textoVence, tinte } from './utilsTareas';
+import { OPCIONES_FECHA, hayFiltros, pasaFiltros, textoVence, tinte } from './utilsTareas';
 import * as api from '../../services/tareas/tareasService';
 import { mensajeError } from '../../services/tareas/tareasService';
 
@@ -52,16 +52,10 @@ const FiltrosContenido = ({ filtros, setFiltros, etiquetas }) => (
     <div>
       <div style={{ fontSize: 12.5, color: 'var(--qc-text-muted)', marginBottom: 6 }}>Fecha</div>
       <Select
-        value={filtros.vence}
-        onChange={(v) => setFiltros((f) => ({ ...f, vence: v }))}
+        value={filtros.vence || 'todas'}
+        onChange={(v) => setFiltros((f) => ({ ...f, vence: v === 'todas' ? null : v }))}
         style={{ width: '100%' }}
-        options={[
-          { value: null, label: 'Todas' },
-          { value: 'vencidas', label: 'Vencidas' },
-          { value: 'hoy', label: 'Para hoy (y vencidas)' },
-          { value: 'semana', label: 'Próximos 7 días' },
-          { value: 'sin', label: 'Sin fecha' },
-        ]}
+        options={OPCIONES_FECHA}
       />
     </div>
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -17,7 +17,7 @@ import TarjetaDetalle from './TarjetaDetalle';
 import ProyectoModal from './ProyectoModal';
 import AvisosHoja from './AvisosHoja';
 import { ChipVence, IconoProyecto, MarcaCompletar, BarraProgreso, EtiquetaPill } from './piezasTareas';
-import { estadoVence, diaCO, hoyCO, sumarDiasStr, fechaLarga, textoVence, sinTildes } from './utilsTareas';
+import { estadoVence, diaCO, hoyCO, sumarDiasStr, fechaLarga, textoVence, pasaFiltros, OPCIONES_FECHA } from './utilsTareas';
 import { describirRepeticion } from './repeticion';
 
 const VISTA_KEY = 'qc-tareas-inicio-vista';
@@ -128,7 +128,8 @@ const InicioTareas = ({
   const [avisos, setAvisos] = useState(false);
   const [verArchivados, setVerArchivados] = useState(false);
   const [filtroQ, setFiltroQ] = useState('');
-  const [filtroProyecto, setFiltroProyecto] = useState(null);
+  const [filtroProyecto, setFiltroProyecto] = useState('todos');
+  const [filtroFecha, setFiltroFecha] = useState('todas');
   const [ocultarHechas, setOcultarHechas] = useState(true);
   const [crearEnDia, setCrearEnDia] = useState(null);
   const [creandoBase, setCreandoBase] = useState(false);
@@ -256,10 +257,11 @@ const InicioTareas = ({
 
   const filtradas = useMemo(() => (tarjetas || []).filter((t) => {
     if (ocultarHechas && t.completada) return false;
-    if (filtroProyecto && t.tablero_id !== filtroProyecto) return false;
-    if (filtroQ && !sinTildes(`${t.titulo} ${t.descripcion || ''}`).includes(sinTildes(filtroQ))) return false;
+    if (filtroProyecto !== 'todos' && t.tablero_id !== filtroProyecto) return false;
+    // La fecha solo filtra la Tabla: el calendario ya se mueve por semanas.
+    if (!pasaFiltros(t, { q: filtroQ, vence: vista === 'tabla' ? filtroFecha : null })) return false;
     return true;
-  }), [tarjetas, ocultarHechas, filtroProyecto, filtroQ]);
+  }), [tarjetas, ocultarHechas, filtroProyecto, filtroQ, filtroFecha, vista]);
 
   const abrir = (t) => abrirTarjeta(typeof t === 'object' ? t.id : t, typeof t === 'object' ? t.tablero_id : null);
 
@@ -404,13 +406,23 @@ const InicioTareas = ({
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
             <Input.Search placeholder="Buscar en todas las tareas" allowClear value={filtroQ} onChange={(e) => setFiltroQ(e.target.value)} style={{ width: esMovil ? '100%' : 280 }} />
             <Select
-              allowClear
-              placeholder="Todos los proyectos"
               value={filtroProyecto}
-              onChange={(v) => setFiltroProyecto(v ?? null)}
-              options={tableros.map((t) => ({ value: t.id, label: `${t.icono ? `${t.icono} ` : ''}${t.nombre}` }))}
+              onChange={setFiltroProyecto}
+              options={[
+                { value: 'todos', label: 'Todos los proyectos' },
+                ...tableros.map((t) => ({ value: t.id, label: `${t.icono ? `${t.icono} ` : ''}${t.nombre}` })),
+              ]}
               style={{ width: 210 }}
+              popupMatchSelectWidth={false}
             />
+            {vista === 'tabla' && (
+              <Select value={filtroFecha} onChange={setFiltroFecha} options={OPCIONES_FECHA} style={{ width: 190 }} popupMatchSelectWidth={false} />
+            )}
+            {(filtroProyecto !== 'todos' || filtroFecha !== 'todas' || filtroQ) && (
+              <Button type="link" onClick={() => { setFiltroProyecto('todos'); setFiltroFecha('todas'); setFiltroQ(''); }}>
+                Ver todo
+              </Button>
+            )}
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--qc-text)' }}>
               <Switch size="small" checked={ocultarHechas} onChange={setOcultarHechas} /> Ocultar completadas
             </span>

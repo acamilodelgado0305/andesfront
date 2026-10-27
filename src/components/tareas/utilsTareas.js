@@ -136,12 +136,42 @@ export const opcionesRecordatorio = (conHora) => (conHora
 // ── Búsqueda ────────────────────────────────────────────────────────────────
 export const sinTildes = (s = '') => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
+// Rango de fechas por nombre: semana de lunes a domingo (como el calendario).
+const lunesDe = (dia) => sumarDiasStr(dia, -((new Date(`${dia}T12:00:00Z`).getUTCDay() + 6) % 7));
+export const rangoFechas = (clave, hoy = hoyCO()) => {
+  if (clave === 'esta_semana') { const l = lunesDe(hoy); return [l, sumarDiasStr(l, 6)]; }
+  if (clave === 'proxima_semana') { const l = sumarDiasStr(lunesDe(hoy), 7); return [l, sumarDiasStr(l, 6)]; }
+  if (clave === 'mes') {
+    const [y, m] = hoy.split('-').map(Number);
+    return [`${hoy.slice(0, 7)}-01`, new Date(Date.UTC(y, m, 0, 12)).toISOString().slice(0, 10)];
+  }
+  return null;
+};
+
+/** Opciones del filtro de fecha (todas las vistas). */
+export const OPCIONES_FECHA = [
+  { value: 'todas', label: 'Todas las fechas' },
+  { value: 'vencidas', label: 'Vencidas' },
+  { value: 'hoy', label: 'Para hoy (y vencidas)' },
+  { value: 'esta_semana', label: 'Esta semana' },
+  { value: 'proxima_semana', label: 'Próxima semana' },
+  { value: 'semana', label: 'Próximos 7 días' },
+  { value: 'mes', label: 'Este mes' },
+  { value: 'sin', label: 'Sin fecha' },
+];
+
 /** Filtros comunes de las vistas: { q, etiquetas: [ids], vence, ocultarHechas }. */
 export const pasaFiltros = (t, f) => {
   if (!f) return true;
   if (f.ocultarHechas && t.completada) return false;
   if (f.etiquetas?.length && !f.etiquetas.some((id) => t.etiquetas?.includes(id))) return false;
-  if (f.vence) {
+  if (f.vence && f.vence !== 'todas') {
+    const rango = rangoFechas(f.vence);
+    if (rango) {
+      if (!t.vence_at) return false;
+      const d = diaCO(t.vence_at);
+      if (d < rango[0] || d > rango[1]) return false;
+    }
     const e = estadoVence(t);
     if (f.vence === 'sin' && t.vence_at) return false;
     if (f.vence === 'vencidas' && e !== 'vencida') return false;
@@ -155,4 +185,4 @@ export const pasaFiltros = (t, f) => {
   return true;
 };
 
-export const hayFiltros = (f) => !!(f && (f.q || f.etiquetas?.length || f.vence || f.ocultarHechas));
+export const hayFiltros = (f) => !!(f && (f.q || f.etiquetas?.length || (f.vence && f.vence !== 'todas') || f.ocultarHechas));

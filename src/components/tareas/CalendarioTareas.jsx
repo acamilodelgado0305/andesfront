@@ -16,8 +16,8 @@ import { diaCO, hoyCO, sumarDiasStr, horaCO, horaHHMM, isoDesdeLocal, estadoVenc
 import { proximasOcurrencias } from './repeticion';
 
 const NOMBRES_DIA = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
-const leerModo = (esMovil) => {
-  try { return localStorage.getItem('qc-tareas-calendario') || (esMovil ? 'agenda' : 'mes'); } catch { return esMovil ? 'agenda' : 'mes'; }
+const leerModo = () => {
+  try { return localStorage.getItem('qc-tareas-calendario') || 'semana'; } catch { return 'semana'; }
 };
 
 const mesLabel = (ym) => {
@@ -29,6 +29,16 @@ const moverMes = (ym, n) => {
   const [y, m] = ym.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1 + n, 15)).toISOString().slice(0, 7);
 };
+// Lunes de la semana de un día (las semanas van de lunes a domingo).
+const lunesDe = (dia) => sumarDiasStr(dia, -((new Date(`${dia}T12:00:00Z`).getUTCDay() + 6) % 7));
+const diaCorto = (dia, conAno = false) => {
+  const [y, m, d] = dia.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('es-CO', {
+    timeZone: 'UTC', day: 'numeric', month: 'short', ...(conAno ? { year: 'numeric' } : {}),
+  }).replace('.', '');
+};
+const semanaLabel = (lunes) => `${diaCorto(lunes)} – ${diaCorto(sumarDiasStr(lunes, 6), true)}`;
+
 // Semanas de lunes a domingo que cubren el mes.
 const diasDelMes = (ym) => {
   const primero = `${ym}-01`;
@@ -89,10 +99,11 @@ const Chip = ({ item, color, onAbrir }) => {
   return <ChipVista ref={setNodeRef} {...attributes} {...listeners} item={item} color={color} onAbrir={onAbrir} arrastrando={isDragging} />;
 };
 
-const Celda = ({ dia, ym, items, hoy, colorItem, onAbrir, onCrearEnDia, alto }) => {
+const Celda = ({ dia, ym, items, hoy, colorItem, onAbrir, onCrearEnDia, alto, todas = false }) => {
   const { setNodeRef, isOver } = useDroppable({ id: `d${dia}` });
-  const fuera = dia.slice(0, 7) !== ym;
-  const visibles = items.slice(0, 4);
+  const fuera = !!ym && dia.slice(0, 7) !== ym;
+  // En la vista Semana se ven todas; en el mes, 4 y "+N más".
+  const visibles = todas ? items : items.slice(0, 4);
   const resto = items.length - visibles.length;
   return (
     <div
@@ -113,6 +124,11 @@ const Celda = ({ dia, ym, items, hoy, colorItem, onAbrir, onCrearEnDia, alto }) 
         }}>
           {Number(dia.slice(8))}
         </span>
+        {todas && items.length > 0 && (
+          <span style={{ fontSize: 11, color: 'var(--qc-text-muted)', marginRight: 'auto', marginLeft: 4 }}>
+            {items.length} tarea{items.length === 1 ? '' : 's'}
+          </span>
+        )}
         {onCrearEnDia && (
           <button
             type="button"
@@ -168,10 +184,13 @@ const SinFecha = ({ tarjetas, colorItem, onAbrir }) => {
 };
 
 // ── Agenda (lista por día) ──────────────────────────────────────────────────
-const Agenda = ({ porDia, hoy, colorItem, tablerosPorId, onAbrir, onCompletar }) => {
+// `rango` [desde, hasta]: solo esos días, todos aunque estén vacíos (semana).
+const Agenda = ({ porDia, hoy, colorItem, tablerosPorId, onAbrir, onCompletar, rango = null }) => {
   const dias = Object.keys(porDia).sort();
-  const vencidas = dias.filter((d) => d < hoy).flatMap((d) => porDia[d]).filter((it) => !it.virtual && !it.t.completada);
-  const futuros = dias.filter((d) => d >= hoy);
+  const vencidas = rango ? [] : dias.filter((d) => d < hoy).flatMap((d) => porDia[d]).filter((it) => !it.virtual && !it.t.completada);
+  const futuros = rango
+    ? Array.from({ length: 7 }, (_, i) => sumarDiasStr(rango[0], i))
+    : dias.filter((d) => d >= hoy);
   if (!vencidas.length && !futuros.length) return <Empty description="No hay tareas con fecha" style={{ padding: 40 }} />;
 
   const Fila = ({ it }) => {
@@ -216,10 +235,12 @@ const Agenda = ({ porDia, hoy, colorItem, tablerosPorId, onAbrir, onCompletar })
       )}
       {futuros.map((d) => (
         <section key={d} style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: d === hoy ? '#f0565c' : 'var(--qc-text)', textTransform: 'capitalize', marginBottom: 2 }}>
-            {d === hoy ? 'Hoy' : d === sumarDiasStr(hoy, 1) ? 'Mañana' : fechaLarga(d)}
+          <div style={{ fontSize: 13, fontWeight: 800, color: d === hoy ? '#f0565c' : 'var(--qc-text)', marginBottom: 2 }}>
+            {d === hoy ? 'Hoy' : d === sumarDiasStr(hoy, 1) ? 'Mañana' : fechaLarga(d).replace(/^./, (c) => c.toUpperCase())}
           </div>
-          {porDia[d].map((it) => <Fila key={`${it.t.id}-${it.fecha.getTime()}`} it={it} />)}
+          {(porDia[d] || []).length
+            ? porDia[d].map((it) => <Fila key={`${it.t.id}-${it.fecha.getTime()}`} it={it} />)
+            : <div style={{ fontSize: 13, color: 'var(--qc-text-muted)', padding: '6px 4px' }}>Sin tareas</div>}
         </section>
       ))}
     </div>
@@ -233,14 +254,18 @@ const CalendarioTareas = ({
 }) => {
   const hoy = hoyCO();
   const [ym, setYm] = useState(hoy.slice(0, 7));
-  const [modo, setModoEstado] = useState(() => leerModo(esMovil));
+  const [lunes, setLunes] = useState(() => lunesDe(hoy));
+  const [modo, setModoEstado] = useState(leerModo);
   const [arrastrada, setArrastrada] = useState(null);
   const setModo = (m) => { setModoEstado(m); try { localStorage.setItem('qc-tareas-calendario', m); } catch { /* sin almacenamiento */ } };
 
   const etiquetasPorId = useMemo(() => Object.fromEntries(etiquetas.map((e) => [e.id, e])), [etiquetas]);
   const colorItem = (t) => colorDe(t, tablerosPorId, etiquetasPorId, colorProyecto);
 
-  const dias = useMemo(() => diasDelMes(ym), [ym]);
+  const dias = useMemo(
+    () => (modo === 'semana' ? Array.from({ length: 7 }, (_, i) => sumarDiasStr(lunes, i)) : diasDelMes(ym)),
+    [modo, lunes, ym],
+  );
   const hastaAgenda = sumarDiasStr(hoy, 45);
   const limite = modo === 'agenda' ? hastaAgenda : dias[dias.length - 1];
 
@@ -261,6 +286,7 @@ const CalendarioTareas = ({
   }, [tarjetas, limite]);
 
   const sinFecha = useMemo(() => tarjetas.filter((t) => !t.vence_at && !t.completada), [tarjetas]);
+  const tareasSemana = modo === 'semana' ? dias.reduce((n, d) => n + (porDia[d]?.length || 0), 0) : 0;
 
   const sensores = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -292,22 +318,48 @@ const CalendarioTareas = ({
           <Button size="small" onClick={() => setYm(hoy.slice(0, 7))}>Hoy</Button>
         </>
       )}
+      {modo === 'semana' && (
+        <>
+          <Button shape="circle" icon={<LeftOutlined />} onClick={() => setLunes((x) => sumarDiasStr(x, -7))} aria-label="Semana anterior" />
+          <Button shape="circle" icon={<RightOutlined />} onClick={() => setLunes((x) => sumarDiasStr(x, 7))} aria-label="Semana siguiente" />
+          <span style={{ fontSize: esMovil ? 16 : 18, fontWeight: 800, color: 'var(--qc-text)' }}>{semanaLabel(lunes)}</span>
+          <span style={{ fontSize: 12.5, color: 'var(--qc-text-muted)' }}>
+            {lunes === lunesDe(hoy) ? 'Esta semana · ' : lunes === sumarDiasStr(lunesDe(hoy), 7) ? 'Próxima semana · ' : ''}
+            {`${tareasSemana} tarea${tareasSemana === 1 ? '' : 's'}`}
+          </span>
+          {lunes !== lunesDe(hoy) && <Button size="small" onClick={() => setLunes(lunesDe(hoy))}>Esta semana</Button>}
+        </>
+      )}
       {modo === 'agenda' && <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--qc-text)' }}>Próximos 45 días</span>}
       <div style={{ flex: 1 }} />
-      <Segmented size="small" value={modo} onChange={setModo} options={[{ value: 'mes', label: 'Mes' }, { value: 'agenda', label: 'Agenda' }]} />
+      <Segmented
+        size="small"
+        value={modo}
+        onChange={setModo}
+        options={[{ value: 'semana', label: 'Semana' }, { value: 'mes', label: 'Mes' }, { value: 'agenda', label: 'Agenda' }]}
+      />
     </div>
   );
 
-  if (modo === 'agenda') {
+  // En el celular la semana se ve como lista por día (7 columnas no caben).
+  if (modo === 'agenda' || (modo === 'semana' && esMovil)) {
     return (
       <div>
         {encabezado}
-        <Agenda porDia={porDia} hoy={hoy} colorItem={colorItem} tablerosPorId={tablerosPorId} onAbrir={onAbrir} onCompletar={onCompletar} />
+        <Agenda
+          porDia={porDia}
+          hoy={hoy}
+          colorItem={colorItem}
+          tablerosPorId={tablerosPorId}
+          onAbrir={onAbrir}
+          onCompletar={onCompletar}
+          rango={modo === 'semana' ? [lunes, sumarDiasStr(lunes, 6)] : null}
+        />
       </div>
     );
   }
 
-  const alto = esMovil ? 74 : 112;
+  const alto = modo === 'semana' ? 'calc(100vh - 330px)' : esMovil ? 74 : 112;
   return (
     <DndContext
       sensors={sensores}
@@ -331,8 +383,8 @@ const CalendarioTareas = ({
               </div>
             ))}
             {dias.map((d) => (
-              <Celda key={d} dia={d} ym={ym} hoy={hoy} items={porDia[d] || []} colorItem={colorItem}
-                onAbrir={onAbrir} onCrearEnDia={esMovil ? null : onCrearEnDia} alto={alto} />
+              <Celda key={d} dia={d} ym={modo === 'semana' ? null : ym} hoy={hoy} items={porDia[d] || []} colorItem={colorItem}
+                onAbrir={onAbrir} onCrearEnDia={esMovil ? null : onCrearEnDia} alto={alto} todas={modo === 'semana'} />
             ))}
           </div>
         </div>
