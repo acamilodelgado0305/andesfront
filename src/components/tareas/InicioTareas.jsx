@@ -66,6 +66,37 @@ const FilaTarea = ({ t, tablero, etiquetasPorId, onAbrir, onCompletar }) => (
   </div>
 );
 
+// Filtro por proyecto: chips siempre visibles en las tres vistas. "Todos" está
+// siempre a mano; tocar el proyecto ya elegido también vuelve a todos.
+const FiltroProyectos = ({ tableros, valor, onCambiar, pendientesPor }) => {
+  const Chip = ({ activo, onClick, children }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px', borderRadius: 17,
+        flexShrink: 0, cursor: 'pointer', fontSize: 13.5, fontWeight: activo ? 700 : 500, whiteSpace: 'nowrap',
+        border: `1px solid ${activo ? 'var(--qc-text)' : 'var(--qc-border)'}`,
+        background: activo ? 'var(--qc-text)' : 'var(--qc-surface)', color: activo ? 'var(--qc-bg)' : 'var(--qc-text)',
+      }}
+    >
+      {children}
+    </button>
+  );
+  return (
+    <div className="qc-sin-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2, marginBottom: 16 }}>
+      <Chip activo={valor === 'todos'} onClick={() => onCambiar('todos')}>Todos los proyectos</Chip>
+      {tableros.map((t) => (
+        <Chip key={t.id} activo={valor === t.id} onClick={() => onCambiar(valor === t.id ? 'todos' : t.id)}>
+          <span>{t.icono || '•'}</span>{t.nombre}
+          {pendientesPor[t.id] ? <span style={{ opacity: 0.6, fontWeight: 600 }}>{pendientesPor[t.id]}</span> : null}
+        </Chip>
+      ))}
+    </div>
+  );
+};
+
 const Seccion = ({ titulo, color, children, extra }) => (
   <section style={{ marginBottom: 22 }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -236,7 +267,17 @@ const InicioTareas = ({
 
   // ── grupos del resumen ───────────────────────────────────────────────────
   const hoy = hoyCO();
-  const pendientes = useMemo(() => (tarjetas || []).filter((t) => !t.completada), [tarjetas]);
+  const pendientesTodos = useMemo(() => (tarjetas || []).filter((t) => !t.completada), [tarjetas]);
+  const pendientesPor = useMemo(() => pendientesTodos.reduce((m, t) => ({ ...m, [t.tablero_id]: (m[t.tablero_id] || 0) + 1 }), {}), [pendientesTodos]);
+  const pendientes = useMemo(
+    () => (filtroProyecto === 'todos' ? pendientesTodos : pendientesTodos.filter((t) => t.tablero_id === filtroProyecto)),
+    [pendientesTodos, filtroProyecto],
+  );
+  // Elegir un proyecto en el filtro también lo deja para "Guardar en".
+  const elegirProyecto = (v) => {
+    setFiltroProyecto(v);
+    if (v !== 'todos') { setProyectoRapido(v); guardarLocal(ULTIMO_KEY, v); }
+  };
   const paraHoy = useMemo(() => pendientes
     .filter((t) => ['vencida', 'hoy'].includes(estadoVence(t)))
     .sort((a, b) => new Date(a.vence_at) - new Date(b.vence_at)), [pendientes]);
@@ -266,6 +307,8 @@ const InicioTareas = ({
   const abrir = (t) => abrirTarjeta(typeof t === 'object' ? t.id : t, typeof t === 'object' ? t.tablero_id : null);
 
   const proyectoSelect = tableros.length > 0 && (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <span style={{ fontSize: 12.5, color: 'var(--qc-text-muted)', whiteSpace: 'nowrap' }}>Guardar en</span>
     <Select
       value={proyectoQuick}
       onChange={(v) => { setProyectoRapido(v); guardarLocal(ULTIMO_KEY, v); }}
@@ -276,6 +319,7 @@ const InicioTareas = ({
         label: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconoProyecto tablero={t} size={18} />{t.nombre}</span>,
       }))}
     />
+    </span>
   );
 
   // ── sin proyectos todavía ─────────────────────────────────────────────────
@@ -313,7 +357,7 @@ const InicioTareas = ({
         <div style={{ flex: 1, minWidth: esMovil ? '100%' : 0 }}>
           <h1 style={{ margin: 0, fontSize: esMovil ? 22 : 26, fontWeight: 800, color: 'var(--qc-text)', letterSpacing: -0.4 }}>Tareas</h1>
           <div style={{ fontSize: 13, color: 'var(--qc-text-muted)' }}>
-            {nombreUsuario ? `De ${nombreUsuario} · ` : ''}{tableros.length} proyecto{tableros.length === 1 ? '' : 's'} · {pendientes.length} pendientes
+            {nombreUsuario ? `De ${nombreUsuario} · ` : ''}{tableros.length} proyecto{tableros.length === 1 ? '' : 's'} · {pendientesTodos.length} pendientes
           </div>
         </div>
         {/* En el celular, vistas y botones van en su propia fila */}
@@ -341,6 +385,8 @@ const InicioTareas = ({
       }}>
         <RegistroTarea etiquetas={etiquetasQuick} onCrear={(b) => crearRapida(b)} extra={proyectoSelect} />
       </div>
+
+      <FiltroProyectos tableros={tableros} valor={filtroProyecto} onCambiar={elegirProyecto} pendientesPor={pendientesPor} />
 
       {tarjetas === null ? (
         <div style={{ padding: 60, textAlign: 'center' }}><Spin /></div>
@@ -386,7 +432,7 @@ const InicioTareas = ({
               )}
             >
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 6 }}>
-                {tableros.map((t) => <TarjetaProyecto key={t.id} t={t} onAbrir={abrirTablero} />)}
+                {tableros.filter((t) => filtroProyecto === 'todos' || t.id === filtroProyecto).map((t) => <TarjetaProyecto key={t.id} t={t} onAbrir={abrirTablero} />)}
                 <button
                   type="button"
                   onClick={() => setNuevoProyecto(true)}
@@ -405,16 +451,6 @@ const InicioTareas = ({
         <>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
             <Input.Search placeholder="Buscar en todas las tareas" allowClear value={filtroQ} onChange={(e) => setFiltroQ(e.target.value)} style={{ width: esMovil ? '100%' : 280 }} />
-            <Select
-              value={filtroProyecto}
-              onChange={setFiltroProyecto}
-              options={[
-                { value: 'todos', label: 'Todos los proyectos' },
-                ...tableros.map((t) => ({ value: t.id, label: `${t.icono ? `${t.icono} ` : ''}${t.nombre}` })),
-              ]}
-              style={{ width: 210 }}
-              popupMatchSelectWidth={false}
-            />
             {vista === 'tabla' && (
               <Select value={filtroFecha} onChange={setFiltroFecha} options={OPCIONES_FECHA} style={{ width: 190 }} popupMatchSelectWidth={false} />
             )}
