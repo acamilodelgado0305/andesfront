@@ -3,7 +3,7 @@ import {
   Layout, Typography, Button, Table, Tag, Modal,
   message, Input, Space, Card, Statistic,
   Dropdown, Select, InputNumber, Progress, Switch, Tooltip as AntTooltip,
-  DatePicker, Tabs,
+  DatePicker, Tabs, Segmented,
 } from 'antd';
 import {
   PlusOutlined, FileProtectOutlined,
@@ -12,7 +12,7 @@ import {
   CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined,
   CalendarOutlined, DownOutlined,
   DollarOutlined, WalletOutlined,
-  PlusCircleOutlined, BankOutlined,
+  PlusCircleOutlined, BankOutlined, SlidersOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
@@ -46,13 +46,14 @@ const MontoMovimientoCell = ({ cuentaId, mov, onSaved, servicio, colorSaldo }) =
   const enCurso = useRef(false);
 
   const abona    = mov.tipo === 'abono';
+  const ajuste   = mov.tipo === 'ajuste';
   const original = Math.abs(Number(mov.monto) || 0);
 
   // Abonos/aumentos viejos sin uuid no se pueden identificar en el backend.
   const sinId = (mov.tipo === 'abono' || mov.tipo === 'aumento')
     && /^(abono|cargo)-\d+$/.test(String(mov.key));
 
-  const bloqueado = sinId;
+  const bloqueado = sinId || ajuste;
 
   const abrir = () => { setValor(original); setEditando(true); };
 
@@ -102,14 +103,16 @@ const MontoMovimientoCell = ({ cuentaId, mov, onSaved, servicio, colorSaldo }) =
   }
 
   const texto = (
-    <Text strong style={{ fontSize: 12, color: abona ? GREEN : colorSaldo }}>
-      {abona ? '−' : '+'}{formatCurrency(original)}
+    <Text strong style={{ fontSize: 12, color: Number(mov.monto) < 0 ? GREEN : colorSaldo }}>
+      {Number(mov.monto) < 0 ? '−' : '+'}{formatCurrency(original)}
     </Text>
   );
 
   if (bloqueado) {
     return (
-      <AntTooltip title="Movimiento antiguo sin identificador: no se puede editar">
+      <AntTooltip title={ajuste
+        ? 'Los ajustes no se editan: usa «Ajustar saldo» otra vez'
+        : 'Movimiento antiguo sin identificador: no se puede editar'}>
         <span>{texto}</span>
       </AntTooltip>
     );
@@ -230,6 +233,19 @@ const parseArr = (raw) =>
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
+// En `cargos` conviven los aumentos de deuda y los ajustes manuales de saldo.
+const esAjuste   = (c) => c?.tipo === 'ajuste';
+const aumentosDe = (rec) => parseArr(rec.cargos).filter((c) => !esAjuste(c));
+
+const saldoDe = (rec) =>
+  Math.max(0, round2((Number(rec.total) || 0) - (Number(rec.total_abonado) || 0)));
+
+const estaVencida = (rec) => {
+  const f = parseFechaDia(rec.fecha_vencimiento);
+  return !!f && f.isBefore(dayjs(), 'day')
+    && !['PAGADA', 'ANULADA'].includes(rec.estado) && saldoDe(rec) > 0;
+};
+
 // Valor de cada cuota. Las cuentas anteriores a la migración aún no lo tienen
 // guardado, así que se deduce del total.
 const valorCuotaDe = (rec) => {
@@ -258,12 +274,12 @@ const buildMovimientos = (rec, { movInicial, movAumento }) => {
     monto:    round2(total - sumCargos),
   });
 
-  // Aumentos de deuda
+  // Aumentos de deuda y ajustes manuales de saldo (estos pueden ser negativos)
   cargos.forEach((c, i) => eventos.push({
     key:      c.id || `cargo-${i}`,
     fecha:    c.fecha,
-    tipo:     'aumento',
-    concepto: movAumento,
+    tipo:     esAjuste(c) ? 'ajuste' : 'aumento',
+    concepto: esAjuste(c) ? 'Ajuste de saldo' : movAumento,
     detalle:  c.nota || null,
     monto:    Number(c.monto || 0),
   }));
@@ -331,6 +347,13 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
   const [aumentarNota, setAumentarNota]         = useState('');
   const [aumentarCuenta, setAumentarCuenta]     = useState('Nequi'); // cuenta de salida del egreso
   const [guardandoAumento, setGuardandoAumento] = useState(false);
+
+  const [ajusteModal, setAjusteModal]         = useState({ open: false, doc: null });
+  const [ajusteSaldo, setAjusteSaldo]         = useState(null);
+  const [ajusteNota, setAjusteNota]           = useState('');
+  const [guardandoAjuste, setGuardandoAjuste] = useState(false);
+
+  const [filtroEstado, setFiltroEstado] = useState('todas');
 
   // ─── Carga ────────────────────────────────────────────────────────────────────
   const cargarDatos = useCallback(async () => {
@@ -425,8 +448,20 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
   const nombreMesSig = dayjs().add(1, 'month').locale('es').format('MMMM');
 
   // Las cuentas pagadas se archivan: no se muestran salvo que se active "Ver pagadas"
-  const docsVisibles = verPagadas ? docs : docs.filter((d) => d.estado !== 'PAGADA');
-  const pagadasOcultas = docs.length - docsVisibles.length;
+  const docsArchivo = verPagadas ? docs : docs.filter((d) => d.estado !== 'PAGADA');
+  const pagadasOcultas = docs.length - docsArchivo.length;
+
+  // Filtro rápido por situación de la cuenta
+  const FILTROS = {
+    todas:      () => true,
+    pendientes: (d) => d.estado === 'PENDIENTE',
+    abonos:     (d) => d.estado === 'ABONO',
+    vencidas:   estaVencida,
+  };
+  const contar = (k) => docsArchivo.filter(FILTROS[k]).length;
+  const docsVisibles = docsArchivo.filter(FILTROS[filtroEstado] || FILTROS.todas);
+  const vencidas     = docs.filter(estaVencida);
+  const saldoVencido = round2(vencidas.reduce((s, d) => s + saldoDe(d), 0));
 
   // ─── Eliminar ─────────────────────────────────────────────────────────────────
   const handleEliminar = (doc) => {
@@ -506,6 +541,28 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
     }
   };
 
+  const abrirAjuste = (doc) => {
+    setAjusteSaldo(saldoDe(doc));
+    setAjusteNota('');
+    setAjusteModal({ open: true, doc });
+  };
+
+  const confirmarAjuste = async () => {
+    const doc = ajusteModal.doc;
+    if (!doc || ajusteSaldo == null) return;
+    setGuardandoAjuste(true);
+    try {
+      await servicio.ajustarSaldo(doc.id, { saldo: ajusteSaldo, nota: ajusteNota });
+      message.success(`Saldo ajustado a ${formatCurrency(ajusteSaldo)}`);
+      setAjusteModal({ open: false, doc: null });
+      cargarDatos();
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Error al ajustar el saldo');
+    } finally {
+      setGuardandoAjuste(false);
+    }
+  };
+
   const abrirAumentar = (doc) => {
     setAumentarMonto(null);
     setAumentarNota('');
@@ -533,10 +590,10 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
           <div>
             <Space size={6}>
               <Tag
-                color={r.tipo === 'aumento' ? 'red' : 'default'}
+                color={{ aumento: 'red', ajuste: 'gold' }[r.tipo] || 'default'}
                 style={{ fontSize: 10, marginInlineEnd: 0 }}
               >
-                {r.tipo === 'inicial' ? 'Inicial' : (r.tipo === 'aumento' ? 'Aumento' : 'Abono')}
+                {{ inicial: 'Inicial', aumento: 'Aumento', ajuste: 'Ajuste', abono: 'Abono' }[r.tipo]}
               </Tag>
               <Text style={{ fontSize: 12, fontWeight: 600 }}>{c}</Text>
             </Space>
@@ -625,11 +682,18 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
       align: 'center',
       width: 80,
       sorter: (a, b) => (Number(a.num_cuotas) || 1) - (Number(b.num_cuotas) || 1),
-      render: (n) => {
+      render: (n, rec) => {
         const cuotas = Math.max(1, Number(n) || 1);
-        return cuotas > 1
-          ? <Tag style={{ fontSize: 11, marginInlineEnd: 0 }}>{cuotas}</Tag>
-          : <Text type="secondary" style={{ fontSize: 12 }}>1</Text>;
+        if (cuotas === 1) return <Text type="secondary" style={{ fontSize: 12 }}>1</Text>;
+        const vc      = valorCuotaDe(rec);
+        const pagadas = vc > 0
+          ? Math.min(cuotas, Math.floor(round2(Number(rec.total_abonado) || 0) / vc))
+          : 0;
+        return (
+          <AntTooltip title={`${pagadas} de ${cuotas} cuotas pagadas`}>
+            <Tag style={{ fontSize: 11, marginInlineEnd: 0 }}>{pagadas}/{cuotas}</Tag>
+          </AntTooltip>
+        );
       },
     },
     {
@@ -665,7 +729,10 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
         const total   = Number(t || 0);
         const abonado = Number(rec.total_abonado || 0);
         const saldo   = Math.max(0, total - abonado);
-        const cargos  = parseArr(rec.cargos);
+        const cargos  = aumentosDe(rec);
+        const ajustes = parseArr(rec.cargos).length - cargos.length;
+
+        const contenido = (() => {
 
         // Pagada: saldo en 0, se muestra cuánto se pagó en total
         if (rec.estado === 'PAGADA') {
@@ -700,6 +767,28 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
 
         // Sin movimientos: el saldo es igual al total
         return <Text strong>{formatCurrency(saldo)}</Text>;
+        })();
+
+        if (rec.estado === 'ANULADA') return contenido;
+        // Clic en el saldo = ajustarlo a mano
+        return (
+          <AntTooltip title="Clic para ajustar el saldo" placement="left">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => abrirAjuste(rec)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirAjuste(rec); } }}
+              className="cpp-saldo-editable"
+            >
+              {contenido}
+              {ajustes > 0 && (
+                <Text style={{ fontSize: 10, color: '#b45309' }}>
+                  {ajustes} ajuste{ajustes > 1 ? 's' : ''}
+                </Text>
+              )}
+            </div>
+          </AntTooltip>
+        );
       },
     },
     {
@@ -756,6 +845,13 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
             },
           });
           items.push({
+            key: 'ajustar',
+            icon: <SlidersOutlined />,
+            label: 'Ajustar saldo',
+            disabled: rec.estado === 'ANULADA',
+            onClick: () => abrirAjuste(rec),
+          });
+          items.push({
             key: 'aumentar',
             icon: <PlusCircleOutlined />,
             label: cfg.accionAumentar,
@@ -795,6 +891,14 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
         .cpp-expand-icon:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 1px; }
         .cpp-monto-editable:hover { background: #f1f5f9; border-bottom-color: ${ACCENT}; }
         .cpp-monto-editable:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 1px; }
+        .cpp-fila-vencida > td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
+        .cpp-saldo-editable {
+          display: inline-flex; flex-direction: column; align-items: flex-end;
+          cursor: pointer; padding: 2px 6px; margin: -2px -6px; border-radius: 6px;
+          border-bottom: 1px dashed transparent;
+        }
+        .cpp-saldo-editable:hover { background: var(--qc-surface-2, #f1f5f9); border-bottom-color: ${ACCENT}; }
+        .cpp-saldo-editable:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 1px; }
       `}</style>
 
       {/* Encabezado */}
@@ -828,6 +932,17 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
             valueStyle={{ color: SALDO, fontSize: 15 }}
           />
           <Text type="secondary" style={{ fontSize: 11 }}>{porPagar.qty} cuentas pendientes</Text>
+          {vencidas.length > 0 && (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setFiltroEstado('vencidas')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFiltroEstado('vencidas'); } }}
+              style={{ fontSize: 11, color: '#dc2626', cursor: 'pointer', marginTop: 2 }}
+            >
+              {vencidas.length} vencida{vencidas.length > 1 ? 's' : ''} · {formatCurrency(saldoVencido)}
+            </div>
+          )}
         </Card>
         <Card size="small" bordered={false} className="shadow-sm">
           <Statistic
@@ -897,6 +1012,16 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
           allowClear
           style={{ width: 280 }}
         />
+        <Segmented
+          value={filtroEstado}
+          onChange={setFiltroEstado}
+          options={[
+            { value: 'todas',      label: `Todas (${contar('todas')})` },
+            { value: 'pendientes', label: `Pendientes (${contar('pendientes')})` },
+            { value: 'abonos',     label: `Con abonos (${contar('abonos')})` },
+            { value: 'vencidas',   label: `Vencidas (${contar('vencidas')})` },
+          ]}
+        />
         <Button icon={<ReloadOutlined />} onClick={cargarDatos} loading={loading} />
         <Space size={6}>
           <Switch size="small" checked={verPagadas} onChange={setVerPagadas} />
@@ -913,6 +1038,7 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
         rowKey="id"
         loading={loading}
         size="small"
+        rowClassName={(rec) => (estaVencida(rec) ? 'cpp-fila-vencida' : '')}
         expandable={{
           expandedRowRender,
           rowExpandable: () => true,
@@ -1137,6 +1263,130 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
         })()}
       </Modal>
 
+      {/* Modal ajustar saldo */}
+      <Modal
+        open={ajusteModal.open}
+        title={
+          <Space>
+            <SlidersOutlined style={{ color: ACCENT }} />
+            <span>Ajustar saldo</span>
+          </Space>
+        }
+        okText="Guardar saldo"
+        cancelText="Cancelar"
+        onCancel={() => setAjusteModal({ open: false, doc: null })}
+        onOk={confirmarAjuste}
+        confirmLoading={guardandoAjuste}
+        okButtonProps={{
+          disabled: ajusteSaldo == null || ajusteSaldo < 0
+            || (ajusteModal.doc && round2(ajusteSaldo) === saldoDe(ajusteModal.doc)),
+          style: { background: ACCENT, borderColor: ACCENT },
+        }}
+        width={400}
+      >
+        {ajusteModal.doc && (() => {
+          const doc        = ajusteModal.doc;
+          const saldoAct   = saldoDe(doc);
+          const nuevo      = round2(Number(ajusteSaldo) || 0);
+          const diferencia = round2(nuevo - saldoAct);
+          const ajustes    = parseArr(doc.cargos).filter(esAjuste);
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Escribe el saldo real que queda pendiente (por intereses, una multa, un descuento o un
+                acuerdo). La diferencia queda registrada como ajuste en los movimientos; los abonos no cambian.
+              </Text>
+
+              <div style={{
+                background: 'var(--qc-surface-2, #fafafa)', border: '1px solid var(--qc-border, #e5e7eb)',
+                borderRadius: 8, padding: '12px 14px',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                  <Text type="secondary">Cuenta</Text>
+                  <Text strong>{doc.titulo}</Text>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <Text type="secondary">Saldo actual</Text>
+                  <Text style={{ color: SALDO }}>{formatCurrency(saldoAct)}</Text>
+                </div>
+                {ajusteSaldo != null && diferencia !== 0 && (
+                  <>
+                    <div style={{ borderTop: '1px dashed var(--qc-border, #e5e7eb)', margin: '10px 0 8px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                      <Text type="secondary">Ajuste</Text>
+                      <Text strong style={{ color: diferencia < 0 ? GREEN : SALDO }}>
+                        {diferencia < 0 ? '−' : '+'}{formatCurrency(Math.abs(diferencia))}
+                      </Text>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700 }}>
+                      <span>Nuevo saldo</span>
+                      <span style={{ color: SALDO }}>{formatCurrency(nuevo)}</span>
+                    </div>
+                    {nuevo === 0 && (
+                      <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 6 }}>
+                        Con saldo en cero la cuenta queda como PAGADA.
+                      </Text>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div>
+                <Text style={{ fontSize: 12, color: 'var(--qc-text-muted, #6b7280)', display: 'block', marginBottom: 4 }}>
+                  Nuevo saldo <span style={{ color: '#ef4444' }}>*</span>
+                </Text>
+                <InputNumber
+                  autoFocus
+                  style={{ width: '100%' }} size="large" min={0}
+                  value={ajusteSaldo}
+                  onChange={setAjusteSaldo}
+                  formatter={currFormatter}
+                  parser={currParser}
+                  precision={currPrecision}
+                  step={currStep}
+                  onPressEnter={confirmarAjuste}
+                  placeholder="Saldo pendiente real"
+                />
+              </div>
+
+              <div>
+                <Text style={{ fontSize: 12, color: 'var(--qc-text-muted, #6b7280)', display: 'block', marginBottom: 4 }}>
+                  Motivo (opcional)
+                </Text>
+                <Input
+                  value={ajusteNota} onChange={(e) => setAjusteNota(e.target.value)}
+                  placeholder="Ej: Intereses de octubre, descuento por pronto pago..."
+                />
+              </div>
+
+              {ajustes.length > 0 && (
+                <div>
+                  <Text style={{ fontSize: 12, color: 'var(--qc-text-muted, #6b7280)', display: 'block', marginBottom: 6 }}>
+                    Ajustes anteriores
+                  </Text>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 130, overflowY: 'auto' }}>
+                    {ajustes.map((c, i) => (
+                      <div key={c.id || i} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        background: 'var(--qc-surface-2, #f9fafb)', borderRadius: 6, padding: '6px 10px', fontSize: 12,
+                      }}>
+                        <div>
+                          <span style={{ fontWeight: 600, color: Number(c.monto) < 0 ? GREEN : SALDO }}>
+                            {Number(c.monto) < 0 ? '−' : '+'}{formatCurrency(Math.abs(Number(c.monto) || 0))}
+                          </span>
+                          {c.nota && <span style={{ color: '#94a3b8', marginLeft: 6 }}>· {c.nota}</span>}
+                        </div>
+                        <Text type="secondary" style={{ fontSize: 11 }}>{dayjs(c.fecha).format('DD/MM/YY')}</Text>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </Modal>
+
       {/* Modal aumentar deuda */}
       <Modal
         open={aumentarModal.open}
@@ -1161,7 +1411,7 @@ const CuentasDashboard = ({ tipo = 'pagar', onCambiarTipo }) => {
           const inc         = Number(aumentarMonto || 0);
           const nuevoTotal  = total + inc;
           const nuevoSaldo  = saldo + inc;
-          const cargos  = parseArr(aumentarModal.doc.cargos);
+          const cargos  = aumentosDe(aumentarModal.doc);
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <Text type="secondary" style={{ fontSize: 12 }}>

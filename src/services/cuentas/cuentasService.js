@@ -34,7 +34,11 @@ const crearServicioCuentas = (base) => ({
   aumentarDeuda: (id, data) =>
     api.post(`${base}/${id}/aumentar`, data).then((r) => r.data),
 
-  editarMontoMovimiento: (id, movId, data) =>
+  // { saldo, nota }: deja el saldo pendiente en ese valor (queda como ajuste).
+  ajustarSaldo: (id, data) =>
+    api.post(`${base}/${id}/ajustar-saldo`, data).then((r) => r.data),
+
+  editarMontoMovimiento:(id, movId, data) =>
     api.put(`${base}/${id}/movimientos/${movId}`, data).then((r) => r.data),
 
   getEstadisticas: () =>
