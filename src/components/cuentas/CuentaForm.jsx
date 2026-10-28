@@ -161,7 +161,7 @@ const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 34, height: 34, borderRadius: 8, background: '#fafafa',
+              width: 34, height: 34, borderRadius: 8, background: 'var(--qc-relleno)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <FileProtectOutlined style={{ color: ACCENT, fontSize: 16 }} />
@@ -171,7 +171,7 @@ const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
                 {editingDoc ? textos.tituloEditar : textos.tituloNuevo}
               </div>
               {editingDoc && (
-                <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 400 }}>{editingDoc.titulo}</div>
+                <div style={{ fontSize: 11, color: 'var(--qc-text-muted)', fontWeight: 400 }}>{editingDoc.titulo}</div>
               )}
             </div>
           </div>
@@ -181,7 +181,7 @@ const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
         open={open}
         onClose={onClose}
         maskClosable={false}
-        styles={{ body: { padding: '20px 24px', background: '#f9fafb' } }}
+        styles={{ body: { padding: '20px 24px', background: 'var(--qc-bg)' } }}
         footer={
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -203,7 +203,7 @@ const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
         <Form form={form} layout="vertical" size="middle">
 
           {/* ── DATOS ── */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #e5e7eb' }}>
+          <div style={{ background: 'var(--qc-surface)', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid var(--qc-border)' }}>
             <Form.Item
               label="Título"
               name="titulo"
@@ -243,7 +243,7 @@ const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
 
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-              background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
+              background: 'var(--qc-relleno)', border: '1px solid var(--qc-border)', borderRadius: 10,
               padding: '10px 14px',
             }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
@@ -274,7 +274,7 @@ const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
           </div>
 
           {/* ── FECHAS ── */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #e5e7eb' }}>
+          <div style={{ background: 'var(--qc-surface)', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid var(--qc-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
               <CalendarOutlined style={{ color: ACCENT }} />
               <Text strong style={{ fontSize: 13 }}>Fechas</Text>
@@ -293,7 +293,7 @@ const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
           </div>
 
           {/* ── CONTACTO / PROVEEDOR ── */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid #e5e7eb' }}>
+          <div style={{ background: 'var(--qc-surface)', borderRadius: 12, padding: '16px 18px', marginBottom: 16, border: '1px solid var(--qc-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
               <UserOutlined style={{ color: ACCENT }} />
               <Text strong style={{ fontSize: 13 }}>
@@ -305,19 +305,19 @@ const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
             {selectedPersona ? (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 12,
-                background: '#fafafa', border: `2px solid ${ACCENT}`,
+                background: 'var(--qc-relleno)', border: `2px solid ${ACCENT}`,
                 borderRadius: 10, padding: '10px 14px',
               }}>
                 <Avatar style={{ background: ACCENT, flexShrink: 0 }} icon={<UserOutlined />} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{selectedPersona.nombre} {selectedPersona.apellido || ''}</div>
                   {selectedPersona.numero_documento && (
-                    <div style={{ fontSize: 12, color: '#64748b' }}>
+                    <div style={{ fontSize: 12, color: 'var(--qc-text-muted)' }}>
                       {selectedPersona.tipo_documento ? `${selectedPersona.tipo_documento}: ` : ''}{selectedPersona.numero_documento}
                     </div>
                   )}
                   {selectedPersona.email && (
-                    <div style={{ fontSize: 12, color: '#64748b' }}>{selectedPersona.email}</div>
+                    <div style={{ fontSize: 12, color: 'var(--qc-text-muted)' }}>{selectedPersona.email}</div>
                   )}
                 </div>
                 <Button
@@ -371,11 +371,11 @@ const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
                         style={{
                           display: 'flex', alignItems: 'center', gap: 10,
                           padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-                          border: '1.5px solid #e5e7eb', background: '#fff',
+                          border: '1.5px solid var(--qc-border)', background: 'var(--qc-surface)',
                           transition: 'border-color 0.12s',
                         }}
                         onMouseEnter={(e) => (e.currentTarget.style.borderColor = ACCENT)}
-                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#e5e7eb')}
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--qc-border)')}
                       >
                         <Avatar size="small" style={{ background: ACCENT }} icon={<UserOutlined />} />
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -403,7 +403,7 @@ const CuentaForm = ({ open, onClose, onSaved, editingDoc, config }) => {
           </div>
 
           {/* ── NOTAS ── */}
-          <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid #e5e7eb' }}>
+          <div style={{ background: 'var(--qc-surface)', borderRadius: 12, padding: '16px 18px', border: '1px solid var(--qc-border)' }}>
             <Form.Item label="Notas (opcional)" name="notas" style={{ marginBottom: 0 }}>
               <TextArea rows={3} placeholder={textos.placeholderNotas} />
             </Form.Item>

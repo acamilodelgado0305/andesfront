@@ -1,7 +1,7 @@
 import { cuentasPorPagarService, cuentasPorCobrarService } from '../../services/cuentas/cuentasService';
 
 // Las dos clases de cuenta comparten pantalla (CuentasPage → pestañas →
-// CuentasDashboard + CuentaForm);
+// CuentasApp + CuentaDetalle + hojas + CuentaForm);
 // aquí vive todo lo que las diferencia: API, textos y color del saldo.
 export const CUENTAS_CONFIG = {
   // Lo que el negocio debe a sus proveedores.
@@ -12,6 +12,11 @@ export const CUENTAS_CONFIG = {
     generaEgreso: false,
 
     tab:              'Por pagar',
+    lado:             'Debo',
+    flecha:           '↑',
+    accionAbonar:     'Registrar pago',
+    verboAbono:       'Pago',
+    textoSaldo:       (nombre) => (nombre ? `Le debes a ${nombre}` : 'Debes'),
     subtitulo:        'Controla tus obligaciones y pagos a proveedores',
     botonNuevo:       'Nueva cuenta',
     columnaContacto:  'Proveedor',
@@ -52,6 +57,11 @@ export const CUENTAS_CONFIG = {
     generaEgreso: true,
 
     tab:              'Por cobrar',
+    lado:             'Me deben',
+    flecha:           '↓',
+    accionAbonar:     'Registrar cobro',
+    verboAbono:       'Cobro',
+    textoSaldo:       (nombre) => (nombre ? `${nombre} te debe` : 'Te deben'),
     subtitulo:        'Controla los préstamos que haces a tus contactos y lo que te van pagando',
     botonNuevo:       'Nuevo préstamo',
     columnaContacto:  'Deudor',
