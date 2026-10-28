@@ -8,6 +8,9 @@ import {
   PlusOutlined, BellOutlined, StarFilled, AppstoreOutlined, TableOutlined, CalendarOutlined, InboxOutlined,
   UndoOutlined, DeleteOutlined, RightOutlined,
 } from '@ant-design/icons';
+import { DndContext, MouseSensor, TouchSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import * as api from '../../services/tareas/tareasService';
 import { mensajeError } from '../../services/tareas/tareasService';
 import RegistroTarea from './RegistroTarea';
@@ -65,6 +68,59 @@ const FilaTarea = ({ t, tablero, etiquetasPorId, onAbrir, onCompletar }) => (
     <ChipVence tarjeta={t} />
   </div>
 );
+
+// Orden dentro de un día: por hora, salvo que la hayas movido a mano. `orden_dia`
+// vive en la misma escala que vence_at (ms), así una clave sirve para las dos.
+const claveDia = (t) => (t.orden_dia ?? new Date(t.vence_at).getTime());
+const porClaveDia = (a, b) => claveDia(a) - claveDia(b) || a.id - b.id;
+const MINUTO = 60000;
+
+const FilaOrdenable = ({ tablerosPorId, ...props }) => {
+  const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({ id: props.t.id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      style={{
+        transform: CSS.Translate.toString(transform), transition, touchAction: 'manipulation',
+        position: 'relative', zIndex: isDragging ? 5 : 'auto', opacity: isDragging ? 0.85 : 1,
+        boxShadow: isDragging ? '0 8px 20px rgba(0,0,0,0.15)' : 'none', borderRadius: 10,
+        background: isDragging ? 'var(--qc-surface)' : 'transparent',
+      }}
+    >
+      <FilaTarea {...props} tablero={tablerosPorId[props.t.tablero_id] || props.t.tablero} />
+    </div>
+  );
+};
+
+// Lista de un día que se reordena arrastrando (con el mouse o dejando el dedo
+// quieto un momento en el celular). No deja pasar tareas a otro día.
+const ListaDia = ({ tareas, onReordenar, ...resto }) => {
+  const sensores = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
+  );
+  const alSoltar = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const de = tareas.findIndex((t) => t.id === active.id);
+    const a = tareas.findIndex((t) => t.id === over.id);
+    if (de < 0 || a < 0) return;
+    onReordenar(arrayMove(tareas, de, a), a);
+  };
+  return (
+    <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={alSoltar}>
+      <SortableContext items={tareas.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        {tareas.map((t) => <FilaOrdenable key={t.id} t={t} {...resto} />)}
+      </SortableContext>
+    </DndContext>
+  );
+};
+
+const BotonPorHora = ({ tareas, onPorHora }) => (tareas.some((t) => t.orden_dia != null) ? (
+  <Button type="link" size="small" style={{ padding: 0, height: 'auto', fontSize: 12 }} onClick={() => onPorHora(tareas)}>
+    Ordenar por hora
+  </Button>
+) : null);
 
 // Filtro por proyecto: chips siempre visibles en las tres vistas. "Todos" está
 // siempre a mano; tocar el proyecto ya elegido también vuelve a todos.
@@ -214,6 +270,38 @@ const InicioTareas = ({
   };
   const completar = (t, hecha) => actualizar(t, { completada: hecha });
 
+  // ── orden manual dentro del día ──────────────────────────────────────────
+  const guardarOrden = async (cambios) => {
+    if (!cambios.length) return;
+    cambios.forEach(({ t, orden_dia }) => poner({ ...t, orden_dia }));
+    try {
+      await Promise.all(cambios.map(({ t, orden_dia }) => api.actualizarTarjeta(t.id, { orden_dia })));
+    } catch (e) {
+      message.error(mensajeError(e, 'No se pudo guardar el orden'));
+      cargar();
+    }
+  };
+  // `lista` ya viene en el orden nuevo; solo cambia la clave de la tarea movida
+  // (punto medio entre sus vecinas). Si las vecinas empatan (p. ej. dos tareas
+  // sin hora), se renumera el día completo.
+  const reordenar = (lista, i) => {
+    const antes = lista[i - 1] ? claveDia(lista[i - 1]) : null;
+    const despues = lista[i + 1] ? claveDia(lista[i + 1]) : null;
+    let clave;
+    if (antes !== null && despues !== null) clave = despues - antes > 1 ? (antes + despues) / 2 : null;
+    else if (antes !== null) clave = antes + MINUTO;
+    else if (despues !== null) clave = despues - MINUTO;
+    if (clave != null) {
+      guardarOrden([{ t: lista[i], orden_dia: clave }]);
+      return;
+    }
+    const base = Math.min(...lista.map(claveDia));
+    guardarOrden(lista
+      .map((t, k) => ({ t, orden_dia: base + k * MINUTO }))
+      .filter(({ t, orden_dia }) => t.orden_dia !== orden_dia));
+  };
+  const porHora = (lista) => guardarOrden(lista.filter((t) => t.orden_dia != null).map((t) => ({ t, orden_dia: null })));
+
   const listaInicial = async (tableroId) => {
     if (!listasCache.current[tableroId]) {
       const d = await api.getTablero(tableroId);
@@ -280,7 +368,7 @@ const InicioTareas = ({
   };
   const paraHoy = useMemo(() => pendientes
     .filter((t) => ['vencida', 'hoy'].includes(estadoVence(t)))
-    .sort((a, b) => new Date(a.vence_at) - new Date(b.vence_at)), [pendientes]);
+    .sort(porClaveDia), [pendientes]);
   const proximos = useMemo(() => {
     const hasta = sumarDiasStr(hoy, 7);
     const grupos = {};
@@ -289,7 +377,7 @@ const InicioTareas = ({
       const d = diaCO(t.vence_at);
       if (d > hoy && d <= hasta) (grupos[d] = grupos[d] || []).push(t);
     });
-    Object.values(grupos).forEach((xs) => xs.sort((a, b) => new Date(a.vence_at) - new Date(b.vence_at)));
+    Object.values(grupos).forEach((xs) => xs.sort(porClaveDia));
     return grupos;
   }, [pendientes, hoy]);
   const vencidas = paraHoy.filter((t) => estadoVence(t) === 'vencida').length;
@@ -407,19 +495,25 @@ const InicioTareas = ({
               ))}
             </div>
 
-            <Seccion titulo={`Para hoy${paraHoy.length ? ` · ${paraHoy.length}` : ''}`} color="#f0565c">
-              {paraHoy.length ? paraHoy.map((t) => (
-                <FilaTarea key={t.id} t={t} tablero={tablerosPorId[t.tablero_id] || t.tablero} etiquetasPorId={etiquetasPorId} onAbrir={abrir} onCompletar={completar} />
-              )) : (
+            <Seccion
+              titulo={`Para hoy${paraHoy.length ? ` · ${paraHoy.length}` : ''}`}
+              color="#f0565c"
+              extra={<BotonPorHora tareas={paraHoy} onPorHora={porHora} />}
+            >
+              {paraHoy.length ? (
+                <ListaDia tareas={paraHoy} onReordenar={reordenar} tablerosPorId={tablerosPorId} etiquetasPorId={etiquetasPorId} onAbrir={abrir} onCompletar={completar} />
+              ) : (
                 <div style={{ padding: '14px 8px', color: 'var(--qc-text-muted)' }}>Nada vencido ni para hoy. 🎉</div>
               )}
             </Seccion>
 
             {Object.keys(proximos).sort().map((d) => (
-              <Seccion key={d} titulo={d === sumarDiasStr(hoy, 1) ? 'Mañana' : fechaLarga(d)}>
-                {proximos[d].map((t) => (
-                  <FilaTarea key={t.id} t={t} tablero={tablerosPorId[t.tablero_id] || t.tablero} etiquetasPorId={etiquetasPorId} onAbrir={abrir} onCompletar={completar} />
-                ))}
+              <Seccion
+                key={d}
+                titulo={d === sumarDiasStr(hoy, 1) ? 'Mañana' : fechaLarga(d)}
+                extra={<BotonPorHora tareas={proximos[d]} onPorHora={porHora} />}
+              >
+                <ListaDia tareas={proximos[d]} onReordenar={reordenar} tablerosPorId={tablerosPorId} etiquetasPorId={etiquetasPorId} onAbrir={abrir} onCompletar={completar} />
               </Seccion>
             ))}
           </div>
