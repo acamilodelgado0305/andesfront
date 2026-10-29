@@ -1,21 +1,8 @@
 // src/components/Payments.js (o Pagos.js)
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import {
-    Table,
-    Input,
-    Button,
-    Modal,
-    message,
-    Form,
-    Select,
-    DatePicker,
-    InputNumber,
-    Spin,
-    Tag,
-    Space,
-    Typography,
-} from "antd";
+import { Table, Input, Button, Modal, message, Form, Select, InputNumber, Spin, Tag, Space, Typography } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
     FaTrashAlt,
     FaPlus,

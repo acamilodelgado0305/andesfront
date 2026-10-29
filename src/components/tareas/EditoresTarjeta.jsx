@@ -2,7 +2,8 @@
 // Editores que se abren desde el detalle de una tarjeta: etiquetas, fecha
 // (con hora y aviso al celular) y repetición.
 import React, { useMemo, useState } from 'react';
-import { Input, Button, Calendar, TimePicker, Switch, Select, InputNumber, DatePicker, Popconfirm, message } from 'antd';
+import { Input, Button, Calendar, TimePicker, Switch, Select, InputNumber, Popconfirm, message } from 'antd';
+import DatePicker from '../common/DatePicker';
 import { CheckOutlined, EditOutlined, DeleteOutlined, LeftOutlined, PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';

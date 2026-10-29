@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { DatePicker, Input, Modal, Switch, message } from 'antd';
+import { Input, Modal, Switch, message } from 'antd';
+import DatePicker from '../../common/DatePicker';
 import {
   AudioOutlined, CalendarOutlined, CloseOutlined, DeleteOutlined, DownOutlined,
   ExportOutlined, MailOutlined, ThunderboltFilled, UpOutlined, WarningOutlined,
@@ -870,6 +871,7 @@ const RegistroRapido = ({
           style={{
             height: 40, borderRadius: 20, width: 150,
             background: !esHoy && !esAyer ? 'var(--qc-text)' : 'var(--qc-relleno)',
+            color: !esHoy && !esAyer ? 'var(--qc-bg)' : 'var(--qc-text)', fontWeight: !esHoy && !esAyer ? 700 : 500,
           }}
         />
       </div>

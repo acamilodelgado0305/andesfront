@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import {
-  Table, Input, Button, Tag, Space, Spin, Select, DatePicker,
-  Typography, Tooltip, message, Progress,
-} from "antd";
+import { Table, Input, Button, Tag, Space, Spin, Select, Typography, Tooltip, message, Progress } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
   SearchOutlined, ReloadOutlined, DollarOutlined, UserOutlined, CalendarOutlined,
 } from "@ant-design/icons";

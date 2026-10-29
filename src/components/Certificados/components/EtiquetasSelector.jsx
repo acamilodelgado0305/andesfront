@@ -161,7 +161,8 @@ const ordenar = (lista) => [...lista].sort((a, b) => a.nombre.localeCompare(b.no
  * onCambios: se llama cuando se crea, edita o elimina una etiqueta, para que
  * quien lo use refresque lo que muestra (p. ej. la tabla de gastos).
  */
-// `tipo`: 'gasto' (por defecto) o 'ingreso'. Son dos listas separadas.
+// `tipo`: 'gasto' (por defecto) o 'ingreso'. La lista es la misma para los
+// dos (se comparten); `tipo` solo dice dónde se creó la etiqueta.
 const EtiquetasSelector = ({ value, onChange, onCambios, sutil = false, tipo = 'gasto' }) => {
   const [etiquetas, setEtiquetas] = useState([]);
   const [cargando, setCargando]   = useState(true);
@@ -217,9 +218,8 @@ const EtiquetasSelector = ({ value, onChange, onCambios, sutil = false, tipo = '
       setEtiquetas((prev) => prev.filter((e) => e.id !== id));
       if (value === id) onChange?.(null);
       const n = Number(res?.movimientos_sin_etiqueta ?? res?.gastos_sin_etiqueta) || 0;
-      const que = tipo === 'ingreso' ? 'ingreso' : 'gasto';
       message.success(n > 0
-        ? `Etiqueta eliminada · ${n} ${que}${n === 1 ? '' : 's'} quedó sin etiqueta`
+        ? `Etiqueta eliminada · ${n} movimiento${n === 1 ? '' : 's'} quedó sin etiqueta`
         : 'Etiqueta eliminada');
       onCambios?.();
     } catch (err) {

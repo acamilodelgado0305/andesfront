@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-    Layout, Spin, Typography, Input, Form, Select, Button, Tag, message, Modal,
-    Empty, Card, Drawer, Table, Space, InputNumber, Checkbox, Switch, Popconfirm,
-    Tooltip, Grid, Divider, DatePicker, Statistic, Dropdown, Avatar
-} from 'antd';
+import { Layout, Spin, Typography, Input, Form, Select, Button, Tag, message, Modal, Empty, Card, Drawer, Table, Space, InputNumber, Checkbox, Switch, Popconfirm, Tooltip, Grid, Divider, Statistic, Dropdown, Avatar } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
     SearchOutlined, PlusOutlined, SaveOutlined, HistoryOutlined,
     CheckCircleFilled, ClockCircleOutlined, CalendarOutlined, SettingOutlined,

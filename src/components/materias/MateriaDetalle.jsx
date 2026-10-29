@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-  Tabs, Card, Button, Tag, Table, Typography, Spin, Empty, Badge, Collapse, Radio,
-  Modal, Drawer, Form, Input, Switch, InputNumber, Space, Tooltip, Popconfirm,
-  message, Upload, Select, Divider, List, Avatar, DatePicker, Dropdown, Progress, Grid
-} from 'antd';
+import { Tabs, Card, Button, Tag, Table, Typography, Spin, Empty, Badge, Collapse, Radio, Modal, Drawer, Form, Input, Switch, InputNumber, Space, Tooltip, Popconfirm, message, Upload, Select, Divider, List, Avatar, Dropdown, Progress, Grid } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
   ArrowLeftOutlined, BookOutlined, EditOutlined, PlusOutlined, DeleteOutlined,
   FilePdfOutlined, EyeOutlined,

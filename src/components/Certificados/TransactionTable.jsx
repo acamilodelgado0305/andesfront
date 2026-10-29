@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import {
-  Table, Input, Button, Tag, Space,
-  Popconfirm, Select, DatePicker, message, Tooltip, Skeleton,
-} from 'antd';
+import { Table, Input, Button, Tag, Space, Popconfirm, Select, message, Tooltip, Skeleton } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
   SearchOutlined, ClearOutlined, FilePdfOutlined,
   EditOutlined, DeleteOutlined, MailOutlined,

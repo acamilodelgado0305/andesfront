@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import {
-  Button, DatePicker, Dropdown, Input, Popconfirm, Segmented, Select, Skeleton, Spin, Switch, Tooltip, message,
-} from 'antd';
+import { Button, Dropdown, Input, Popconfirm, Segmented, Select, Skeleton, Spin, Switch, Tooltip, message } from 'antd';
+import DatePicker from '../../common/DatePicker';
 import {
   ArrowDownOutlined, ArrowUpOutlined, AudioOutlined, BankOutlined, BarChartOutlined,
   CalendarOutlined, CloseOutlined, DeleteOutlined, DownloadOutlined, EnterOutlined, FilterOutlined,
@@ -197,16 +196,12 @@ const MovimientosApp = ({
   };
 
   // ── Etiquetas del negocio e historial para sugerir (aprende del uso) ──
-  // Dos listas separadas: las de gastos y las de ingresos.
+  // Una sola lista: gastos e ingresos comparten las etiquetas del negocio.
   const [etiquetas, setEtiquetas] = useState([]);
-  const [etiquetasIngreso, setEtiquetasIngreso] = useState([]);
+  const etiquetasIngreso = etiquetas;
   const cargarEtiquetas = useCallback(() => {
-    const comoLista = (d) => (Array.isArray(d) ? d : []);
-    getEgresoCategorias({ tipo: 'gasto' })
-      .then((d) => setEtiquetas(comoLista(d)))
-      .catch(() => { /* sin etiquetas igual se registra */ });
-    getEgresoCategorias({ tipo: 'ingreso' })
-      .then((d) => setEtiquetasIngreso(comoLista(d)))
+    getEgresoCategorias()
+      .then((d) => setEtiquetas(Array.isArray(d) ? d : []))
       .catch(() => { /* sin etiquetas igual se registra */ });
   }, []);
   useEffect(() => { cargarEtiquetas(); }, [cargarEtiquetas]);
@@ -296,7 +291,7 @@ const MovimientosApp = ({
     if (filtros.cuenta && r.cuenta !== filtros.cuenta) return false;
     if (filtros.usuario && String(r.usuario) !== String(filtros.usuario)) return false;
     if (filtros.etiqueta != null) {
-      // Cada etiqueta es de un solo tipo; "sin etiqueta" va por tipo también.
+      // Una etiqueta filtra gastos e ingresos; "sin etiqueta" va por tipo.
       const f = String(filtros.etiqueta);
       if (f === SIN_ETIQUETA || f === SIN_ETIQUETA_INGRESO) {
         if (m.tipo !== (f === SIN_ETIQUETA ? 'gasto' : 'ingreso') || r.categoria_id != null) return false;
@@ -578,7 +573,7 @@ const MovimientosApp = ({
     ? 'Gastos sin etiqueta'
     : filtros.etiqueta === SIN_ETIQUETA_INGRESO
       ? 'Ingresos sin etiqueta'
-      : ([...etiquetas, ...etiquetasIngreso].find((e) => String(e.id) === String(filtros.etiqueta))?.nombre
+      : (etiquetas.find((e) => String(e.id) === String(filtros.etiqueta))?.nombre
         || [...egresos, ...ingresos].find((e) => String(e.categoria_id) === String(filtros.etiqueta))?.categoria_nombre
         || 'Etiqueta');
 
@@ -862,15 +857,13 @@ const MovimientosApp = ({
           ))}
         </div>
 
-        {[
-          { titulo: 'Etiqueta (gastos)', lista: etiquetas, sin: SIN_ETIQUETA },
-          { titulo: 'Etiqueta (ingresos)', lista: etiquetasIngreso, sin: SIN_ETIQUETA_INGRESO },
-        ].filter((g) => g.sin === SIN_ETIQUETA || g.lista.length > 0).map((g) => (
-          <React.Fragment key={g.sin}>
+        {[{ titulo: 'Etiqueta', lista: etiquetas }].map((g) => (
+          <React.Fragment key={g.titulo}>
             <Seccion>{g.titulo}</Seccion>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {[...g.lista.map((e) => ({ id: String(e.id), nombre: e.nombre, color: e.color })),
-                { id: g.sin, nombre: 'Sin etiqueta', color: '#9ca3af' }].map((e) => (
+                { id: SIN_ETIQUETA, nombre: 'Gastos sin etiqueta', color: '#9ca3af' },
+                { id: SIN_ETIQUETA_INGRESO, nombre: 'Ingresos sin etiqueta', color: '#9ca3af' }].map((e) => (
                   <EtiquetaChip
                     key={e.id}
                     sutil
@@ -982,16 +975,11 @@ const MovimientosApp = ({
     const columnas = compacto
       ? 'minmax(140px, 2fr) minmax(120px, 1.2fr) 88px 120px'
       : `minmax(160px, 2.4fr) minmax(130px, 1.3fr) 100px ${variosUsuarios ? '130px ' : ''}96px 128px`;
-    const opcionesDe = (lista, sin) => [
-      ...lista.map((e) => ({ value: String(e.id), label: e.nombre, color: e.color })),
-      { value: sin, label: 'Sin etiqueta', color: '#9ca3af' },
+    const opcionesEtiqueta = [
+      ...etiquetas.map((e) => ({ value: String(e.id), label: e.nombre, color: e.color })),
+      { value: SIN_ETIQUETA, label: 'Gastos sin etiqueta', color: '#9ca3af' },
+      { value: SIN_ETIQUETA_INGRESO, label: 'Ingresos sin etiqueta', color: '#9ca3af' },
     ];
-    const opcionesEtiqueta = etiquetasIngreso.length > 0
-      ? [
-        { label: 'Gastos', title: 'Gastos', options: opcionesDe(etiquetas, SIN_ETIQUETA) },
-        { label: 'Ingresos', title: 'Ingresos', options: opcionesDe(etiquetasIngreso, SIN_ETIQUETA_INGRESO) },
-      ]
-      : opcionesDe(etiquetas, SIN_ETIQUETA);
     const verSaldoAnterior = saldoAnterior !== null && !ocultas.includes('saldo_anterior');
 
     return (

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, Input, DatePicker, Typography, Alert } from 'antd';
+import { Modal, Form, Input, Typography, Alert } from 'antd';
+import DatePicker from '../../common/DatePicker';
 import { MailOutlined } from '@ant-design/icons';
 import { esDiaDeExpedicion } from '../envioDocumentos';
 

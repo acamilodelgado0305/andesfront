@@ -1,20 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import {
-  Table,
-  Button,
-  Modal,
-  message,
-  Spin,
-  Form,
-  Select,
-  Input,
-  InputNumber,
-  Tag,
-  Alert,
-  DatePicker,
-  ConfigProvider
-} from "antd";
+import { Table, Button, Modal, message, Spin, Form, Select, Input, InputNumber, Tag, Alert, ConfigProvider } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
   FaPlus,
   FaDownload,

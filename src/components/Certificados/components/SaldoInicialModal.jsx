@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, InputNumber, DatePicker, Input, Alert, message, Spin, Switch, Tabs, Badge } from 'antd';
+import { Modal, Form, InputNumber, Input, Alert, message, Spin, Switch, Tabs, Badge } from 'antd';
+import DatePicker from '../../common/DatePicker';
 import { BankOutlined, EyeOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 

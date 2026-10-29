@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Layout, Typography, Button, Table, Tag, Modal,
-  message, Input, Space, Card, Statistic,
-  Dropdown, Select, InputNumber, Progress, Tooltip as AntTooltip,
-  DatePicker,
-} from 'antd';
+import { Layout, Typography, Button, Table, Tag, Modal, message, Input, Space, Card, Statistic, Dropdown, Select, InputNumber, Progress, Tooltip as AntTooltip } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
   PlusOutlined, FileDoneOutlined,
   EditOutlined, DeleteOutlined, EyeOutlined,

@@ -1,9 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-    Drawer, Form, Button, Input, Select, DatePicker,
-    Typography, Space, Row, Col, Divider, Avatar,
-    Tag, Spin, Empty, message, InputNumber,
-} from 'antd';
+import { Drawer, Form, Button, Input, Select, Typography, Space, Row, Col, Divider, Avatar, Tag, Spin, Empty, message, InputNumber } from 'antd';
+import DatePicker from '../../common/DatePicker';
 import {
     EditOutlined, FileProtectOutlined, SaveOutlined,
     CalendarOutlined, DollarCircleOutlined, UserOutlined,

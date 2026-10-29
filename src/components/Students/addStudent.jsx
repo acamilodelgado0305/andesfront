@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  Modal, Form, Input, Select, DatePicker, Button,
-  message, Steps, Spin, Switch, Divider, Tag, Tooltip,
-} from "antd";
+import { Modal, Form, Input, Select, Button, message, Steps, Spin, Switch, Divider, Tag, Tooltip } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
   UserOutlined, PhoneOutlined, IdcardOutlined, MailOutlined,
   EnvironmentOutlined, BookOutlined, HeartOutlined,

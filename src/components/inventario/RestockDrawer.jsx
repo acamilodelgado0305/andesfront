@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
-import {
-    Drawer, Form, InputNumber, DatePicker, Input, Button, message,
-} from 'antd';
+import { Drawer, Form, InputNumber, Input, Button, message } from 'antd';
+import DatePicker from '../common/DatePicker';
 import { CloseOutlined, InboxOutlined, WarningFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
 

@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Form, Input, Select, Button, notification, Upload, Card, DatePicker, Row, Col } from 'antd';
+import { Form, Input, Select, Button, notification, Upload, Card, Row, Col } from 'antd';
+import DatePicker from '../common/DatePicker';
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import ImgCrop from 'antd-img-crop';
 import dayjs from 'dayjs';

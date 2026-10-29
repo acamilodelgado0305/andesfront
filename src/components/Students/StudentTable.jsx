@@ -1,22 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import {
-  Table,
-  Input,
-  Button,
-  Typography,
-  message,
-  Space,
-  Spin,
-  Select,
-  Tag,
-  Popconfirm,
-  DatePicker,
-  Tooltip,
-  Modal,
-  Radio,
-  Form,
-  Progress,
-} from "antd";
+import { Table, Input, Button, Typography, message, Space, Spin, Select, Tag, Popconfirm, Tooltip, Modal, Radio, Form, Progress } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
   InboxOutlined,
   RollbackOutlined,

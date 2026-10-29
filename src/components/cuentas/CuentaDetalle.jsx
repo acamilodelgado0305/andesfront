@@ -1,7 +1,8 @@
 // Detalle de una cuenta: cuánto falta, cuándo es el próximo pago, las acciones
 // a un toque y el estado de cuenta (movimientos con saldo corrido).
 import React, { useRef, useState } from 'react';
-import { DatePicker, Dropdown, InputNumber, Modal, message } from 'antd';
+import { Dropdown, InputNumber, Modal, message } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
   MoreOutlined, EditOutlined, DeleteOutlined, StopOutlined, UndoOutlined,
   WhatsAppOutlined, CalendarOutlined, SlidersOutlined, PlusCircleOutlined, CheckOutlined,

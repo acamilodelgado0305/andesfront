@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useContext } from "react";
-import {
-  Spin, Alert, Empty, Button, Drawer, Form, Input, InputNumber,
-  notification, Tooltip, Modal, Tag, Select, Table, Space, Card,
-  DatePicker, Segmented,
-} from "antd";
+import { Spin, Alert, Empty, Button, Drawer, Form, Input, InputNumber, notification, Tooltip, Modal, Tag, Select, Table, Space, Card, Segmented } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined,
   SearchOutlined, CloseOutlined, CheckCircleOutlined,

@@ -1,25 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import {
-    Button,
-    Form,
-    Input,
-    Select,
-    DatePicker,
-    message,
-    InputNumber,
-    Modal,
-    Avatar,
-    Typography,
-    Spin,
-    Tag,
-    Switch,
-    Upload,
-    Tabs,
-    Tooltip,
-    Radio,
-    Space,
-} from "antd";
+import { Button, Form, Input, Select, message, InputNumber, Modal, Avatar, Typography, Spin, Tag, Switch, Upload, Tabs, Tooltip, Radio, Space } from 'antd';
+import DatePicker from '../common/DatePicker';
 import {
     FaWhatsapp,
     FaGraduationCap,
