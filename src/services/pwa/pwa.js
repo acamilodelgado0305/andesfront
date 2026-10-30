@@ -46,6 +46,52 @@ export const iniciarPwa = () => {
       navigator.serviceWorker.register('/sw.js').catch(() => { /* la app funciona igual sin él */ });
     });
   }
+
+  if (import.meta.env.PROD) vigilarVersionNueva();
+};
+
+// ── Versión nueva ──────────────────────────────────────────────────────────
+// La app instalada en el celular casi nunca se cierra del todo: queda en
+// segundo plano con el código viejo en memoria y no ve los despliegues. Al
+// volver a ella (y cada 10 min) se compara el script principal del index.html
+// publicado con el que está corriendo; si cambió, se recarga.
+const scriptDe = (html) => (html.match(/\/assets\/index-[\w-]+\.js/) || [])[0] || null;
+
+const vigilarVersionNueva = () => {
+  const actual = scriptDe(document.querySelector('script[type="module"][src*="/assets/index-"]')?.getAttribute('src') || '');
+  if (!actual) return;
+  let ocultaDesde = 0;
+  let avisada = false;
+
+  const revisar = async (alVolver) => {
+    try {
+      const r = await fetch(`/index.html?v=${Date.now()}`, { cache: 'no-store' });
+      const publicada = r.ok ? scriptDe(await r.text()) : null;
+      if (!publicada || publicada === actual) return;
+      // Volviendo de un rato largo afuera no hay nada a medio escribir: se recarga sola.
+      if (alVolver && Date.now() - ocultaDesde > 2 * 60 * 1000) {
+        window.location.reload();
+        return;
+      }
+      if (avisada) return;
+      avisada = true;
+      const { notification } = await import('antd');
+      notification.info({
+        message: 'Hay una versión nueva de Rapictrl',
+        description: 'Toca aquí para actualizar.',
+        duration: 0,
+        placement: 'bottom',
+        onClick: () => window.location.reload(),
+        style: { cursor: 'pointer' },
+      });
+    } catch { /* sin red: se revisa la próxima vez */ }
+  };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) ocultaDesde = Date.now();
+    else revisar(ocultaDesde > 0);
+  });
+  setInterval(() => { if (!document.hidden) revisar(false); }, 10 * 60 * 1000);
 };
 
 /** Estado de instalación para la UI: ¿ya está instalada?, ¿se puede ofrecer? */

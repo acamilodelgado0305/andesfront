@@ -59,6 +59,21 @@ const resumenDe = (t, subtareas, comentarios, adjuntos) => {
   };
 };
 
+// Editor de fecha / repetición: globo junto al chip en computador; en el
+// celular, hoja desde abajo (el globo se salía de la pantalla).
+const EditorFlotante = ({ esMovil, abierto, onAbierto, titulo, contenido, children }) => (esMovil ? (
+  <>
+    <span role="button" tabIndex={0} onClick={() => onAbierto(true)} style={{ cursor: 'pointer' }}>{children}</span>
+    <BottomSheet open={abierto} onClose={() => onAbierto(false)} title={titulo} zIndex={1300}>
+      {abierto && contenido}
+    </BottomSheet>
+  </>
+) : (
+  <Popover open={abierto} onOpenChange={onAbierto} trigger="click" placement="bottomLeft" destroyTooltipOnHide content={contenido}>
+    {children}
+  </Popover>
+));
+
 const TarjetaDetalle = ({
   tarjetaId, onCerrar, esMovil, tableros = [],
   contexto = null,          // { tableroId, listas, etiquetas, setEtiquetas } si el proyecto ya está abierto
@@ -392,13 +407,12 @@ const TarjetaDetalle = ({
 
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--qc-text-muted)', marginBottom: 5 }}>Fecha</div>
-            <Popover
-              open={pop === 'fecha'}
-              onOpenChange={(v) => setPop(v ? 'fecha' : null)}
-              trigger="click"
-              placement="bottomLeft"
-              destroyTooltipOnHide
-              content={<FechaEditor tarjeta={t} onGuardar={(c) => guardar(c, { silencioso: true })} onCerrar={() => setPop(null)} />}
+            <EditorFlotante
+              esMovil={esMovil}
+              abierto={pop === 'fecha'}
+              onAbierto={(v) => setPop(v ? 'fecha' : null)}
+              titulo="Fecha"
+              contenido={<FechaEditor enHoja={esMovil} tarjeta={t} onGuardar={(c) => guardar(c, { silencioso: true })} onCerrar={() => setPop(null)} />}
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 {t.vence_at
@@ -410,23 +424,22 @@ const TarjetaDetalle = ({
                   </Tooltip>
                 )}
               </span>
-            </Popover>
+            </EditorFlotante>
           </div>
 
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--qc-text-muted)', marginBottom: 5 }}>Repetir</div>
-            <Popover
-              open={pop === 'repetir'}
-              onOpenChange={(v) => setPop(v ? 'repetir' : null)}
-              trigger="click"
-              placement="bottomLeft"
-              destroyTooltipOnHide
-              content={<RepeticionEditor tarjeta={t} listas={meta?.listas || []} onGuardar={(r) => guardar({ repeticion: r }, { silencioso: true })} onCerrar={() => setPop(null)} />}
+            <EditorFlotante
+              esMovil={esMovil}
+              abierto={pop === 'repetir'}
+              onAbierto={(v) => setPop(v ? 'repetir' : null)}
+              titulo="Repetir"
+              contenido={<RepeticionEditor enHoja={esMovil} tarjeta={t} listas={meta?.listas || []} onGuardar={(r) => guardar({ repeticion: r }, { silencioso: true })} onCerrar={() => setPop(null)} />}
             >
               <span>
                 <BotonChip icon={<RetweetOutlined />}>{t.repeticion ? describirRepeticion(t.repeticion) : 'No se repite'}</BotonChip>
               </span>
-            </Popover>
+            </EditorFlotante>
           </div>
         </div>
 

@@ -2,12 +2,11 @@
 // Editores que se abren desde el detalle de una tarjeta: etiquetas, fecha
 // (con hora y aviso al celular) y repetición.
 import React, { useMemo, useState } from 'react';
-import { Input, Button, Calendar, TimePicker, Switch, Select, InputNumber, Popconfirm, message } from 'antd';
-import DatePicker from '../common/DatePicker';
+import { Input, Button, TimePicker, Switch, Select, InputNumber, Popconfirm, message } from 'antd';
+import DatePicker, { Calendario, Atajo } from '../common/DatePicker';
 import { CheckOutlined, EditOutlined, DeleteOutlined, LeftOutlined, PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
-import esCalendar from 'antd/es/calendar/locale/es_ES';
 import esPicker from 'antd/es/date-picker/locale/es_ES';
 import * as api from '../../services/tareas/tareasService';
 import { mensajeError } from '../../services/tareas/tareasService';
@@ -164,9 +163,12 @@ const proximoLunes = (hoy) => {
 };
 
 /** `onGuardar({ vence_at, vence_con_hora, recordatorio_min })` (vence_at null = quitar). */
-export const FechaEditor = ({ tarjeta, onGuardar, onCerrar }) => {
+// `enHoja`: en el celular va dentro de una hoja de abajo y ocupa todo el ancho.
+export const FechaEditor = ({ tarjeta, onGuardar, onCerrar, enHoja = false }) => {
   const inicialDia = tarjeta.vence_at ? diaCO(tarjeta.vence_at) : hoyCO();
   const [dia, setDia] = useState(inicialDia);
+  const [mes, setMes] = useState(() => dayjs(`${inicialDia}T12:00:00`).startOf('month'));
+  const elegirDia = (d) => { setDia(d); setMes(dayjs(`${d}T12:00:00`).startOf('month')); };
   const [conHora, setConHora] = useState(tarjeta.vence_at ? tarjeta.vence_con_hora : false);
   const [hora, setHora] = useState(tarjeta.vence_at && tarjeta.vence_con_hora ? horaHHMM(tarjeta.vence_at) : '09:00');
   const [aviso, setAviso] = useState(tarjeta.vence_at ? (tarjeta.recordatorio_min ?? 'no') : 'no');
@@ -186,20 +188,19 @@ export const FechaEditor = ({ tarjeta, onGuardar, onCerrar }) => {
   ];
 
   return (
-    <div style={{ width: 300 }}>
+    <div style={{ width: enHoja ? '100%' : 300 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
         {atajos.map(([txt, d]) => (
-          <Button key={txt} size="small" type={dia === d ? 'primary' : 'default'} onClick={() => setDia(d)}>{txt}</Button>
+          <Atajo key={txt} activo={dia === d} onClick={() => elegirDia(d)}>{txt}</Atajo>
         ))}
       </div>
-      <Calendar
-        fullscreen={false}
-        locale={esCalendar}
-        value={dayjs(`${dia}T12:00:00`)}
-        onSelect={(v, info) => { if (!info || info.source === 'date') setDia(v.format('YYYY-MM-DD')); }}
-        onPanelChange={(v) => setDia(v.format('YYYY-MM-DD'))}
+      <Calendario
+        mes={mes}
+        onMes={setMes}
+        seleccion={[dayjs(`${dia}T12:00:00`), null]}
+        onDia={(v) => setDia(v.format('YYYY-MM-DD'))}
       />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
         <Switch
           size="small"
           checked={conHora}
@@ -230,9 +231,9 @@ export const FechaEditor = ({ tarjeta, onGuardar, onCerrar }) => {
         <Select value={aviso} onChange={setAviso} options={opcionesRecordatorio(conHora)} style={{ width: '100%' }} />
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <Button type="primary" style={{ flex: 1 }} onClick={() => guardar()}>Guardar</Button>
+        <Button type="primary" size={enHoja ? 'large' : 'middle'} style={{ flex: 1 }} onClick={() => guardar()}>Guardar</Button>
         {tarjeta.vence_at && (
-          <Button onClick={() => { onGuardar({ vence_at: null }); onCerrar?.(); }}>Quitar</Button>
+          <Button size={enHoja ? 'large' : 'middle'} onClick={() => { onGuardar({ vence_at: null }); onCerrar?.(); }}>Quitar</Button>
         )}
       </div>
     </div>
@@ -251,7 +252,7 @@ const TIPOS = [
 ];
 
 /** `onGuardar(regla | null)`. `listas`: para elegir dónde aparece la siguiente. */
-export const RepeticionEditor = ({ tarjeta, listas = [], onGuardar, onCerrar }) => {
+export const RepeticionEditor = ({ tarjeta, listas = [], onGuardar, onCerrar, enHoja = false }) => {
   const r = tarjeta.repeticion;
   const diaVence = tarjeta.vence_at ? new Date(`${diaCO(tarjeta.vence_at)}T12:00:00Z`) : null;
   const esHabiles = r?.frecuencia === 'semanal' && (r.cada || 1) === 1 && [...(r.dias || [])].sort().join() === '1,2,3,4,5';
@@ -284,7 +285,7 @@ export const RepeticionEditor = ({ tarjeta, listas = [], onGuardar, onCerrar }) 
   const unidad = { diaria: 'días', semanal: 'semanas', mensual: 'meses', anual: 'años' }[tipo];
 
   return (
-    <div style={{ width: 300, display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ width: enHoja ? '100%' : 300, display: 'flex', flexDirection: 'column', gap: 12 }}>
       <Select value={tipo} onChange={setTipo} options={TIPOS} />
       {['diaria', 'semanal', 'mensual', 'anual'].includes(tipo) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--qc-text)' }}>

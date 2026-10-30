@@ -32,7 +32,7 @@ const usaHoja = (props) => !props.showTime && (!props.picker || props.picker ===
 
 /* ───────────────────────── Calendario ───────────────────────── */
 
-const Calendario = ({ mes, onMes, seleccion, onDia, disabledDate }) => {
+export const Calendario = ({ mes, onMes, seleccion, onDia, disabledDate }) => {
   const [eligiendoMes, setEligiendoMes] = useState(false);
   const hoy = dayjs();
 
@@ -130,7 +130,7 @@ const Calendario = ({ mes, onMes, seleccion, onDia, disabledDate }) => {
                     aria-label={d.format('DD/MM/YYYY')}
                     aria-pressed={!!elegido}
                     style={{
-                      width: 44, height: 44, borderRadius: 22, cursor: bloqueado ? 'not-allowed' : 'pointer',
+                      width: '100%', maxWidth: 44, aspectRatio: '1', borderRadius: '50%', padding: 0, cursor: bloqueado ? 'not-allowed' : 'pointer',
                       fontSize: 16, fontWeight: elegido || esHoy ? 700 : 500,
                       border: esHoy && !elegido ? '1.5px solid var(--qc-text)' : '1.5px solid transparent',
                       background: elegido ? 'var(--qc-text)' : 'transparent',
@@ -151,7 +151,7 @@ const Calendario = ({ mes, onMes, seleccion, onDia, disabledDate }) => {
   );
 };
 
-const Atajo = ({ activo, onClick, children, disabled }) => (
+export const Atajo = ({ activo, onClick, children, disabled }) => (
   <button
     type="button"
     onClick={onClick}
