@@ -22,6 +22,8 @@ import {
 } from '../../services/documentoVenta/documentoVentaService';
 import DocumentoVentaForm from './DocumentoVentaForm';
 import FacturaViewer from './FacturaViewer';
+import FacturasMovil from './FacturasMovil';
+import useIsMobile from '../../hooks/useIsMobile';
 import { parseFechaDia, formatFechaDia, toFechaDiaPayload } from '../../utils/fechas';
 
 const { Content } = Layout;
@@ -123,6 +125,7 @@ const CUENTAS = ['Efectivo', 'Nequi', 'Daviplata', 'Bancolombia', 'Transferencia
 
 const DocumentosVentaDashboard = () => {
   const formatCurrency = useCurrency();
+  const esMovil = useIsMobile();
   const { formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
 
   const [docs, setDocs]       = useState([]);
@@ -182,7 +185,7 @@ const DocumentosVentaDashboard = () => {
   const total     = calcStat(null);
 
   // ─── Eliminar ─────────────────────────────────────────────────────────────────
-  const handleEliminar = (doc) => {
+  const handleEliminar = (doc, alTerminar) => {
     Modal.confirm({
       title: `¿Eliminar factura ${doc.numero}?`,
       content: 'Esta acción no se puede deshacer.',
@@ -192,6 +195,7 @@ const DocumentosVentaDashboard = () => {
         try {
           await deleteDocumentoVenta(doc.id);
           message.success('Factura eliminada');
+          alTerminar?.();
           cargarDatos();
         } catch { message.error('Error al eliminar'); }
       },
@@ -237,24 +241,47 @@ const DocumentosVentaDashboard = () => {
     });
   };
 
+  // También lo usa la vista del celular (con su propia hoja de cuentas).
+  const pagarFactura = async (doc, cuenta) => {
+    try {
+      await updateDocumentoVenta(doc.id, {
+        estado:     'PAGADA',
+        fecha_pago: dayjs().format('YYYY-MM-DD'),
+        cuenta,
+      });
+      message.success(`Factura pagada · Ingreso registrado en ${cuenta}`);
+      cargarDatos();
+    } catch (e) {
+      message.error('Error al registrar el pago');
+      throw e;
+    }
+  };
+
   const confirmarPago = async () => {
     const doc = pagarModal.doc;
     if (!doc) return;
     setGuardandoPago(true);
     try {
-      await updateDocumentoVenta(doc.id, {
-        estado:     'PAGADA',
-        fecha_pago: dayjs().format('YYYY-MM-DD'),
-        cuenta:     cuentaPago,
-      });
-      message.success(`Factura PAGADA · Ingreso registrado en ${cuentaPago}`);
+      await pagarFactura(doc, cuentaPago);
       setPagarModal({ open: false, doc: null });
-      cargarDatos();
-    } catch {
-      message.error('Error al registrar el pago');
-    } finally {
+    } catch { /* ya avisó */ } finally {
       setGuardandoPago(false);
     }
+  };
+
+  const cambiarVencimiento = async (doc, nueva) => {
+    try {
+      await updateDocumentoVenta(doc.id, { fecha_vencimiento: toFechaDiaPayload(nueva) });
+      message.success(nueva ? `Vencimiento: ${nueva.format('DD/MM/YYYY')}` : 'Vencimiento quitado');
+      cargarDatos();
+    } catch (e) {
+      message.error(e?.response?.data?.message || 'Error al actualizar el vencimiento');
+    }
+  };
+
+  const abrirAbono = (doc) => {
+    setAbonoMonto(null); setAbonoCuenta('Efectivo'); setAbonoNota('');
+    setAbonoModal({ open: true, doc });
   };
 
   const confirmarAbono = async () => {
@@ -382,7 +409,7 @@ const DocumentosVentaDashboard = () => {
                 icon: <WalletOutlined />,
                 label: 'Registrar abono',
                 disabled: ['PAGADA', 'ANULADA'].includes(rec.estado),
-                onClick: () => { setAbonoMonto(null); setAbonoCuenta('Efectivo'); setAbonoNota(''); setAbonoModal({ open: true, doc: rec }); },
+                onClick: () => abrirAbono(rec),
               },
               {
                 key: 'duplicar',
@@ -408,118 +435,9 @@ const DocumentosVentaDashboard = () => {
   ];
 
   // ─── Render ───────────────────────────────────────────────────────────────────
-  return (
-    <Content style={{ padding: '16px 20px' }}>
-      <style>{`
-        .dv-vencimiento-editable:hover { background: #f1f5f9; border-bottom-color: ${ACCENT}; }
-        .dv-vencimiento-editable:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 1px; }
-      `}</style>
-
-      {/* Encabezado */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div>
-          <Title level={3} style={{ margin: 0 }}>Facturas</Title>
-          <Text type="secondary">Gestiona y descarga tus facturas</Text>
-        </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => { setEditingDoc(null); setFormOpen(true); }}
-        >
-          Nueva Factura
-        </Button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <Card size="small" bordered={false} className="shadow-sm">
-          <Statistic
-            title="Pendientes de pago"
-            value={emitidas.sum}
-            formatter={(v) => formatCurrency(v)}
-            prefix={<ClockCircleOutlined style={{ color: '#1d4ed8' }} />}
-            valueStyle={{ color: '#1d4ed8', fontSize: 15 }}
-          />
-          <Text type="secondary" style={{ fontSize: 11 }}>{emitidas.qty} facturas</Text>
-        </Card>
-        <Card size="small" bordered={false} className="shadow-sm">
-          <Statistic
-            title="Cobradas"
-            value={pagadas.sum}
-            formatter={(v) => formatCurrency(v)}
-            prefix={<CheckCircleOutlined style={{ color: '#16a34a' }} />}
-            valueStyle={{ color: '#16a34a', fontSize: 15 }}
-          />
-          <Text type="secondary" style={{ fontSize: 11 }}>{pagadas.qty} facturas</Text>
-        </Card>
-        <Card size="small" bordered={false} className="shadow-sm">
-          <Statistic
-            title="Total facturado"
-            value={total.sum}
-            formatter={(v) => formatCurrency(v)}
-            prefix={<DollarOutlined style={{ color: '#0891b2' }} />}
-            valueStyle={{ color: '#0891b2', fontSize: 15 }}
-          />
-          <Text type="secondary" style={{ fontSize: 11 }}>{total.qty} facturas</Text>
-        </Card>
-        <Card size="small" bordered={false} className="shadow-sm">
-          <Statistic
-            title="Anuladas"
-            value={anuladas.qty}
-            prefix={<CloseCircleOutlined style={{ color: '#dc2626' }} />}
-            valueStyle={{ color: '#dc2626', fontSize: 15 }}
-          />
-          <Text type="secondary" style={{ fontSize: 11 }}>{formatCurrency(anuladas.sum)}</Text>
-        </Card>
-      </div>
-
-      {/* Buscador */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <Input
-          placeholder="Buscar por número o cliente..."
-          prefix={<SearchOutlined />}
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-          allowClear
-          style={{ width: 280 }}
-        />
-        <DatePicker
-          picker="month"
-          locale={localeEsDatePicker}
-          value={mes}
-          onChange={setMes}
-          format={(v) => v.locale('es').format('MMMM YYYY')}
-          allowClear={false}
-          suffixIcon={<CalendarOutlined />}
-          style={{ width: 190 }}
-        />
-        <Space.Compact>
-          <Button size="middle" onClick={() => setMes((m) => (m || dayjs()).subtract(1, 'month'))}>‹</Button>
-          <Button size="middle" onClick={() => setMes(dayjs())}>Este mes</Button>
-          <Button size="middle" onClick={() => setMes((m) => (m || dayjs()).add(1, 'month'))}>›</Button>
-        </Space.Compact>
-        <Button
-          type={mes ? 'default' : 'primary'}
-          onClick={() => setMes(mes ? null : dayjs())}
-          style={mes ? undefined : { background: ACCENT, borderColor: ACCENT }}
-        >
-          {mes ? 'Ver todos' : 'Volver al mes'}
-        </Button>
-        <Button icon={<ReloadOutlined />} onClick={cargarDatos} loading={loading} />
-      </div>
-
-      {/* Tabla */}
-      <Table
-        columns={columns}
-        dataSource={docs}
-        rowKey="id"
-        loading={loading}
-        size="small"
-        pagination={{ pageSize: 20, showSizeChanger: false, showTotal: (t) => `${t} facturas` }}
-        scroll={{ x: 780 }}
-      />
-
-      {/* Drawer creación/edición */}
+  // Formularios, visor y modales: los comparten celular y computador.
+  const comunes = (
+    <>
       <DocumentoVentaForm
         open={formOpen}
         defaultTipo="FACTURA"
@@ -527,7 +445,6 @@ const DocumentosVentaDashboard = () => {
         onClose={() => { setFormOpen(false); setEditingDoc(null); }}
         onSaved={cargarDatos}
       />
-
       {/* Modal pago */}
       <Modal
         open={pagarModal.open}
@@ -678,6 +595,147 @@ const DocumentosVentaDashboard = () => {
         doc={viewerDoc}
         onClose={() => { setViewerOpen(false); setViewerDoc(null); }}
       />
+    </>
+  );
+
+  if (esMovil) {
+    return (
+      <>
+        <FacturasMovil
+          docs={docs}
+          loading={loading}
+          mes={mes}
+          onMes={setMes}
+          busqueda={busqueda}
+          onBusqueda={setBusqueda}
+          cuentas={CUENTAS}
+          onNueva={() => { setEditingDoc(null); setFormOpen(true); }}
+          onEditar={(d) => { setEditingDoc(d); setFormOpen(true); }}
+          onVer={(d) => { setViewerDoc(d); setViewerOpen(true); }}
+          onPagar={pagarFactura}
+          onAbono={abrirAbono}
+          onDuplicar={handleDuplicar}
+          onAnular={(d) => handleCambiarEstado(d, 'ANULADA')}
+          onEliminar={handleEliminar}
+          onVencimiento={cambiarVencimiento}
+        />
+        {comunes}
+      </>
+    );
+  }
+
+  return (
+    <Content style={{ padding: '16px 20px' }}>
+      <style>{`
+        .dv-vencimiento-editable:hover { background: #f1f5f9; border-bottom-color: ${ACCENT}; }
+        .dv-vencimiento-editable:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 1px; }
+      `}</style>
+
+      {/* Encabezado */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <Title level={3} style={{ margin: 0 }}>Facturas</Title>
+          <Text type="secondary">Gestiona y descarga tus facturas</Text>
+        </div>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => { setEditingDoc(null); setFormOpen(true); }}
+        >
+          Nueva Factura
+        </Button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <Card size="small" bordered={false} className="shadow-sm">
+          <Statistic
+            title="Pendientes de pago"
+            value={emitidas.sum}
+            formatter={(v) => formatCurrency(v)}
+            prefix={<ClockCircleOutlined style={{ color: '#1d4ed8' }} />}
+            valueStyle={{ color: '#1d4ed8', fontSize: 15 }}
+          />
+          <Text type="secondary" style={{ fontSize: 11 }}>{emitidas.qty} facturas</Text>
+        </Card>
+        <Card size="small" bordered={false} className="shadow-sm">
+          <Statistic
+            title="Cobradas"
+            value={pagadas.sum}
+            formatter={(v) => formatCurrency(v)}
+            prefix={<CheckCircleOutlined style={{ color: '#16a34a' }} />}
+            valueStyle={{ color: '#16a34a', fontSize: 15 }}
+          />
+          <Text type="secondary" style={{ fontSize: 11 }}>{pagadas.qty} facturas</Text>
+        </Card>
+        <Card size="small" bordered={false} className="shadow-sm">
+          <Statistic
+            title="Total facturado"
+            value={total.sum}
+            formatter={(v) => formatCurrency(v)}
+            prefix={<DollarOutlined style={{ color: '#0891b2' }} />}
+            valueStyle={{ color: '#0891b2', fontSize: 15 }}
+          />
+          <Text type="secondary" style={{ fontSize: 11 }}>{total.qty} facturas</Text>
+        </Card>
+        <Card size="small" bordered={false} className="shadow-sm">
+          <Statistic
+            title="Anuladas"
+            value={anuladas.qty}
+            prefix={<CloseCircleOutlined style={{ color: '#dc2626' }} />}
+            valueStyle={{ color: '#dc2626', fontSize: 15 }}
+          />
+          <Text type="secondary" style={{ fontSize: 11 }}>{formatCurrency(anuladas.sum)}</Text>
+        </Card>
+      </div>
+
+      {/* Buscador */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <Input
+          placeholder="Buscar por número o cliente..."
+          prefix={<SearchOutlined />}
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          allowClear
+          style={{ width: 280 }}
+        />
+        <DatePicker
+          picker="month"
+          locale={localeEsDatePicker}
+          value={mes}
+          onChange={setMes}
+          format={(v) => v.locale('es').format('MMMM YYYY')}
+          allowClear={false}
+          suffixIcon={<CalendarOutlined />}
+          style={{ width: 190 }}
+        />
+        <Space.Compact>
+          <Button size="middle" onClick={() => setMes((m) => (m || dayjs()).subtract(1, 'month'))}>‹</Button>
+          <Button size="middle" onClick={() => setMes(dayjs())}>Este mes</Button>
+          <Button size="middle" onClick={() => setMes((m) => (m || dayjs()).add(1, 'month'))}>›</Button>
+        </Space.Compact>
+        <Button
+          type={mes ? 'default' : 'primary'}
+          onClick={() => setMes(mes ? null : dayjs())}
+          style={mes ? undefined : { background: ACCENT, borderColor: ACCENT }}
+        >
+          {mes ? 'Ver todos' : 'Volver al mes'}
+        </Button>
+        <Button icon={<ReloadOutlined />} onClick={cargarDatos} loading={loading} />
+      </div>
+
+      {/* Tabla */}
+      <Table
+        columns={columns}
+        dataSource={docs}
+        rowKey="id"
+        loading={loading}
+        size="small"
+        pagination={{ pageSize: 20, showSizeChanger: false, showTotal: (t) => `${t} facturas` }}
+        scroll={{ x: 780 }}
+      />
+
+      {comunes}
     </Content>
   );
 };

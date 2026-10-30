@@ -16,6 +16,7 @@ import PersonaFormDrawer from '../personas/PersonaFormDrawer';
 import FacturaViewer from './FacturaViewer';
 import useCurrency, { useCurrencyInput } from '../../hooks/useCurrency';
 import { parseFechaDia, toFechaDiaPayload } from '../../utils/fechas';
+import useIsMobile from '../../hooks/useIsMobile';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -105,6 +106,9 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
   const formatCurrency = useCurrency();
   const { formatter: currFormatter, parser: currParser, precision: currPrecision, step: currStep } = useCurrencyInput();
   const [form] = Form.useForm();
+  // En el celular no caben 7 columnas por línea: cada producto va en una tarjeta.
+  const esMovil = useIsMobile();
+  const dosCol = esMovil ? '1fr' : '1fr 1fr';
 
   const [tipo, setTipo]       = useState(defaultTipo);
   const [items, setItems]     = useState([itemVacio()]);
@@ -194,6 +198,18 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
 
   // ─── Items ────────────────────────────────────────────────────────────────
   const agregarItem  = () => setItems((p) => [...p, itemVacio()]);
+  // Desde el inventario: reemplaza la línea vacía del final o agrega una nueva.
+  const agregarDelInventario = (id) => {
+    const prod = inventario.find((p) => p.id === id);
+    if (!prod) return;
+    const nueva = { ...itemVacio(), descripcion: prod.nombre, precio_unitario: Number(prod.monto) || 0, inventario_id: prod.id };
+    nueva.total = calcularTotalLinea(nueva);
+    setItems((prev) => {
+      const ultima = prev[prev.length - 1];
+      const vacia = ultima && !ultima.descripcion && !Number(ultima.precio_unitario);
+      return vacia ? [...prev.slice(0, -1), nueva] : [...prev, nueva];
+    });
+  };
   const eliminarItem = (key) => items.length > 1 && setItems((p) => p.filter((it) => it.key !== key));
 
   const actualizarItem = (key, campo, valor) => {
@@ -309,12 +325,31 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
           </div>
         }
         placement="right"
-        width={Math.min(window.innerWidth, 720)}
+        width={esMovil ? '100%' : 720}
         open={open}
         onClose={onClose}
         maskClosable={false}
-        styles={{ body: { padding: '20px 24px', background: 'var(--qc-bg)' } }}
-        footer={
+        styles={{
+          body: { padding: esMovil ? '14px 12px 24px' : '20px 24px', background: 'var(--qc-bg)' },
+          footer: esMovil ? { padding: '10px 12px calc(10px + env(safe-area-inset-bottom, 0px))' } : undefined,
+        }}
+        footer={esMovil ? (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+              <Text type="secondary" style={{ fontSize: 13 }}>Total</Text>
+              <strong style={{ color: accentColor, fontSize: 20, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(totales.total)}</strong>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button size="large" icon={<EyeOutlined />} onClick={handlePreview} aria-label="Vista previa" />
+              <Button
+                type="primary" size="large" block loading={saving} onClick={handleGuardar}
+                style={{ background: accentColor, borderColor: accentColor, fontWeight: 600 }}
+              >
+                {editingDoc ? 'Guardar cambios' : `Crear ${isFactura ? 'factura' : 'cotización'}`}
+              </Button>
+            </div>
+          </div>
+        ) : (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>
               Total:{' '}
@@ -335,7 +370,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
               </Button>
             </Space>
           </div>
-        }
+        )}
       >
         <Form form={form} layout="vertical" size="middle">
 
@@ -492,7 +527,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
             )}
 
             {/* Campos extra visibles siempre (email / teléfono) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: dosCol, gap: 12, marginTop: 14 }}>
               <Form.Item label="Email" name="cliente_email" style={{ marginBottom: 0 }}>
                 <Input placeholder="correo@empresa.com" />
               </Form.Item>
@@ -512,18 +547,18 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
               <Text strong style={{ fontSize: 13 }}>Productos / Servicios</Text>
-              <div style={{
+              {!esMovil && <div style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 background: 'rgba(124,58,237,0.15)', borderRadius: 20,
                 padding: '3px 10px', fontSize: 11, color: '#7c3aed',
               }}>
                 <span style={{ fontWeight: 700 }}>@</span>
                 <span>Escribe @ para buscar en inventario</span>
-              </div>
+              </div>}
             </div>
 
             {/* Cabecera columnas */}
-            <div style={{
+            {!esMovil && <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 72px 130px 64px 64px 110px 36px',
               gap: 6, padding: '8px 14px',
@@ -534,11 +569,54 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
                   {h}
                 </div>
               ))}
-            </div>
+            </div>}
 
-            {/* Filas */}
-            <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {items.map((item) => (
+            {/* Filas: tarjetas en el celular, renglones en computador */}
+            <div style={{ padding: esMovil ? 10 : '8px 14px', display: 'flex', flexDirection: 'column', gap: esMovil ? 10 : 6 }}>
+              {esMovil && items.map((item, idx) => (
+                <div key={item.key} style={{ border: '1px solid var(--qc-border)', borderRadius: 12, padding: 10, background: 'var(--qc-bg)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text type="secondary" style={{ fontSize: 12, fontWeight: 600 }}>Producto {idx + 1}</Text>
+                    <Button type="text" danger size="small" icon={<DeleteOutlined />}
+                      onClick={() => eliminarItem(item.key)}
+                      disabled={items.length === 1}
+                      aria-label="Eliminar producto"
+                      style={{ opacity: items.length === 1 ? 0.3 : 1 }} />
+                  </div>
+                  <DescripcionInput item={item} inventario={inventario} onUpdate={actualizarItem} formatCurrency={formatCurrency} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8, marginTop: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 11.5, color: 'var(--qc-text-muted)', marginBottom: 2 }}>Cantidad</div>
+                      <InputNumber min={1} inputMode="numeric" style={{ width: '100%' }} size="large"
+                        value={item.cantidad} onChange={(v) => actualizarItem(item.key, 'cantidad', v)} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11.5, color: 'var(--qc-text-muted)', marginBottom: 2 }}>Precio unitario</div>
+                      <InputNumber min={0} inputMode="decimal" style={{ width: '100%' }} size="large"
+                        value={item.precio_unitario}
+                        formatter={currFormatter} parser={currParser} precision={currPrecision} step={currStep}
+                        onChange={(v) => actualizarItem(item.key, 'precio_unitario', v)} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 11.5, color: 'var(--qc-text-muted)', marginBottom: 2 }}>Descuento</div>
+                      <InputNumber min={0} max={100} inputMode="decimal" style={{ width: '100%' }}
+                        value={item.descuento} suffix="%" onChange={(v) => actualizarItem(item.key, 'descuento', v)} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11.5, color: 'var(--qc-text-muted)', marginBottom: 2 }}>IVA</div>
+                      <InputNumber min={0} max={100} inputMode="decimal" style={{ width: '100%' }}
+                        value={item.impuesto} suffix="%" onChange={(v) => actualizarItem(item.key, 'impuesto', v)} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 13 }}>
+                    <Text type="secondary">Total línea</Text>
+                    <strong style={{ color: accentColor }}>{formatCurrency(item.total)}</strong>
+                  </div>
+                </div>
+              ))}
+              {!esMovil && items.map((item) => (
                 <div
                   key={item.key}
                   style={{ display: 'grid', gridTemplateColumns: '1fr 72px 130px 64px 64px 110px 36px', gap: 6, alignItems: 'center' }}
@@ -577,16 +655,35 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
             </div>
 
             {/* Botón agregar */}
-            <div style={{ padding: '8px 14px 14px' }}>
-              <Button type="dashed" icon={<PlusOutlined />} onClick={agregarItem} block
-                style={{ borderColor: '#d1d5db', color: '#6b7280', borderRadius: 8 }}>
-                Agregar línea
+            <div style={{ padding: esMovil ? '4px 10px 14px' : '8px 14px 14px', display: 'flex', flexDirection: esMovil ? 'column' : 'row', gap: 8 }}>
+              {inventario.length > 0 && (
+                <Select
+                  showSearch
+                  value={null}
+                  placeholder="+ Agregar del inventario"
+                  optionFilterProp="label"
+                  onChange={agregarDelInventario}
+                  size={esMovil ? 'large' : 'middle'}
+                  style={{ flex: 1, minWidth: 0 }}
+                  options={inventario.map((p) => ({ value: p.id, label: p.nombre, monto: p.monto }))}
+                  optionRender={(o) => (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{o.data.label}</span>
+                      <span style={{ color: '#6366f1', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>{formatCurrency(o.data.monto)}</span>
+                    </div>
+                  )}
+                />
+              )}
+              <Button type="dashed" icon={<PlusOutlined />} onClick={agregarItem} block={esMovil}
+                size={esMovil ? 'large' : 'middle'}
+                style={{ borderColor: '#d1d5db', color: '#6b7280', borderRadius: 8, flex: esMovil ? undefined : 1 }}>
+                {esMovil ? 'Agregar línea en blanco' : 'Agregar línea'}
               </Button>
             </div>
 
             {/* Totales */}
             <div style={{ borderTop: '1px solid var(--qc-border)', padding: '14px 18px', display: 'flex', justifyContent: 'flex-end' }}>
-              <div style={{ width: 280 }}>
+              <div style={{ width: esMovil ? '100%' : 280 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
                   <Text type="secondary">Subtotal</Text>
                   <Text>{formatCurrency(totales.subtotal)}</Text>
@@ -612,7 +709,7 @@ const DocumentoVentaForm = ({ open, onClose, onSaved, editingDoc, defaultTipo = 
           {/* ── NOTAS ── */}
           <div style={{ background: 'var(--qc-surface)', borderRadius: 12, padding: '16px 18px', border: '1px solid var(--qc-border)' }}>
             <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 14 }}>Notas y condiciones</Text>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: dosCol, gap: 12 }}>
               <Form.Item label="Notas para el cliente" name="notas" style={{ marginBottom: 0 }}>
                 <TextArea rows={3} placeholder="Observaciones, instrucciones de entrega..." />
               </Form.Item>
