@@ -8,7 +8,9 @@ import {
   PlusOutlined, BellOutlined, StarFilled, AppstoreOutlined, TableOutlined, CalendarOutlined, InboxOutlined,
   UndoOutlined, DeleteOutlined, RightOutlined,
 } from '@ant-design/icons';
-import { DndContext, MouseSensor, TouchSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
+import {
+  DndContext, DragOverlay, MeasuringStrategy, MouseSensor, TouchSensor, useDroppable, useSensor, useSensors, closestCenter, pointerWithin,
+} from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import * as api from '../../services/tareas/tareasService';
@@ -20,7 +22,7 @@ import TarjetaDetalle from './TarjetaDetalle';
 import ProyectoModal from './ProyectoModal';
 import AvisosHoja from './AvisosHoja';
 import { ChipVence, IconoProyecto, MarcaCompletar, BarraProgreso, EtiquetaPill } from './piezasTareas';
-import { estadoVence, diaCO, hoyCO, sumarDiasStr, fechaLarga, textoVence, pasaFiltros, OPCIONES_FECHA } from './utilsTareas';
+import { estadoVence, diaCO, hoyCO, sumarDiasStr, fechaLarga, textoVence, pasaFiltros, horaHHMM, isoDesdeLocal, OPCIONES_FECHA } from './utilsTareas';
 import { describirRepeticion } from './repeticion';
 
 const VISTA_KEY = 'qc-tareas-inicio-vista';
@@ -75,17 +77,20 @@ const claveDia = (t) => (t.orden_dia ?? new Date(t.vence_at).getTime());
 const porClaveDia = (a, b) => claveDia(a) - claveDia(b) || a.id - b.id;
 const MINUTO = 60000;
 
-const FilaOrdenable = ({ tablerosPorId, ...props }) => {
-  const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({ id: props.t.id });
+const FilaOrdenable = ({ dia, tablerosPorId, ...props }) => {
+  const { setNodeRef, listeners, transform, transition, isDragging, isOver, active } = useSortable({
+    id: props.t.id, data: { t: props.t, enSeccion: dia },
+  });
+  // Viene de otro día: la raya marca dónde va a quedar (justo encima de esta fila).
+  const entraAqui = isOver && active?.data.current?.enSeccion !== dia;
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       style={{
         transform: CSS.Translate.toString(transform), transition, touchAction: 'manipulation',
-        position: 'relative', zIndex: isDragging ? 5 : 'auto', opacity: isDragging ? 0.85 : 1,
-        boxShadow: isDragging ? '0 8px 20px rgba(0,0,0,0.15)' : 'none', borderRadius: 10,
-        background: isDragging ? 'var(--qc-surface)' : 'transparent',
+        opacity: isDragging ? 0.35 : 1, borderRadius: 10,
+        boxShadow: entraAqui ? 'inset 0 2px 0 var(--qc-azul)' : 'none',
       }}
     >
       <FilaTarea {...props} tablero={tablerosPorId[props.t.tablero_id] || props.t.tablero} />
@@ -93,26 +98,32 @@ const FilaOrdenable = ({ tablerosPorId, ...props }) => {
   );
 };
 
-// Lista de un día que se reordena arrastrando (con el mouse o dejando el dedo
-// quieto un momento en el celular). No deja pasar tareas a otro día.
-const ListaDia = ({ tareas, onReordenar, ...resto }) => {
-  const sensores = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
-  );
-  const alSoltar = ({ active, over }) => {
-    if (!over || active.id === over.id) return;
-    const de = tareas.findIndex((t) => t.id === active.id);
-    const a = tareas.findIndex((t) => t.id === over.id);
-    if (de < 0 || a < 0) return;
-    onReordenar(arrayMove(tareas, de, a), a);
-  };
+// Primero se busca el día bajo el puntero. Dentro del mismo día, la fila más
+// cercana (reordenar); en otro día, la fila exacta bajo el puntero, y si no hay
+// ninguna, el día entero (la tarea cae según su hora).
+const colisionResumen = (args) => {
+  const contenedores = args.droppableContainers;
+  const [enDia] = pointerWithin({ ...args, droppableContainers: contenedores.filter((c) => c.data.current?.seccion) });
+  if (!enDia) return [];
+  const dia = enDia.data.droppableContainer.data.current.seccion;
+  const filas = contenedores.filter((c) => c.data.current?.enSeccion === dia);
+  if (args.active.data.current?.enSeccion === dia) return closestCenter({ ...args, droppableContainers: filas });
+  const enFila = pointerWithin({ ...args, droppableContainers: filas });
+  return enFila.length ? enFila : [enDia];
+};
+
+// Un día del resumen como destino: se ilumina si le vas a soltar algo de otro día.
+const DiaDestino = ({ dia, children }) => {
+  const { setNodeRef, active, over } = useDroppable({ id: `dia:${dia}`, data: { seccion: dia } });
+  const encima = active && over && active.data.current?.enSeccion !== dia
+    && (over.data.current?.seccion === dia || over.data.current?.enSeccion === dia);
   return (
-    <DndContext sensors={sensores} collisionDetection={closestCenter} onDragEnd={alSoltar}>
-      <SortableContext items={tareas.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        {tareas.map((t) => <FilaOrdenable key={t.id} t={t} {...resto} />)}
-      </SortableContext>
-    </DndContext>
+    <div
+      ref={setNodeRef}
+      style={{ display: 'flow-root', borderRadius: 12, transition: 'background .12s', background: encima ? 'var(--qc-azul-suave)' : 'transparent' }}
+    >
+      {children}
+    </div>
   );
 };
 
@@ -121,6 +132,99 @@ const BotonPorHora = ({ tareas, onPorHora }) => (tareas.some((t) => t.orden_dia 
     Ordenar por hora
   </Button>
 ) : null);
+
+// "Para hoy" y los próximos 7 días. Las tareas se arrastran (con el mouse o
+// dejando el dedo quieto un momento en el celular) dentro de un día para
+// ordenarlas, o a otro día para cambiarles la fecha. Mientras se arrastra
+// aparecen también los días sin tareas, para poder soltar ahí.
+const DiasResumen = ({ hoy, paraHoy, proximos, onReordenar, onMoverDia, onPorHora, ...fila }) => {
+  const [arrastrada, setArrastrada] = useState(null);
+  const sensores = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
+  );
+  const manana = sumarDiasStr(hoy, 1);
+  const dias = arrastrada
+    ? Array.from({ length: 7 }, (_, k) => sumarDiasStr(hoy, k + 1))
+    : Object.keys(proximos).sort();
+  const tareasDe = (dia) => (dia === hoy ? paraHoy : proximos[dia] || []);
+
+  const alSoltar = ({ active, over }) => {
+    setArrastrada(null);
+    if (!over || active.id === over.id) return;
+    const { t, enSeccion: origen } = active.data.current;
+    const destino = over.data.current?.seccion || over.data.current?.enSeccion;
+    const tareas = tareasDe(destino);
+    if (destino !== origen) {
+      onMoverDia(t, destino, tareas, over.data.current?.seccion ? null : tareas.findIndex((x) => x.id === over.id));
+      return;
+    }
+    const de = tareas.findIndex((x) => x.id === active.id);
+    const a = tareas.findIndex((x) => x.id === over.id);
+    if (de < 0 || a < 0) return;
+    onReordenar(arrayMove(tareas, de, a), a);
+  };
+
+  const lista = (dia) => (
+    <SortableContext items={tareasDe(dia).map((t) => t.id)} strategy={verticalListSortingStrategy}>
+      {tareasDe(dia).map((t) => <FilaOrdenable key={t.id} t={t} dia={dia} {...fila} />)}
+    </SortableContext>
+  );
+
+  return (
+    <DndContext
+      sensors={sensores}
+      collisionDetection={colisionResumen}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+      onDragStart={({ active }) => setArrastrada(active.data.current?.t || null)}
+      onDragEnd={alSoltar}
+      onDragCancel={() => setArrastrada(null)}
+    >
+      <DiaDestino dia={hoy}>
+        <Seccion
+          titulo={`Para hoy${paraHoy.length ? ` · ${paraHoy.length}` : ''}`}
+          color="#f0565c"
+          extra={<BotonPorHora tareas={paraHoy} onPorHora={onPorHora} />}
+        >
+          {paraHoy.length ? lista(hoy) : (
+            <div style={{ padding: '14px 8px', color: 'var(--qc-text-muted)' }}>
+              {arrastrada ? 'Suéltala aquí para hacerla hoy' : 'Nada vencido ni para hoy. 🎉'}
+            </div>
+          )}
+        </Seccion>
+      </DiaDestino>
+
+      {dias.map((d) => (
+        <DiaDestino key={d} dia={d}>
+          <Seccion
+            titulo={d === manana ? 'Mañana' : fechaLarga(d)}
+            extra={<BotonPorHora tareas={tareasDe(d)} onPorHora={onPorHora} />}
+          >
+            {tareasDe(d).length ? lista(d) : (
+              <div style={{ padding: '8px', fontSize: 13, color: 'var(--qc-text-muted)', border: '1px dashed var(--qc-border)', borderRadius: 10 }}>
+                Suéltala aquí
+              </div>
+            )}
+          </Seccion>
+        </DiaDestino>
+      ))}
+
+      <DragOverlay dropAnimation={null}>
+        {arrastrada && (
+          <div style={{ background: 'var(--qc-surface)', borderRadius: 10, boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
+            <FilaTarea
+              t={arrastrada}
+              tablero={fila.tablerosPorId[arrastrada.tablero_id] || arrastrada.tablero}
+              etiquetasPorId={fila.etiquetasPorId}
+              onAbrir={() => {}}
+              onCompletar={() => {}}
+            />
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
+  );
+};
 
 // Filtro por proyecto: chips siempre visibles en las tres vistas. "Todos" está
 // siempre a mano; tocar el proyecto ya elegido también vuelve a todos.
@@ -253,8 +357,9 @@ const InicioTareas = ({
   }, []);
   const quitar = useCallback((id) => setTarjetas((xs) => (xs ? xs.filter((x) => x.id !== id) : xs)), []);
 
-  const actualizar = async (t, cambios) => {
-    poner({ ...t, ...cambios });
+  // `local` es lo que se pinta mientras responde el servidor, si difiere de lo enviado.
+  const actualizar = async (t, cambios, local = cambios) => {
+    poner({ ...t, ...local });
     try {
       const { lista_subtareas, lista_comentarios, lista_adjuntos, siguiente, ...resp } = await api.actualizarTarjeta(t.id, cambios);
       poner({ ...resp, tablero: t.tablero, lista: resp.lista || t.lista });
@@ -281,17 +386,19 @@ const InicioTareas = ({
       cargar();
     }
   };
-  // `lista` ya viene en el orden nuevo; solo cambia la clave de la tarea movida
-  // (punto medio entre sus vecinas). Si las vecinas empatan (p. ej. dos tareas
-  // sin hora), se renumera el día completo.
-  const reordenar = (lista, i) => {
+  // Clave para la tarea en la posición i: punto medio entre sus vecinas, o null
+  // si empatan (p. ej. dos tareas sin hora) y hay que renumerar el día.
+  const claveEntre = (lista, i) => {
     const antes = lista[i - 1] ? claveDia(lista[i - 1]) : null;
     const despues = lista[i + 1] ? claveDia(lista[i + 1]) : null;
-    let clave;
-    if (antes !== null && despues !== null) clave = despues - antes > 1 ? (antes + despues) / 2 : null;
-    else if (antes !== null) clave = antes + MINUTO;
-    else if (despues !== null) clave = despues - MINUTO;
-    if (clave != null) {
+    if (antes !== null && despues !== null) return despues - antes > 1 ? (antes + despues) / 2 : null;
+    if (antes !== null) return antes + MINUTO;
+    return despues !== null ? despues - MINUTO : null;
+  };
+  // `lista` ya viene en el orden nuevo; solo cambia la clave de la tarea movida.
+  const reordenar = (lista, i) => {
+    const clave = claveEntre(lista, i);
+    if (clave !== null) {
       guardarOrden([{ t: lista[i], orden_dia: clave }]);
       return;
     }
@@ -301,6 +408,32 @@ const InicioTareas = ({
       .filter(({ t, orden_dia }) => t.orden_dia !== orden_dia));
   };
   const porHora = (lista) => guardarOrden(lista.filter((t) => t.orden_dia != null).map((t) => ({ t, orden_dia: null })));
+
+  // Pasar una tarea a otro día del resumen. Conserva la hora, salvo que en ese
+  // día ya haya pasado (de mañana a hoy por la tarde): nacería vencida, así que
+  // queda para ese día sin hora. i = dónde cae en `tareasDia`; null = según su hora.
+  const moverDeDia = (t, dia, tareasDia, i) => {
+    const iso = t.vence_con_hora ? isoDesdeLocal(dia, horaHHMM(t.vence_at)) : null;
+    const conHora = !!iso && new Date(iso) > new Date();
+    let orden_dia = null;
+    if (i !== null) {
+      const lista = [...tareasDia.slice(0, i), t, ...tareasDia.slice(i)];
+      orden_dia = claveEntre(lista, i);
+      if (orden_dia === null) {
+        const base = Math.min(...tareasDia.map(claveDia));
+        orden_dia = base + i * MINUTO;
+        guardarOrden(lista
+          .map((x, k) => ({ t: x, orden_dia: base + k * MINUTO }))
+          .filter((x) => x.t.id !== t.id && x.t.orden_dia !== x.orden_dia));
+      }
+    }
+    actualizar(
+      t,
+      { vence_at: conHora ? iso : dia, vence_con_hora: conHora, orden_dia },
+      // 'YYYY-MM-DD' se leería como el día anterior en Colombia: se pinta con la hora que le pone el servidor.
+      { vence_at: conHora ? iso : isoDesdeLocal(dia, '09:00'), vence_con_hora: conHora, orden_dia },
+    );
+  };
 
   const listaInicial = async (tableroId) => {
     if (!listasCache.current[tableroId]) {
@@ -495,27 +628,18 @@ const InicioTareas = ({
               ))}
             </div>
 
-            <Seccion
-              titulo={`Para hoy${paraHoy.length ? ` · ${paraHoy.length}` : ''}`}
-              color="#f0565c"
-              extra={<BotonPorHora tareas={paraHoy} onPorHora={porHora} />}
-            >
-              {paraHoy.length ? (
-                <ListaDia tareas={paraHoy} onReordenar={reordenar} tablerosPorId={tablerosPorId} etiquetasPorId={etiquetasPorId} onAbrir={abrir} onCompletar={completar} />
-              ) : (
-                <div style={{ padding: '14px 8px', color: 'var(--qc-text-muted)' }}>Nada vencido ni para hoy. 🎉</div>
-              )}
-            </Seccion>
-
-            {Object.keys(proximos).sort().map((d) => (
-              <Seccion
-                key={d}
-                titulo={d === sumarDiasStr(hoy, 1) ? 'Mañana' : fechaLarga(d)}
-                extra={<BotonPorHora tareas={proximos[d]} onPorHora={porHora} />}
-              >
-                <ListaDia tareas={proximos[d]} onReordenar={reordenar} tablerosPorId={tablerosPorId} etiquetasPorId={etiquetasPorId} onAbrir={abrir} onCompletar={completar} />
-              </Seccion>
-            ))}
+            <DiasResumen
+              hoy={hoy}
+              paraHoy={paraHoy}
+              proximos={proximos}
+              onReordenar={reordenar}
+              onMoverDia={moverDeDia}
+              onPorHora={porHora}
+              tablerosPorId={tablerosPorId}
+              etiquetasPorId={etiquetasPorId}
+              onAbrir={abrir}
+              onCompletar={completar}
+            />
           </div>
 
           <div>
