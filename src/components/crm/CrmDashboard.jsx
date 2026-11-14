@@ -65,6 +65,7 @@ const ORIGEN_MAP = ORIGENES.reduce((a, o) => { a[o.value] = o; return a; }, {});
 const SERVICIOS = [
   { value: 'manipulacion-alimentos', label: 'Manipulación de Alimentos' },
   { value: 'auxiliar-bodega',        label: 'Auxiliar de Bodega' },
+  { value: 'atencion-cliente',       label: 'Atención al Cliente' },
 ];
 const SERVICIO_MAP = SERVICIOS.reduce((a, s) => { a[s.value] = s; return a; }, {});
 

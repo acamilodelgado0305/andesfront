@@ -23,8 +23,13 @@ const SIN_CATEGORIA = '__sin';
 const POR_PAGINA = 80;
 
 export const esServicio = (it) => it?.tipo_item === 'servicio';
-export const esStockBajo = (it) =>
-  !esServicio(it) && Number(it.stock_minimo) > 0 && Number(it.cantidad ?? 0) <= Number(it.stock_minimo);
+// Bajo = llegó a su mínimo, o quedó en negativo (pedidos completados sin stock:
+// faltan por producir o comprar).
+export const esStockBajo = (it) => {
+  if (esServicio(it)) return false;
+  const cantidad = Number(it.cantidad ?? 0);
+  return cantidad < 0 || (Number(it.stock_minimo) > 0 && cantidad <= Number(it.stock_minimo));
+};
 
 // ── Piezas ────────────────────────────────────────────────────────────────
 
@@ -310,7 +315,7 @@ const FichaProducto = ({ item, open, onClose, onEditar, onRestock, onEliminar, o
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 18 }}>
         {!servicio && (
-          <Dato titulo={esStockBajo(item) ? `Stock (mínimo ${item.stock_minimo})` : 'Stock'}>
+          <Dato titulo={Number(item.cantidad ?? 0) < 0 ? 'Stock (vendido sin existencias)' : esStockBajo(item) ? `Stock (mínimo ${item.stock_minimo})` : 'Stock'}>
             <StockCell item={item} onSaved={onGuardado} grande />
           </Dato>
         )}
@@ -411,8 +416,10 @@ const InventarioVista = ({
   const productos = useMemo(() => items.filter((i) => !esServicio(i)), [items]);
   const servicios = useMemo(() => items.filter(esServicio), [items]);
   const bajos = useMemo(() => productos.filter(esStockBajo), [productos]);
-  const valorVenta = productos.reduce((s, i) => s + (Number(i.cantidad) || 0) * (Number(i.monto) || 0), 0);
-  const valorCosto = productos.reduce((s, i) => s + (Number(i.cantidad) || 0) * (Number(i.precio_compra_unitario) || 0), 0);
+  // El stock negativo (vendido sin existencias) no resta valor.
+  const enStock = (i) => Math.max(0, Number(i.cantidad) || 0);
+  const valorVenta = productos.reduce((s, i) => s + enStock(i) * (Number(i.monto) || 0), 0);
+  const valorCosto = productos.reduce((s, i) => s + enStock(i) * (Number(i.precio_compra_unitario) || 0), 0);
 
   // Todo menos la categoría (las barras muestran a cuál cambiar).
   const q = busqueda.trim().toLowerCase();
@@ -628,7 +635,11 @@ const InventarioVista = ({
                     <IconoItem it={it} size={36} />
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--qc-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.nombre}</span>
-                      <span style={{ display: 'block', fontSize: 12.5, color: COLOR_SIGNO.gasto }}>Quedan {Number(it.cantidad ?? 0)} · mínimo {it.stock_minimo}</span>
+                      <span style={{ display: 'block', fontSize: 12.5, color: COLOR_SIGNO.gasto }}>
+                        {Number(it.cantidad ?? 0) < 0
+                          ? `Faltan ${-Number(it.cantidad)} por reponer`
+                          : `Quedan ${Number(it.cantidad ?? 0)} · mínimo ${it.stock_minimo}`}
+                      </span>
                     </span>
                     <ChipOpcion onClick={() => onRestock(it)} style={{ minHeight: 34, padding: '0 12px', fontSize: 13 }}>
                       <ShoppingCartOutlined /> Comprar

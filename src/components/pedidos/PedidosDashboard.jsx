@@ -3,14 +3,14 @@ import {
     Button, Dropdown, Input, List, Modal, Skeleton, Spin, Table, Tabs, Tooltip, message,
 } from "antd";
 import {
-    CalendarOutlined, CheckOutlined, ClockCircleOutlined, CloseOutlined, EditOutlined,
-    ExclamationCircleOutlined, FilePdfOutlined, FileTextOutlined, HistoryOutlined, LockOutlined,
-    PlusOutlined, PrinterOutlined, ReloadOutlined, SettingOutlined,
+    CalendarOutlined, CheckOutlined, ClockCircleOutlined, CloseOutlined, DeleteOutlined, EditOutlined,
+    EnvironmentOutlined, ExclamationCircleOutlined, FilePdfOutlined, FileTextOutlined, HistoryOutlined, LockOutlined,
+    PhoneOutlined, PlusOutlined, PrinterOutlined, ReloadOutlined, SettingOutlined, UserOutlined, WhatsAppOutlined,
 } from "@ant-design/icons";
 import moment from "moment";
 
 import {
-    getPedidos, updateEstadoPedido, getOrderStats, realizarCierre, getCierres, getPedidoById
+    getPedidos, updateEstadoPedido, getOrderStats, realizarCierre, getCierres, getPedidoById, deletePedido,
 } from "../../services/pedido/pedidoService";
 import { getPersonaById } from "../../services/person/personaService";
 import { cuentaOptions } from "../Certificados/options";
@@ -38,6 +38,49 @@ const clienteDe = (p) => `${p.cliente_nombre || ''} ${p.cliente_apellido || ''}`
 const fechaDe = (p) => moment(p.created_at || p.fecha_creacion);
 const esCompletado = (p) => p.estado === 'ENTREGADO' || p.estado === 'PAGADO';
 const resumenItems = (items) => items.map((i) => `${nombreProducto(i)} × ${i.cantidad}`).join(', ');
+
+/**
+ * Datos de contacto y entrega del pedido. Salen del contacto (celular y
+ * dirección) y, en los pedidos web, de las líneas "Clave: valor" de las
+ * observaciones (que mandan sobre el contacto porque son de ESTE pedido).
+ * Lo que no es contacto/entrega queda en `notas`.
+ */
+const CLAVES_ENTREGA = ['dirección', 'direccion', 'referencia', 'celular', 'teléfono', 'telefono', 'entrega', 'día', 'dia'];
+const datosDe = (p) => {
+    const campos = {};
+    const notas = [];
+    String(p.observaciones || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).forEach((linea) => {
+        const m = linea.match(/^([^:]{2,20}):\s*(.+)$/);
+        const clave = m?.[1].trim().toLowerCase();
+        if (m && CLAVES_ENTREGA.includes(clave)) campos[clave.normalize('NFD').replace(/[̀-ͯ]/g, '')] = m[2].trim();
+        else if (!/^Pedido web /i.test(linea)) notas.push(linea);
+    });
+    const dirObs = campos.direccion && campos.direccion !== '-'
+        ? campos.direccion.replace(/\s*·\s*Barrio:\s*/i, ', Barrio ')
+        : null;
+    return {
+        telefono: p.cliente_celular || campos.celular || campos.telefono || null,
+        direccion: dirObs || p.cliente_direccion || null,
+        referencia: campos.referencia || null,
+        entrega: campos.entrega || null,
+        dia: campos.dia || null,
+        notas,
+    };
+};
+const soloDigitos = (t) => String(t || '').replace(/\D/g, '');
+// Celular colombiano de 10 dígitos → con el 57 delante para WhatsApp.
+const numeroWhatsApp = (t) => { const d = soloDigitos(t); return d.length === 10 && d.startsWith('3') ? `57${d}` : d; };
+
+const FilaDato = ({ icono, etiqueta, children, extra }) => (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--qc-border)' }}>
+        <span style={{ width: 22, display: 'flex', justifyContent: 'center', paddingTop: 2, color: 'var(--qc-text-muted)', fontSize: 16 }}>{icono}</span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 12, color: 'var(--qc-text-muted)' }}>{etiqueta}</span>
+            <span style={{ display: 'block', fontSize: 15, fontWeight: 600, color: 'var(--qc-text)', wordBreak: 'break-word' }}>{children}</span>
+        </span>
+        {extra}
+    </div>
+);
 
 const ESTADOS = {
     PENDIENTE: { label: 'Pendiente', color: '#d97706' },
@@ -205,9 +248,18 @@ const PedidosDashboard = () => {
         if (!pedidoAEntregar) return;
         setLoadingEntrega(true);
         try {
-            await updateEstadoPedido(pedidoAEntregar, { nuevo_estado: 'ENTREGADO', cuenta_destino: cuentaDestino });
+            const r = await updateEstadoPedido(pedidoAEntregar, { nuevo_estado: 'ENTREGADO', cuenta_destino: cuentaDestino });
             guardarLocal(CLAVE_CUENTA, cuentaDestino);
-            message.success("Pedido completado");
+            // El inventario sale al completar; si no alcanzaba, el stock queda en negativo.
+            const sinStock = Array.isArray(r?.sin_stock) ? r.sin_stock : [];
+            if (sinStock.length) {
+                message.warning({
+                    content: `Pedido completado. Quedaron en negativo: ${sinStock.map((p) => `${p.nombre} (${p.cantidad})`).join(', ')}`,
+                    duration: 7,
+                });
+            } else {
+                message.success("Pedido completado");
+            }
             setPedidoAEntregar(null);
             cargarTodo();
         } catch { message.error("No se pudo completar el pedido"); }
@@ -215,6 +267,28 @@ const PedidosDashboard = () => {
     };
 
     const editarPedido = (id) => { setDetalleId(null); setEditingOrderId(id); setIsPosOpen(true); };
+
+    const eliminarPedido = (p) => {
+        const completado = esCompletado(p);
+        Modal.confirm({
+            title: `¿Eliminar el pedido #${p.id}?`,
+            icon: <ExclamationCircleOutlined />,
+            content: completado
+                ? 'Sus productos vuelven al inventario. El ingreso de la venta sigue en Movimientos (bórralo allá si tampoco va).'
+                : 'No se puede deshacer.',
+            okText: 'Eliminar', okType: 'danger', cancelText: 'Cancelar',
+            onOk: async () => {
+                try {
+                    await deletePedido(p.id);
+                    message.success(`Pedido #${p.id} eliminado`);
+                    setDetalleId(null);
+                    cargarTodo();
+                } catch (err) {
+                    message.error(err?.response?.data?.message || 'No se pudo eliminar el pedido');
+                }
+            },
+        });
+    };
     const nuevoPedido = () => { setEditingOrderId(null); setIsPosOpen(true); };
 
     const generarPDFHistorico = () => {
@@ -489,6 +563,7 @@ const PedidosDashboard = () => {
 
     // ── Hojas (celular y computador) ─────────────────────────────
     const detalleItems = detalle ? itemsDe(detalle) : [];
+    const detalleDatos = detalle ? datosDe(detalle) : { notas: [] };
     const hojas = (
         <>
             {/* Detalle del pedido */}
@@ -510,6 +585,40 @@ const PedidosDashboard = () => {
                                 <EstadoChip estado={detalle.estado} />
                             </div>
                         </div>
+
+                        <Seccion>Cliente</Seccion>
+                        <FilaDato icono={<UserOutlined />} etiqueta="Nombre">{clienteDe(detalle)}</FilaDato>
+                        <FilaDato
+                            icono={<PhoneOutlined />}
+                            etiqueta="Teléfono"
+                            extra={detalleDatos.telefono && (
+                                <span style={{ display: 'flex', gap: 6 }}>
+                                    <Tooltip title="Llamar">
+                                        <a href={`tel:${soloDigitos(detalleDatos.telefono)}`} aria-label="Llamar">
+                                            <Circulo size={36}><PhoneOutlined /></Circulo>
+                                        </a>
+                                    </Tooltip>
+                                    <Tooltip title="WhatsApp">
+                                        <a href={`https://wa.me/${numeroWhatsApp(detalleDatos.telefono)}`} target="_blank" rel="noopener noreferrer" aria-label="Escribir por WhatsApp">
+                                            <Circulo size={36} fondo={`${COLOR_SIGNO.ingreso}2b`}><WhatsAppOutlined /></Circulo>
+                                        </a>
+                                    </Tooltip>
+                                </span>
+                            )}
+                        >
+                            {detalleDatos.telefono || <span style={{ fontWeight: 400, color: 'var(--qc-text-muted)' }}>Sin teléfono</span>}
+                        </FilaDato>
+                        <FilaDato icono={<EnvironmentOutlined />} etiqueta="Dirección">
+                            {detalleDatos.direccion || <span style={{ fontWeight: 400, color: 'var(--qc-text-muted)' }}>Sin dirección</span>}
+                            {detalleDatos.referencia && (
+                                <span style={{ display: 'block', fontSize: 13, fontWeight: 400, color: 'var(--qc-text-muted)' }}>{detalleDatos.referencia}</span>
+                            )}
+                        </FilaDato>
+                        {(detalleDatos.entrega || detalleDatos.dia) && (
+                            <FilaDato icono={<CalendarOutlined />} etiqueta="Entrega">
+                                {[detalleDatos.entrega, detalleDatos.dia].filter(Boolean).join(' · ')}
+                            </FilaDato>
+                        )}
 
                         <Seccion>Productos</Seccion>
                         {detalleItems.length === 0 && <div style={{ fontSize: 13, color: 'var(--qc-text-muted)' }}>Sin productos.</div>}
@@ -535,10 +644,12 @@ const PedidosDashboard = () => {
                             </span>
                         </div>
 
-                        {detalle.observaciones && (
+                        {detalleDatos.notas.length > 0 && (
                             <>
-                                <Seccion>Observaciones</Seccion>
-                                <div style={{ fontSize: 14, color: 'var(--qc-text)', lineHeight: 1.5 }}>{detalle.observaciones}</div>
+                                <Seccion>Notas</Seccion>
+                                {detalleDatos.notas.map((n, k) => (
+                                    <div key={k} style={{ fontSize: 13.5, color: 'var(--qc-text)', lineHeight: 1.5, padding: '3px 0' }}>{n}</div>
+                                ))}
                             </>
                         )}
 
@@ -550,7 +661,13 @@ const PedidosDashboard = () => {
                                 <ChipOpcion onClick={() => editarPedido(detalle.id)} style={{ minHeight: 44 }}><EditOutlined /> Editar</ChipOpcion>
                             )}
                             <ChipOpcion onClick={() => generarReciboPDF(detalle)} style={{ minHeight: 44 }}><PrinterOutlined /> Factura PDF</ChipOpcion>
+                            <ChipOpcion onClick={() => eliminarPedido(detalle)} style={{ minHeight: 44, color: COLOR_SIGNO.gasto }}><DeleteOutlined /> Eliminar</ChipOpcion>
                         </div>
+                        {detalle.estado === 'PENDIENTE' && (
+                            <div style={{ fontSize: 12.5, color: 'var(--qc-text-muted)', marginTop: 12 }}>
+                                Los productos salen del inventario cuando marques el pedido completado.
+                            </div>
+                        )}
                     </>
                 )}
             </BottomSheet>
@@ -577,7 +694,7 @@ const PedidosDashboard = () => {
                     ))}
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--qc-text-muted)', marginTop: 12 }}>
-                    El pedido queda completado y la venta se registra como ingreso en esa cuenta.
+                    El pedido queda completado, sus productos salen del inventario y la venta se registra como ingreso en esa cuenta.
                 </div>
             </BottomSheet>
 
@@ -593,8 +710,8 @@ const PedidosDashboard = () => {
     // ── Computador ───────────────────────────────────────────────
     const vistaEscritorio = () => {
         const columnas = compacto
-            ? 'minmax(170px, 1.6fr) minmax(160px, 1.6fr) 110px 100px'
-            : 'minmax(190px, 1.6fr) minmax(200px, 2fr) 120px 108px 124px';
+            ? 'minmax(170px, 1.6fr) minmax(160px, 1.6fr) 136px 100px'
+            : 'minmax(190px, 1.6fr) minmax(200px, 2fr) 120px 136px 124px';
         return (
             <FondoApp escritorio>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -717,6 +834,9 @@ const PedidosDashboard = () => {
                                                         <Button type="text" shape="circle" size="small" icon={<EditOutlined />} onClick={() => editarPedido(p.id)} />
                                                     </Tooltip>
                                                 )}
+                                                <Tooltip title="Eliminar">
+                                                    <Button type="text" shape="circle" size="small" icon={<DeleteOutlined />} onClick={() => eliminarPedido(p)} />
+                                                </Tooltip>
                                                 {p.estado === 'PENDIENTE' && botonCompletar(p, 30)}
                                             </span>
                                             <span style={{ display: 'flex', justifyContent: 'flex-end' }}>
