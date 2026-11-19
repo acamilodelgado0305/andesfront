@@ -449,7 +449,19 @@ const InicioTareas = ({
     try {
       const lista = await listaInicial(tableroId);
       if (!lista) { message.warning('Ese proyecto no tiene listas'); return null; }
-      const t = await api.crearTarjeta(lista.id, body);
+      let t = await api.crearTarjeta(lista.id, body);
+      // Nueva para hoy y sin hora: queda de ÚLTIMA en "Para hoy" (si no, por
+      // caer a las 9:00 se metería entre las demás). Luego se ordena a mano.
+      if (body.vence_at === hoyCO() && !body.vence_con_hora) {
+        const deHoy = pendientesTodos.filter((x) => ['vencida', 'hoy'].includes(estadoVence(x)));
+        if (deHoy.length) {
+          const orden_dia = Math.max(...deHoy.map(claveDia)) + MINUTO;
+          try {
+            await api.actualizarTarjeta(t.id, { orden_dia });
+            t = { ...t, orden_dia };
+          } catch { /* se queda por su hora: no vale la pena un error por esto */ }
+        }
+      }
       poner({ ...t, tablero: tablerosPorId[tableroId], lista });
       guardarLocal(ULTIMO_KEY, tableroId);
       onTablerosCambio?.();
@@ -547,7 +559,15 @@ const InicioTareas = ({
     <div style={{
       padding: esMovil ? 12 : 14, borderRadius: 14, background: 'var(--qc-surface)', border: '1px solid var(--qc-border)', marginBottom: 18,
     }}>
-      <RegistroTarea etiquetas={etiquetasQuick} onCrear={(b) => crearRapida(b)} extra={proyectoSelect} />
+      {/* En el Resumen, lo que se escribe sin fecha es para HOY (y va al final). */}
+      <RegistroTarea
+        etiquetas={etiquetasQuick}
+        extra={proyectoSelect}
+        placeholder={vista === 'resumen'
+          ? 'Escribe una tarea para hoy… o ponle fecha: Entregar informe el viernes 3pm'
+          : undefined}
+        onCrear={(b) => crearRapida(vista === 'resumen' && !b.vence_at ? { ...b, vence_at: hoy, vence_con_hora: false } : b)}
+      />
     </div>
   );
 
