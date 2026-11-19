@@ -61,6 +61,10 @@ const resumenDe = (t, subtareas, comentarios, adjuntos) => {
 
 // Editor de fecha / repetición: globo junto al chip en computador; en el
 // celular, hoja desde abajo (el globo se salía de la pantalla).
+// En el computador el globo sale a la IZQUIERDA del chip y se corre hacia
+// arriba lo necesario para caber en la pantalla (shiftY); si aun así no cabe
+// (pantalla bajita o zoom alto), el contenido hace scroll: el botón Guardar
+// nunca queda por fuera.
 const EditorFlotante = ({ esMovil, abierto, onAbierto, titulo, contenido, children }) => (esMovil ? (
   <>
     <span role="button" tabIndex={0} onClick={() => onAbierto(true)} style={{ cursor: 'pointer' }}>{children}</span>
@@ -69,7 +73,15 @@ const EditorFlotante = ({ esMovil, abierto, onAbierto, titulo, contenido, childr
     </BottomSheet>
   </>
 ) : (
-  <Popover open={abierto} onOpenChange={onAbierto} trigger="click" placement="bottomLeft" destroyTooltipOnHide content={contenido}>
+  <Popover
+    open={abierto}
+    onOpenChange={onAbierto}
+    trigger="click"
+    placement="leftTop"
+    autoAdjustOverflow={{ adjustX: true, shiftY: true }}
+    destroyTooltipOnHide
+    content={<div style={{ maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', overflowX: 'hidden' }}>{contenido}</div>}
+  >
     {children}
   </Popover>
 ));

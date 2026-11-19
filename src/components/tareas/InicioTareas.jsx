@@ -543,6 +543,14 @@ const InicioTareas = ({
     </span>
   );
 
+  const registroRapido = (
+    <div style={{
+      padding: esMovil ? 12 : 14, borderRadius: 14, background: 'var(--qc-surface)', border: '1px solid var(--qc-border)', marginBottom: 18,
+    }}>
+      <RegistroTarea etiquetas={etiquetasQuick} onCrear={(b) => crearRapida(b)} extra={proyectoSelect} />
+    </div>
+  );
+
   // ── sin proyectos todavía ─────────────────────────────────────────────────
   if (!cargandoTableros && tableros.length === 0) {
     return (
@@ -600,12 +608,9 @@ const InicioTareas = ({
         </div>
       </div>
 
-      {/* Registro rápido */}
-      <div style={{
-        padding: esMovil ? 12 : 14, borderRadius: 14, background: 'var(--qc-surface)', border: '1px solid var(--qc-border)', marginBottom: 18,
-      }}>
-        <RegistroTarea etiquetas={etiquetasQuick} onCrear={(b) => crearRapida(b)} extra={proyectoSelect} />
-      </div>
+      {/* Registro rápido: en el Resumen va dentro de la columna de "Para hoy";
+          en Tabla y Calendario, a todo el ancho arriba. */}
+      {vista !== 'resumen' && registroRapido}
 
       <FiltroProyectos tableros={tableros} valor={filtroProyecto} onCambiar={elegirProyecto} pendientesPor={pendientesPor} />
 
@@ -627,6 +632,8 @@ const InicioTareas = ({
                 </div>
               ))}
             </div>
+
+            {registroRapido}
 
             <DiasResumen
               hoy={hoy}
